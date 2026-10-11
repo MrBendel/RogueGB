@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+// Build the ROM, then run the headless test suite.
+//
+//   node tools/test.mjs              build + run all tests
+//   node tools/test.mjs --update     accept current screens as new goldens
+//   node tools/test.mjs shooting     only tests whose name matches "shooting"
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build } from './build.mjs';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const args = process.argv.slice(2);
+const update = args.includes('--update');
+const filter = args.find((a) => !a.startsWith('--'));
+
+const b = build({ quiet: true });
+if (!b.ok) {
+  console.error('[test] build failed, not running tests');
+  process.exit(1);
+}
+const nodeArgs = ['--test', '--test-reporter=spec'];
+if (filter) nodeArgs.push('--test-name-pattern', filter);
+nodeArgs.push('tests/**/*.test.mjs');
+const r = spawnSync(process.execPath, nodeArgs, {
+  cwd: ROOT,
+  stdio: 'inherit',
+  env: { ...process.env, ...(update ? { UPDATE_GOLDENS: '1' } : {}) },
+});
+if (update && r.status === 0) console.log('[test] goldens updated (tests/goldens.json)');
+process.exit(r.status ?? 1);

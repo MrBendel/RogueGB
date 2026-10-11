@@ -1,0 +1,143 @@
+#!/usr/bin/env node
+// Builds build/roguegb.gb from src/ with GBDK-2020.
+//
+//   node tools/build.mjs            incremental build
+//   node tools/build.mjs --clean    rebuild everything
+//   node tools/build.mjs --quiet    only print errors and the final line
+//
+// GBDK is found in this order:
+//   1. $GBDK_HOME (folder containing bin/lcc)
+//   2. tools/gbdk/            (extracted release)
+//   3. tools/gbdk-win64.zip or tools/gbdk-linux64.tar.gz, auto-extracted
+//      into tools/.gbdk-<platform>/ on first use
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// ---- project settings --------------------------------------------------------
+export const CONFIG = {
+  name: 'roguegb',
+  title: 'ROGUEGB', // ROM header title, max 11 chars for CGB-aware carts
+  // MBC5 + RAM + battery: room to grow (banks) and to save meta-progression.
+  cartType: '0x1B',
+  romBanks: 'A', // A = let makebin size the ROM automatically
+  ramBanks: 1, // 8 KB SRAM
+  cgb: false, // true => -Wm-yc (GBC-compatible header). DMG/CGB decision pending.
+  sgb: false,
+  cflags: ['-Wa-l', '-Wf--max-allocs-per-node50000'],
+};
+
+const isWin = process.platform === 'win32';
+const exe = (p) => (isWin ? p + '.exe' : p);
+
+export function findGbdk() {
+  const candidates = [];
+  if (process.env.GBDK_HOME) candidates.push(process.env.GBDK_HOME);
+  // Common results of extracting the release zip by hand on Windows.
+  for (const d of ['gbdk', path.join('gbdk', 'gbdk'), path.join('gbdk-win64', 'gbdk')]) candidates.push(path.join(ROOT, 'tools', d));
+  const plat = isWin ? 'win64' : process.platform === 'darwin' ? 'macos' : 'linux64';
+  const cache = path.join(ROOT, 'tools', `.gbdk-${plat}`);
+  candidates.push(path.join(cache, 'gbdk'));
+  for (const c of candidates) if (fs.existsSync(path.join(c, 'bin', exe('lcc')))) return c;
+
+  const archive = ['gbdk-win64.zip', 'gbdk-linux64.tar.gz', 'gbdk-macos-arm64.tar.gz', 'gbdk-macos.tar.gz']
+    .filter((a) => a.includes(plat === 'macos' ? 'macos' : plat))
+    .map((a) => path.join(ROOT, 'tools', a))
+    .find((a) => fs.existsSync(a));
+  if (archive) {
+    console.log(`[build] extracting ${path.basename(archive)} -> tools/.gbdk-${plat}/`);
+    fs.mkdirSync(cache, { recursive: true });
+    // bsdtar ships with Windows 10+ and reads .zip; GNU tar handles .tar.gz.
+    const r = spawnSync('tar', ['-xf', archive, '-C', cache], { stdio: 'inherit' });
+    if (r.status !== 0) throw new Error(`could not extract ${archive}`);
+    if (fs.existsSync(path.join(cache, 'gbdk', 'bin', exe('lcc')))) return path.join(cache, 'gbdk');
+  }
+  throw new Error(
+    'GBDK-2020 not found. Either set GBDK_HOME, extract the release to tools/gbdk/, ' +
+      `or put gbdk-${plat}${isWin ? '.zip' : '.tar.gz'} in tools/ (https://github.com/gbdk-2020/gbdk-2020/releases).`,
+  );
+}
+
+function walk(dir, ext) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+    const p = path.join(dir, d.name);
+    if (d.isDirectory()) return walk(p, ext);
+    return ext.some((e) => d.name.endsWith(e)) ? [p] : [];
+  });
+}
+
+const mtime = (p) => (fs.existsSync(p) ? fs.statSync(p).mtimeMs : 0);
+
+function run(cmd, args, quiet) {
+  const r = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
+  const out = (r.stdout || '') + (r.stderr || '');
+  if (r.error) throw r.error;
+  if (r.status !== 0 || (out.trim() && (!quiet || /warning|error/i.test(out)))) process.stdout.write(out);
+  return { ok: r.status === 0, out };
+}
+
+/** Returns { ok, rom, ms, changed } */
+export function build({ clean = false, quiet = false } = {}) {
+  const t0 = Date.now();
+  const gbdk = findGbdk();
+  const lcc = path.join(gbdk, 'bin', exe('lcc'));
+  const srcDir = path.join(ROOT, 'src');
+  const objDir = path.join(ROOT, 'build', 'obj');
+  const out = path.join(ROOT, 'build', `${CONFIG.name}.gb`);
+  if (clean) fs.rmSync(path.join(ROOT, 'build', 'obj'), { recursive: true, force: true });
+  fs.mkdirSync(objDir, { recursive: true });
+
+  const sources = walk(srcDir, ['.c', '.s']);
+  if (!sources.length) throw new Error('no sources in src/');
+  const newestHeader = Math.max(0, ...walk(srcDir, ['.h', '.inc']).map(mtime), mtime(fileURLToPath(import.meta.url)));
+
+  const objs = [];
+  let compiled = 0;
+  for (const src of sources) {
+    const rel = path.relative(srcDir, src).replace(/[\\/]/g, '__');
+    const obj = path.join(objDir, rel.replace(/\.(c|s)$/, '.o'));
+    objs.push(obj);
+    if (mtime(obj) > Math.max(mtime(src), newestHeader)) continue;
+    if (!quiet) console.log(`[build] cc ${path.relative(ROOT, src)}`);
+    const r = run(lcc, [...CONFIG.cflags, '-debug', `-I${srcDir}`, '-c', '-o', obj, src], quiet);
+    if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
+    compiled++;
+  }
+
+  const linkNeeded = compiled > 0 || mtime(out) < Math.max(...objs.map(mtime));
+  if (linkNeeded) {
+    const flags = [
+      '-debug', '-autobank',
+      `-Wm-yt${CONFIG.cartType}`, `-Wm-yo${CONFIG.romBanks}`, `-Wm-ya${CONFIG.ramBanks}`,
+      `-Wm-yn${CONFIG.title}`, '-Wm-yS',
+    ];
+    if (CONFIG.cgb) flags.push('-Wm-yc');
+    if (CONFIG.sgb) flags.push('-Wm-ys');
+    if (!quiet) console.log(`[build] link ${path.relative(ROOT, out)}`);
+    const r = run(lcc, [...flags, '-o', out, ...objs], quiet);
+    if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
+
+    const romusage = path.join(gbdk, 'bin', exe('romusage'));
+    if (!quiet && fs.existsSync(romusage)) run(romusage, [out.replace(/\.gb$/, '.noi'), '-g'], false);
+  }
+  const ms = Date.now() - t0;
+  console.log(`[build] ${linkNeeded ? 'built' : 'up to date'}: build/${CONFIG.name}.gb (${ms} ms)`);
+  return { ok: true, rom: out, ms, changed: linkNeeded };
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const r = build({ clean: process.argv.includes('--clean'), quiet: process.argv.includes('--quiet') });
+    if (!r.ok) {
+      console.error('[build] FAILED');
+      process.exit(1);
+    }
+  } catch (e) {
+    console.error('[build] ' + e.message);
+    process.exit(1);
+  }
+}

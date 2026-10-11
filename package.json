@@ -1,0 +1,19 @@
+{
+  "name": "roguegb",
+  "private": true,
+  "type": "module",
+  "description": "RogueGB: a Game Boy roguelite run-and-gun built with GBDK-2020",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "rebuild": "node tools/build.mjs --clean",
+    "test": "node tools/test.mjs",
+    "test:update": "node tools/test.mjs --update",
+    "play": "node tools/serve.mjs --open",
+    "run": "node harness/cli.mjs run",
+    "vars": "node harness/cli.mjs vars",
+    "bundle": "node tools/bundle.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
