@@ -86,7 +86,7 @@ pipeline, and headless tests covering the whole loop.
 ### M1 · Combat feel (one room)
 One room with real movement, shooting, enemies, damage and death.
 
-- 8-way movement in fixed point (subpixels), with acceleration and friction, and diagonals the same speed as straight lines
+- 8-way movement in 8.8 fixed point, with separate acceleration, deceleration and reversal rates (responsive, Gungeon-like rather than floaty), pixel-clean top speeds, one shared rounding rule for everything drawn, and diagonals the same speed as straight lines
 - Tile collision that lets the player slide along walls
 - Sprite pipeline: assets.mjs converts animation frames to 8×16 sprite tiles with frame tables (mirroring, deduplication), sets per weapon type, frames streamed from ROM into VRAM on animation change; 16×16 animated player
 - Firing with auto-aim: nearest-target selection with a facing bias, sticky targeting, a reticle, 32-direction bullets, a bullet pool, and bullets that stop at walls
@@ -97,7 +97,7 @@ One room with real movement, shooting, enemies, damage and death.
 - Jump on B: height (`z`), a shadow sprite, a gravity arc, and passing over ground enemies and bullets while airborne
 - Roll out of a jump with a second B tap: a burst toward the d-pad direction, with invulnerability frames
 - Pits and raised blocks in the test room: falling into pits, jumping across gaps, standing on raised blocks
-- Game feel: hitstop, screen shake, placeholder sound effects
+- Game feel: hitstop, decaying screen shake, white hit flash via the second sprite palette, muzzle flash and impact puffs, eased knockback, input buffering for jump and roll, placeholder sound effects
 - Input: detect A+B pressed together within a few frames (the ability hook does nothing until M4), with tests for each order of presses
 - Tuning values exposed as globals, so they can be adjusted live from the Watch panel
 
@@ -111,7 +111,7 @@ Turn one room into a seeded floor of hand-made rooms.
 - Indoor tileset pipeline: tile deduplication, with flags per block for collision, pit and height
 - ROM banking for room data and tile sets
 - Doors and Zelda-style scrolling between rooms
-- Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges
+- Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges, easing toward its target and leading toward the auto-aim target
 - Enemies outside the camera view are paused or simplified, and their sprites are skipped
 - Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed. Variety from data: rooms mirrored horizontally or vertically (via a block mirror table, since DMG background tiles can't be flipped in hardware), per-room layout variants (pits, platforms, cover), random spawn and decoration picks
 - Doors lock until the room is cleared; cleared rooms are remembered for the run
