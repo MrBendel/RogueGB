@@ -138,3 +138,29 @@ test('queued VRAM writes and the scroll update finish inside vblank', () => {
   assert.equal(runs, 40);
   assert.ok(worstLy >= 144, 'the writer was observed running');
 });
+
+test('no tearing: the scroll handler always runs inside vblank across a play session', () => {
+  // A tear means the scroll registers changed while the screen was being drawn.
+  // They are only written by the vblank handler, so check the scanline it starts
+  // on, every frame, through walking, dash-jumps, pausing, scrolling and a fight.
+  const emu = startRun();
+  const handler = emu.symbols.addr('Fgfx$vbl_scroll$0$0');
+  const m = { RIGHT: 1, LEFT: 2, UP: 4, DOWN: 8, B: 32, START: 128 };
+  const mask = (s) => s.split('+').filter(Boolean).reduce((a, d) => a | m[d], 0);
+  const script = [
+    ['RIGHT', 30], ['RIGHT+B', 1], ['RIGHT', 4], ['RIGHT+B', 1], ['RIGHT', 30],
+    ['START', 1], ['', 20], ['START', 1], ['', 10],
+    ['LEFT', 80], ['DOWN', 200], ['RIGHT', 60], ['DOWN', 70], // into the arena
+    ['LEFT', 40], ['LEFT+B', 1], ['RIGHT', 60], ['UP+RIGHT', 40], ['DOWN+LEFT', 60], ['', 60],
+  ];
+  let frames = 0;
+  for (const [b, n] of script) {
+    for (let i = 0; i < n; i++, frames++) {
+      emu.setButtons(mask(b));
+      emu.gb.step_to(handler);
+      const ly = emu.gb.ppu_ly();
+      assert.ok(ly >= 144 && ly <= 153, `frame ${frames} (${b || 'idle'}): scroll handler ran on visible line ${ly}`);
+      emu.run(1);
+    }
+  }
+});
