@@ -1,15 +1,17 @@
 {
   "title": "2d35324a",
-  "start-room": "7fc4ab13",
+  "start-room": "ef077e0c",
   "paused": "b77f5176",
   "run-over": "21e8e2ae",
-  "lab-moved": "8563e46a",
+  "lab-moved": "b92b947a",
   "tuning": "f4f4082f",
-  "player-down": "7fc4ab13",
-  "player-up": "68305ac9",
-  "player-right": "997bae0c",
-  "player-left": "1a62de1f",
-  "jump-mid": "8ec32be3",
-  "roll-mid": "1c46deb1",
-  "scrolled-corner": "d2f6ad5d"
+  "player-down": "ef077e0c",
+  "player-up": "3b7e4a51",
+  "player-right": "143c4d99",
+  "player-left": "8aa10b00",
+  "jump-mid": "1e00fefc",
+  "roll-mid": "ab314b30",
+  "scrolled-corner": "d4b26db2",
+  "on-platform": "30ff839b",
+  "pit-fall": "f6e7ae9f"
 }

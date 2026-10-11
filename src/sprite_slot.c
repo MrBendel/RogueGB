@@ -1,5 +1,6 @@
 #include <gb/gb.h>
 #include "sprite_slot.h"
+#include "gfx.h"
 
 #define COLUMN_BYTES 32  // one 8x16 column = two 8x8 tiles
 
@@ -16,8 +17,10 @@ void slot_set_frame(SpriteSlot *s, const uint8_t *tiles, const uint8_t *frames, 
     s->half ^= 1;
     uint8_t base = s->vram + (s->half << 2);
     const uint8_t *f = frames + (frame << 2);  // left column, left flags, right column, right flags
-    set_sprite_data(base, 2, tiles + (uint16_t)f[0] * COLUMN_BYTES);
-    set_sprite_data(base + 2, 2, tiles + (uint16_t)f[2] * COLUMN_BYTES);
+    // Queued for vblank (see gfx_vram_copy): copying during the frame waits per byte.
+    uint8_t *vram = (uint8_t *)0x8000 + ((uint16_t)base << 4);
+    gfx_vram_copy(vram, tiles + ((uint16_t)f[0] << 5), COLUMN_BYTES);
+    gfx_vram_copy(vram + COLUMN_BYTES, tiles + ((uint16_t)f[2] << 5), COLUMN_BYTES);
     set_sprite_tile(s->oam, base);
     set_sprite_prop(s->oam, f[1]);
     set_sprite_tile(s->oam + 1, base + 2);

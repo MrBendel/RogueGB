@@ -4,7 +4,9 @@ import { assert, matchGolden, startRun } from './helpers.mjs';
 
 const VIEW_W = 160, VIEW_H = 128;
 const ROOM_PX_W = 20 * 16, ROOM_PX_H = 16 * 16; // the lab room is 2x2 screens
-const TILE_FLOOR = 80, TILE_WALL = 81; // SCENE_TILES + 0/1 in src/room.c
+// Must match src/room.c: floor, wall, then 4-tile raised blocks and pits.
+const TILE_FLOOR = 80, TILE_WALL = 81, TILE_RAISED = 82, TILE_PIT = 86;
+const BLK_SOLID = 1, BLK_PIT = 2, BLK_RAISED = 3;
 
 const cam = (emu) => ({ x: emu.v('cam_x', 'u16'), y: emu.v('cam_y', 'u16') });
 const pos = (emu) => ({ x: emu.v('player_x', 'u16'), y: emu.v('player_y', 'u16') });
@@ -16,9 +18,11 @@ function assertViewMatchesRoom(emu, label) {
   let n = 0;
   for (let ty = y >> 3; ty <= (y + VIEW_H - 1) >> 3; ty++) {
     for (let tx = x >> 3; tx <= (x + VIEW_W - 1) >> 3; tx++) {
-      const solid = emu.read8(map + (ty >> 1) * 32 + (tx >> 1)) === 1;
+      const block = emu.read8(map + (ty >> 1) * 32 + (tx >> 1));
+      const quad = ((ty & 1) << 1) | (tx & 1);
+      const want = block === BLK_SOLID ? TILE_WALL : block === BLK_RAISED ? TILE_RAISED + quad : block === BLK_PIT ? TILE_PIT + quad : TILE_FLOOR;
       const tile = emu.read8(0x9800 + (ty & 31) * 32 + (tx & 31));
-      assert.equal(tile, solid ? TILE_WALL : TILE_FLOOR, `${label}: tile (${tx},${ty})`);
+      assert.equal(tile, want, `${label}: tile (${tx},${ty})`);
       n++;
     }
   }
@@ -30,7 +34,7 @@ function walkToBottomRight(emu, check) {
   for (const [dir, frames] of [['LEFT', 80], ['DOWN', 200], ['RIGHT', 320]]) {
     for (let f = 0; f < frames; f++) {
       emu.hold(dir, 1);
-      if (check && f % 7 === 0) check(emu, `${dir} frame ${f}`);
+      if (check) check(emu, `${dir} frame ${f}`);
     }
   }
   return emu;
@@ -73,7 +77,7 @@ test('while moving, the camera leads in the direction of travel', () => {
 
 test('background tiles streamed in while scrolling always match the room', () => {
   let checked = 0;
-  walkToBottomRight(startRun().idle(2), (emu, label) => (checked += assertViewMatchesRoom(emu, label)));
+  walkToBottomRight(startRun().idle(2), (emu, label) => { if (emu.frame % 7 === 0) checked += assertViewMatchesRoom(emu, label); });
   assert.ok(checked > 10000, `checked ${checked} tiles`);
 });
 
@@ -86,4 +90,19 @@ test('scrolling keeps one game loop per frame', () => {
 
 test('screen: scrolled to the bottom-right corner', () => {
   matchGolden(walkToBottomRight(startRun().idle(2)).idle(90), 'scrolled-corner');
+});
+
+test('CPU budget: no frame of walking, scrolling and jumping uses more than half the frame', () => {
+  // lastFrameCycles = cycles the update ran past the end of vblank (a frame is 70224).
+  // Half a frame keeps room for enemies and bullets (M1).
+  const BUDGET = 35112;
+  const emu = startRun().idle(2);
+  let worst = 0;
+  const track = () => (worst = Math.max(worst, emu.lastFrameCycles));
+  walkToBottomRight(emu, track);
+  for (let f = 0; f < 200; f++) {
+    emu.hold(f % 40 === 0 ? 'UP+LEFT+B' : 'UP+LEFT', 1);
+    track();
+  }
+  assert.ok(worst < BUDGET, `worst frame used ${worst} cycles past vblank (budget ${BUDGET})`);
 });

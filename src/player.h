@@ -39,6 +39,9 @@ extern uint8_t player_air;
 extern uint8_t player_dashed;
 extern uint8_t player_dash_timer;
 extern uint8_t player_invuln;
+extern uint8_t player_fall_timer;
+extern uint8_t player_blink;
+extern uint16_t player_falls;
 extern uint8_t player_roll_len;   // frames the current roll lasts (0 = not rolling)
 extern uint8_t player_roll_t;
 extern uint16_t player_jumps;

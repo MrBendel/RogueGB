@@ -21,6 +21,26 @@
 extern uint8_t scroll_x;
 extern uint8_t scroll_y;
 
+// VRAM updates queued during the frame and written by the vblank interrupt, when
+// VRAM can be written without waiting. Writing while the screen is drawing costs a
+// wait per byte, which made streaming a row, or swapping a sprite's animation
+// frame, take a large part of the frame. wait_frame() calls gfx_commit(), which
+// hands everything queued this frame to the next vblank.
+//
+// Background map strips (a row or a column of tiles):
+#define STRIP_MAX_LEN 21
+#define STRIP_MAX 4
+// x, y: background map tile coordinates (wrapped to 0-31). vertical: column if 1.
+// Returns the buffer to fill with `len` tiles (flushing first if the queue is full).
+uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len);
+// Byte copies into VRAM (tile data). `src` must stay valid until the next vblank.
+#define COPY_MAX 4
+void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len);
+// Mark this frame's queued updates ready for the next vblank.
+void gfx_commit(void);
+// Write everything queued now (waits for VRAM access if the display is on).
+void gfx_flush(void);
+
 // Load the font and frame tiles and install the vblank scroll handler.
 // Call once at boot; scenes never overwrite these tiles.
 void gfx_init(void);

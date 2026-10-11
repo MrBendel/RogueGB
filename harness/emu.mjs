@@ -179,8 +179,9 @@ export class Emu {
    * next_frame() stops at the end of vblank, but the game's loop starts at the
    * beginning of vblank, so a long update can still be running at that point.
    * Reading memory then would show a half-updated frame (e.g. velocity changed
-   * but position not yet). So keep running until the CPU is back in vsync(),
-   * with a cap of half a frame so a genuine lag frame doesn't skip a boundary.
+   * but position not yet). So keep running until the CPU is back in vsync().
+   * `lastFrameCycles` records how far (in CPU cycles) the update ran past the end
+   * of vblank: a frame is 70224 cycles, so this measures the CPU budget used.
    * Needs the `_vsync` symbol; without it this does nothing.
    */
   _finishGameFrame() {
@@ -197,20 +198,17 @@ export class Emu {
         this._idle = [v.addr, end];
       }
     }
+    this.lastFrameCycles = 0;
     if (!this._idle) return;
     const [lo, hi] = this._idle;
-    const pc = () => {
-      const r = this.gb.registers();
-      const p = r.pc;
-      r.free();
-      return p;
-    };
-    let budget = 35112; // half a DMG frame, in cycles
-    let p = pc();
-    while ((p < lo || p >= hi) && budget > 0) {
-      budget -= this.gb.clock();
-      p = pc();
-    }
+    const r = this.gb.registers();
+    const pc = r.pc;
+    r.free();
+    if (pc >= lo && pc < hi) return; // already idle in vsync
+    // Run until the game calls vsync() again. If the update takes longer than a
+    // whole frame (a real slowdown), this crosses a frame boundary; replays on the
+    // playtest page use the same code, so they stay in sync either way.
+    this.lastFrameCycles = Number(this.gb.step_to(lo));
   }
 
   run(frames) {

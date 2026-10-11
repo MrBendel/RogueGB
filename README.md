@@ -4,8 +4,8 @@ The plan, the design decisions and the milestones are in [ROADMAP.md](ROADMAP.md
 
 A Game Boy roguelite with run-and-gun shooting, built in C with
 [GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a
-**movement lab** (the player in a 2×2-screen room with pillars and a scrolling camera,
-with movement presets and live tuning) with pause, and a run-over screen that loops back to the title.
+**movement lab** (the player in a 2×2-screen room with pillars, pits, raised platforms
+and a scrolling camera, with movement presets and live tuning) with pause, and a run-over screen that loops back to the title.
 
 ### Movement lab controls
 
@@ -42,6 +42,13 @@ player, higher = smoother and lazier).
 
 To add a scene: add a `STATE_*` ID and its `*_enter`/`*_update` to `state.h`, then add
 it to both switches in `main.c`.
+
+**Frame budget.** A frame is 70,224 CPU cycles. VRAM updates (new background rows and
+columns, sprite animation frames) are queued during the frame and written by the vblank
+interrupt (`gfx_strip`, `gfx_vram_copy`), because writing VRAM while the screen is drawing
+waits on every byte. Avoid 32-bit math in per-frame code: the CPU has no multiply, so a
+32-bit multiply is a long software routine. `tests/camera.test.mjs` fails if any frame of
+walking, scrolling and jumping uses more than half the frame (`emu.lastFrameCycles`).
 
 Artwork is converted at build time. `tools/assets.mjs` turns the PNGs listed in its
 `ASSETS` table into C arrays in `build/gen/`:

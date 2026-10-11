@@ -49,6 +49,8 @@ export const ASSETS = [
       hurt_down: ['player hurt down.png'],
       hurt_up: ['player hurt up.png'],
       hurt_right: ['player hurt right.png'],
+      // Falling into a pit: a spin.
+      fall: numbered('player falling', 4),
       // Dash roll: the crouched pose tumbling clockwise (no roll art in the pack).
       roll_down: { roll: 'player float down.png' },
       roll_up: { roll: 'player float up.png' },

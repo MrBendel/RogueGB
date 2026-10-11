@@ -3,8 +3,8 @@
 //
 // All frames stay in ROM. VRAM holds only the frame on screen: each slot owns
 // 8 tiles, split into two 4-tile halves. A new frame is copied into the hidden
-// half and the sprites are pointed at it in the same update, so tile data and
-// flip flags change together on the next OAM refresh (no torn or mis-flipped frame).
+// half (queued for vblank) and the sprites are pointed at it in the same update,
+// so tile data and flip flags change together (no torn or mis-flipped frame).
 #ifndef SPRITE_SLOT_H
 #define SPRITE_SLOT_H
 

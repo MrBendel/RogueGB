@@ -11,7 +11,99 @@ static const uint8_t fade_pal[FADE_STEPS + 1] = {0xE4, 0x90, 0x40, 0x00};
 uint8_t scroll_x;
 uint8_t scroll_y;
 
+typedef struct {
+    uint8_t x, y, vertical, len;
+    uint8_t tiles[STRIP_MAX_LEN];
+} Strip;
+static Strip strips[STRIP_MAX];
+static uint8_t strip_count;
+
+typedef struct {
+    uint8_t *dst;
+    const uint8_t *src;
+    uint8_t len;
+} Copy;
+static Copy copies[COPY_MAX];
+static uint8_t copy_count;
+
+// Set by gfx_commit(); the vblank handler only touches the queues when set, so it
+// never sees a half-built frame (e.g. when a frame runs long).
+static volatile uint8_t vram_ready;
+
+uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len) {
+    if (strip_count == STRIP_MAX || vram_ready) gfx_flush();
+    Strip *s = &strips[strip_count++];
+    s->x = x & 31;
+    s->y = y & 31;
+    s->vertical = vertical;
+    s->len = len;
+    return s->tiles;
+}
+
+void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len) {
+    if (copy_count == COPY_MAX || vram_ready) gfx_flush();
+    Copy *c = &copies[copy_count++];
+    c->dst = dst;
+    c->src = src;
+    c->len = len;
+}
+
+void gfx_commit(void) {
+    if (strip_count || copy_count) vram_ready = 1;
+}
+
+// Write everything queued. In vblank (or with the display off) VRAM can be written
+// directly, with tight loops: the whole vblank is only ~4500 cycles. During the
+// frame (the rare fallback when a queue overflows) each byte must wait for VRAM
+// access instead, via set_vram_byte.
+static void write_queued(uint8_t wait) {
+    for (uint8_t i = 0; i < copy_count; i++) {
+        uint8_t *d = copies[i].dst;
+        const uint8_t *src = copies[i].src;
+        uint8_t n = copies[i].len;
+        if (wait) {
+            while (n--) set_vram_byte(d++, *src++);
+        } else {
+            while (n--) *d++ = *src++;
+        }
+    }
+    copy_count = 0;
+    for (uint8_t i = 0; i < strip_count; i++) {
+        Strip *s = &strips[i];
+        uint8_t *row = (uint8_t *)0x9800 + ((uint16_t)s->y << 5);
+        uint8_t x = s->x;
+        const uint8_t *t = s->tiles;
+        uint8_t n = s->len;
+        if (s->vertical) {
+            uint8_t *p = row + x;
+            while (n--) {
+                if (wait) set_vram_byte(p, *t++);
+                else *p = *t++;
+                p += 32;
+                if (p >= (uint8_t *)0x9C00) p -= 0x400;  // wrap to the top of the map
+            }
+        } else if (wait) {
+            while (n--) {
+                set_vram_byte(row + x, *t++);
+                x = (x + 1) & 31;
+            }
+        } else {
+            while (n--) {
+                row[x] = *t++;
+                x = (x + 1) & 31;  // wrap to the left edge
+            }
+        }
+    }
+    strip_count = 0;
+    vram_ready = 0;
+}
+
+void gfx_flush(void) {
+    write_queued(LCDC_REG & LCDCF_ON);
+}
+
 static void vbl_scroll(void) {
+    if (vram_ready) write_queued(0);
     SCX_REG = scroll_x;
     SCY_REG = scroll_y;
 }
@@ -32,6 +124,9 @@ void gfx_clear(void) {
     hide_sprites_range(0, MAX_HARDWARE_SPRITES);
     HIDE_WIN;
     scroll_x = scroll_y = 0;
+    strip_count = 0;
+    copy_count = 0;
+    vram_ready = 0;
     move_bkg(0, 0);
 }
 

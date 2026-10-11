@@ -23,6 +23,7 @@ void state_change(uint8_t state) {
 }
 
 void wait_frame(void) {
+    gfx_commit();  // hand this frame's queued VRAM updates to the next vblank
     frame_count++;
     vsync();
 }

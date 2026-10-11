@@ -35,6 +35,12 @@ static const uint8_t shadow_tiles[32] = {
 // Unit vectors for the 8 facings (clockwise from up), used for a dash with no d-pad input.
 static const int8_t facing_dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
 static const int8_t facing_dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+// Height of raised blocks, 8.8.
+#define RAISED_Z (RAISED_PX << 8)
+// Falling into a pit: the spin plays over FALL_FRAMES, then the player reappears
+// at the last safe spot and blinks for BLINK_FRAMES.
+#define FALL_FRAMES 32
+#define BLINK_FRAMES 60
 // While airborne the art holds this walk frame (legs apart).
 #define AIR_FRAME 1
 // Frames a B press is remembered for, so pressing just before landing still jumps.
@@ -93,6 +99,12 @@ uint8_t player_dashed;     // 1 once this jump's dash is used
 uint8_t player_dash_timer; // frames of dash left
 uint8_t player_invuln;     // invulnerability frames left
 uint8_t player_jump_buffer;
+uint8_t player_fall_timer; // frames left in a pit fall (0 = not falling)
+uint8_t player_blink;      // frames left blinking after reappearing
+uint16_t player_falls;     // pits fallen into (HP cost comes with the damage system, #10)
+uint16_t safe_x;           // last spot standing on solid ground, for reappearing
+uint16_t safe_y;
+int16_t safe_z;
 uint8_t player_roll_len;   // frames the current roll lasts (0 = not rolling)
 uint8_t player_roll_t;     // frames into the roll
 uint16_t player_jumps;     // counters, handy for tests and the Watch panel
@@ -114,6 +126,7 @@ uint8_t move_preset;
 uint16_t move_accel;
 uint16_t move_decel;
 uint16_t move_reverse;
+uint16_t move_top_diag;  // top speed per axis on a diagonal (top / sqrt 2), derived
 
 // Rate that covers `top` in at most `frames` frames (rounded up so it never takes longer).
 static uint16_t rate_for(uint8_t frames) {
@@ -125,6 +138,7 @@ void move_recalc(void) {
     move_accel = rate_for(move_accel_frames);
     move_decel = rate_for(move_decel_frames);
     move_reverse = rate_for(move_reverse_frames);
+    move_top_diag = (uint16_t)(((uint32_t)move_top * DIAG) >> 8);  // once per change, not per frame
 }
 
 void move_apply_preset(uint8_t preset) {
@@ -154,6 +168,11 @@ void player_init(uint16_t px, uint16_t py) {
     player_z = player_vz = 0;
     player_air = player_dashed = player_dash_timer = player_invuln = player_jump_buffer = 0;
     player_roll_len = player_roll_t = 0;
+    player_fall_timer = player_blink = 0;
+    player_falls = 0;
+    safe_x = px;
+    safe_y = py;
+    safe_z = 0;
     player_jumps = player_dashes = 0;
     set_sprite_data(SHADOW_VRAM, 2, shadow_tiles);
     set_sprite_tile(SHADOW_OAM, SHADOW_VRAM);
@@ -181,18 +200,42 @@ static int16_t step_axis(int16_t v, int16_t t) {
     return v;
 }
 
+// Does the pixel (x, y) block the player? Walls always do; raised blocks only
+// while the player is lower than their top.
+static uint8_t blocked(uint16_t x, uint16_t y) {
+    uint8_t t = room_block_at(x, y);
+    return t == BLK_SOLID || (t == BLK_RAISED && player_z < RAISED_Z);
+}
+
 // Does the hitbox fit with the sprite's top-left at pixel (x, y)?
 static uint8_t box_free(uint16_t x, uint16_t y) {
     uint16_t l = x + HB_X, r = x + HB_X + HB_W - 1;
     uint16_t t = y + HB_Y, b = y + HB_Y + HB_H - 1;
-    return !room_solid_at(l, t) && !room_solid_at(r, t) && !room_solid_at(l, b) && !room_solid_at(r, b);
+    return !blocked(l, t) && !blocked(r, t) && !blocked(l, b) && !blocked(r, b);
 }
 
-// Position + velocity: 16-bit pixel and 8-bit fraction, as one 24-bit value.
+// Ground height under the hitbox: the top of a raised block if any corner is on
+// one (so you can stand on an edge), otherwise the floor.
+static int16_t ground_under(void) {
+    uint16_t l = player_x + HB_X, r = player_x + HB_X + HB_W - 1;
+    uint16_t t = player_y + HB_Y, b = player_y + HB_Y + HB_H - 1;
+    if (room_block_at(l, t) == BLK_RAISED || room_block_at(r, t) == BLK_RAISED ||
+        room_block_at(l, b) == BLK_RAISED || room_block_at(r, b) == BLK_RAISED) return RAISED_Z;
+    return 0;
+}
+
+// Pits are judged by the middle of the feet, so clipping an edge is forgiven.
+static uint8_t over_pit(void) {
+    return room_block_at(player_x + 8, player_y + 12) == BLK_PIT;
+}
+
+// Position + velocity: add the fraction bytes, carry into the 16-bit pixel part,
+// then add the velocity's whole pixels (its high byte, sign included). This is
+// the 24-bit add done in 8/16-bit pieces, avoiding 32-bit math.
 static uint16_t moved(uint16_t pos, uint8_t frac, int16_t v, uint8_t *new_frac) {
-    int32_t t = (((int32_t)pos << 8) | frac) + v;
-    *new_frac = (uint8_t)t;
-    return (uint16_t)(t >> 8);
+    uint16_t f = (uint16_t)frac + (uint8_t)v;
+    *new_frac = (uint8_t)f;
+    return pos + (int8_t)((uint16_t)v >> 8) + (f >> 8);
 }
 
 static void move_x(void) {
@@ -201,7 +244,7 @@ static void move_x(void) {
     uint16_t px = moved(player_x, player_xs, player_vx, &nf), py = player_y;
     uint16_t edge = player_vx > 0 ? px + HB_X + HB_W - 1 : px + HB_X;
     uint16_t top = py + HB_Y, bot = py + HB_Y + HB_H - 1;
-    uint8_t hit_top = room_solid_at(edge, top), hit_bot = room_solid_at(edge, bot);
+    uint8_t hit_top = blocked(edge, top), hit_bot = blocked(edge, bot);
     if (!hit_top && !hit_bot) {
         player_x = px;
         player_xs = nf;
@@ -229,7 +272,7 @@ static void move_y(void) {
     uint16_t py = moved(player_y, player_ys, player_vy, &nf), px = player_x;
     uint16_t edge = player_vy > 0 ? py + HB_Y + HB_H - 1 : py + HB_Y;
     uint16_t left = px + HB_X, right = px + HB_X + HB_W - 1;
-    uint8_t hit_l = room_solid_at(left, edge), hit_r = room_solid_at(right, edge);
+    uint8_t hit_l = blocked(left, edge), hit_r = blocked(right, edge);
     if (!hit_l && !hit_r) {
         player_y = py;
         player_ys = nf;
@@ -325,15 +368,24 @@ static void update_jump(int8_t dx, int8_t dy) {
     }
     if (player_invuln) player_invuln--;
     if (player_roll_len) player_roll_t++;
-    if (!player_air) return;
+    if (!player_air) {
+        // Walked off a raised block: start falling (a dash is still available).
+        if (ground_under() < player_z) {
+            player_air = 1;
+            player_vz = 0;
+            player_dashed = 0;
+        }
+        return;
+    }
     if (player_dash_timer) {
         player_dash_timer--;
         return;
     }
     player_z += player_vz;
     player_vz -= jump_grav;
-    if (player_z <= 0) {
-        player_z = 0;
+    int16_t ground = ground_under();
+    if (player_vz < 0 && player_z <= ground) {
+        player_z = ground;
         player_vz = 0;
         player_air = 0;
         player_dashed = 0;
@@ -344,7 +396,29 @@ static void update_jump(int8_t dx, int8_t dy) {
     }
 }
 
+static void start_pit_fall(void) {
+    player_fall_timer = FALL_FRAMES;
+    player_vx = player_vy = 0;
+    player_roll_len = 0;
+    player_falls++;
+}
+
+// Falling into a pit: no control; at the end, reappear at the last safe spot.
+static void update_pit_fall(void) {
+    if (--player_fall_timer) return;
+    player_x = safe_x;
+    player_y = safe_y;
+    player_xs = player_ys = 0;
+    player_z = safe_z;
+    player_blink = BLINK_FRAMES;
+}
+
 void player_update(void) {
+    if (player_blink) player_blink--;
+    if (player_fall_timer) {
+        update_pit_fall();
+        return;
+    }
     uint8_t dpad = joy & 0x0F;
     int8_t dx = 0, dy = 0;
     if ((dpad & (J_LEFT | J_RIGHT)) == J_RIGHT) dx = 1;
@@ -356,19 +430,34 @@ void player_update(void) {
     update_jump(dx, dy);
     // A dash ignores steering; afterwards the normal easing brings the speed back down.
     if (!player_dash_timer) {
-        int16_t speed = (dx && dy) ? (int16_t)(((uint32_t)move_top * DIAG) >> 8) : (int16_t)move_top;
+        int16_t speed = (dx && dy) ? (int16_t)move_top_diag : (int16_t)move_top;
         player_vx = step_axis(player_vx, dx > 0 ? speed : dx < 0 ? -speed : 0);
         player_vy = step_axis(player_vy, dy > 0 ? speed : dy < 0 ? -speed : 0);
     }
 
     move_x();
     move_y();
+    if (!player_air) {
+        if (player_z == 0 && over_pit()) {
+            start_pit_fall();
+            return;
+        }
+        // Remember where solid ground was, to reappear there after a fall.
+        if (!over_pit()) {
+            safe_x = player_x;
+            safe_y = player_y;
+            safe_z = player_z;
+        }
+    }
     update_anim(dx, dy);
 }
 
 void player_draw(void) {
     uint8_t anim, frame;
-    if (player_roll_len) {
+    if (player_fall_timer) {
+        anim = SPR_PLAYER_ANIM_FALL;
+        frame = (uint8_t)((FALL_FRAMES - player_fall_timer) * 4 / FALL_FRAMES);
+    } else if (player_roll_len) {
         // One full turn over the roll: 0, 90, 180, 270 degrees.
         anim = roll_anim[player_anim_dir];
         frame = (uint8_t)((uint16_t)(player_roll_t - 1) * ROLL_FRAMES / player_roll_len);
@@ -381,8 +470,11 @@ void player_draw(void) {
     // The body is raised by its height; near the top edge the subtraction wraps,
     // which the hardware's 8-bit coordinates handle.
     uint8_t x = (uint8_t)(player_x - cam_x), y = (uint8_t)(player_y - cam_y);
-    slot_move(&player_slot, x, y - (uint8_t)(player_z >> 8));
+    if (player_blink & 4) slot_hide(&player_slot);
+    else slot_move(&player_slot, x, y - (uint8_t)(player_z >> 8));
     if (player_air) {
+        // The shadow sits on whatever is below: the floor or a raised block's top.
+        y -= (uint8_t)(ground_under() >> 8);
         move_sprite(SHADOW_OAM, x + 8, y + 16);
         move_sprite(SHADOW_OAM + 1, x + 16, y + 16);
     } else {
