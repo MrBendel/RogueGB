@@ -38,21 +38,25 @@
         <button id="b-shot" title="Screenshot (F12)">📷</button>
       </div>
       <div id="touchpad" class="touchpad">
-        <div class="dpad">
-          <button data-btn="UP" class="up">▲</button>
-          <button data-btn="LEFT" class="left">◀</button>
-          <button data-btn="RIGHT" class="right">▶</button>
-          <button data-btn="DOWN" class="down">▼</button>
+        <div class="touch-top">
+          <div class="dpad" id="dpad">
+            <button data-btn="UP" class="up" aria-label="Up">▲</button>
+            <button data-btn="LEFT" class="left" aria-label="Left">◀</button>
+            <div class="pivot" aria-hidden="true"></div>
+            <button data-btn="RIGHT" class="right" aria-label="Right">▶</button>
+            <button data-btn="DOWN" class="down" aria-label="Down">▼</button>
+          </div>
+          <div class="ab" id="ab-pad">
+            <button data-btn="B" class="b">B</button>
+            <button data-btn="A" class="a">A</button>
+          </div>
         </div>
         <div class="mid">
           <button data-btn="SELECT">SELECT</button>
           <button data-btn="START">START</button>
         </div>
-        <div class="ab">
-          <button data-btn="B" class="b">B</button>
-          <button data-btn="A" class="a">A</button>
-        </div>
       </div>
+      <label id="haptic-label" class="sr-only" aria-hidden="true"><input type="checkbox" switch></label>
     </section>
 
     <aside class="panel">

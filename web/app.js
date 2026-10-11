@@ -108,17 +108,101 @@ addEventListener('keyup', (e) => {
   if (e.code === 'KeyR') rewinding = false;
   if (e.code === 'Tab') fastForward = false;
 });
-addEventListener('blur', () => { held.key = 0; rewinding = false; fastForward = false; });
+addEventListener('blur', () => {
+  held.key = 0;
+  held.touch = 0;
+  activePointers.clear();
+  syncTouchVisuals();
+  rewinding = false;
+  fastForward = false;
+});
 
-for (const el of document.querySelectorAll('#touchpad [data-btn]')) {
-  const bit = BTN[el.dataset.btn];
-  const down = (e) => { e.preventDefault(); held.touch |= bit; el.classList.add('held'); };
-  const up = (e) => { e.preventDefault(); held.touch &= ~bit; el.classList.remove('held'); };
-  el.addEventListener('pointerdown', down);
-  el.addEventListener('pointerup', up);
-  el.addEventListener('pointercancel', up);
-  el.addEventListener('pointerleave', up);
+const hapticLabel = $('haptic-label');
+function haptic(ms = 12) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(ms);
+    else hapticLabel?.click();
+  } catch { /* ignore */ }
 }
+
+const touchpad = $('touchpad');
+const dpadEl = $('dpad');
+const touchBtns = [...document.querySelectorAll('#touchpad [data-btn]')];
+const actionBtns = touchBtns.filter((el) => !dpadEl.contains(el));
+const activePointers = new Map(); // pointerId -> { zone: 'dpad' | 'buttons', mask: number }
+
+function computePointerMask(zone, clientX, clientY) {
+  let mask = 0;
+  if (zone === 'dpad') {
+    const r = dpadEl.getBoundingClientRect();
+    const dx = clientX - (r.left + r.width / 2);
+    const dy = clientY - (r.top + r.height / 2);
+    const dist = Math.hypot(dx, dy);
+    if (dist > 10 && dist < Math.max(r.width, r.height) * 0.95) {
+      const ang = Math.atan2(dy, dx);
+      const c = Math.cos(ang);
+      const s = Math.sin(ang);
+      if (c > 0.3827) mask |= BTN.RIGHT;
+      if (c < -0.3827) mask |= BTN.LEFT;
+      if (s > 0.3827) mask |= BTN.DOWN;
+      if (s < -0.3827) mask |= BTN.UP;
+    }
+  } else {
+    for (const el of actionBtns) {
+      const r = el.getBoundingClientRect();
+      const pad = 8;
+      if (clientX >= r.left - pad && clientX <= r.right + pad && clientY >= r.top - pad && clientY <= r.bottom + pad) {
+        mask |= BTN[el.dataset.btn];
+      }
+    }
+  }
+  return mask;
+}
+
+function syncTouchVisuals() {
+  for (const el of touchBtns) {
+    el.classList.toggle('held', !!(held.touch & BTN[el.dataset.btn]));
+  }
+}
+
+function updateTouchState() {
+  const prev = held.touch;
+  let next = 0;
+  for (const p of activePointers.values()) next |= p.mask;
+  held.touch = next;
+  if (next !== prev) {
+    syncTouchVisuals();
+    const pressedNew = (next & ~prev) !== 0;
+    haptic(pressedNew ? 14 : 5);
+  }
+}
+
+touchpad.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const zone = dpadEl.contains(e.target) ? 'dpad' : 'buttons';
+  const mask = computePointerMask(zone, e.clientX, e.clientY);
+  activePointers.set(e.pointerId, { zone, mask });
+  touchpad.setPointerCapture?.(e.pointerId);
+  updateTouchState();
+});
+
+touchpad.addEventListener('pointermove', (e) => {
+  const p = activePointers.get(e.pointerId);
+  if (!p) return;
+  e.preventDefault();
+  p.mask = computePointerMask(p.zone, e.clientX, e.clientY);
+  updateTouchState();
+});
+
+function endPointer(e) {
+  if (!activePointers.has(e.pointerId)) return;
+  e.preventDefault();
+  activePointers.delete(e.pointerId);
+  updateTouchState();
+}
+touchpad.addEventListener('pointerup', endPointer);
+touchpad.addEventListener('pointercancel', endPointer);
+touchpad.addEventListener('lostpointercapture', endPointer);
 
 function pollGamepad() {
   held.pad = 0;
@@ -541,21 +625,32 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.add('hidden'), 2600);
 }
 
-$('b-pause').onclick = togglePause;
-$('b-step').onclick = stepOnce;
-$('b-reset').onclick = resetEmu;
+$('b-pause').onclick = () => { haptic(10); togglePause(); };
+$('b-step').onclick = () => { haptic(10); stepOnce(); };
+$('b-reset').onclick = () => { haptic(10); resetEmu(); };
 $('sel-speed').onchange = (e) => { speed = +e.target.value; };
-$('b-audio').onclick = toggleAudio;
-$('b-shot').onclick = screenshot;
-$('b-rec').onclick = toggleRecord;
-$('b-report').onclick = bugReport;
-$('b-save').onclick = quickSave;
-$('b-load').onclick = quickLoad;
+$('b-audio').onclick = () => { haptic(10); toggleAudio(); };
+$('b-shot').onclick = () => { haptic(10); screenshot(); };
+$('b-rec').onclick = () => { haptic(12); toggleRecord(); };
+$('b-report').onclick = () => { haptic(12); bugReport(); };
+$('b-save').onclick = () => { haptic(10); quickSave(); };
+$('b-load').onclick = () => { haptic(10); quickLoad(); };
 $('b-watch').onclick = addWatch;
 $('watch-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') addWatch(); });
 if (backend.name !== 'local') $('chk-restart').closest('.row').classList.add('hidden');
 $('chk-restart').checked = store.get('restartOnBuild', true);
 $('chk-restart').onchange = (e) => store.set('restartOnBuild', e.target.checked);
+
+const mobileMq = matchMedia('(max-width: 820px)');
+function syncMobilePanels(e) {
+  for (const d of document.querySelectorAll('.panel details:not(#build-log-box)')) {
+    if (e.matches) d.removeAttribute('open');
+    else if (d.querySelector('summary')?.textContent !== 'Controls') d.setAttribute('open', '');
+  }
+}
+syncMobilePanels(mobileMq);
+mobileMq.addEventListener?.('change', syncMobilePanels);
+
 $('file-replay').onchange = async (e) => {
   const f = e.target.files[0];
   if (f) playReplay(JSON.parse(await f.text()), f.name);
