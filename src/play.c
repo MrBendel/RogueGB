@@ -69,6 +69,9 @@ uint8_t paused;
 uint8_t tune_sel;
 uint8_t wave_spawned;
 uint8_t hud_hp;  // HP shown on the HUD, to redraw only on change
+// Debug/test hook: tests set this through emulator memory writes; the next frame
+// runs it and clears it. 1 = stress wave (actors_debug_stress).
+uint8_t debug_cmd;
 
 void run_start(uint16_t seed) BANKED {
     run_seed = seed;
@@ -210,12 +213,17 @@ void play_update(void) BANKED {
         run_seconds++;
     }
 
+    if (debug_cmd) {
+        if (debug_cmd == 1) actors_debug_stress(player_x, player_y);
+        debug_cmd = 0;
+    }
     player_update();
     if (!wave_spawned && player_y >= ARENA_TOP) spawn_wave();
-    actors_update();
+    // The camera only follows the player, so it moves first; then actors and
+    // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
+    actors_update(FIRST_ACTOR_OAM);
     player_draw();
-    actors_draw(FIRST_ACTOR_OAM);
     if (player_hp != hud_hp) draw_hp();
     if (!player_hp) state_change(STATE_RUN_OVER);
 }

@@ -87,7 +87,7 @@ test('background tiles streamed in while scrolling always match the room', () =>
   let shown = null;
   walkToBottomRight(startRun().idle(2), (emu, label) => {
     // The scroll registers hold the previous frame's camera: that's what's on screen.
-    if (shown && emu.frame % 7 === 0) {
+    if (shown) {
       assert.deepEqual({ x: emu.read8(0xff43), y: emu.read8(0xff42) }, { x: shown.x & 0xff, y: shown.y & 0xff });
       checked += assertViewMatchesRoom(emu, label, shown);
     }
@@ -157,7 +157,7 @@ test('no tearing: the scroll handler always runs inside vblank across a play ses
   // They are only written by the vblank handler, so check the scanline it starts
   // on, every frame, through walking, dash-jumps, pausing, scrolling and a fight.
   const emu = startRun();
-  const handler = emu.symbols.addr('Fgfx$vbl_scroll$0$0');
+  const handler = emu.symbols.addr('gfx_vbl');
   const m = { RIGHT: 1, LEFT: 2, UP: 4, DOWN: 8, B: 32, START: 128 };
   const mask = (s) => s.split('+').filter(Boolean).reduce((a, d) => a | m[d], 0);
   const script = [

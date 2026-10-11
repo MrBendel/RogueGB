@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { assert, matchGolden, startRun, settle, RUN_OVER } from './helpers.mjs';
 
 const SLIME = 1, PEASHOOTER = 2;
-const ACTOR_MAX = 8, BULLET_MAX = 8;
+const ACTOR_MAX = 8, BULLET_MAX = 20;
 const ARENA_TOP = 16 * 16;
 const CLEAR_Z = 6 * 256;
 
@@ -16,6 +16,12 @@ const arr = (emu, name, i, type = 'u8') => {
   const addr = emu.symbols.addr(name) + i * size;
   const v = size === 2 ? emu.read16(addr) : emu.read8(addr);
   return type === 'i16' && v > 32767 ? v - 65536 : v;
+};
+// Bullets are 13-byte records (Bullet in actor.h): alive 0, x 5-6, y 11-12.
+const BULLET_SIZE = 13;
+const bullet = (emu, i) => {
+  const a = emu.symbols.addr('bullets') + i * BULLET_SIZE;
+  return { alive: emu.read8(a), x: emu.read16(a + 5), y: emu.read16(a + 11) };
 };
 const actors = (emu) => Array.from({ length: ACTOR_MAX }, (_, i) => ({
   i, type: arr(emu, 'actor_type', i), x: arr(emu, 'actor_x', i, 'u16'), y: arr(emu, 'actor_y', i, 'u16'),
@@ -80,16 +86,17 @@ test('peashooters flash a warning, then fire at the player', () => {
 test('bullets fly toward the player and stop at walls', () => {
   const emu = inArena();
   until(emu, [], (e) => e.v('bullets_active') > 0, 300, 'a bullet');
-  const b = Array.from({ length: BULLET_MAX }, (_, i) => i).find((i) => arr(emu, 'bullet_alive', i));
-  const d = () => Math.hypot(arr(emu, 'bullet_x', b, 'u16') + 4 - (px(emu) + 8), arr(emu, 'bullet_y', b, 'u16') + 8 - (py(emu) + 12));
+  const b = Array.from({ length: BULLET_MAX }, (_, i) => i).find((i) => bullet(emu, i).alive);
+  const d = () => Math.hypot(bullet(emu, b).x + 4 - (px(emu) + 8), bullet(emu, b).y + 8 - (py(emu) + 12));
   const d0 = d();
   emu.idle(6);
-  if (arr(emu, 'bullet_alive', b)) assert.ok(d() < d0, `moving toward the player: ${d0} -> ${d()}`);
+  if (bullet(emu, b).alive) assert.ok(d() < d0, `moving toward the player: ${d0} -> ${d()}`);
   // No bullet flies forever: each ends at a wall or on the player.
   emu.idle(300);
   for (let i = 0; i < BULLET_MAX; i++) {
-    if (!arr(emu, 'bullet_alive', i)) continue;
-    assert.ok(arr(emu, 'bullet_x', i, 'u16') < 20 * 16 && arr(emu, 'bullet_y', i, 'u16') < 24 * 16, 'inside the room');
+    const bl = bullet(emu, i);
+    if (!bl.alive) continue;
+    assert.ok(bl.x < 20 * 16 && bl.y < 24 * 16, 'inside the room');
   }
 });
 
@@ -149,19 +156,49 @@ test('hardware sprites stay within 40 and enemies are drawn while on screen', ()
   }
 });
 
-test('CPU budget: a fight in the arena never slows down', () => {
-  // A frame is 70224 cycles and vblank (4560) comes before the measured part, so
-  // 65664 is the hard limit: above it the game slows down. The hot loops are in
-  // assembly (actor_draw.s, room_fill.s) and enemies think at 30 Hz to stay under
-  // it; the margin is thin (worst ~62.5k), see the performance-pass issue.
+// A frame is 70224 cycles and vblank (4560) comes before the measured part, so
+// 65664 is the hard limit: above it the game drops a frame. See README, Frame budget.
+const FRAME_LIMIT = 65664;
+const fight = (f) => (f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT');
+
+test('CPU budget: a fight in the arena never slows down, with room to spare', () => {
+  // The hot loops are in assembly (actor_draw.s, bullets.s, room_fill.s) and
+  // enemies think at 30 Hz. The real wave peaks around 44k; the cap keeps a third
+  // of the frame free for what later milestones add.
   const emu = inArena();
   let worst = 0;
   for (let f = 0; f < 600; f++) {
-    emu.hold(f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT', 1);
+    emu.hold(fight(f), 1);
     worst = Math.max(worst, emu.lastFrameCycles);
     if (emu.v('next_state') === RUN_OVER) break;
   }
-  assert.ok(worst < 65664, `worst frame used ${worst} cycles past vblank`);
+  assert.ok(worst < 48000, `worst frame used ${worst} cycles past vblank`);
+});
+
+test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () => {
+  // Stress: every 30 frames the debug command refills both pools around the
+  // player (and HP is topped up so the run goes on). Refill frames spawn a whole
+  // wave at once, so they aren't counted. Worst ~67k, median ~51k (#26): at most
+  // a rare dropped frame with every slot busy.
+  const emu = inArena().hold('DOWN', 24);
+  const cycles = [];
+  for (let f = 0; f < 600; f++) {
+    const refill = f % 30 === 0;
+    if (refill) {
+      emu.write8(emu.symbols.addr('debug_cmd'), 1);
+      emu.write8(emu.symbols.addr('player_hp'), 6);
+    }
+    emu.hold(fight(f), 1);
+    assert.equal(emu.v('next_state'), emu.v('game_state'), 'still fighting');
+    if (!refill) cycles.push(emu.lastFrameCycles);
+  }
+  assert.ok(emu.v('actors_active') >= 6 && emu.v('bullets_active') >= 15, 'the pools are nearly full');
+  cycles.sort((x, y) => x - y);
+  const median = cycles[cycles.length >> 1], worst = cycles.at(-1);
+  const over = cycles.filter((c) => c > FRAME_LIMIT).length;
+  assert.ok(median < 55000, `median frame ${median} cycles`);
+  assert.ok(over <= cycles.length / 100, `${over} of ${cycles.length} frames over the limit (worst ${worst})`);
+  assert.ok(worst < 70224, `worst frame ${worst} cycles: more than a whole frame`);
 });
 
 test('screen: the arena wave', () => {

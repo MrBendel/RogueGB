@@ -28,7 +28,7 @@ extern uint8_t scroll_y;
 // hands everything queued this frame to the next vblank.
 //
 // Background map strips (a row or a column of tiles):
-#define STRIP_MAX_LEN 21
+#define STRIP_MAX_LEN 23  // also STRIP_SIZE in vram_queue.s
 #define STRIP_MAX 4
 // x, y: background map tile coordinates (wrapped to 0-31). vertical: column if 1.
 // Returns the buffer to fill with `len` tiles (flushing first if the queue is full).
@@ -43,10 +43,10 @@ void gfx_flush(void);
 
 // Load the font and frame tiles and install the vblank scroll handler.
 // Call once at boot; scenes never overwrite these tiles.
-void gfx_init(void);
+void gfx_init(void) BANKED;  // gfx_setup.c
 
 // Clear the background map to blank, hide every sprite, hide the window.
-void gfx_clear(void);
+void gfx_clear(void) BANKED;  // gfx_setup.c
 
 // Draw text on the background (or window, with win_text) at tile x, y.
 // Lowercase is drawn as uppercase; anything outside the font is a space.
@@ -68,7 +68,7 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 
 #define FADE_STEPS  3
 #define FADE_FRAMES 4
-void fade_out(void);
-void fade_in(void);
+void fade_out(void) BANKED;  // gfx_setup.c
+void fade_in(void) BANKED;
 
 #endif

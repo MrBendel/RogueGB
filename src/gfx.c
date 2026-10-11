@@ -2,11 +2,6 @@
 #include <gb/metasprites.h>
 #include "gfx.h"
 #include "state.h"
-#include "font.h"
-#include "frame.h"
-
-// Normal palette is 0xE4 (shades 3,2,1,0); each step shifts one shade lighter.
-static const uint8_t fade_pal[FADE_STEPS + 1] = {0xE4, 0x90, 0x40, 0x00};
 
 uint8_t scroll_x;
 uint8_t scroll_y;
@@ -30,7 +25,7 @@ void vram_queue_write(void);  // vram_queue.s
 
 // Set by gfx_commit(); the vblank handler only touches the queues when set, so it
 // never sees a half-built frame (e.g. when a frame runs long).
-static volatile uint8_t vram_ready;
+volatile uint8_t vram_ready;  // also cleared by gfx_clear (gfx_setup.c)
 
 uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len) {
     if (strip_count == STRIP_MAX || vram_ready) gfx_flush();
@@ -103,10 +98,10 @@ void gfx_flush(void) {
     write_queued(LCDC_REG & LCDCF_ON);
 }
 
-// Vblank handler (after GBDK's sprite DMA). Scroll first: it must land inside
+// Vblank handler, installed by gfx_init (after GBDK's sprite DMA). Scroll first: it must land inside
 // vblank or the screen tears. Then the queued VRAM writes, in assembly so even a
 // full queue (a row, a column and a sprite frame) fits in the rest of vblank.
-static void vbl_scroll(void) {
+void gfx_vbl(void) {
     SCX_REG = scroll_x;
     SCY_REG = scroll_y;
     if (vram_ready) {
@@ -117,32 +112,7 @@ static void vbl_scroll(void) {
     }
 }
 
-void gfx_init(void) {
-    CRITICAL {
-        add_VBL(vbl_scroll);
-    }
-    // The font and frame are in switchable banks: switch in, copy, switch back.
-    uint8_t saved = CURRENT_BANK;
-    SWITCH_ROM(BANK(font));
-    set_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles);
-    SWITCH_ROM(BANK(frame));
-    set_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles);
-    SWITCH_ROM(saved);
-    BGP_REG = 0xE4;
-    OBP0_REG = 0xE4;
-    OBP1_REG = FLASH_PAL;
-}
 
-void gfx_clear(void) {
-    fill_bkg_rect(0, 0, 32, 32, FONT_TILES);  // tile 0 = space
-    hide_sprites_range(0, MAX_HARDWARE_SPRITES);
-    HIDE_WIN;
-    scroll_x = scroll_y = 0;
-    strip_count = 0;
-    copy_count = 0;
-    vram_ready = 0;
-    move_bkg(0, 0);
-}
 
 static uint8_t glyph(char c) {
     if (c >= 'a' && c <= 'z') c -= 'a' - 'A';
@@ -200,24 +170,4 @@ void bkg_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
 
 void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
     FRAME_DRAW(fill_win_rect, set_win_tile_xy);
-}
-
-static void set_fade(uint8_t step) {
-    BGP_REG = OBP0_REG = fade_pal[step];
-    // Sprites drawn with the second palette flash inverted; while fading they fade too.
-    OBP1_REG = step ? fade_pal[step] : FLASH_PAL;
-}
-
-void fade_out(void) {
-    for (uint8_t s = 1; s <= FADE_STEPS; s++) {
-        set_fade(s);
-        for (uint8_t f = 0; f < FADE_FRAMES; f++) wait_frame();
-    }
-}
-
-void fade_in(void) {
-    for (uint8_t s = FADE_STEPS; s--;) {
-        for (uint8_t f = 0; f < FADE_FRAMES; f++) wait_frame();
-        set_fade(s);
-    }
 }

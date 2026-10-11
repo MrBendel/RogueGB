@@ -32,15 +32,19 @@ player, higher = smoother and lazier).
 | `src/main.c` | Boot and the main loop. Runs one scene update per frame and handles scene changes (fade out, `enter()` the new scene, fade in) |
 | `src/state.h` | Scene IDs (`STATE_TITLE`, `STATE_PLAY`, `STATE_RUN_OVER`), `state_change()`, `wait_frame()` |
 | `src/input.c` | Reads the joypad once per frame: `joy` (held), `joy_pressed`, `joy_released` |
-| `src/gfx.c` | Font and frame tiles, `bkg_text`/`win_text`/`bkg_number`, framed boxes, palette fades |
+| `src/gfx.c` | VRAM write queue and the vblank handler, `bkg_text`/`win_text`/`bkg_number`, framed boxes |
+| `src/gfx_setup.c` | Banked: loading the font and frame tiles, clearing the screen, palette fades |
+| `src/vram_queue.s` | Assembly: writes the queued VRAM updates during vblank |
 | `src/title.c` | Title screen. START seeds the run's RNG and starts a run |
 | `src/play.c` | Gameplay scene: the movement lab, HUD row and the pause/tuning panel |
 | `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
 | `src/sprite_slot.c` | Draws a 16×16 character from pre-rendered frames: two 8×16 sprites and a double-buffered 8-tile VRAM slot |
-| `src/camera.c` | Camera: eased follow with lead, clamped to the room; streams background columns and rows as it scrolls |
+| `src/camera.c` | Camera: eased follow with lead, clamped to the room, at most 4 px a frame; streams one background row or column per frame |
+| `src/camera_setup.c` | Banked: placing the camera and drawing the whole view when a room starts |
 | `src/actor.c` | Enemies and enemy bullets: pools, AI (slime chaser, peashooter shooter), contact and bullet damage, sprite allocation |
-| `src/actor_draw.s` | Assembly: writes actors and bullets into the sprite table, moves bullets |
-| `src/room_fill.s` | Assembly: builds background rows/columns for the scrolling camera |
+| `src/actor_draw.s` | Assembly: writes actors into the sprite table |
+| `src/bullets.s` | Assembly: moves, collides and draws enemy bullets in one pass |
+| `src/room_fill.s` | Assembly: builds background rows/columns for the scrolling camera, and `room_block_at` |
 | `src/room.c` | The current room's 16×16 block grid and collision queries |
 | `src/run_over.c` | Run stats. START returns to the title |
 | `src/run.h` | Per-run state: seed, play time, stats |
@@ -48,15 +52,25 @@ player, higher = smoother and lazier).
 To add a scene: add a `STATE_*` ID and its `*_enter`/`*_update` to `state.h`, then add
 it to both switches in `main.c`.
 
-**Frame budget.** A frame is 70,224 CPU cycles. VRAM updates (new background rows and
+**Frame budget.** A frame is 70,224 CPU cycles. The update starts after vblank (4,560), so
+it has 65,664 before the game drops a frame. VRAM updates (new background rows and
 columns, sprite animation frames) are queued during the frame and written by the vblank
 interrupt (`gfx_strip`, `gfx_vram_copy`), because writing VRAM while the screen is drawing
-waits on every byte. Avoid 32-bit math in per-frame code: the CPU has no multiply, so a
-32-bit multiply is a long software routine. `tests/camera.test.mjs` fails if any frame of
-walking, scrolling and jumping uses more than half the frame (`emu.lastFrameCycles`), and
-`tests/actors.test.mjs` fails if an arena fight ever exceeds a frame. The hottest loops are
-in assembly (`*.s` in `src/`), and enemies think at 30 Hz (half of them each frame).
-`harness/profile.mjs` profiles which functions the CPU time goes to.
+waits on every byte. Keep per-frame code cheap:
+
+- No 32-bit math or division: the CPU has no multiply, so they're long software routines
+  (and they sit in bank 0). Split a 16-bit multiply into 8-bit halves (`diag_scale`), or
+  cache it when its inputs rarely change (the camera lead, diagonal speeds).
+- The hottest loops are in assembly (`*.s` in `src/`). Enemies think at 30 Hz (half of
+  them each frame), and at most one slime checks a landing spot per frame.
+- The camera streams one strip per frame and moves at most 4 px per axis per frame, so the
+  background always keeps up; anything faster forces a full, very slow redraw.
+
+Tests guard it: `tests/camera.test.mjs` fails if a frame of walking, scrolling and jumping
+uses more than half the frame (`emu.lastFrameCycles`); `tests/actors.test.mjs` caps an arena
+fight at 48k and checks full pools (8 enemies, 20 bullets: median ~51k, at most 1% of
+frames over). `node harness/profile.mjs walk|arena|stress` shows which functions the
+cycles go to in the worst frames, and how many frames are over budget.
 
 **ROM banks.** The CPU sees bank 0 (0x0000-0x3FFF) at all times and one switchable bank
 at a time at 0x4000-0x7FFF. Bank 0 holds the hot paths: the main loop, vblank code, player,

@@ -28,7 +28,7 @@ void actors_init(void) BANKED {
     SWITCH_ROM(saved);
 
     for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;
-    for (uint8_t i = 0; i < BULLET_MAX; i++) bullet_alive[i] = 0;
+    for (uint8_t i = 0; i < BULLET_MAX; i++) bullets[i].alive = 0;
     actors_active = bullets_active = 0;
     actor_count = bullet_count = 0;
     bullets_fired = 0;
@@ -45,6 +45,7 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
         actor_xs[i] = actor_ys[i] = 0;
         actor_vx[i] = actor_vy[i] = 0;
         actor_face[i] = FACE_DOWN;
+        actor_try[i] = 0;
         actor_frame[i] = 0;
         actor_flash[i] = 0;
         actor_state[i] = STATE_REST;
@@ -63,3 +64,38 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
     return 0xFF;
 }
 
+
+// Debug/test stress: every enemy slot filled around the player (alternating
+// slimes and peashooters), and every bullet slot with a slow bullet drifting
+// through the view. Positions may overlap walls; that's fine for a load test.
+void actors_debug_stress(uint16_t px, uint16_t py) BANKED {
+    static const int8_t ox[ACTOR_MAX] = {-56, -24, 24, 56, -56, -24, 24, 56};
+    static const int8_t oy[ACTOR_MAX] = {-40, -48, -48, -40, 32, 40, 40, 32};
+    for (uint8_t i = 0; i < ACTOR_MAX; i++) {
+        if (actor_type[i] != ACTOR_NONE) continue;
+        actor_spawn((i & 1) ? ACTOR_SLIME : ACTOR_PEASHOOTER, px + ox[i], py + oy[i]);
+    }
+    Bullet *bl = bullets;
+    uint8_t col = 0;
+    uint16_t gx = px - 64, gy = py - 48;
+    for (uint8_t b = 0; b < BULLET_MAX; b++, bl++) {
+        // A 5x4 grid spread over the view, drifting slowly left or right.
+        uint16_t x = gx, y = gy;
+        gx += 32;
+        if (++col == 5) {
+            col = 0;
+            gx = px - 64;
+            gy += 24;
+        }
+        if (bl->alive) continue;
+        bl->alive = 1;
+        bullet_count++;
+        bl->x = x;
+        bl->y = y;
+        bl->xs = bl->ys = 0;
+        bl->vx = (b & 1) ? 64 : -64;
+        bl->vx_sign = (b & 1) ? 0 : -1;
+        bl->vy = 0;
+        bl->vy_sign = 0;
+    }
+}

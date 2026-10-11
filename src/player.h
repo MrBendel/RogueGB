@@ -102,4 +102,9 @@ void move_apply_preset(uint8_t preset) BANKED;
 void move_recalc(void) BANKED;
 const char *move_preset_name(void);
 
+// 1/sqrt(2) in 0.8 fixed point, for diagonal speeds. diag_scale(v) = v * DIAG >> 8
+// for a 16-bit v, in two 16-bit products (no 32-bit multiply, a large routine).
+#define DIAG 181
+#define diag_scale(v) ((int16_t)((((uint16_t)(v) >> 8) * DIAG) + ((((uint16_t)(v) & 0xFF) * DIAG) >> 8)))
+
 #endif

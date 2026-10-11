@@ -22,6 +22,7 @@ int16_t actor_vx[ACTOR_MAX];
 int16_t actor_vy[ACTOR_MAX];
 uint8_t actor_hp[ACTOR_MAX];
 uint8_t actor_face[ACTOR_MAX];
+uint8_t actor_try[ACTOR_MAX];  // slimes: which landing spot the next hop tries
 uint8_t actor_frame[ACTOR_MAX];
 uint8_t actor_flash[ACTOR_MAX];
 // Sprite data for the current frame (tile and flags per column), cached when the
@@ -33,13 +34,7 @@ uint8_t actor_p1[ACTOR_MAX];
 uint8_t actor_count;   // slots in use (enemies aren't removed yet)
 uint8_t bullet_count;  // bullets alive
 
-uint8_t bullet_alive[BULLET_MAX];
-uint16_t bullet_x[BULLET_MAX];
-uint16_t bullet_y[BULLET_MAX];
-uint8_t bullet_xs[BULLET_MAX];
-uint8_t bullet_ys[BULLET_MAX];
-int16_t bullet_vx[BULLET_MAX];
-int16_t bullet_vy[BULLET_MAX];
+Bullet bullets[BULLET_MAX];
 
 uint8_t actors_active;
 uint8_t bullets_active;
@@ -63,12 +58,21 @@ uint8_t bullet_vram;
 
 // Shared with actor_draw.s (hand-written sprite emission).
 uint8_t draw_rotation;
+uint8_t bullet_rotation;  // start slot for bullets (< BULLET_MAX)
 uint8_t oam_next;
 uint8_t bullet_draw_tile;
 uint8_t bullet_draw_prop;
 void actors_emit(void);
-void bullets_emit(void);
-void bullets_move(void);
+// bullets.s: per-frame bullet movement, collisions and drawing, and its inputs/outputs.
+void bullets_update(void);
+uint16_t bullet_hb_x;       // player hitbox top-left
+uint16_t bullet_hb_y;
+uint8_t bullet_hittable;
+uint8_t bullet_parity;      // which half of the records checks walls this frame
+uint8_t bullet_hit;         // set when a bullet hit the player
+uint16_t bullet_hit_x;      // ... at this point
+uint16_t bullet_hit_y;
+Bullet *bullet_draw_start;  // rotating first slot to visit (and draw)
 uint8_t oam_end_last;
 
 // Look up the sprite tiles and flags for an actor's current frame.
@@ -83,15 +87,17 @@ void actor_cache_frame(uint8_t i) {
 }
 
 // Count a timer down by one AI step; returns the new value (stops at 0).
-static uint8_t tick(uint8_t t) {
-    return t > AI_STEP ? t - AI_STEP : 0;
-}
+uint8_t slime_hops_left;  // hops that may still start this frame (update_slime)
 
 // Position + velocity in 8/16-bit pieces (same as the player's).
 static uint16_t moved(uint16_t pos, uint8_t frac, int16_t v, uint8_t *new_frac) {
     uint16_t f = (uint16_t)frac + (uint8_t)v;
     *new_frac = (uint8_t)f;
     return pos + (int8_t)((uint16_t)v >> 8) + (f >> 8);
+}
+
+static uint8_t tick(uint8_t t) {
+    return t > AI_STEP ? t - AI_STEP : 0;
 }
 
 // Enemies only stand on plain floor: walls, pits and raised blocks all stop them.
@@ -104,7 +110,10 @@ static uint8_t enemy_box_free(uint16_t x, uint16_t y) {
 
 // Where a hop at velocity v (px/frame 8.8) ends, SLIME_HOP frames from pos.
 static uint16_t hop_end(uint16_t pos, int16_t v) {
-    return pos + (int16_t)((v * SLIME_HOP) >> 8);
+#if SLIME_HOP != 24
+#error hop_end multiplies by 24 with shifts
+#endif
+    return pos + (int16_t)(((v << 4) + (v << 3)) >> 8);
 }
 
 // Sign of the direction from (ax, ay) to the player's feet, per axis, with a dead
@@ -114,32 +123,49 @@ static int8_t toward(uint16_t from, uint16_t to) {
     return d > 4 ? 1 : d < -4 ? -1 : 0;
 }
 
-// Velocity of `speed` along an 8-way direction.
-static void set_velocity(int8_t sx, int8_t sy, uint16_t speed, int16_t *vx, int16_t *vy) {
-    int16_t s = (sx && sy) ? (int16_t)((speed >> 8) * DIAG + (((speed & 0xFF) * DIAG) >> 8)) : (int16_t)speed;
+// Velocity of `speed` along an 8-way direction; diag is its diagonal component.
+static void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int16_t *vx, int16_t *vy) {
+    int16_t s = (sx && sy) ? diag : speed;
     *vx = sx > 0 ? s : sx < 0 ? -s : 0;
     *vy = sy > 0 ? s : sy < 0 ? -s : 0;
 }
+
+// Diagonal components of the speeds (diag_scale is two multiplies), redone only
+// when the tunable changes.
+static uint16_t slime_diag_for, bullet_diag_for;
+static int16_t slime_diag, bullet_diag;
 
 static void update_slime(uint8_t i) {
     if (actor_state[i] == STATE_REST) {
         actor_frame[i] = 0;
         if ((actor_timer[i] = tick(actor_timer[i]))) return;
+        // Checking a landing spot is the costly part (4 block lookups), so only one
+        // slime checks per frame, and each think step checks one spot.
+        if (!slime_hops_left) return;
+        slime_hops_left--;
         // Hop toward where the player is now.
         int8_t sx = toward(actor_x[i] + 8, player_x + 8);
         int8_t sy = toward(actor_y[i] + 11, player_y + 12);
         int16_t vx, vy;
-        set_velocity(sx, sy, slime_speed, &vx, &vy);
+        if (slime_diag_for != slime_speed) slime_diag = diag_scale(slime_diag_for = slime_speed);
+        set_velocity(sx, sy, slime_speed, slime_diag, &vx, &vy);
         // Check the landing spot once, instead of colliding every frame of the hop.
         // A hop (~18 px) is too short to pass through a wall or pit (16 px plus the
         // 12-px hitbox), so a free landing spot means a free path. If it's blocked,
-        // try hopping along just one axis, or stay put.
-        uint16_t ex = hop_end(actor_x[i], vx), ey = hop_end(actor_y[i], vy);
-        if (!enemy_box_free(ex, ey)) {
-            if (vx && enemy_box_free(ex, actor_y[i])) vy = 0;
-            else if (vy && enemy_box_free(actor_x[i], ey)) vx = 0;
-            else vx = vy = 0;
+        // the next think steps try hopping along x alone, then y alone, then the
+        // slime hops in place.
+        uint8_t t = actor_try[i];
+        if (t == 1 && !vx) t = 2;
+        if (t == 1) vy = 0;
+        else if (t == 2) vx = 0;
+        if ((vx || vy) && !enemy_box_free(hop_end(actor_x[i], vx), hop_end(actor_y[i], vy))) {
+            if (t < 2) {
+                actor_try[i] = t + 1;  // the timer stays at 0: try again next step
+                return;
+            }
+            vx = vy = 0;
         }
+        actor_try[i] = 0;
         actor_vx[i] = vx;
         actor_vy[i] = vy;
         actor_state[i] = STATE_HOP;
@@ -165,14 +191,18 @@ static void update_slime(uint8_t i) {
 }
 
 static void fire_bullet(uint8_t i, int8_t sx, int8_t sy) {
-    for (uint8_t b = 0; b < BULLET_MAX; b++) {
-        if (bullet_alive[b]) continue;
-        bullet_alive[b] = 1;
+    Bullet *b = bullets;
+    for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
+        if (b->alive) continue;
+        b->alive = 1;
         // The bullet's 8x16 sprite, centered on the shooter.
-        bullet_x[b] = actor_x[i] + 4;
-        bullet_y[b] = actor_y[i];
-        bullet_xs[b] = bullet_ys[b] = 0;
-        set_velocity(sx, sy, bullet_speed, &bullet_vx[b], &bullet_vy[b]);
+        b->x = actor_x[i] + 4;
+        b->y = actor_y[i];
+        b->xs = b->ys = 0;
+        int16_t vx, vy;
+        if (bullet_diag_for != bullet_speed) bullet_diag = diag_scale(bullet_diag_for = bullet_speed);
+        set_velocity(sx, sy, bullet_speed, bullet_diag, &vx, &vy);
+        bullet_set_velocity(b, vx, vy);
         bullets_fired++;
         bullet_count++;
         return;
@@ -180,109 +210,84 @@ static void fire_bullet(uint8_t i, int8_t sx, int8_t sy) {
 }
 
 static void update_shooter(uint8_t i) {
-    // Face the player along the larger axis.
-    int16_t dx = (int16_t)(player_x - actor_x[i]);
-    int16_t dy = (int16_t)(player_y - actor_y[i]);
-    uint16_t ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-    actor_face[i] = ax > ay ? (dx > 0 ? FACE_RIGHT : FACE_LEFT) : (dy > 0 ? FACE_DOWN : FACE_UP);
-
     uint8_t t = actor_timer[i] = tick(actor_timer[i]);
-    uint8_t telegraph = t < shooter_telegraph;
+    // Turning to face the player is the expensive part (16-bit distances), so a
+    // turret re-aims every 4th think step (~7 times a second) and when it fires.
+    if (!(t & (AI_STEP * 4 - 1)) || !t) {
+        int16_t dx = (int16_t)(player_x - actor_x[i]);
+        int16_t dy = (int16_t)(player_y - actor_y[i]);
+        uint16_t ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
+        actor_face[i] = ax > ay ? (dx > 0 ? FACE_RIGHT : FACE_LEFT) : (dy > 0 ? FACE_DOWN : FACE_UP);
+        if (!t) {
+            // Fire, aimed in 8 directions: diagonal when the axes are within 2:1.
+            int8_t sx = (ax << 1) > ay ? (dx > 0 ? 1 : -1) : 0;
+            int8_t sy = (ay << 1) > ax ? (dy > 0 ? 1 : -1) : 0;
+            fire_bullet(i, sx, sy);
+            actor_timer[i] = shooter_interval;
+        }
+    }
+    uint8_t telegraph = t && t < shooter_telegraph;
     // Warning: flash and open up before firing.
     actor_flash[i] = telegraph && (t & 4);
     actor_frame[i] = (actor_face[i] << 1) + telegraph;
-    if (t) return;
-    // Aim at the player in 8 directions: diagonal when the axes are within 2:1.
-    int8_t sx = (ax << 1) > ay ? (dx > 0 ? 1 : -1) : 0;
-    int8_t sy = (ay << 1) > ax ? (dy > 0 ? 1 : -1) : 0;
-    fire_bullet(i, sx, sy);
-    actor_timer[i] = shooter_interval;
 }
 
 // Do the spans [a, a+aw) and [b, b+bw) overlap? One unsigned compare: the
 // difference a + aw - b must be in 1..aw+bw-1 (anything else wraps to a large value).
 #define SPAN_OVERLAP(a, aw, b, bw) ((uint16_t)((a) + (aw) - (b) - 1) < (uint16_t)((aw) + (bw) - 1))
 
-static void kill_bullet(uint8_t b) {
-    bullet_alive[b] = 0;
-    bullet_count--;
-}
-
+// Bullets move, collide and draw in assembly (bullets.s); a hit is handled here.
 static void update_bullets(void) {
     bullets_active = 0;
     if (!bullet_count) return;
-    uint16_t px = player_x + PLAYER_HB_X, py = player_y + PLAYER_HB_Y;
-    uint8_t hittable = player_hittable();
-    uint8_t parity = (uint8_t)frame_count & 1;
-    bullets_move();  // every frame, in assembly (actor_draw.s)
-    for (uint8_t b = 0; b < BULLET_MAX; b++) {
-        if (!bullet_alive[b]) continue;
-        bullets_active++;
-        // Collisions run at 30 Hz per bullet (staggered): at 1.5 px/frame a bullet
-        // can't cross a 16-px wall or the player's hitbox between checks.
-        if ((b & 1) != parity) continue;
-        uint16_t x = bullet_x[b], y = bullet_y[b];
-        // Walls and raised blocks stop bullets (they fly at ground level). Bullets
-        // stay inside the room because its edge is wall, so no bounds check is needed.
-        uint8_t blk = ROOM_BLOCK_IN(x + 4, y + 8);
-        if (blk == BLK_SOLID || blk == BLK_RAISED) {
-            kill_bullet(b);
-            bullets_active--;
-            continue;
-        }
-        if (hittable && SPAN_OVERLAP(x + BULLET_HB_X, BULLET_HB_W, px, PLAYER_HB_W) &&
-            SPAN_OVERLAP(y + BULLET_HB_Y, BULLET_HB_H, py, PLAYER_HB_H)) {
-            player_hurt(1, x + 4, y + 8);
-            kill_bullet(b);
-            bullets_active--;
-            hittable = 0;
-        }
-    }
+    bullet_hb_x = player_x + PLAYER_HB_X;
+    bullet_hb_y = player_y + PLAYER_HB_Y;
+    bullet_hittable = player_hittable();
+    bullet_parity = (uint8_t)frame_count & 1;
+    bullet_hit = 0;
+    uint8_t anim = (uint8_t)(frame_count >> 3) & 1;
+    bullet_draw_tile = bullet_vram + (pea_frames[anim << 2] << 1);
+    bullet_draw_prop = pea_frames[(anim << 2) + 1];
+    bullet_draw_start = &bullets[bullet_rotation];
+    bullets_update();
+    if (bullet_hit) player_hurt(1, bullet_hit_x, bullet_hit_y);
 }
 
-void actors_update(void) {
-    actors_active = 0;
+void actors_update(uint8_t first_oam) {
+    actors_active = actor_count;  // no enemy is removed yet
     if (actor_count) {
         uint16_t px = player_x + PLAYER_HB_X, py = player_y + PLAYER_HB_Y;
         uint8_t hittable = player_hittable();
-        uint8_t parity = (uint8_t)frame_count & 1;
-        for (uint8_t i = 0; i < ACTOR_MAX; i++) {
-        uint8_t type = actor_type[i];
-        if (type == ACTOR_NONE) continue;
-        actors_active++;
-        if ((i & 1) == parity) {
+        slime_hops_left = 1;
+        // Each enemy thinks and checks contact with the player on alternate frames
+        // (half the slots each frame). At these speeds a touch registering one
+        // frame later is imperceptible, and it halves the cost of this loop.
+        for (uint8_t i = (uint8_t)frame_count & 1; i < ACTOR_MAX; i += 2) {
+            uint8_t type = actor_type[i];
+            if (type == ACTOR_NONE) continue;
             uint8_t frame = actor_frame[i];
             if (type == ACTOR_SLIME) update_slime(i);
             else update_shooter(i);
             if (actor_frame[i] != frame) actor_cache_frame(i);
-        }
-        // Touching an enemy hurts (unless you're jumping over it).
-        if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
-            SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
-            player_hurt(1, actor_x[i] + 8, actor_y[i] + 11);
-            hittable = 0;
-        }
+            // Touching an enemy hurts (unless you're jumping over it).
+            if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
+                SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
+                player_hurt(1, actor_x[i] + 8, actor_y[i] + 11);
+                hittable = 0;
+            }
         }
     }
-    update_bullets();
-}
-
-void actors_draw(uint8_t first_oam) {
+    // Draw: actors (actor_draw.s), then bullets as they move (bullets.s).
     oam_next = first_oam;
-    // The per-sprite work is in assembly (actor_draw.s): two sprites per visible
-    // actor, then one per visible bullet, starting at a rotating slot.
     if (actor_count) actors_emit();
-    if (bullet_count) {
-        uint8_t anim = (uint8_t)(frame_count >> 3) & 1;
-        bullet_draw_tile = bullet_vram + (pea_frames[anim << 2] << 1);
-        bullet_draw_prop = pea_frames[(anim << 2) + 1];
-        bullets_emit();
-    }
+    update_bullets();
     uint8_t used = oam_next;
     sprites_used = used;
     // Hide whatever was drawn last frame beyond this frame's sprites.
     for (; used < oam_end_last; used++) shadow_OAM[used].y = 0;
     oam_end_last = sprites_used;
-    // A step coprime with the pool size visits every order over time.
+    // Steps coprime with the pool sizes visit every order over time.
     draw_rotation += 3;
+    bullet_rotation += 7;
+    if (bullet_rotation >= BULLET_MAX) bullet_rotation -= BULLET_MAX;
 }

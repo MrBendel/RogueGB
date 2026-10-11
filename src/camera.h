@@ -3,6 +3,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <gb/gb.h>
 #include <stdint.h>
 
 extern uint16_t cam_x;  // top-left of the view in room pixels (what's drawn)
@@ -12,7 +13,7 @@ extern uint8_t cam_lead;  // frames of velocity the camera looks ahead (0 = none
 extern uint8_t cam_ease;  // 0 = locked to the target, n = close 1/2^n of the gap per frame
 
 // Snap to the target and draw the whole view (call with the display off).
-void camera_init(uint16_t tx, uint16_t ty);
+void camera_init(uint16_t tx, uint16_t ty) BANKED;  // camera_setup.c
 // Ease toward the target (room pixels of the point to keep centered), plus
 // vx/vy * cam_lead (velocities in px/frame 8.8), then stream any newly
 // visible tiles and queue the scroll for the next vblank.

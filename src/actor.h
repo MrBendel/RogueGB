@@ -6,7 +6,7 @@
 //
 // Graphics: each enemy type's frames are loaded into sprite VRAM once (actors_init)
 // and shared by every enemy of that type. Hardware sprites are handed out every
-// frame by actors_draw, after the player's; the order rotates each frame so that
+// frame by actors_update, after the player's; the order rotates each frame so that
 // when more than 10 sprites share a scanline (or OAM runs out), which ones the
 // hardware drops changes from frame to frame (flicker) instead of one enemy
 // staying invisible.
@@ -16,7 +16,7 @@
 #include <stdint.h>
 
 #define ACTOR_MAX 8
-#define BULLET_MAX 8
+#define BULLET_MAX 20  // also in actor_draw.s
 
 // Types (0 = free slot).
 #define ACTOR_NONE 0
@@ -41,16 +41,29 @@ extern int16_t actor_vx[ACTOR_MAX];  // px/frame 8.8
 extern int16_t actor_vy[ACTOR_MAX];
 extern uint8_t actor_hp[ACTOR_MAX];
 extern uint8_t actor_face[ACTOR_MAX];
+extern uint8_t actor_try[ACTOR_MAX];
 extern uint8_t actor_frame[ACTOR_MAX];  // frame index into the type's frame table
 extern uint8_t actor_flash[ACTOR_MAX];  // frames left drawing with the flash palette
 
-extern uint8_t bullet_alive[BULLET_MAX];
-extern uint16_t bullet_x[BULLET_MAX];  // top-left of the 8x16 sprite, room pixels
-extern uint16_t bullet_y[BULLET_MAX];
-extern uint8_t bullet_xs[BULLET_MAX];
-extern uint8_t bullet_ys[BULLET_MAX];
-extern int16_t bullet_vx[BULLET_MAX];
-extern int16_t bullet_vy[BULLET_MAX];
+// One enemy bullet. The layout is used by bullets.s (offsets in its header): per
+// axis, velocity then position, so moving is one straight walk through the record.
+typedef struct {
+    uint8_t alive;   // 0
+    int16_t vx;      // 1: px/frame 8.8
+    int8_t vx_sign;  // 3: 0 or -1, vx's sign extension (set with bullet_set_velocity)
+    uint8_t xs;      // 4: fraction of a pixel
+    uint16_t x;      // 5: top-left of the 8x16 sprite, room pixels
+    int16_t vy;      // 7
+    int8_t vy_sign;  // 9
+    uint8_t ys;      // 10
+    uint16_t y;      // 11
+} Bullet;            // 13 bytes
+extern Bullet bullets[BULLET_MAX];
+// Set a bullet's velocity (px/frame 8.8), keeping the sign bytes in step.
+#define bullet_set_velocity(b, vx_, vy_) do { \
+        (b)->vx = (vx_); (b)->vx_sign = (b)->vx < 0 ? -1 : 0; \
+        (b)->vy = (vy_); (b)->vy_sign = (b)->vy < 0 ? -1 : 0; \
+    } while (0)
 
 // Watchable counters.
 extern uint8_t actors_active;
@@ -64,14 +77,16 @@ extern uint8_t shooter_interval;  // frames between shots
 extern uint8_t shooter_telegraph; // frames of warning flash before a shot
 extern uint16_t bullet_speed;     // px/frame 8.8
 
+// Debug/test: fill the enemy pool around room pixel (px, py) and the bullet pool
+// with slow bullets nearby (the M1 stress target: 8 enemies, 20 bullets).
+void actors_debug_stress(uint16_t px, uint16_t py) BANKED;
 // Load enemy graphics into VRAM and clear the pools (call with the display off).
 #include <gb/gb.h>
 void actors_init(void) BANKED;  // actor_setup.c (banked)
 // Spawn an actor with its frame's top-left at room pixel (x, y). Returns its index, or 0xFF if full.
 uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED;
-// Move, think and collide with the player.
-void actors_update(void);
-// Hand out hardware sprites from `first_oam` on and draw actors and bullets.
-void actors_draw(uint8_t first_oam);
+// Move, think, collide with the player, and draw: actors and bullets get hardware
+// sprites from `first_oam` on. Call after the camera has moved for this frame.
+void actors_update(uint8_t first_oam);
 
 #endif

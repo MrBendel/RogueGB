@@ -22,10 +22,14 @@ if (!b.ok) {
 const nodeArgs = ['--test', '--test-reporter=spec'];
 if (filter) nodeArgs.push('--test-name-pattern', filter);
 nodeArgs.push('tests/**/*.test.mjs');
+// A crashed ROM can hang the emulator inside a test, so the whole run has a limit.
+const TIMEOUT_MS = 10 * 60 * 1000;
 const r = spawnSync(process.execPath, nodeArgs, {
   cwd: ROOT,
   stdio: 'inherit',
+  timeout: TIMEOUT_MS,
   env: { ...process.env, ...(update ? { UPDATE_GOLDENS: '1' } : {}) },
 });
+if (r.error?.code === 'ETIMEDOUT') console.error(`[test] stopped after ${TIMEOUT_MS / 60000} minutes: probably a hang (a crashed ROM?)`);
 if (update && r.status === 0) console.log('[test] goldens updated (tests/goldens.json)');
 process.exit(r.status ?? 1);

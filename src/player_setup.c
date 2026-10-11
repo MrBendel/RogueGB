@@ -14,7 +14,6 @@ extern SpriteSlot player_slot;
 #define SHADOW_OAM 2
 #define SHADOW_VRAM 8
 #define ANIM_DOWN 0
-#define DIAG 181
 
 extern uint8_t player_anim_dir;
 extern uint16_t player_anim_dist;
@@ -43,7 +42,7 @@ void move_recalc(void) BANKED {
     move_accel = rate_for(move_accel_frames);
     move_decel = rate_for(move_decel_frames);
     move_reverse = rate_for(move_reverse_frames);
-    move_top_diag = (uint16_t)(((uint32_t)move_top * DIAG) >> 8);  // once per change, not per frame
+    move_top_diag = diag_scale(move_top);  // once per change, not per frame
 }
 
 void move_apply_preset(uint8_t preset) BANKED {

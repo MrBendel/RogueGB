@@ -21,11 +21,7 @@ uint8_t fill_n;
 void room_fill_row(void);
 void room_fill_column(void);
 
-uint8_t room_block_at(uint16_t x, uint16_t y) {
-    // Rooms are at most 512 px, so after this check the block indices fit 8 bits.
-    if (x >= room_px_w || y >= room_px_h) return BLK_SOLID;
-    return ROOM_BLOCK_IN(x, y);
-}
+// room_block_at is in assembly (room_fill.s): it's the most-called lookup.
 
 uint8_t room_tile_at(uint8_t tx, uint8_t ty) {
     uint8_t blk = room_map[((uint16_t)((ty >> 1) & 31) << 5) | ((tx >> 1) & 31)];

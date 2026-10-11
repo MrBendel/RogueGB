@@ -7,13 +7,13 @@
 ;
 ; Data layout, matching gfx.c:
 ;   copies[]: dst (2 bytes), src (2), len (1)              -> 5 bytes each
-;   strips[]: x, y, vertical, len, tiles[STRIP_MAX_LEN=21] -> 25 bytes each
+;   strips[]: x, y, vertical, len, tiles[STRIP_MAX_LEN=23] -> 27 bytes each
 ; x and y are background map tile coordinates (0-31); the map is at 0x9800.
 
     .module vram_queue
     .globl _copies, _copy_count, _strips, _strip_count
 
-STRIP_SIZE = 25
+STRIP_SIZE = 27     ; 4 + STRIP_MAX_LEN (gfx.h)
 
     .area _DATA
 q_left:   .ds 1     ; entries left

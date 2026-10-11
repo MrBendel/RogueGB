@@ -17,8 +17,6 @@
 // Brushing a corner by up to this many pixels slides around it instead of stopping.
 #define NUDGE 4
 
-// Diagonal speed factor, 1/sqrt(2) in 0.8 fixed point.
-#define DIAG 181
 
 // The player uses hardware sprites 0-1 and VRAM sprite tiles 0-7; the jump
 // shadow uses sprites 2-3 (drawn under the player) and VRAM tiles 8-9.
@@ -281,7 +279,7 @@ static void start_dash(int8_t dx, int8_t dy) {
         dx = facing_dx[player_facing];
         dy = facing_dy[player_facing];
     }
-    int16_t sp = (dx && dy) ? (int16_t)(((uint32_t)dash_speed * DIAG) >> 8) : (int16_t)dash_speed;
+    int16_t sp = (dx && dy) ? diag_scale(dash_speed) : (int16_t)dash_speed;
     player_vx = dx > 0 ? sp : dx < 0 ? -sp : 0;
     player_vy = dy > 0 ? sp : dy < 0 ? -sp : 0;
     player_dashed = 1;

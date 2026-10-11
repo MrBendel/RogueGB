@@ -152,6 +152,7 @@ export class Emu {
     this.frame = 0;
     this.buttons = 0;
     this._snap = null;
+    this._fb = null;
   }
 
   /** Set the full button state (bitmask of BTN values). */
@@ -170,6 +171,12 @@ export class Emu {
   /** Run one video frame. Inputs set before this call apply to this frame. */
   step() {
     this.gb.next_frame();
+    // The emulator draws its frame buffer line by line. Grab the picture now, at
+    // the frame boundary, while it's one complete frame: finishing the game's
+    // update below runs into the next frame, and a buffer read after that mixes
+    // the top of the new frame with the rest of the old one (a tear that isn't
+    // there on hardware).
+    this._fb = this.gb.frame_buffer_eager();
     this._finishGameFrame();
     this.frame++;
     this._snap = null;
@@ -205,6 +212,12 @@ export class Emu {
     const pc = r.pc;
     r.free();
     if (pc >= lo && pc < hi) return; // already idle in vsync
+    // A crashed ROM can run forever without calling vsync, and step_to has no
+    // limit. The usual crash runs off into RAM or VRAM, so stop there with an
+    // error. (HRAM 0xFF80+ is fine: GBDK's sprite DMA routine runs from there.)
+    if (pc >= 0x8000 && pc < 0xff80) {
+      throw new Error(`CPU is executing outside ROM (pc=0x${pc.toString(16)}) at frame ${this.frame}: the game has crashed`);
+    }
     // Run until the game calls vsync() again. If the update takes longer than a
     // whole frame (a real slowdown), this crosses a frame boundary; replays on the
     // playtest page use the same code, so they stay in sync either way.
@@ -216,8 +229,9 @@ export class Emu {
   }
 
   /** 160x144 RGB (3 bytes per pixel). */
+  /** The last complete frame (160x144 RGB). */
   frameBuffer() {
-    return this.gb.frame_buffer_eager();
+    return this._fb ?? this.gb.frame_buffer_eager();
   }
 
   frameHash() {
@@ -283,9 +297,33 @@ export class Emu {
   loadState(bytes) {
     this.B.StateManager.load_wa(bytes, this.gb, this.B.SaveStateFormat.Bess);
     this._snap = null;
+    this._fb = null;
     // The core keeps its own pad state; resync ours by releasing everything.
     for (const [, key] of this.padMap) this.gb.key_lift(key);
     this.buttons = 0;
+  }
+
+  /**
+   * Write bytes into WRAM (0xC000-0xDFFF) or HRAM. Boytacean has no memory write,
+   * so this round-trips a save state with the bytes patched in. For tests and
+   * tools only (e.g. setting a debug command variable); buttons are kept.
+   */
+  writeBytes(addr, bytes) {
+    const state = this.saveState();
+    const s = parseBess(state);
+    bytes.forEach((v, i) => {
+      const a = addr + i;
+      if (a >= 0xc000 && a < 0xe000) s.ram[a - 0xc000] = v;
+      else if (a >= 0xff80 && a < 0xffff) s.hram[a - 0xff80] = v;
+      else throw new Error(`writeBytes: 0x${a.toString(16)} is not WRAM/HRAM`);
+    });
+    const buttons = this.buttons;
+    this.loadState(state);
+    this.setButtons(buttons);
+  }
+
+  write8(addr, v) {
+    this.writeBytes(addr, [v & 0xff]);
   }
 }
 
