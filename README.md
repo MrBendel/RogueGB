@@ -30,6 +30,7 @@ preset as CUSTOM.
 | `src/title.c` | Title screen. START seeds the run's RNG and starts a run |
 | `src/play.c` | Gameplay scene: the movement lab, HUD row and the pause/tuning panel |
 | `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
+| `src/sprite_slot.c` | Draws a 16×16 character from pre-rendered frames: two 8×16 sprites and a double-buffered 8-tile VRAM slot |
 | `src/room.c` | The current room's 16×16 block grid and collision queries |
 | `src/run_over.c` | Run stats. START returns to the title |
 | `src/run.h` | Per-run state: seed, play time, stats |
@@ -38,8 +39,13 @@ To add a scene: add a `STATE_*` ID and its `*_enter`/`*_update` to `state.h`, th
 it to both switches in `main.c`.
 
 Artwork is converted at build time. `tools/assets.mjs` turns the PNGs listed in its
-`ASSETS` table into 2bpp tile arrays in `build/gen/` (for example `font_tiles`). Images
-must use at most 4 shades.
+`ASSETS` table into C arrays in `build/gen/`:
+
+- **Background tiles** (font, frame): 2bpp tiles, at most 4 shades per image.
+- **Sprites** (`kind: 'sprite'`): 16×16 animation frames for 8×16 sprite mode, for example
+  `spr_player`. Identical and mirror-image columns are stored once, `mirror` builds an
+  animation from another one flipped (left-facing walks come from right-facing ones), and
+  each animation gets a `SPR_<NAME>_ANIM_<ANIM>` index. At most 3 colors plus transparent.
 
 ## Setup (once)
 

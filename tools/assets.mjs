@@ -1,11 +1,25 @@
 // Converts artwork PNGs into GBDK tile data at build time.
 //
-// Each entry in ASSETS becomes build/gen/<name>.c + <name>.h with
+// Each entry in ASSETS becomes build/gen/<name>.c + <name>.h. Two kinds:
+//
+// Background tiles (default kind):
 //   const uint8_t <name>_tiles[];   // 2bpp, 16 bytes per 8x8 tile
 //   #define <NAME>_TILE_COUNT n
-// Pixels map to the 4 DMG shades by brightness (lightest = 0, darkest = 3);
-// transparent pixels become shade 0. Called by build.mjs; the generated files
-// are only rewritten when a source PNG is newer.
+//   Pixels map to the 4 DMG shades by brightness (lightest = 0, darkest = 3);
+//   transparent pixels become shade 0.
+//
+// Sprites (kind: 'sprite'): 16x16 animation frames for 8x16 sprite mode.
+//   <name>_tiles[]   32 bytes per 8x16 column (two 8x8 tiles, top then bottom),
+//                    deduplicated, including columns that are mirror images
+//   <name>_frames[]  4 bytes per frame: left column, left flags, right column,
+//                    right flags (flags = S_FLIPX when the column is drawn mirrored)
+//   <name>_anims[]   2 bytes per animation: first frame, frame count
+//   #define <NAME>_ANIM_<ANIM> index, plus column/frame/anim counts
+//   Transparent pixels are color 0; opaque colors map to 1..3 from lightest to
+//   darkest, with one mapping for all frames of a sprite. `mirror` entries build
+//   an animation from another one flipped horizontally, at no ROM or VRAM cost.
+//
+// Called by build.mjs; generated files are only rewritten when a source PNG is newer.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -20,7 +34,27 @@ export const ASSETS = [
   { name: 'font', src: 'artwork/Fonts for GB Studio/light/default caps thick/ascii.png', first: 0, count: 64 },
   // 3x3 dialog frame: corners, edges and fill, row-major.
   { name: 'frame', src: 'artwork/Fonts for GB Studio/light/frame.png' },
+  // Player, unarmed body set. Left-facing animations are the right-facing ones mirrored.
+  {
+    name: 'spr_player',
+    kind: 'sprite',
+    dir: 'artwork/8bitadventure/Player',
+    anims: {
+      walk_down: numbered('player walk down', 4),
+      walk_up: numbered('player walk up', 4),
+      walk_right: numbered('player walk right', 4),
+      hurt_down: ['player hurt down.png'],
+      hurt_up: ['player hurt up.png'],
+      hurt_right: ['player hurt right.png'],
+    },
+    mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right' },
+  },
 ];
+
+/** "player walk down", 4 -> ["player walk down (1).png", ..., "player walk down (4).png"] */
+function numbered(prefix, n) {
+  return Array.from({ length: n }, (_, i) => `${prefix} (${i + 1}).png`);
+}
 
 /** Minimal PNG decoder: 8-bit RGB/RGBA/gray/gray+alpha/indexed, non-interlaced. */
 export function decodePng(buf) {
@@ -111,6 +145,113 @@ export function toTiles({ width, height, rgba }) {
 }
 
 const hex = (b) => '0x' + b.toString(16).toUpperCase().padStart(2, '0');
+const lumOf = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+const reverseBits = (b) => {
+  let r = 0;
+  for (let i = 0; i < 8; i++) if (b & (1 << i)) r |= 0x80 >> i;
+  return r;
+};
+const S_FLIPX = 0x20;
+
+/** Convert a sprite asset (see the header comment) into its C arrays. */
+export function buildSprite(a) {
+  const dir = path.join(ROOT, a.dir);
+  const animNames = [...Object.keys(a.anims), ...Object.keys(a.mirror ?? {})];
+  const images = {};
+  for (const files of Object.values(a.anims)) {
+    for (const f of files) {
+      const img = decodePng(fs.readFileSync(path.join(dir, f)));
+      if (img.width !== 16 || img.height !== 16) throw new Error(`${a.dir}/${f}: expected 16x16, got ${img.width}x${img.height}`);
+      images[f] = img;
+    }
+  }
+  // One color mapping for the whole sprite: lightest opaque color = 1, darkest = 3.
+  const opaque = new Map();
+  for (const img of Object.values(images)) {
+    for (let i = 0; i < img.rgba.length; i += 4) {
+      if (img.rgba[i + 3] < 128) continue;
+      opaque.set((img.rgba[i] << 16) | (img.rgba[i + 1] << 8) | img.rgba[i + 2], lumOf(img.rgba[i], img.rgba[i + 1], img.rgba[i + 2]));
+    }
+  }
+  if (opaque.size > 3) throw new Error(`${a.name}: ${opaque.size} opaque colors; sprites allow at most 3 plus transparent`);
+  const ranked = [...opaque.entries()].sort((x, y) => y[1] - x[1]).map(([rgb]) => rgb);
+  const colorIndex = new Map(ranked.map((rgb, i) => [rgb, 4 - ranked.length + i]));
+
+  // Encode one 8x16 column of a frame as 32 bytes (top tile, then bottom tile).
+  const column = (img, cx) => {
+    const out = [];
+    for (let y = 0; y < 16; y++) {
+      let lo = 0, hi = 0;
+      for (let x = 0; x < 8; x++) {
+        const i = (y * 16 + cx * 8 + x) * 4;
+        const c = img.rgba[i + 3] < 128 ? 0 : colorIndex.get((img.rgba[i] << 16) | (img.rgba[i + 1] << 8) | img.rgba[i + 2]);
+        lo |= (c & 1) << (7 - x);
+        hi |= (c >> 1) << (7 - x);
+      }
+      out.push(lo, hi);
+    }
+    return out;
+  };
+  const columns = [];
+  const index = new Map(); // bytes -> [column, flags]
+  const addColumn = (bytes) => {
+    const key = bytes.join(',');
+    if (index.has(key)) return index.get(key);
+    const flippedKey = bytes.map(reverseBits).join(',');
+    if (index.has(flippedKey)) {
+      const [col, flags] = index.get(flippedKey);
+      return [col, flags ^ S_FLIPX];
+    }
+    columns.push(bytes);
+    const ref = [columns.length - 1, 0];
+    index.set(key, ref);
+    return ref;
+  };
+
+  const frames = []; // [left column, left flags, right column, right flags]
+  const anims = {}; // name -> [first frame, count]
+  for (const [name, files] of Object.entries(a.anims)) {
+    anims[name] = [frames.length, files.length];
+    for (const f of files) frames.push([...addColumn(column(images[f], 0)), ...addColumn(column(images[f], 1))]);
+  }
+  for (const [name, src] of Object.entries(a.mirror ?? {})) {
+    const [first, count] = anims[src];
+    anims[name] = [frames.length, count];
+    for (let i = 0; i < count; i++) {
+      const [lc, lf, rc, rf] = frames[first + i];
+      frames.push([rc, rf ^ S_FLIPX, lc, lf ^ S_FLIPX]);
+    }
+  }
+  if (columns.length > 255 || frames.length > 255) throw new Error(`${a.name}: too many columns or frames`);
+  const NAME = a.name.toUpperCase();
+  const header = [
+    `// Generated by tools/assets.mjs from ${a.dir}. Do not edit.`,
+    `#ifndef GEN_${NAME}_H`, `#define GEN_${NAME}_H`, '#include <stdint.h>',
+    `#define ${NAME}_COLUMN_COUNT ${columns.length}`,
+    `#define ${NAME}_FRAME_COUNT ${frames.length}`,
+    `#define ${NAME}_ANIM_COUNT ${animNames.length}`,
+    ...animNames.map((n, i) => `#define ${NAME}_ANIM_${n.toUpperCase()} ${i}`),
+    `extern const uint8_t ${a.name}_tiles[];`,
+    `extern const uint8_t ${a.name}_frames[];`,
+    `extern const uint8_t ${a.name}_anims[];`,
+    '#endif', '',
+  ].join('\n');
+  const source = [
+    `// Generated by tools/assets.mjs from ${a.dir}. Do not edit.`,
+    `#include "${a.name}.h"`,
+    `const uint8_t ${a.name}_tiles[] = {`,
+    ...columns.map((t) => '    ' + t.map(hex).join(', ') + ','),
+    '};',
+    `const uint8_t ${a.name}_frames[] = {`,
+    ...frames.map((f) => '    ' + f.map(hex).join(', ') + ','),
+    '};',
+    `const uint8_t ${a.name}_anims[] = {`,
+    ...animNames.map((n) => `    ${anims[n][0]}, ${anims[n][1]}, // ${n}`),
+    '};', '',
+  ].join('\n');
+  return { header, source, stats: { columns: columns.length, frames: frames.length } };
+}
+
 
 /** Regenerates stale assets. Returns the list of generated .c files. */
 export function buildAssets({ quiet = false } = {}) {
@@ -118,12 +259,22 @@ export function buildAssets({ quiet = false } = {}) {
   const self = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs;
   const out = [];
   for (const a of ASSETS) {
-    const src = path.join(ROOT, a.src);
     const c = path.join(GEN_DIR, `${a.name}.c`);
     const h = path.join(GEN_DIR, `${a.name}.h`);
     out.push(c);
+    const sources = a.kind === 'sprite'
+      ? Object.values(a.anims).flat().map((f) => path.join(ROOT, a.dir, f))
+      : [path.join(ROOT, a.src)];
     const genTime = fs.existsSync(c) && fs.existsSync(h) ? fs.statSync(c).mtimeMs : 0;
-    if (genTime > Math.max(fs.statSync(src).mtimeMs, self)) continue;
+    if (genTime > Math.max(self, ...sources.map((f) => fs.statSync(f).mtimeMs))) continue;
+    if (a.kind === 'sprite') {
+      const { header, source, stats } = buildSprite(a);
+      if (!quiet) console.log(`[assets] ${a.dir} -> build/gen/${a.name}.c (${stats.frames} frames, ${stats.columns} unique columns)`);
+      fs.writeFileSync(h, header);
+      fs.writeFileSync(c, source);
+      continue;
+    }
+    const src = sources[0];
     if (!quiet) console.log(`[assets] ${a.src} -> build/gen/${a.name}.c`);
     const all = toTiles(decodePng(fs.readFileSync(src)));
     const tiles = all.slice(a.first ?? 0, (a.first ?? 0) + (a.count ?? all.length));

@@ -2,6 +2,8 @@
 #include "player.h"
 #include "input.h"
 #include "room.h"
+#include "sprite_slot.h"
+#include "spr_player.h"
 
 // Hitbox inside the 16x16 sprite: the feet, narrower than the art so the
 // player fits through 1-block gaps comfortably.
@@ -15,16 +17,18 @@
 // Diagonal speed factor, 1/sqrt(2) in 0.8 fixed point.
 #define DIAG 181
 
-// Hardware sprites (8x16 mode): the placeholder body takes two, plus a facing marker.
-#define SPR_BODY_L 0
-#define SPR_BODY_R 1
-#define SPR_POINTER 2
-#define TILE_BODY_L 0  // tiles 0-1
-#define TILE_BODY_R 2  // tiles 2-3
-#define TILE_POINTER 4 // tiles 4-5
-// Marker offset from the body's center, per facing.
-static const int8_t pointer_dx[8] = {0, 8, 11, 8, 0, -8, -11, -8};
-static const int8_t pointer_dy[8] = {-11, -8, 0, 8, 11, 8, 0, -8};
+// The player uses hardware sprites 0-1 and VRAM sprite tiles 0-7.
+#define PLAYER_OAM 0
+#define PLAYER_VRAM 0
+
+// Animation directions (4) and the walk/hurt animation for each.
+#define ANIM_DOWN 0
+#define ANIM_UP 1
+#define ANIM_RIGHT 2
+#define ANIM_LEFT 3
+static const uint8_t walk_anim[4] = {
+    SPR_PLAYER_ANIM_WALK_DOWN, SPR_PLAYER_ANIM_WALK_UP, SPR_PLAYER_ANIM_WALK_RIGHT, SPR_PLAYER_ANIM_WALK_LEFT,
+};
 
 // Movement profiles. Each character (and later each heir class, M4) points at one,
 // so different characters can move differently. The lab cycles through them with SELECT.
@@ -49,6 +53,12 @@ uint16_t player_y;
 int16_t player_vx;
 int16_t player_vy;
 uint8_t player_facing;
+uint8_t player_anim_dir;    // ANIM_DOWN/UP/RIGHT/LEFT: which way the art faces
+uint8_t player_anim_frame;  // frame within the current animation
+uint16_t player_anim_dist;  // distance walked since the last frame step, 8.8
+uint16_t anim_step = 8 << 8; // tunable: px walked per animation frame
+
+static SpriteSlot player_slot;
 
 uint16_t move_top;
 uint8_t move_accel_frames;
@@ -85,38 +95,15 @@ const char *move_preset_name(void) {
     return move_preset < MOVE_PRESET_COUNT ? move_profiles[move_preset].name : "CUSTOM";
 }
 
-// Build the placeholder art: a rounded 16x16 box (light fill, dark outline)
-// and a 4x4 dot for the facing marker.
-static void load_placeholder_tiles(void) {
-    static const uint16_t shape[16] = {
-        0x3FFC, 0x7FFE, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
-        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x7FFE, 0x3FFC,
-    };
-    static const uint16_t outline[16] = {
-        0x3FFC, 0x4002, 0x8001, 0x8001, 0x8001, 0x8001, 0x8001, 0x8001,
-        0x8001, 0x8001, 0x8001, 0x8001, 0x8001, 0x8001, 0x4002, 0x3FFC,
-    };
-    uint8_t data[6 * 16];
-    for (uint8_t r = 0; r < 16; r++) {
-        // Left half: tiles 0-1 (rows 0-15 run through both), right half: tiles 2-3.
-        data[r * 2] = shape[r] >> 8;
-        data[r * 2 + 1] = outline[r] >> 8;
-        data[32 + r * 2] = shape[r] & 0xFF;
-        data[32 + r * 2 + 1] = outline[r] & 0xFF;
-        data[64 + r * 2] = data[64 + r * 2 + 1] = r < 4 ? 0xF0 : 0x00;
-    }
-    set_sprite_data(0, 6, data);
-}
-
 void player_init(uint8_t px, uint8_t py) {
-    load_placeholder_tiles();
-    set_sprite_tile(SPR_BODY_L, TILE_BODY_L);
-    set_sprite_tile(SPR_BODY_R, TILE_BODY_R);
-    set_sprite_tile(SPR_POINTER, TILE_POINTER);
+    slot_init(&player_slot, PLAYER_OAM, PLAYER_VRAM);
     player_x = (uint16_t)px << 8;
     player_y = (uint16_t)py << 8;
     player_vx = player_vy = 0;
-    player_facing = DIR_UP;
+    player_facing = DIR_DOWN;
+    player_anim_dir = ANIM_DOWN;
+    player_anim_frame = 0;
+    player_anim_dist = 0;
 }
 
 // Move v one step toward target t, using the rate that fits the situation.
@@ -195,6 +182,35 @@ static void move_y(void) {
     player_vy = 0;
 }
 
+static void update_anim(int8_t dx, int8_t dy) {
+    // Which way the art faces. On a diagonal, keep the current direction if it's part
+    // of the diagonal (so the sprite doesn't flip back and forth); otherwise face sideways.
+    uint8_t h = dx > 0 ? ANIM_RIGHT : dx < 0 ? ANIM_LEFT : 0xFF;
+    uint8_t v = dy > 0 ? ANIM_DOWN : dy < 0 ? ANIM_UP : 0xFF;
+    if (h != 0xFF && v != 0xFF) {
+        if (player_anim_dir != h && player_anim_dir != v) player_anim_dir = h;
+    } else if (h != 0xFF) player_anim_dir = h;
+    else if (v != 0xFF) player_anim_dir = v;
+
+    if (!dx && !dy && !player_vx && !player_vy) {
+        // Standing still: the first walk frame is the standing pose.
+        player_anim_frame = 0;
+        player_anim_dist = 0;
+        return;
+    }
+    // Step the walk cycle by distance covered, so faster movement animates faster.
+    uint16_t ax = player_vx < 0 ? -player_vx : player_vx;
+    uint16_t ay = player_vy < 0 ? -player_vy : player_vy;
+    uint16_t step = ax > ay ? ax : ay;
+    if (!step) step = move_top;  // pushing against a wall: walk in place
+    player_anim_dist += step;
+    if (player_anim_dist >= anim_step) {
+        player_anim_dist -= anim_step;
+        uint8_t count = spr_player_anims[(walk_anim[player_anim_dir] << 1) + 1];
+        if (++player_anim_frame >= count) player_anim_frame = 0;
+    }
+}
+
 void player_update(void) {
     uint8_t dpad = joy & 0x0F;
     int8_t dx = 0, dy = 0;
@@ -210,13 +226,12 @@ void player_update(void) {
 
     move_x();
     move_y();
+    update_anim(dx, dy);
 }
 
 void player_draw(void) {
-    // Playfield (0,0) is screen (0,0); hardware sprites are offset by (8, 16).
-    uint8_t sx = FX_PX(player_x) + 8, sy = FX_PX(player_y) + 16;
-    move_sprite(SPR_BODY_L, sx, sy);
-    move_sprite(SPR_BODY_R, sx + 8, sy);
-    // Marker: a 4x4 dot centered on (body center + offset); the dot is the tile's top-left.
-    move_sprite(SPR_POINTER, sx + 6 + pointer_dx[player_facing], sy + 6 + pointer_dy[player_facing]);
+    uint8_t anim = walk_anim[player_anim_dir];
+    slot_set_frame(&player_slot, spr_player_tiles, spr_player_frames, spr_player_anims[anim << 1] + player_anim_frame);
+    // Playfield (0,0) is screen (0,0).
+    slot_move(&player_slot, FX_PX(player_x), FX_PX(player_y));
 }

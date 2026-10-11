@@ -1,8 +1,12 @@
 {
   "title": "2d35324a",
-  "start-room": "f834360f",
+  "start-room": "18cd548e",
   "paused": "a73919ad",
   "run-over": "21e8e2ae",
-  "lab-moved": "9983d474",
-  "tuning": "6a008aa4"
+  "lab-moved": "ce43abe3",
+  "tuning": "6a008aa4",
+  "player-down": "18cd548e",
+  "player-up": "2652d9da",
+  "player-right": "7d00c52b",
+  "player-left": "feec6d90"
 }

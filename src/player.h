@@ -26,6 +26,9 @@ extern uint16_t player_y;
 extern int16_t player_vx;  // px/frame, 8.8
 extern int16_t player_vy;
 extern uint8_t player_facing;
+extern uint8_t player_anim_dir;    // art direction: 0 down, 1 up, 2 right, 3 left
+extern uint8_t player_anim_frame;  // frame within the walk cycle (0 = standing)
+extern uint16_t anim_step;         // tunable: px walked per animation frame, 8.8
 
 // --- tunables (changed by presets and the pause-screen tuner) ---
 extern uint16_t move_top;            // top speed, px/frame 8.8
