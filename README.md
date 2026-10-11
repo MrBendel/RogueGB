@@ -1,5 +1,7 @@
 # RogueGB
 
+The plan, the design decisions and the milestones are in [ROADMAP.md](ROADMAP.md).
+
 A Game Boy roguelite with run-and-gun shooting, built in C with
 [GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a
 placeholder play scene (a ship that moves and shoots) with pause, and a run-over screen
@@ -59,6 +61,10 @@ source-level debugging, and it reads the `.sym` file.
 - **Record**: records your input from the current moment and saves it to `replays\recordings\`
 - **Report bug**: writes your note, a screenshot and the last 10–30 seconds of input to
   `replays\bugs\`, along with save states from the start and end of that clip
+
+Every push to `main` also deploys the page to GitHub Pages at
+**https://mrbendel.github.io/RogueGB/** (built and tested by `.github/workflows/pages.yml`).
+Open it on a phone to test with the touch controls.
 
 A hosted copy of the same page runs on claude.ai, so you can test from a phone or
 share it with someone else. Reports filed there are saved with the page, and Claude

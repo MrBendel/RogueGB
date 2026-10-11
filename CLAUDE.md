@@ -1,5 +1,7 @@
 # Notes for Claude sessions on RogueGB
 
+- Plan and design decisions: `ROADMAP.md`. Tasks are GitHub issues grouped by milestone
+  (`gh issue list --milestone "M1 · Combat feel (one room)"`). Update ROADMAP.md when a decision changes.
 - Engine: GBDK-2020 4.5.0. Reference docs are in `docs/gbdk/` (start with `docs/gbdk/README.md`).
 - The user's machine is Windows. They build and test with `npm run play` / `npm test` (Node 22+).
 - The cloud workspace has no package or GitHub network access. To build there:
@@ -8,6 +10,8 @@
   `tests/`, `web/`, `package.json`) or work from the copy committed last session.
 - Verify every change with `node tools/test.mjs`. Look at screenshots in
   `build/test-output/` with Read when visuals change.
+- GitHub Pages playtest (for phones): https://mrbendel.github.io/RogueGB/. It redeploys on every push to
+  `main` via `.github/workflows/pages.yml`, which also runs the tests.
 - Hosted playtest page: https://claude.ai/artifact/WMUTtgB8UAt25gGkRmybDX
   - To update it after a build, run `node tools/bundle.mjs` and publish
     `build/playtest.html` to that URL with the Artifact tool. Keep capabilities `{db:{}, downloads:true}`.
