@@ -53,7 +53,7 @@ app = app.replace(/^import \{([\s\S]*?)\} from '\.\.\/harness\/emu\.mjs';/m, (_m
 if (/^import /m.test(app)) throw new Error('bundle: unhandled import in web/app.js');
 
 const backend = `
-// Hosted playtest backend: ROM is embedded; reports go to the artifact db.
+// Hosted playtest backend: ROM is embedded; reports go to the artifact db (or localStorage on GitHub Pages).
 const __b64 = (s) => { const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
 window.RGB_WASM = __b64(${JSON.stringify(wasm.toString('base64'))});
 const __ROM = ${JSON.stringify(rom.toString('base64'))};
@@ -62,32 +62,45 @@ const __BUILT = ${JSON.stringify(new Date().toISOString())};
 const __claude = window.claude;
 const __db = __claude?.use ? __claude.use('db') : Promise.resolve(null);
 const __dl = __claude?.use ? __claude.use('downloads') : Promise.resolve(null);
+const __lsGet = () => { try { return JSON.parse(localStorage.getItem('rgb.replays') || '[]'); } catch { return []; } };
+const __lsSet = (arr) => { try { localStorage.setItem('rgb.replays', JSON.stringify(arr.slice(0, 40))); } catch {} };
 window.RGB_BACKEND = {
   name: 'hosted',
   async loadRom() { return { rom: __b64(__ROM), sym: __SYM, label: 'hosted build ' + __BUILT.slice(0, 16).replace('T', ' ') }; },
   async listReplays() {
-    const db = await __db; if (!db) return [];
+    const db = await __db;
+    if (!db) return __lsGet().map((v) => ({ id: v.id, name: (v.kind === 'bug' ? 'bug' : 'rec') + ' · ' + v.length + 'f · ' + (v.note || v.created.slice(0, 16)) }));
     const snap = await db.collection('reports').orderBy('created', 'desc').limit(40).get();
     return snap.docs.map((d) => { const v = d.data(); return { id: d.id, name: (v.kind === 'bug' ? 'bug' : 'rec') + ' · ' + v.length + 'f · ' + (v.note || v.created.slice(0, 16)) }; });
   },
   async getReplay(id) {
-    const db = await __db; const d = await db.doc('reports/' + id).get();
+    const db = await __db;
+    if (!db) { const found = __lsGet().find((v) => v.id === id); if (!found) throw new Error('replay not found'); return found.replay; }
+    const d = await db.doc('reports/' + id).get();
     return JSON.parse(d.data().replay);
   },
   async saveReplay(replay, kind) {
     const db = await __db;
-    if (!db) throw new Error('saving needs the Claude artifact viewer');
+    if (!db) {
+      const id = 'local-' + Date.now().toString(36);
+      const all = __lsGet();
+      all.unshift({ id, kind, note: replay.note || '', created: replay.created, length: replay.length, rom_crc32: replay.rom.crc32, replay });
+      __lsSet(all);
+      return id;
+    }
     const ref = await db.collection('reports').add({
       kind, note: replay.note || '', created: replay.created, length: replay.length,
       rom_crc32: replay.rom.crc32, replay: JSON.stringify(replay),
     });
     return ref.id;
   },
-  async download(filename, data) {
-    const dl = await __dl;
-    if (!dl) throw new Error('downloads unavailable here');
-    await dl.save({ filename, data });
-  },
+  ...(__claude?.use ? {
+    async download(filename, data) {
+      const dl = await __dl;
+      if (!dl) throw new Error('downloads unavailable here');
+      await dl.save({ filename, data });
+    },
+  } : {}),
 };
 `;
 
