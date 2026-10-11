@@ -150,3 +150,49 @@ test('screen: movement lab after moving', () => {
 test('screen: tuning panel', () => {
   matchGolden(startRun().idle(2).tap('START').idle(8).tap('DOWN').tap('RIGHT').idle(2), 'tuning');
 });
+
+// --- wall contact and camera wobble (jitter reports) --------------------------
+
+test('pushing into a wall builds no speed into it, in every direction', () => {
+  // Left wall, then top wall (left column), then the ledge below the start (bottom).
+  const emu = startRun().idle(2);
+  for (const [setup, push, axis] of [
+    [(e) => e.hold('LEFT', 80), 'LEFT', 'player_vx'],
+    [(e) => e.hold('UP', 200), 'UP', 'player_vy'],
+  ]) {
+    setup(emu);
+    for (let f = 0; f < 12; f++) {
+      emu.hold(push, 1);
+      assert.equal(emu.v(axis, 'i16'), 0, `${push}: speed into the wall at frame ${f}`);
+    }
+  }
+  const ledge = startRun().idle(2);
+  for (let f = 0; f < 12; f++) {
+    ledge.hold('DOWN', 1);
+    assert.equal(ledge.v('player_vy', 'i16'), 0, `DOWN onto the ledge at frame ${f}`);
+  }
+});
+
+test('sliding along a wall below: full speed along it, and the camera does not bob', () => {
+  // The start position stands on the ledge (row 7, columns 3-6); push DOWN+RIGHT along it.
+  const emu = startRun().idle(2);
+  const camY = [];
+  for (let f = 0; f < 14; f++) {
+    emu.hold('DOWN+RIGHT', 1);
+    assert.equal(emu.v('player_vy', 'i16'), 0, `no speed into the ledge at frame ${f}`);
+    camY.push(emu.v('cam_y', 'u16'));
+  }
+  assert.equal(emu.v('player_vx', 'i16'), PRESETS[0].top, 'full speed along the wall, not the diagonal component');
+  assert.equal(new Set(camY).size, 1, `camera y steady: ${camY.join(' ')}`);
+});
+
+test('steady diagonal movement keeps the player at a fixed spot on screen (no wobble)', () => {
+  const emu = startRun().idle(2).hold('UP', 60).hold('RIGHT', 300).hold('UP', 40);
+  emu.hold('RIGHT+DOWN', 34); // camera settles into its lead
+  const screen = [];
+  for (let f = 0; f < 12; f++) {
+    emu.hold('RIGHT+DOWN', 1);
+    screen.push(`${emu.v('player_x', 'u16') - emu.v('cam_x', 'u16')},${emu.v('player_y', 'u16') - emu.v('cam_y', 'u16')}`);
+  }
+  assert.equal(new Set(screen).size, 1, `screen positions: ${screen.join(' ')}`);
+});

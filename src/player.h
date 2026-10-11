@@ -92,13 +92,14 @@ void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y);
 // Can ground-level things (enemies, bullets) hit the player right now?
 uint8_t player_hittable(void);
 
-void player_init(uint16_t px, uint16_t py);
+#include <gb/gb.h>
+void player_init(uint16_t px, uint16_t py) BANKED;  // player_setup.c (banked)
 void player_update(void);
 void player_draw(void);
 
-void move_apply_preset(uint8_t preset);
+void move_apply_preset(uint8_t preset) BANKED;
 // Recompute the per-frame rates after changing a tunable.
-void move_recalc(void);
+void move_recalc(void) BANKED;
 const char *move_preset_name(void);
 
 #endif

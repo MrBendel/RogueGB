@@ -27,13 +27,6 @@
 #define SHADOW_OAM 2
 #define SHADOW_VRAM 8
 
-// Shadow: a 14x3 ellipse in color 2 at the bottom of an 8x16 column. This is the
-// left half; the right half is the same column drawn flipped.
-static const uint8_t shadow_tiles[32] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x3F, 0x00, 0x7F, 0x00, 0x3F,
-};
-
 // Unit vectors for the 8 facings (clockwise from up), used for a dash with no d-pad input.
 static const int8_t facing_dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
 static const int8_t facing_dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
@@ -120,7 +113,7 @@ uint16_t dash_speed = 768; // px/frame 8.8
 uint8_t dash_frames = 8;
 uint8_t dash_iframes = 12;
 
-static SpriteSlot player_slot;
+SpriteSlot player_slot;  // also used by player_setup.c
 
 uint16_t move_top;
 uint8_t move_accel_frames;
@@ -132,61 +125,8 @@ uint16_t move_decel;
 uint16_t move_reverse;
 uint16_t move_top_diag;  // top speed per axis on a diagonal (top / sqrt 2), derived
 
-// Rate that covers `top` in at most `frames` frames (rounded up so it never takes longer).
-static uint16_t rate_for(uint8_t frames) {
-    if (!frames) frames = 1;
-    return (move_top + frames - 1) / frames;
-}
-
-void move_recalc(void) {
-    move_accel = rate_for(move_accel_frames);
-    move_decel = rate_for(move_decel_frames);
-    move_reverse = rate_for(move_reverse_frames);
-    move_top_diag = (uint16_t)(((uint32_t)move_top * DIAG) >> 8);  // once per change, not per frame
-}
-
-void move_apply_preset(uint8_t preset) {
-    const MoveProfile *p = &move_profiles[preset];
-    move_preset = preset;
-    move_top = p->top;
-    move_accel_frames = p->accel;
-    move_decel_frames = p->decel;
-    move_reverse_frames = p->reverse;
-    move_recalc();
-}
-
 const char *move_preset_name(void) {
     return move_preset < MOVE_PRESET_COUNT ? move_profiles[move_preset].name : "CUSTOM";
-}
-
-void player_init(uint16_t px, uint16_t py) {
-    slot_init(&player_slot, PLAYER_OAM, PLAYER_VRAM);
-    player_x = px;
-    player_y = py;
-    player_xs = player_ys = 0;
-    player_vx = player_vy = 0;
-    player_facing = DIR_DOWN;
-    player_anim_dir = ANIM_DOWN;
-    player_anim_frame = 0;
-    player_anim_dist = 0;
-    player_z = player_vz = 0;
-    player_air = player_dashed = player_dash_timer = player_invuln = player_jump_buffer = 0;
-    player_roll_len = player_roll_t = 0;
-    player_fall_timer = player_blink = 0;
-    player_falls = 0;
-    player_hp = PLAYER_HP_MAX;
-    player_hits = 0;
-    safe_x = px;
-    safe_y = py;
-    safe_z = 0;
-    player_jumps = player_dashes = 0;
-    set_sprite_data(SHADOW_VRAM, 2, shadow_tiles);
-    set_sprite_tile(SHADOW_OAM, SHADOW_VRAM);
-    set_sprite_tile(SHADOW_OAM + 1, SHADOW_VRAM);
-    set_sprite_prop(SHADOW_OAM, 0);
-    set_sprite_prop(SHADOW_OAM + 1, S_FLIPX);
-    hide_sprite(SHADOW_OAM);
-    hide_sprite(SHADOW_OAM + 1);
 }
 
 // Move v one step toward target t, using the rate that fits the situation.
@@ -441,6 +381,29 @@ static void update_pit_fall(void) {
     take_damage(1);  // also starts the blink
 }
 
+// Is the player against a wall in direction dx (x axis) or dy (y axis)? Yes if
+// the whole side touches, or one corner touches by more than NUDGE pixels. A
+// corner clipped by NUDGE or less isn't a wall: move_x/move_y slide around it.
+static uint8_t wall_x(int8_t dx) {
+    uint16_t edge = dx > 0 ? player_x + HB_X + HB_W : player_x + HB_X - 1;
+    uint16_t top = player_y + HB_Y, bot = player_y + HB_Y + HB_H - 1;
+    uint8_t ht = blocked(edge, top), hb = blocked(edge, bot);
+    if (ht && hb) return 1;
+    if (ht) return 16 - (top & 0x0F) > NUDGE;
+    if (hb) return (bot & 0x0F) + 1 > NUDGE;
+    return 0;
+}
+
+static uint8_t wall_y(int8_t dy) {
+    uint16_t edge = dy > 0 ? player_y + HB_Y + HB_H : player_y + HB_Y - 1;
+    uint16_t left = player_x + HB_X, right = player_x + HB_X + HB_W - 1;
+    uint8_t hl = blocked(left, edge), hr = blocked(right, edge);
+    if (hl && hr) return 1;
+    if (hl) return 16 - (left & 0x0F) > NUDGE;
+    if (hr) return (right & 0x0F) + 1 > NUDGE;
+    return 0;
+}
+
 void player_update(void) {
     if (player_blink) player_blink--;
     if (player_fall_timer) {
@@ -458,9 +421,24 @@ void player_update(void) {
     update_jump(dx, dy);
     // A dash ignores steering; afterwards the normal easing brings the speed back down.
     if (!player_dash_timer) {
-        int16_t speed = (dx && dy) ? (int16_t)move_top_diag : (int16_t)move_top;
-        player_vx = step_axis(player_vx, dx > 0 ? speed : dx < 0 ? -speed : 0);
-        player_vy = step_axis(player_vy, dy > 0 ? speed : dy < 0 ? -speed : 0);
+        // Pushing into a wall: no speed builds up against it (it would creep in
+        // sub-pixel steps and make the camera's lead bob), and with a diagonal
+        // input the player slides along it at full speed rather than the diagonal
+        // component (0.71 px/frame, which steps unevenly).
+        int8_t mx = dx, my = dy;
+        if (mx && wall_x(mx)) {
+            mx = 0;
+            player_vx = 0;
+            player_xs = 0;
+        }
+        if (my && wall_y(my)) {
+            my = 0;
+            player_vy = 0;
+            player_ys = 0;
+        }
+        int16_t speed = (mx && my) ? (int16_t)move_top_diag : (int16_t)move_top;
+        player_vx = step_axis(player_vx, mx > 0 ? speed : mx < 0 ? -speed : 0);
+        player_vy = step_axis(player_vy, my > 0 ? speed : my < 0 ? -speed : 0);
     }
 
     move_x();

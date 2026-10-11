@@ -11,9 +11,14 @@ const BLK_SOLID = 1, BLK_PIT = 2, BLK_RAISED = 3;
 const cam = (emu) => ({ x: emu.v('cam_x', 'u16'), y: emu.v('cam_y', 'u16') });
 const pos = (emu) => ({ x: emu.v('player_x', 'u16'), y: emu.v('player_y', 'u16') });
 
-/** Every visible background tile matches the room map. Returns the number checked. */
-function assertViewMatchesRoom(emu, label) {
-  const { x, y } = cam(emu);
+/**
+ * Every background tile visible at camera position `view` matches the room map.
+ * Returns the number checked. Pass the camera from the *previous* frame: a frame's
+ * update queues its new rows/columns and scroll, and the vblank after it applies
+ * both, so that's the view the hardware is showing (and the tiles it has).
+ */
+function assertViewMatchesRoom(emu, label, view = cam(emu)) {
+  const { x, y } = view;
   const map = emu.symbols.addr('room_map');
   let n = 0;
   for (let ty = y >> 3; ty <= (y + VIEW_H - 1) >> 3; ty++) {
@@ -79,7 +84,15 @@ test('while moving, the camera leads in the direction of travel', () => {
 
 test('background tiles streamed in while scrolling always match the room', () => {
   let checked = 0;
-  walkToBottomRight(startRun().idle(2), (emu, label) => { if (emu.frame % 7 === 0) checked += assertViewMatchesRoom(emu, label); });
+  let shown = null;
+  walkToBottomRight(startRun().idle(2), (emu, label) => {
+    // The scroll registers hold the previous frame's camera: that's what's on screen.
+    if (shown && emu.frame % 7 === 0) {
+      assert.deepEqual({ x: emu.read8(0xff43), y: emu.read8(0xff42) }, { x: shown.x & 0xff, y: shown.y & 0xff });
+      checked += assertViewMatchesRoom(emu, label, shown);
+    }
+    shown = cam(emu);
+  });
   assert.ok(checked > 10000, `checked ${checked} tiles`);
 });
 

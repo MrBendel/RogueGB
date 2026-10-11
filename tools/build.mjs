@@ -160,6 +160,8 @@ export function build({ clean = false, quiet = false } = {}) {
 
     const bank0 = checkBank0(out.replace(/\.gb$/, '.noi'));
     if (!bank0.ok) {
+      // Remove the ROM so the next build can't treat it as up to date and skip this check.
+      fs.rmSync(out, { force: true });
       console.error(bank0.error);
       return { ok: false, ms: Date.now() - t0, error: bank0.error };
     }

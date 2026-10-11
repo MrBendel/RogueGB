@@ -18,6 +18,9 @@ uint8_t cam_ease = 3;
 // multiply is a long software routine on this CPU).
 static int16_t cam_fx;
 static int16_t cam_fy;
+// The target point last frame, to move the camera by the same pixel step.
+static uint16_t last_tx;
+static uint16_t last_ty;
 // Top-left tile of the area currently drawn in the background map.
 static uint8_t drawn_tx;
 static uint8_t drawn_ty;
@@ -32,12 +35,14 @@ static int16_t target_axis(uint16_t t, uint8_t half, int16_t v, uint16_t room_px
     return pos;
 }
 
-// Close 1/2^cam_ease of the gap, but always at least 1/16 px, so the camera
-// lands exactly on the target instead of stalling a fraction short of it.
+// Close 1/2^cam_ease of the gap. Within a pixel of the target, lock onto it: in
+// steady movement the camera then moves in exactly the player's pixel steps, so
+// the player can't wobble a pixel against the background (easing at fractional
+// positions rounds differently from the player's own steps).
+#define CAM_LOCK 16  // 1 px in 12.4
 static int16_t ease_step(int16_t gap) {
-    int16_t step = gap >> cam_ease;
-    if (!step && gap) step = gap > 0 ? 1 : -1;
-    return step;
+    if (gap <= CAM_LOCK && gap >= -CAM_LOCK) return gap;
+    return gap >> cam_ease;
 }
 
 static void apply(void) {
@@ -47,7 +52,17 @@ static void apply(void) {
     scroll_y = (uint8_t)cam_y;
 }
 
+// Keep a camera coordinate inside the room.
+static int16_t clamp_axis(int16_t pos, uint16_t room_px, uint8_t view) {
+    int16_t max = room_px > view ? (int16_t)((room_px - view) << 4) : 0;
+    if (pos < 0) return 0;
+    if (pos > max) return max;
+    return pos;
+}
+
 void camera_init(uint16_t tx, uint16_t ty) {
+    last_tx = tx;
+    last_ty = ty;
     cam_fx = target_axis(tx, VIEW_W / 2, 0, room_px_w, VIEW_W);
     cam_fy = target_axis(ty, VIEW_H / 2, 0, room_px_h, VIEW_H);
     apply();
@@ -65,12 +80,20 @@ void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
     int16_t gx = target_axis(tx, VIEW_W / 2, vx, room_px_w, VIEW_W);
     int16_t gy = target_axis(ty, VIEW_H / 2, vy, room_px_h, VIEW_H);
     if (cam_ease) {
+        // Move with the player's own pixel steps first, then ease only what's
+        // left (the lead, or catching up). An eased camera alone trails a moving
+        // player by a few pixels and steps on different frames, so the player
+        // would wobble a pixel against the background.
+        cam_fx = clamp_axis(cam_fx + ((int16_t)(tx - last_tx) << 4), room_px_w, VIEW_W);
+        cam_fy = clamp_axis(cam_fy + ((int16_t)(ty - last_ty) << 4), room_px_h, VIEW_H);
         cam_fx += ease_step(gx - cam_fx);
         cam_fy += ease_step(gy - cam_fy);
     } else {
         cam_fx = gx;
         cam_fy = gy;
     }
+    last_tx = tx;
+    last_ty = ty;
     apply();
 
     // Stream in the columns and rows that came into view. The new area is drawn

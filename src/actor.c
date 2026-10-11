@@ -9,37 +9,7 @@
 #include "spr_peashooter.h"
 #include "spr_pea.h"
 
-// Sprite VRAM: the player owns tiles 0-9 (frame slot + shadow); enemy graphics
-// are loaded from here on, one block per type.
-#define ENEMY_VRAM 16
-
-// Slime: rests, then hops toward the player.
-#define SLIME_REST 30
-#define SLIME_HOP 24
-#define SLIME_HP 3
-#define STATE_REST 0
-#define STATE_HOP 1
-// Peashooter: stationary, faces the player, flashes, fires.
-#define SHOOTER_HP 4
-
-// Hitboxes inside the 16x16 frame: x offset, width, y offset, height.
-#define ENEMY_HB_X 2
-#define ENEMY_HB_W 12
-#define ENEMY_HB_Y 6
-#define ENEMY_HB_H 10
-// Bullet hitbox inside its 8x16 sprite (the art is roughly rows 3-12).
-#define BULLET_HB_X 1
-#define BULLET_HB_W 6
-#define BULLET_HB_Y 5
-#define BULLET_HB_H 6
-
-#define DIAG 181  // 1/sqrt(2) in 0.8 fixed point
-
-// Enemies think at 30 Hz: each runs its AI every other frame (alternating by
-// slot, so half the enemies update each frame) and covers two frames' worth of
-// movement and timers when it does. A standard Game Boy saving; bullets still
-// move every frame. Timers are therefore kept even.
-#define AI_STEP 2
+#include "actor_internal.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -60,8 +30,8 @@ uint8_t actor_t0[ACTOR_MAX];
 uint8_t actor_p0[ACTOR_MAX];
 uint8_t actor_t1[ACTOR_MAX];
 uint8_t actor_p1[ACTOR_MAX];
-static uint8_t actor_count;   // slots in use (enemies aren't removed yet)
-static uint8_t bullet_count;  // bullets alive
+uint8_t actor_count;   // slots in use (enemies aren't removed yet)
+uint8_t bullet_count;  // bullets alive
 
 uint8_t bullet_alive[BULLET_MAX];
 uint16_t bullet_x[BULLET_MAX];
@@ -84,12 +54,12 @@ uint16_t bullet_speed = 384;    // 1.5 px/frame
 // Per-type graphics: converted frame tables and where the tiles went in VRAM.
 // Frame tables are copied to RAM at load: the graphics live in a switchable bank,
 // and these are read every frame (cache_frame, bullets) while other banks may be in.
-static uint8_t slime_frames[SPR_SLIME_FRAME_COUNT * 4];
-static uint8_t shooter_frames[SPR_PEASHOOTER_FRAME_COUNT * 4];
-static uint8_t pea_frames[SPR_PEA_FRAME_COUNT * 4];
+uint8_t slime_frames[SPR_SLIME_FRAME_COUNT * 4];
+uint8_t shooter_frames[SPR_PEASHOOTER_FRAME_COUNT * 4];
+uint8_t pea_frames[SPR_PEA_FRAME_COUNT * 4];
 static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames};
-static uint8_t type_vram[ACTOR_TYPE_COUNT];
-static uint8_t bullet_vram;
+uint8_t type_vram[ACTOR_TYPE_COUNT];
+uint8_t bullet_vram;
 
 // Shared with actor_draw.s (hand-written sprite emission).
 uint8_t draw_rotation;
@@ -99,40 +69,10 @@ uint8_t bullet_draw_prop;
 void actors_emit(void);
 void bullets_emit(void);
 void bullets_move(void);
-static uint8_t oam_end_last;
-
-void actors_init(void) {
-    // Load each type's columns (2 tiles each) into its own block of sprite VRAM,
-    // and its frame table into RAM. The graphics are in switchable banks, and this
-    // may be called from banked code, so restore the caller's bank afterwards.
-    uint8_t saved = CURRENT_BANK;
-    uint8_t v = ENEMY_VRAM;
-    type_vram[ACTOR_SLIME] = v;
-    SWITCH_ROM(BANK(spr_slime));
-    set_sprite_data(v, SPR_SLIME_COLUMN_COUNT * 2, spr_slime_tiles);
-    memcpy(slime_frames, spr_slime_frames, sizeof(slime_frames));
-    v += SPR_SLIME_COLUMN_COUNT * 2;
-    type_vram[ACTOR_PEASHOOTER] = v;
-    SWITCH_ROM(BANK(spr_peashooter));
-    set_sprite_data(v, SPR_PEASHOOTER_COLUMN_COUNT * 2, spr_peashooter_tiles);
-    memcpy(shooter_frames, spr_peashooter_frames, sizeof(shooter_frames));
-    v += SPR_PEASHOOTER_COLUMN_COUNT * 2;
-    bullet_vram = v;
-    SWITCH_ROM(BANK(spr_pea));
-    set_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles);
-    memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames));
-    SWITCH_ROM(saved);
-
-    for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;
-    for (uint8_t i = 0; i < BULLET_MAX; i++) bullet_alive[i] = 0;
-    actors_active = bullets_active = 0;
-    actor_count = bullet_count = 0;
-    bullets_fired = 0;
-    oam_end_last = 0;
-}
+uint8_t oam_end_last;
 
 // Look up the sprite tiles and flags for an actor's current frame.
-static void cache_frame(uint8_t i) {
+void actor_cache_frame(uint8_t i) {
     uint8_t type = actor_type[i];
     const uint8_t *f = type_frames[type] + (actor_frame[i] << 2);
     uint8_t base = type_vram[type];
@@ -145,33 +85,6 @@ static void cache_frame(uint8_t i) {
 // Count a timer down by one AI step; returns the new value (stops at 0).
 static uint8_t tick(uint8_t t) {
     return t > AI_STEP ? t - AI_STEP : 0;
-}
-
-uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) {
-    for (uint8_t i = 0; i < ACTOR_MAX; i++) {
-        if (actor_type[i] != ACTOR_NONE) continue;
-        actor_type[i] = type;
-        actor_x[i] = x;
-        actor_y[i] = y;
-        actor_xs[i] = actor_ys[i] = 0;
-        actor_vx[i] = actor_vy[i] = 0;
-        actor_face[i] = FACE_DOWN;
-        actor_frame[i] = 0;
-        actor_flash[i] = 0;
-        actor_state[i] = STATE_REST;
-        actor_count++;
-        // Stagger timers by slot so a wave doesn't move in lockstep.
-        if (type == ACTOR_SLIME) {
-            actor_hp[i] = SLIME_HP;
-            actor_timer[i] = SLIME_REST + (i << 3);
-        } else {
-            actor_hp[i] = SHOOTER_HP;
-            actor_timer[i] = shooter_interval + (i << 4);
-        }
-        cache_frame(i);
-        return i;
-    }
-    return 0xFF;
 }
 
 // Position + velocity in 8/16-bit pieces (same as the player's).
@@ -341,7 +254,7 @@ void actors_update(void) {
             uint8_t frame = actor_frame[i];
             if (type == ACTOR_SLIME) update_slime(i);
             else update_shooter(i);
-            if (actor_frame[i] != frame) cache_frame(i);
+            if (actor_frame[i] != frame) actor_cache_frame(i);
         }
         // Touching an enemy hurts (unless you're jumping over it).
         if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&

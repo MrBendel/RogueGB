@@ -65,9 +65,10 @@ extern uint8_t shooter_telegraph; // frames of warning flash before a shot
 extern uint16_t bullet_speed;     // px/frame 8.8
 
 // Load enemy graphics into VRAM and clear the pools (call with the display off).
-void actors_init(void);
+#include <gb/gb.h>
+void actors_init(void) BANKED;  // actor_setup.c (banked)
 // Spawn an actor with its frame's top-left at room pixel (x, y). Returns its index, or 0xFF if full.
-uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y);
+uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED;
 // Move, think and collide with the player.
 void actors_update(void);
 // Hand out hardware sprites from `first_oam` on and draw actors and bullets.

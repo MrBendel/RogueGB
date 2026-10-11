@@ -24,7 +24,7 @@ test('bank 0 holds all fixed code and data, with room to spare', () => {
 test('cold code and once-per-scene data live in switchable banks', () => {
   for (const name of [
     'title_enter', 'title_update', 'play_enter', 'play_update', 'run_over_enter', 'run_over_update',
-    'run_start', 'room_load_lab',
+    'run_start', 'room_load_lab', 'actors_init', 'actor_spawn', 'player_init', 'move_apply_preset', 'move_recalc',
     'font_tiles', 'frame_tiles', 'spr_slime_tiles', 'spr_peashooter_tiles', 'spr_pea_tiles',
   ]) {
     assert.ok(bankOf(name) >= 1, `${name} is banked`);
