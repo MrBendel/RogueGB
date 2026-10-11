@@ -96,6 +96,23 @@ export const ASSETS = [
     crop8: 4,
     anims: { fly: numbered('peashooter bullet', 2) },
   },
+  // The player's shot and the auto-aim reticle (#5), drawn by tools/make-ui-art.mjs.
+  {
+    name: 'spr_shot',
+    kind: 'sprite',
+    bank: true, // loaded into VRAM once per scene
+    dir: 'artwork/ui',
+    crop8: 4,
+    anims: { fly: numbered('shot', 2) },
+  },
+  {
+    // The right half of each frame is the left half mirrored, so each frame is one column.
+    name: 'spr_reticle',
+    kind: 'sprite',
+    bank: true, // loaded into VRAM once per scene
+    dir: 'artwork/ui',
+    anims: { pulse: numbered('reticle', 2) },
+  },
 ];
 
 /** "player walk down", 4 -> ["player walk down (1).png", ..., "player walk down (4).png"] */

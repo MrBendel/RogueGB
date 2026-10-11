@@ -41,14 +41,18 @@ the design notes behind it.
 
 ### Auto-aim
 
-This is a casual game, so the player picks *when* to shoot and the game picks *what* to shoot at.
+This is a casual game, so the player picks *when* to shoot and the game picks *what* to shoot at. Built in #5 (`src/aim.c`, `aim_score.s`, `shots.s`).
 
-- Holding A fires at the **nearest enemy in line of sight**, with a bias toward the facing direction, so you tend to shoot what you're running at.
-- **Sticky targeting:** the target only changes when it dies, leaves line of sight, or another enemy is clearly closer. This stops aim from jittering between two enemies.
-- A small **reticle sprite** marks the current target, so auto-aim is never a mystery.
+- Holding A fires at the **nearest enemy in line of sight**, with a bias toward the facing direction, so you tend to shoot what you're running at. Distance is octagonal (max + min/2). Enemies within 90 degrees of facing count as `aim_bias` (24 px) nearer. Range is `aim_range` (112 px).
+- **Sticky targeting:** the target only changes when it dies, leaves line of sight, or another enemy is better by more than `aim_sticky` (16 px). This stops aim from jittering between two enemies.
+- **Line of sight** samples the straight line at most 16 px apart. Walls and raised blocks block it; pits don't.
+- **Cost control:** one enemy is rescored every other frame, round-robin, so each is rescored about 4 times a second. Scoring skips its turn when the frame is running late.
+- A small **reticle sprite** (corner brackets, pulsing) marks the current target, so auto-aim is never a mystery.
 - Aim isn't limited to 8 directions. Bullets use a 32-direction velocity table, so they fly straight at the target.
 - With no target, shots go in the facing direction.
-- Tuning to do in M1: aim range, the facing-bias angle, and whether some weapons (shotguns, lobbed grenades) aim differently.
+- Shots: 3 px/frame, one every 10 frames while A is held, up to 6 in flight. Each shot flies until its range runs out or it hits a wall. A hit takes 1 HP and flashes the enemy; at 0 HP the enemy is removed. No shooting while rolling or falling into a pit.
+- The pause tuner has FIRE RATE, SHOT SPD, AIM RANGE and AIM BIAS.
+- Still to tune: whether some weapons (shotguns, lobbed grenades) aim differently (M3 weapons).
 
 ### Jumping and height
 

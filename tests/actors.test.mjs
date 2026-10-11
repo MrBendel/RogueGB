@@ -175,6 +175,20 @@ test('CPU budget: a fight in the arena never slows down, with room to spare', ()
   assert.ok(worst < 48000, `worst frame used ${worst} cycles past vblank`);
 });
 
+test('CPU budget: fighting with A held (auto-aim and shots) stays within the cap', () => {
+  // The same fight, shooting throughout: targeting (~1k a frame, ~4k on scoring
+  // frames) plus up to 6 shots in flight and a shot fired every 10 frames.
+  const emu = inArena();
+  let worst = 0;
+  for (let f = 0; f < 600; f++) {
+    emu.hold(fight(f) + '+A', 1);
+    worst = Math.max(worst, emu.lastFrameCycles);
+    if (emu.v('next_state') === RUN_OVER) break;
+  }
+  assert.ok(emu.v('shots_hit', 'u16') > 0, 'the shots land');
+  assert.ok(worst < 52000, `worst frame used ${worst} cycles past vblank`);
+});
+
 test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () => {
   // Stress: every 30 frames the debug command refills both pools around the
   // player (and HP is topped up so the run goes on). Refill frames spawn a whole
@@ -190,7 +204,8 @@ test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () 
     }
     emu.hold(fight(f), 1);
     assert.equal(emu.v('next_state'), emu.v('game_state'), 'still fighting');
-    if (!refill) cycles.push(emu.lastFrameCycles);
+    // The refill frame overruns (a whole wave at once), so the next starts late.
+    if (f % 30 > 1) cycles.push(emu.lastFrameCycles);
   }
   assert.ok(emu.v('actors_active') >= 6 && emu.v('bullets_active') >= 15, 'the pools are nearly full');
   cycles.sort((x, y) => x - y);

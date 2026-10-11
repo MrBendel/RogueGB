@@ -1,6 +1,7 @@
 #pragma bank 255
 // Gameplay scene. For now this is the movement lab: one room with pillars,
 // a placeholder player, and movement presets to compare.
+//   A (hold)      fire at the auto-aim target (aim.c)
 //   B             jump; B again in mid-air dashes
 //   SELECT        cycle movement presets
 //   START         pause; the pause panel tunes movement and jump values
@@ -16,11 +17,12 @@
 #include "player.h"
 #include "camera.h"
 #include "actor.h"
+#include "aim.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
-// Pause panel: 15 tile rows on the window layer.
-#define PAUSE_H 15
+// Pause panel: the whole screen (18 tile rows) on the window layer.
+#define PAUSE_H 18
 #define PAUSE_WY (144 - PAUSE_H * 8)
 #define TUNE_ROW0 2  // window row of the first tunable
 
@@ -49,11 +51,16 @@ static const Tunable tunables[] = {
     {"DASH FR", KIND_FRAMES, 0, &dash_frames, 1, 1, 30},
     {"CAM LEAD", KIND_FRAMES, 0, &cam_lead, 2, 0, 40},
     {"CAM EASE", KIND_NUM, 0, &cam_ease, 1, 0, 5},
+    {"FIRE RATE", KIND_FRAMES, 0, &fire_interval, 1, 2, 60},
+    {"SHOT SPD", KIND_FX16, 0, &shot_speed, 32, 128, 1024},
+    {"AIM RANGE", KIND_NUM, 0, &aim_range, 8, 32, 160},
+    {"AIM BIAS", KIND_NUM, 0, &aim_bias, 4, 0, 64},
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
-// Hardware sprites 0-3 are the player's (body and shadow); actors draw from here.
-#define FIRST_ACTOR_OAM 4
+// Hardware sprites 0-3 are the player's (body and shadow), 4-5 the aim reticle
+// (aim.c); actors draw from here.
+#define FIRST_ACTOR_OAM 6
 // The arena is the screen below the lab (rows 16-22): entering it spawns a wave.
 #define ARENA_TOP (16 * BLOCK_SIZE)
 
@@ -70,8 +77,12 @@ uint8_t tune_sel;
 uint8_t wave_spawned;
 uint8_t hud_hp;  // HP shown on the HUD, to redraw only on change
 // Debug/test hook: tests set this through emulator memory writes; the next frame
-// runs it and clears it. 1 = stress wave (actors_debug_stress).
+// runs it and clears it. 1 = stress wave (actors_debug_stress); 2 = spawn an actor
+// of debug_type at (debug_x, debug_y), its slot in debug_slot.
 uint8_t debug_cmd;
+uint8_t debug_type;
+uint16_t debug_x, debug_y;
+uint8_t debug_slot;
 
 void run_start(uint16_t seed) BANKED {
     run_seed = seed;
@@ -127,8 +138,7 @@ static void draw_pause(void) {
         win_text(2, TUNE_ROW0 + i, tunables[i].label);
         draw_tune_value(i);
     }
-    win_text(2, TUNE_ROW0 + TUNE_COUNT, "START  RESUME");
-    win_text(2, TUNE_ROW0 + TUNE_COUNT + 1, "SELECT END RUN");
+    win_text(1, TUNE_ROW0 + TUNE_COUNT, "START:BACK SEL:END");
 }
 
 void play_enter(void) BANKED {
@@ -215,6 +225,7 @@ void play_update(void) BANKED {
 
     if (debug_cmd) {
         if (debug_cmd == 1) actors_debug_stress(player_x, player_y);
+        else if (debug_cmd == 2) debug_slot = actor_spawn(debug_type, debug_x, debug_y);
         debug_cmd = 0;
     }
     player_update();
@@ -223,6 +234,7 @@ void play_update(void) BANKED {
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     actors_update(FIRST_ACTOR_OAM);
+    aim_update();
     player_draw();
     if (player_hp != hud_hp) draw_hp();
     if (!player_hp) state_change(STATE_RUN_OVER);

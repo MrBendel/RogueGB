@@ -50,6 +50,13 @@ void room_load_lab(void) BANKED;  // room_lab.c (banked)
 // Block type at the pixel (x, y). Anything outside the room counts as solid,
 // including coordinates that wrapped below zero.
 uint8_t room_block_at(uint16_t x, uint16_t y);
+// Line of sight (room_fill.s): set the start (12.4 fixed point), the step to add
+// before each sample and the number of samples (1+), then call. 1 if no wall or
+// raised block is hit.
+extern uint16_t line_fx, line_fy;
+extern int16_t line_sx, line_sy;
+extern uint8_t line_n;
+uint8_t room_line_clear(void);
 
 // Background tile for room tile coordinates (8x8 tiles; 2x2 per block).
 uint8_t room_tile_at(uint8_t tx, uint8_t ty);

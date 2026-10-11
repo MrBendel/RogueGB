@@ -44,6 +44,9 @@ player, higher = smoother and lazier).
 | `src/actor.c` | Enemies and enemy bullets: pools, AI (slime chaser, peashooter shooter), contact and bullet damage, sprite allocation |
 | `src/actor_draw.s` | Assembly: writes actors into the sprite table |
 | `src/bullets.s` | Assembly: moves, collides and draws enemy bullets in one pass |
+| `src/aim.c` | Banked: auto-aim (#5). Picks a sticky target, fires on A in 32 directions, the reticle |
+| `src/aim_score.s` | Assembly: scores one enemy for auto-aim (distance, facing bias, line of sight), picks the target, draws the reticle |
+| `src/shots.s` | Assembly: the player's shots move, hit walls or enemies, and draw in one pass |
 | `src/room_fill.s` | Assembly: builds background rows/columns for the scrolling camera, and `room_block_at` |
 | `src/room.c` | The current room's 16×16 block grid and collision queries |
 | `src/run_over.c` | Run stats. START returns to the title |
@@ -62,15 +65,20 @@ waits on every byte. Keep per-frame code cheap:
   (and they sit in bank 0). Split a 16-bit multiply into 8-bit halves (`diag_scale`), or
   cache it when its inputs rarely change (the camera lead, diagonal speeds).
 - The hottest loops are in assembly (`*.s` in `src/`). Enemies think at 30 Hz (half of
-  them each frame), and at most one slime checks a landing spot per frame.
+  them each frame).
+- Expensive checks are spread out. One terrain check per frame (`terrain_checks_left`):
+  a slime's landing spot or auto-aim's line of sight, whoever asks first. Auto-aim scores
+  one enemy every other frame, and skips its turn when the frame is running late (it reads
+  the current scanline, `LY_REG`).
 - The camera streams one strip per frame and moves at most 4 px per axis per frame, so the
   background always keeps up; anything faster forces a full, very slow redraw.
 
 Tests guard it: `tests/camera.test.mjs` fails if a frame of walking, scrolling and jumping
 uses more than half the frame (`emu.lastFrameCycles`); `tests/actors.test.mjs` caps an arena
-fight at 48k and checks full pools (8 enemies, 20 bullets: median ~51k, at most 1% of
-frames over). `node harness/profile.mjs walk|arena|stress` shows which functions the
-cycles go to in the worst frames, and how many frames are over budget.
+fight at 48k (52k while shooting) and checks full pools (8 enemies, 20 bullets: median
+~54k, at most 1% of frames over). `node harness/profile.mjs walk|arena|shoot|stress` shows
+which functions the cycles go to in the worst frames (banked ones too), and how many
+frames are over budget.
 
 **ROM banks.** The CPU sees bank 0 (0x0000-0x3FFF) at all times and one switchable bank
 at a time at 0x4000-0x7FFF. Bank 0 holds the hot paths: the main loop, vblank code, player,
@@ -89,7 +97,9 @@ switchable banks:
 The build fails if anything fixed spills past 0x4000 (it would land in whichever bank is
 switched in) or bank 0 is over 90% full; `tests/banks.test.mjs` checks what lives where.
 
-Artwork is converted at build time. `tools/assets.mjs` turns the PNGs listed in its
+Artwork is converted at build time. Small UI sprites the packs don't have (the aim
+reticle, the player's shot) are drawn as ASCII art in `tools/make-ui-art.mjs`, which
+writes them to `artwork/ui/`. `tools/assets.mjs` turns the PNGs listed in its
 `ASSETS` table into C arrays in `build/gen/`:
 
 - **Background tiles** (font, frame): 2bpp tiles, at most 4 shades per image.

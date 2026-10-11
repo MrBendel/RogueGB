@@ -4,6 +4,7 @@
 #include <gb/gb.h>
 #include <string.h>
 #include "actor_internal.h"
+#include "aim.h"
 
 void actors_init(void) BANKED {
     // Load each type's columns (2 tiles each) into its own block of sprite VRAM,
@@ -26,6 +27,7 @@ void actors_init(void) BANKED {
     set_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles);
     memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames));
     SWITCH_ROM(saved);
+    aim_init(v + SPR_PEA_COLUMN_COUNT * 2);
 
     for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;
     for (uint8_t i = 0; i < BULLET_MAX; i++) bullets[i].alive = 0;
@@ -46,6 +48,8 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
         actor_vx[i] = actor_vy[i] = 0;
         actor_face[i] = FACE_DOWN;
         actor_try[i] = 0;
+        actor_hurt[i] = 0;
+        aim_score[i] = AIM_NONE;  // a new enemy in this slot: not scored yet
         actor_frame[i] = 0;
         actor_flash[i] = 0;
         actor_state[i] = STATE_REST;

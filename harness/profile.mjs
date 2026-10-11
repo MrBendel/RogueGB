@@ -2,16 +2,22 @@
 // functions the cycles went to (sampling the program counter on every instruction).
 //   node harness/profile.mjs walk    walk the lab: left column, bottom row
 //   node harness/profile.mjs arena   fight in the arena
+//   node harness/profile.mjs shoot   the same fight, holding A (auto-aim, the player's shots)
 //   node harness/profile.mjs stress  arena with the pools kept full (8 enemies, 20 bullets)
 // Functions without an exported symbol (static C functions, asm local labels) are
 // counted under the nearest symbol before them.
 import fs from 'node:fs';
 import { loadRom } from './node.mjs';
 const emu = loadRom();
+// Symbols for bank 0 (0x0000-0x3FFF) and the switchable banks (0x4000-0x7FFF,
+// which the .noi lists as bank << 16 | address).
 const syms = fs.readFileSync('build/roguegb.noi', 'utf8').split(/\r?\n/).map((l) => /^DEF (\S+) 0x([0-9A-F]+)/i.exec(l)).filter(Boolean)
-  .map((m) => ({ name: m[1], addr: parseInt(m[2], 16) })).filter((s) => s.addr < 0x8000 && (/^[_.][A-Za-z_]/.test(s.name) || /^F[a-z_]+\$/.test(s.name)))
+  .map((m) => ({ name: m[1], addr: parseInt(m[2], 16) }))
+  .filter((s) => (s.addr & 0xFFFF) < 0x8000 && !/^_rR[AO]M/.test(s.name) && (/^[_.][A-Za-z_]/.test(s.name) || /^F[a-z_]+\$/.test(s.name)))
   .sort((a, b) => a.addr - b.addr);
-const fn = (pc) => { let lo = 0, hi = syms.length - 1, best = '?'; while (lo <= hi) { const mid = (lo + hi) >> 1; if (syms[mid].addr <= pc) { best = syms[mid].name; lo = mid + 1; } else hi = mid - 1; } return best.replace(/\$0\$0$/, ''); };
+const fnAt = (key) => { let lo = 0, hi = syms.length - 1, best = '?'; while (lo <= hi) { const mid = (lo + hi) >> 1; if (syms[mid].addr <= key) { best = syms[mid].name; lo = mid + 1; } else hi = mid - 1; } return best.replace(/\$0\$0$/, ''); };
+// In 0x4000-0x7FFF, which code it is depends on the bank switched in.
+const fn = (pc) => fnAt(pc >= 0x4000 && pc < 0x8000 ? (emu.read8(0xFF90) << 16) | pc : pc);
 const m = { RIGHT: 1, LEFT: 2, UP: 4, DOWN: 8, A: 16, B: 32, SELECT: 64, START: 128 };
 const mask = (s) => s.split('+').filter(Boolean).reduce((a, d) => a | m[d], 0);
 const step = (b, n = 1) => { emu.setButtons(mask(b)); emu.run(n); };
@@ -19,18 +25,22 @@ const v = (n) => emu.read16(emu.symbols.addr(n));
 step('', 30); step('START'); step('', 42);
 const scenario = process.argv[2] || 'walk';
 const toArena = () => { step('LEFT', 80); step('DOWN', 200); while (v('player_x') < 148) step('RIGHT'); step('', 10); while (v('player_y') < 256) step('DOWN'); };
-const fight = (n) => Array.from({ length: n }, (_, f) => (f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT'));
+// Strafe left and right, jumping now and then; `shoot` holds A throughout.
+const fight = (n, shoot = false) => Array.from({ length: n }, (_, f) => (f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT') + (shoot ? '+A' : ''));
 // Before some frames, poke memory (the stress scenario refills the pools).
 let before = () => {};
 const pokedAt = new Set();
-const plan = scenario === 'arena'
-  ? (toArena(), fight(600))
+const plan = scenario === 'arena' || scenario === 'shoot'
+  ? (toArena(), fight(600, scenario === 'shoot'))
   : scenario === 'stress'
     ? (toArena(), step('DOWN', 24), (before = (f) => {
         // Every 30 frames: refill to 8 enemies + 20 bullets around the player, and
         // top up HP so the run doesn't end.
         if (f % 30 === 0) {
+          // The refill spawns a whole wave in one frame and overruns, so the next
+          // frame starts late too: leave both out.
           pokedAt.add(f);
+          pokedAt.add(f + 1);
           emu.write8(emu.symbols.addr('debug_cmd'), 1);
           emu.write8(emu.symbols.addr('player_hp'), 6);
         }

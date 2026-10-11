@@ -1,10 +1,10 @@
 {
   "title": "2d35324a",
   "start-room": "6b7e4eaf",
-  "paused": "b77f5176",
+  "paused": "9842ff54",
   "run-over": "21e8e2ae",
   "lab-moved": "99ae785c",
-  "tuning": "f4f4082f",
+  "tuning": "8eaba0a1",
   "player-down": "6b7e4eaf",
   "player-up": "4210b9f6",
   "player-right": "96a072ce",
@@ -14,5 +14,6 @@
   "scrolled-corner": "ee05d52b",
   "on-platform": "69e06262",
   "pit-fall": "7f365051",
-  "arena": "90cf9ae3"
+  "arena": "ceea8ce2",
+  "aim-shooting": "706f7039"
 }

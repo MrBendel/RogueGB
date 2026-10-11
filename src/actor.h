@@ -42,6 +42,7 @@ extern int16_t actor_vy[ACTOR_MAX];
 extern uint8_t actor_hp[ACTOR_MAX];
 extern uint8_t actor_face[ACTOR_MAX];
 extern uint8_t actor_try[ACTOR_MAX];
+extern uint8_t actor_hurt[ACTOR_MAX];
 extern uint8_t actor_frame[ACTOR_MAX];  // frame index into the type's frame table
 extern uint8_t actor_flash[ACTOR_MAX];  // frames left drawing with the flash palette
 
@@ -64,6 +65,11 @@ extern Bullet bullets[BULLET_MAX];
         (b)->vx = (vx_); (b)->vx_sign = (b)->vx < 0 ? -1 : 0; \
         (b)->vy = (vy_); (b)->vy_sign = (b)->vy < 0 ? -1 : 0; \
     } while (0)
+
+// One expensive terrain check per frame (a slime's landing spot, or auto-aim
+// scoring an enemy with its line of sight): set to 1 by actors_update; whoever
+// needs one takes it, or waits a frame. Spreads the cost so they never pile up.
+extern uint8_t terrain_checks_left;
 
 // Watchable counters.
 extern uint8_t actors_active;

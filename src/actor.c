@@ -10,6 +10,7 @@
 #include "spr_pea.h"
 
 #include "actor_internal.h"
+#include "aim.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -23,6 +24,7 @@ int16_t actor_vy[ACTOR_MAX];
 uint8_t actor_hp[ACTOR_MAX];
 uint8_t actor_face[ACTOR_MAX];
 uint8_t actor_try[ACTOR_MAX];  // slimes: which landing spot the next hop tries
+uint8_t actor_hurt[ACTOR_MAX];  // think steps left flashing after a hit (set by shots.s)
 uint8_t actor_frame[ACTOR_MAX];
 uint8_t actor_flash[ACTOR_MAX];
 // Sprite data for the current frame (tile and flags per column), cached when the
@@ -31,7 +33,7 @@ uint8_t actor_t0[ACTOR_MAX];
 uint8_t actor_p0[ACTOR_MAX];
 uint8_t actor_t1[ACTOR_MAX];
 uint8_t actor_p1[ACTOR_MAX];
-uint8_t actor_count;   // slots in use (enemies aren't removed yet)
+uint8_t actor_count;   // slots in use
 uint8_t bullet_count;  // bullets alive
 
 Bullet bullets[BULLET_MAX];
@@ -87,7 +89,9 @@ void actor_cache_frame(uint8_t i) {
 }
 
 // Count a timer down by one AI step; returns the new value (stops at 0).
-uint8_t slime_hops_left;  // hops that may still start this frame (update_slime)
+// Expensive terrain checks still allowed this frame (actor.h): a slime's landing
+// spot, auto-aim's line of sight.
+uint8_t terrain_checks_left;
 
 // Position + velocity in 8/16-bit pieces (same as the player's).
 static uint16_t moved(uint16_t pos, uint8_t frac, int16_t v, uint8_t *new_frac) {
@@ -139,10 +143,11 @@ static void update_slime(uint8_t i) {
     if (actor_state[i] == STATE_REST) {
         actor_frame[i] = 0;
         if ((actor_timer[i] = tick(actor_timer[i]))) return;
-        // Checking a landing spot is the costly part (4 block lookups), so only one
-        // slime checks per frame, and each think step checks one spot.
-        if (!slime_hops_left) return;
-        slime_hops_left--;
+        // Checking a landing spot is the costly part (4 block lookups), so it
+        // takes the frame's terrain check (or waits), and each think step checks
+        // one spot.
+        if (!terrain_checks_left) return;
+        terrain_checks_left--;
         // Hop toward where the player is now.
         int8_t sx = toward(actor_x[i] + 8, player_x + 8);
         int8_t sy = toward(actor_y[i] + 11, player_y + 12);
@@ -191,6 +196,7 @@ static void update_slime(uint8_t i) {
 }
 
 static void fire_bullet(uint8_t i, int8_t sx, int8_t sy) {
+    if (bullet_count == BULLET_MAX) return;  // full: don't scan for a free slot
     Bullet *b = bullets;
     for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
         if (b->alive) continue;
@@ -253,12 +259,31 @@ static void update_bullets(void) {
     if (bullet_hit) player_hurt(1, bullet_hit_x, bullet_hit_y);
 }
 
+// The player's shots (shots.s): set up its inputs, then remove enemies a shot
+// finished off.
+static void update_shots(void) {
+    shot_parity = (uint8_t)frame_count & 1;
+    uint8_t f = (((uint8_t)frame_count >> 2) & 1) << 2;  // the pellet turns every 4 frames
+    shot_draw_tile = shot_vram + (shot_frames[f] << 1);
+    shot_draw_prop = shot_frames[f + 1];
+    shots_killed = 0;
+    shots_update();
+    if (!shots_killed) return;
+    for (uint8_t i = 0; i < ACTOR_MAX; i++) {
+        if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
+        actor_type[i] = ACTOR_NONE;
+        actor_count--;
+        enemies_killed++;
+        aim_score[i] = AIM_NONE;
+        if (aim_target == i) aim_target = AIM_NONE;
+    }
+}
+
 void actors_update(uint8_t first_oam) {
-    actors_active = actor_count;  // no enemy is removed yet
+    terrain_checks_left = 1;
     if (actor_count) {
         uint16_t px = player_x + PLAYER_HB_X, py = player_y + PLAYER_HB_Y;
         uint8_t hittable = player_hittable();
-        slime_hops_left = 1;
         // Each enemy thinks and checks contact with the player on alternate frames
         // (half the slots each frame). At these speeds a touch registering one
         // frame later is imperceptible, and it halves the cost of this loop.
@@ -269,6 +294,13 @@ void actors_update(uint8_t first_oam) {
             if (type == ACTOR_SLIME) update_slime(i);
             else update_shooter(i);
             if (actor_frame[i] != frame) actor_cache_frame(i);
+            // Hit by a shot: flash for a few think steps.
+            if (actor_hurt[i]) {
+                actor_hurt[i]--;
+                actor_flash[i] = 1;
+            } else if (type == ACTOR_SLIME) {
+                actor_flash[i] = 0;  // (peashooters set their own: the warning flash)
+            }
             // Touching an enemy hurts (unless you're jumping over it).
             if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
@@ -277,9 +309,12 @@ void actors_update(uint8_t first_oam) {
             }
         }
     }
-    // Draw: actors (actor_draw.s), then bullets as they move (bullets.s).
+    // Draw: actors (actor_draw.s), then the player's shots and enemy bullets as
+    // they move (shots.s, bullets.s).
     oam_next = first_oam;
     if (actor_count) actors_emit();
+    if (shot_count) update_shots();
+    actors_active = actor_count;
     update_bullets();
     uint8_t used = oam_next;
     sprites_used = used;

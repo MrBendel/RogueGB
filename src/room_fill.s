@@ -260,3 +260,76 @@ _room_block_at::
 9$:
     ld a, #1                ; BLK_SOLID
     ret
+
+; uint8_t room_line_clear(void)
+; Is the line from (line_fx, line_fy) clear of walls and raised blocks? Samples
+; line_n points (1 or more), adding (line_sx, line_sy) before each. Positions are 12.4 fixed point,
+; so a position's high byte is its block coordinate (16 px blocks): each sample is
+; two 16-bit adds and a map read. Both ends must be inside the room.
+; Returns 1 if clear. Used by auto-aim (aim.c) for line of sight.
+    .globl _line_fx, _line_fy, _line_sx, _line_sy, _line_n
+
+    .area _DATA
+_line_fx:: .ds 2
+_line_fy:: .ds 2
+_line_sx:: .ds 2
+_line_sy:: .ds 2
+_line_n::  .ds 1
+samples:   .ds 1
+
+    .area _CODE
+_room_line_clear::
+    ld a, (_line_n)
+    ld (samples), a
+    ld hl, #_line_fx
+    ld a, (hl+)
+    ld c, a
+    ld b, (hl)              ; bc = fx
+    ld hl, #_line_fy
+    ld a, (hl+)
+    ld e, a
+    ld d, (hl)              ; de = fy
+20$:
+    ld hl, #_line_sx        ; fx += sx
+    ld a, c
+    add a, (hl)
+    ld c, a
+    inc hl
+    ld a, b
+    adc a, (hl)
+    ld b, a                 ; b = block column (high byte of 12.4)
+    ld hl, #_line_sy        ; fy += sy
+    ld a, e
+    add a, (hl)
+    ld e, a
+    inc hl
+    ld a, d
+    adc a, (hl)
+    ld d, a                 ; d = block row
+    ; hl = 0xD000 | row << 5 | column. No bounds check: both ends of the line
+    ; are inside the room, a rectangle, so every point between them is too.
+    ld a, d
+    and a, #7
+    swap a
+    add a, a
+    or a, b
+    ld l, a
+    ld a, d
+    srl a
+    srl a
+    srl a
+    add a, #MAP_HI
+    ld h, a
+    ld a, (hl)
+    cp a, #1                ; BLK_SOLID
+    jr z, 29$
+    cp a, #3                ; BLK_RAISED
+    jr z, 29$
+    ld hl, #samples
+    dec (hl)
+    jr nz, 20$
+    ld a, #1
+    ret
+29$:
+    xor a, a
+    ret
