@@ -10,6 +10,8 @@ the design notes behind it.
 |---|---|
 | View | **Top-down**, at the scale of the Capcom-era (Oracle) Zelda games: 16×16 characters drawn as 2 hardware sprites in 8×16 mode, and 16×16 map blocks. Matches the `artwork/8bitadventure` pack |
 | Rooms | **Mixed sizes.** Most rooms are one screen (10×8 blocks) and slide to the next one, Zelda style. Some are bigger (2×1, 1×2, 2×2 screens) with a camera that follows the player, for arenas and bosses. Room data allows any size from the start |
+| Graphics | **Pre-rendered.** Nothing is drawn or combined pixel by pixel at runtime. Characters get one baked body set per **weapon type** (unarmed, melee, gun), not per weapon, so the 10-sprites-per-line budget stays at 2 sprites per character. Right-facing frames are mirrored for left. All frames live in ROM; VRAM holds only the frames on screen, swapped in when the animation changes (4 tiles = 64 bytes). Specific guns show in the HUD and pickup popup, not in the character's hands. Any combining of layers (body + weapon) happens in the build tools, not in the game. Cheap runtime effects: sprite flips (sprites only; DMG background tiles can't flip, so mirrored background art is pre-rendered by the build), palette changes, sprites stacked by the hardware where the line budget allows |
+| Dynamic content | Only **data** is generated at runtime: floor layouts, room picks and mirroring, spawns, gun stats. It runs during fades, so it has no per-frame budget |
 | HUD | One block row (16 px) on the window layer. **Bottom of the screen for M1**, because the hardware does that for free. A top HUD like Zelda's needs a scanline interrupt; it's an optional M6 polish item |
 | Hardware | **DMG first** (4 shades), with GBC color added later in M6. Gameplay can't depend on color, so elements are shown by bullet shape and impact effect |
 | Order | Get the **combat feel** right in one room before building systems around it |
@@ -86,7 +88,7 @@ One room with real movement, shooting, enemies, damage and death.
 
 - 8-way movement in fixed point (subpixels), with acceleration and friction, and diagonals the same speed as straight lines
 - Tile collision that lets the player slide along walls
-- 16×16 player metasprite with 4-direction walk animation, converted from the art pack (assets.mjs gains sprite-sheet support)
+- Sprite pipeline: assets.mjs converts animation frames to 8×16 sprite tiles with frame tables (mirroring, deduplication), sets per weapon type, frames streamed from ROM into VRAM on animation change; 16×16 animated player
 - Firing with auto-aim: nearest-target selection with a facing bias, sticky targeting, a reticle, 32-direction bullets, a bullet pool, and bullets that stop at walls
 - Actor system: pools for enemies, bullets and pickups, sprite/OAM budget, flicker past 10 sprites per scanline
 - Two enemy archetypes: a **chaser** (slime) and a **shooter** (peashooter, with a telegraph before it fires)
@@ -111,7 +113,7 @@ Turn one room into a seeded floor of hand-made rooms.
 - Doors and Zelda-style scrolling between rooms
 - Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges
 - Enemies outside the camera view are paused or simplified, and their sprites are skipped
-- Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed
+- Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed. Variety from data: rooms mirrored horizontally or vertically (via a block mirror table, since DMG background tiles can't be flipped in hardware), per-room layout variants (pits, platforms, cover), random spawn and decoration picks
 - Doors lock until the room is cleared; cleared rooms are remembered for the run
 - Spawn tables per room
 - Room features built on jumping: rooms with pits to cross, raised-platform layouts, moving platforms
@@ -123,7 +125,7 @@ same layout (with a test for it), and moving between rooms has no visible glitch
 
 ### M3 · Guns and loot
 - Gun data: manufacturer, fire rate, spread, projectile count, speed, damage, element, joke name
-- Seeded procedural gun generation with rarity tiers
+- Seeded procedural gun generation with rarity tiers. A gun is rolled stats plus an icon assembled from pre-drawn part tiles (barrel, body, grip); no runtime pixel work
 - Drops from enemies and chests, pickup and a stat-compare popup
 - 4-weapon loadout: tap SELECT to cycle, hold SELECT for the weapon wheel (d-pad picks a slot); a full loadout means dropping or swapping a weapon on pickup
 - Elements (Fire, Shock, Acid, plus a Slag-style "mark" debuff) against defense layers (flesh, shield, armor), with distinct bullet shapes and impact effects
