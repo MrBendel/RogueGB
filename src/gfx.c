@@ -18,6 +18,7 @@ typedef struct {
     uint8_t *dst;
     const uint8_t *src;
     uint8_t len;
+    uint8_t bank;  // ROM bank holding src (0: bank 0 or RAM)
 } Copy;
 Copy copies[COPY_MAX];
 uint8_t copy_count;
@@ -37,12 +38,13 @@ uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len) {
     return s->tiles;
 }
 
-void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len) {
+void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len, uint8_t bank) {
     if (copy_count == COPY_MAX || vram_ready) gfx_flush();
     Copy *c = &copies[copy_count++];
     c->dst = dst;
     c->src = src;
     c->len = len;
+    c->bank = bank;
 }
 
 void gfx_commit(void) {
@@ -53,7 +55,9 @@ void gfx_commit(void) {
 // each byte waiting for VRAM access (set_vram_byte) when the display is on (the
 // rare fallback when a queue overflows). In vblank, vram_queue.s does this.
 static void write_queued(uint8_t wait) {
+    uint8_t saved = CURRENT_BANK;
     for (uint8_t i = 0; i < copy_count; i++) {
+        if (copies[i].bank) SWITCH_ROM(copies[i].bank);
         uint8_t *d = copies[i].dst;
         const uint8_t *src = copies[i].src;
         uint8_t n = copies[i].len;
@@ -63,6 +67,7 @@ static void write_queued(uint8_t wait) {
             while (n--) *d++ = *src++;
         }
     }
+    SWITCH_ROM(saved);
     copy_count = 0;
     for (uint8_t i = 0; i < strip_count; i++) {
         Strip *s = &strips[i];

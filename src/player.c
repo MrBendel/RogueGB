@@ -112,6 +112,11 @@ uint8_t dash_frames = 8;
 uint8_t dash_iframes = 12;
 
 SpriteSlot player_slot;  // also used by player_setup.c
+// The player's frame and animation tables, copied to RAM by player_init: the
+// sprite is in a switchable bank, and these are read every frame. The tiles stay
+// in ROM; the vblank handler switches their bank in to copy a frame.
+uint8_t player_frames[SPR_PLAYER_FRAME_COUNT * 4];
+uint8_t player_anims[SPR_PLAYER_ANIM_COUNT * 2];
 
 uint16_t move_top;
 uint8_t move_accel_frames;
@@ -261,7 +266,7 @@ static void update_anim(int8_t dx, int8_t dy) {
     player_anim_dist += step;
     if (player_anim_dist >= anim_step) {
         player_anim_dist -= anim_step;
-        uint8_t count = spr_player_anims[(walk_anim[player_anim_dir] << 1) + 1];
+        uint8_t count = player_anims[(walk_anim[player_anim_dir] << 1) + 1];
         if (++player_anim_frame >= count) player_anim_frame = 0;
     }
 }
@@ -471,7 +476,7 @@ void player_draw(void) {
         anim = walk_anim[player_anim_dir];
         frame = player_air ? AIR_FRAME : player_anim_frame;
     }
-    slot_set_frame(&player_slot, spr_player_tiles, spr_player_frames, spr_player_anims[anim << 1] + frame);
+    slot_set_frame(&player_slot, spr_player_tiles, BANK(spr_player), player_frames, player_anims[anim << 1] + frame);
     // Screen position = room position - camera (the camera keeps the player in view).
     // The body is raised by its height; near the top edge the subtraction wraps,
     // which the hardware's 8-bit coordinates handle.

@@ -102,6 +102,10 @@ void move_apply_preset(uint8_t preset) BANKED;
 void move_recalc(void) BANKED;
 const char *move_preset_name(void);
 
+// RAM copies of the sprite's frame and animation tables (player_init).
+extern uint8_t player_frames[];
+extern uint8_t player_anims[];
+
 // 1/sqrt(2) in 0.8 fixed point, for diagonal speeds. diag_scale(v) = v * DIAG >> 8
 // for a 16-bit v, in two 16-bit products (no 32-bit multiply, a large routine).
 #define DIAG 181

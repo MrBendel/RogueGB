@@ -3,7 +3,9 @@
 // work is in player.c (bank 0). The preset table and names stay in bank 0, so
 // move_preset_name's strings are readable from any bank.
 #include <gb/gb.h>
+#include <string.h>
 #include "player.h"
+#include "spr_player.h"
 #include "sprite_slot.h"
 
 extern SpriteSlot player_slot;
@@ -57,6 +59,11 @@ void move_apply_preset(uint8_t preset) BANKED {
 
 
 void player_init(uint16_t px, uint16_t py) BANKED {
+    uint8_t saved = CURRENT_BANK;
+    SWITCH_ROM(BANK(spr_player));
+    memcpy(player_frames, spr_player_frames, SPR_PLAYER_FRAME_COUNT * 4);
+    memcpy(player_anims, spr_player_anims, SPR_PLAYER_ANIM_COUNT * 2);
+    SWITCH_ROM(saved);
     slot_init(&player_slot, PLAYER_OAM, PLAYER_VRAM);
     player_x = px;
     player_y = py;

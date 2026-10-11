@@ -34,8 +34,10 @@ extern uint8_t scroll_y;
 // Returns the buffer to fill with `len` tiles (flushing first if the queue is full).
 uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len);
 // Byte copies into VRAM (tile data). `src` must stay valid until the next vblank.
+// `bank` is the ROM bank holding src (BANK(asset)), or 0 for bank 0 or RAM: the
+// vblank handler switches it in for the copy and back afterwards.
 #define COPY_MAX 4
-void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len);
+void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len, uint8_t bank);
 // Mark this frame's queued updates ready for the next vblank.
 void gfx_commit(void);
 // Write everything queued now (waits for VRAM access if the display is on).

@@ -25,7 +25,7 @@ test('cold code and once-per-scene data live in switchable banks', () => {
   for (const name of [
     'title_enter', 'title_update', 'play_enter', 'play_update', 'run_over_enter', 'run_over_update',
     'run_start', 'room_load_lab', 'gfx_init', 'gfx_clear', 'fade_in', 'fade_out', 'camera_init', 'actors_init', 'actor_spawn', 'player_init', 'move_apply_preset', 'move_recalc',
-    'font_tiles', 'frame_tiles', 'spr_slime_tiles', 'spr_peashooter_tiles', 'spr_pea_tiles',
+    'font_tiles', 'frame_tiles', 'spr_player_tiles', 'spr_slime_tiles', 'spr_peashooter_tiles', 'spr_pea_tiles',
   ]) {
     assert.ok(bankOf(name) >= 1, `${name} is banked`);
   }
@@ -36,8 +36,6 @@ test('hot paths, vblank code and text drawing stay in bank 0', () => {
     'main', 'wait_frame', 'gfx_vbl', 'gfx_commit', 'vram_queue_write',
     'player_update', 'player_draw', 'actors_update', 'actors_emit', 'bullets_update',
     'camera_update', 'room_block_at', 'room_draw_row', 'room_draw_column', 'room_fill_row', 'room_fill_column',
-    // The vblank handler copies the player's frames, whatever bank is switched in.
-    'spr_player_tiles',
     // Banked code passes strings from its own bank to these; if they were in another
     // switchable bank, calling them would hide the caller's strings.
     'bkg_text', 'win_text', 'bkg_number', 'win_number', 'bkg_frame', 'win_frame',

@@ -6,12 +6,13 @@
 ; tear, and VRAM writes the hardware ignores). This is ~20-30 cycles per byte.
 ;
 ; Data layout, matching gfx.c:
-;   copies[]: dst (2 bytes), src (2), len (1)              -> 5 bytes each
+;   copies[]: dst (2 bytes), src (2), len (1), bank (1)    -> 6 bytes each
+;             (bank: the ROM bank holding src, 0 for bank 0 or RAM)
 ;   strips[]: x, y, vertical, len, tiles[STRIP_MAX_LEN=23] -> 27 bytes each
 ; x and y are background map tile coordinates (0-31); the map is at 0x9800.
 
     .module vram_queue
-    .globl _copies, _copy_count, _strips, _strip_count
+    .globl _copies, _copy_count, _strips, _strip_count, __current_bank
 
 STRIP_SIZE = 27     ; 4 + STRIP_MAX_LEN (gfx.h)
 
@@ -41,6 +42,13 @@ _vram_queue_write::
     ld a, (hl+)
     ld b, a             ; bc = source
     ld a, (hl+)         ; length
+    push af
+    ld a, (hl+)         ; bank: switch it in (0 = leave as is)
+    or a, a
+    jr z, 12$
+    ld (0x2000), a      ; rROMB0
+12$:
+    pop af
     push hl             ; next entry
     ld h, b
     ld l, c
@@ -56,6 +64,11 @@ _vram_queue_write::
     dec a
     ld (q_left), a
     jr nz, 10$
+    ; Switch back to the bank the interrupted code had. GBDK's bank switches
+    ; (SWITCH_ROM, banked calls) set _current_bank before the register, so this
+    ; is right even if the interrupt landed between the two.
+    ld a, (__current_bank)
+    ld (0x2000), a
 
     ; ---- background strips --------------------------------------------------
 20$:

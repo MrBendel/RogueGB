@@ -74,13 +74,15 @@ cycles go to in the worst frames, and how many frames are over budget.
 
 **ROM banks.** The CPU sees bank 0 (0x0000-0x3FFF) at all times and one switchable bank
 at a time at 0x4000-0x7FFF. Bank 0 holds the hot paths: the main loop, vblank code, player,
-actors, camera, collision, text drawing, the assembly loops, and the player's sprite frames
-(the vblank handler copies them). Cold code and data go in switchable banks:
+actors, camera, collision, text drawing and the assembly loops. Cold code and data go in
+switchable banks:
 
 - C files that start with `#pragma bank 255` (the scenes, `room_lab.c`). Their entry points
   are declared `BANKED`, so calls switch banks automatically.
-- Assets marked `bank: true` in `tools/assets.mjs` (font, frame, enemy graphics). Code that
-  reads them switches to `BANK(name)` with `SWITCH_ROM` and switches back afterwards.
+- Assets marked `bank: true` in `tools/assets.mjs` (all graphics). Code that reads them
+  switches to `BANK(name)` with `SWITCH_ROM` and switches back afterwards; small tables
+  read every frame are copied to RAM when loaded. Animation frames copied to VRAM go
+  through `gfx_vram_copy` with their bank, and the vblank handler switches it in.
 - Don't pass pointers to banked data into a function in a *different* switchable bank:
   calling it hides the caller's bank. That's why text drawing stays in bank 0.
 

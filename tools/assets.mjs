@@ -46,6 +46,9 @@ export const ASSETS = [
   {
     name: 'spr_player',
     kind: 'sprite',
+    // The vblank handler copies frames from its bank (gfx_vram_copy's bank);
+    // player_init copies the small frame tables to RAM.
+    bank: true,
     dir: 'artwork/8bitadventure/Player',
     anims: {
       walk_down: numbered('player walk down', 4),
@@ -401,8 +404,9 @@ export function buildAssets({ quiet = false } = {}) {
 
 // `bank: true` assets go in a switchable ROM bank (chosen by bankpack). Code that
 // reads them must switch to BANK(<name>) first and switch back afterwards (see
-// gfx_init and actors_init). Assets read every frame, like the player's sprite
-// frames that the vblank handler copies, stay in bank 0.
+// gfx_init and actors_init). Tables read every frame are copied to RAM at load
+// (player_init, actors_init); tiles queued with gfx_vram_copy pass their bank, and
+// the vblank handler switches it in for the copy.
 function bankHeader(a, header) {
   if (!a.bank) return header;
   return header.replace('#include <stdint.h>', `#include <stdint.h>\n#include <gb/gb.h>\nBANKREF_EXTERN(${a.name})`);
