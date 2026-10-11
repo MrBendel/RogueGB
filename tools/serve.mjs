@@ -20,7 +20,7 @@ const ROM = path.join(ROOT, 'build', 'roguegb.gb');
 const SERVED = ['web', 'harness', 'build'];
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript',
-  '.css': 'text/css', '.wasm': 'application/wasm', '.json': 'application/json',
+  '.css': 'text/css', '.wasm': 'application/wasm', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
   '.png': 'image/png', '.gb': 'application/octet-stream', '.noi': 'text/plain', '.sym': 'text/plain',
 };
 

@@ -689,6 +689,34 @@ function onBackendEvent(ev) {
 }
 
 // ---------------------------------------------------------------------------
+// PWA install prompt & service worker
+let deferredInstallPrompt = null;
+const installBtn = $('b-install');
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  installBtn?.classList.remove('hidden');
+});
+addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  installBtn?.classList.add('hidden');
+  toast('RogueGB installed!');
+});
+if (installBtn) {
+  installBtn.onclick = async () => {
+    if (!deferredInstallPrompt) return;
+    haptic(10);
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') installBtn.classList.add('hidden');
+    deferredInstallPrompt = null;
+  };
+}
+if (!window.claude && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
 await (window.RGB_WASM ? initCore({ module_or_path: window.RGB_WASM }) : initCore());
 renderWatches();
 await loadFromBackend();

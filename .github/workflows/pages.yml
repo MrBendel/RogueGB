@@ -47,6 +47,10 @@ jobs:
           mkdir -p build/pages
           cp build/playtest-standalone.html build/pages/index.html
           cp build/roguegb.gb build/pages/roguegb.gb
+          cp build/icon-192.png build/pages/icon-192.png
+          cp build/icon-512.png build/pages/icon-512.png
+          cp web/manifest.webmanifest build/pages/manifest.webmanifest
+          cp web/sw.js build/pages/sw.js
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

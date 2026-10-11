@@ -3,14 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161816">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RogueGB">
 <title>RogueGB Playtest</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
   <header>
     <div class="brand">RogueGB <span>playtest</span></div>
-    <div id="build-status" class="pill">no ROM</div>
+    <div class="row">
+      <button id="b-install" class="hidden" title="Install app">📲 Install</button>
+      <div id="build-status" class="pill">no ROM</div>
+    </div>
   </header>
 
   <main>

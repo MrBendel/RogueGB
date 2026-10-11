@@ -116,9 +116,64 @@ body = body.replace('<span>playtest</span>', `<span>playtest · hosted</span>`);
 
 const script = `<script type="module">\n${backend}\n${boy}\n${emu}\n${app}\n</script>`;
 const page = `<title>RogueGB Playtest</title>\n<style>\n${css}\n</style>\n${body}\n${script}\n`;
+const pwaHead = [
+  '<meta charset="utf-8">',
+  '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
+  '<meta name="theme-color" content="#161816">',
+  '<meta name="mobile-web-app-capable" content="yes">',
+  '<meta name="apple-mobile-web-app-capable" content="yes">',
+  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+  '<meta name="apple-mobile-web-app-title" content="RogueGB">',
+  '<link rel="manifest" href="manifest.webmanifest">',
+  '<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">',
+  '<link rel="apple-touch-icon" href="icon-192.png">',
+].join('');
 const html = standalone
-  ? `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>${page}</body></html>`
+  ? `<!doctype html><html lang="en"><head>${pwaHead}</head><body>${page}</body></html>`
   : page;
 const out = path.join(ROOT, 'build', standalone ? 'playtest-standalone.html' : 'playtest.html');
 fs.writeFileSync(out, html);
+
+if (standalone) {
+  const { encodePng } = await import('../harness/node.mjs');
+  const pal = {
+    0: [0x16, 0x18, 0x16],
+    S: [0xd8, 0xd8, 0xd0],
+    D: [0x98, 0x98, 0x90],
+    B: [0x4a, 0x4e, 0x58],
+    L: [0x9b, 0xbc, 0x0f],
+    P: [0x0f, 0x38, 0x0f],
+    K: [0x22, 0x26, 0x22],
+    A: [0xa8, 0x20, 0x40],
+  };
+  const grid = [
+    '0000000000000000',
+    '00SSSSSSSSSSSS00',
+    '0SSSSSSSSSSSSSS0',
+    '0SSBBBBBBBBBBSS0',
+    '0SSBLLLLLLLLBSS0',
+    '0SSBLLPLLPLLBSS0',
+    '0SSBLLPPPPLLBSS0',
+    '0SSBLLLLLLLLBSS0',
+    '0SSBBBBBBBBBBSS0',
+    '0SSSSSSSSSSSSSS0',
+    '0SS0K0SSSS00ASS0',
+    '0SSKKKSSSSA0SSS0',
+    '0SS0K0SSSSSSSSS0',
+    '0SSSSSSDDSSSSDS0',
+    '00DDDDDDDDDDDD00',
+    '0000000000000000',
+  ];
+  const rgb = new Uint8Array(16 * 16 * 3);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const [r, g, b] = pal[grid[y][x]];
+      const i = (y * 16 + x) * 3;
+      rgb[i] = r; rgb[i + 1] = g; rgb[i + 2] = b;
+    }
+  }
+  fs.writeFileSync(path.join(ROOT, 'build', 'icon-192.png'), encodePng(rgb, { width: 16, height: 16, scale: 12 }));
+  fs.writeFileSync(path.join(ROOT, 'build', 'icon-512.png'), encodePng(rgb, { width: 16, height: 16, scale: 32 }));
+}
+
 console.log(`[bundle] ${path.relative(ROOT, out)} (${(html.length / 1024).toFixed(0)} KB, ROM ${rom.length} bytes, crc ${(await import('../harness/emu.mjs')).crc32(new Uint8Array(rom))})`);
