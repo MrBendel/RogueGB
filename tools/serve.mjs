@@ -130,6 +130,10 @@ const server = http.createServer(async (req, res) => {
       req.on('close', () => clients.delete(res));
       return;
     }
+    if (p === '/api/artwork-presets' && req.method === 'GET') {
+      const { loadArtworkPresets } = await import('./sprite-cli.mjs');
+      return json(res, loadArtworkPresets());
+    }
     if (p === '/api/replays' && req.method === 'GET') return json(res, listReplays());
     if (p === '/api/replays' && req.method === 'POST') return json(res, { id: saveReplay(JSON.parse(await readBody(req))) });
     if (p.startsWith('/api/replays/')) {

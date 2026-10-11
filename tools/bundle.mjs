@@ -51,15 +51,20 @@ function moduleToIife(src, name) {
 
 const boy = moduleToIife(read('harness/vendor/boytacean/boytacean.js'), '__boy');
 const emu = moduleToIife(read('harness/emu.mjs'), '__emu');
+const sprgen = moduleToIife(read('harness/sprite-gen.mjs'), '__sprgen');
+const { loadArtworkPresets } = await import('./sprite-cli.mjs');
+const artworkPresets = loadArtworkPresets();
 let app = read('web/app.js');
 app = app.replace(/^import initCore, \* as B from [^;]+;/m, 'const B = __boy; const initCore = __boy.default;');
 app = app.replace(/^import \{([\s\S]*?)\} from '\.\.\/harness\/emu\.mjs';/m, (_m, list) => `const {${list}} = __emu;`);
+app = app.replace(/^import \{([\s\S]*?)\} from '\.\.\/harness\/sprite-gen\.mjs';/m, (_m, list) => `const {${list}} = __sprgen;`);
 if (/^import /m.test(app)) throw new Error('bundle: unhandled import in web/app.js');
 
 const backend = `
 // Hosted playtest backend: ROM is embedded; reports go to the artifact db (or localStorage on GitHub Pages).
 const __b64 = (s) => { const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
 window.RGB_WASM = __b64(${JSON.stringify(wasm.toString('base64'))});
+window.RGB_ARTWORK_PRESETS = ${JSON.stringify(artworkPresets)};
 const __ROM = ${JSON.stringify(rom.toString('base64'))};
 const __SYM = ${JSON.stringify(symSmall)};
 const __BUILT = ${JSON.stringify(new Date().toISOString())};
@@ -114,7 +119,7 @@ body = body.slice(body.indexOf('<body>') + 6, body.indexOf('</body>'));
 body = body.replace(/<script type="module" src="app.js"><\/script>/, '');
 body = body.replace('<span>playtest</span>', `<span>playtest · hosted</span>`);
 
-const script = `<script type="module">\n${backend}\n${boy}\n${emu}\n${app}\n</script>`;
+const script = `<script type="module">\n${backend}\n${boy}\n${emu}\n${sprgen}\n${app}\n</script>`;
 const page = `<style>\n${css}\n</style>\n${body}\n${script}\n`;
 const pwaHead = [
   '<meta charset="utf-8">',

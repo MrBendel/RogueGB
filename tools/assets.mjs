@@ -29,6 +29,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { quantizeRgbaToGrid16, generateCharacterRig, compileRigToGbdk } from '../harness/sprite-gen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const GEN_DIR = path.join(ROOT, 'build', 'gen');
@@ -206,11 +207,33 @@ function rotate90(img) {
 }
 
 /** The PNG files an animation entry reads. */
-const animFiles = (v) => (Array.isArray(v) ? v : [v.roll]);
+const animFiles = (v) => (Array.isArray(v) ? v : [v.roll || v.idle || v.run || v.jump].filter(Boolean));
+const spriteSources = (a) => {
+  if (a.generateFrom) {
+    const gf = typeof a.generateFrom === 'string' ? { down: a.generateFrom } : a.generateFrom;
+    return [gf.down, gf.up, gf.right].filter(Boolean).map((f) => path.join(ROOT, a.dir, f));
+  }
+  return Object.values(a.anims).flatMap(animFiles).map((f) => path.join(ROOT, a.dir, f));
+};
 
 /** Convert a sprite asset (see the header comment) into its C arrays. */
 export function buildSprite(a) {
   const dir = path.join(ROOT, a.dir);
+  if (a.generateFrom) {
+    const gf = typeof a.generateFrom === 'string' ? { down: a.generateFrom } : a.generateFrom;
+    const loadG = (f) => {
+      if (!f) return null;
+      const img = decodePng(fs.readFileSync(path.join(dir, f)));
+      return quantizeRgbaToGrid16(img.rgba, img.width, img.height);
+    };
+    const rig = generateCharacterRig({
+      name: a.name,
+      down: loadG(gf.down),
+      up: loadG(gf.up),
+      right: loadG(gf.right),
+    });
+    return compileRigToGbdk(rig, a.name);
+  }
   const animNames = [...Object.keys(a.anims), ...Object.keys(a.mirror ?? {})];
   // Frame images per animation, in order.
   const animImages = {};
@@ -338,7 +361,7 @@ export function buildAssets({ quiet = false } = {}) {
     const h = path.join(GEN_DIR, `${a.name}.h`);
     out.push(c);
     const sources = a.kind === 'sprite'
-      ? Object.values(a.anims).flatMap(animFiles).map((f) => path.join(ROOT, a.dir, f))
+      ? spriteSources(a)
       : [path.join(ROOT, a.src)];
     const genTime = fs.existsSync(c) && fs.existsSync(h) ? fs.statSync(c).mtimeMs : 0;
     if (genTime > Math.max(self, ...sources.map((f) => fs.statSync(f).mtimeMs))) continue;

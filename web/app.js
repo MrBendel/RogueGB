@@ -4,6 +4,11 @@ import initCore, * as B from '../harness/vendor/boytacean/boytacean.js';
 import {
   Emu, Symbols, Recorder, BTN, readTyped, prepareReplay, toBase64, fromBase64, SCREEN_W, SCREEN_H,
 } from '../harness/emu.mjs';
+import {
+  quantizeRgbaToGrid16, flipGridX, synthesizeUpFromDown, synthesizeRightFromDown,
+  generateCharacterRig, compileRigToGbdk, CHARACTER_PRESETS, WEAPON_TEMPLATES,
+  buildWeaponDirectionalFrames, defaultWeaponAnchor, DMG_PALETTES, cloneGrid,
+} from '../harness/sprite-gen.mjs';
 
 const FRAME_MS = 1000 / 59.7275;
 const $ = (id) => document.getElementById(id);
@@ -717,6 +722,445 @@ if (!window.claude && 'serviceWorker' in navigator && (location.protocol === 'ht
 }
 
 // ---------------------------------------------------------------------------
+// Sprite Studio (Procedural 16x16 Character & Weapon Animation Synthesizer)
+const studio = (() => {
+  const pal = DMG_PALETTES.dmg_olive;
+  const allPresets = { ...(window.RGB_ARTWORK_PRESETS || {}), ...CHARACTER_PRESETS };
+  const weapons = structuredClone ? structuredClone(WEAPON_TEMPLATES) : JSON.parse(JSON.stringify(WEAPON_TEMPLATES));
+  for (const w of Object.values(weapons)) {
+    w.right = new Uint8Array(Object.values(w.right));
+    if (w.swing_right) w.swing_right = new Uint8Array(Object.values(w.swing_right));
+    if (w.fire_right) w.fire_right = new Uint8Array(Object.values(w.fire_right));
+  }
+
+  let activeTab = 'playtest';
+  let synthMode = '3pose';
+  let animKind = 'idle';
+  let dir = 'down';
+  let weaponId = 'small_pistol';
+  let attackPose = false;
+  let editTarget = 'down';
+  let brushShade = 3;
+  let previewMode = 'anim'; // 'anim' | 'drive'
+  let selectedFrame = 0;
+  let animTick = 0;
+  let customAnchor = { dx: 0, dy: 0, auto: true };
+
+  // Base 16x16 grids currently loaded in the studio
+  let baseDown = cloneGrid(CHARACTER_PRESETS.adventurer.down);
+  let baseUp = cloneGrid(CHARACTER_PRESETS.adventurer.up);
+  let baseRight = cloneGrid(CHARACTER_PRESETS.adventurer.right);
+  let currentRig = null;
+  let currentCompiled = null;
+
+  // Test-drive state
+  const drive = { x: 24, y: 24, z: 0, vz: 0, dir: 'down', walkDist: 0, rollT: 0, atkT: 0, bullets: [] };
+
+  const prevCanvas = $('st-preview');
+  const prevCtx = prevCanvas.getContext('2d');
+  const editCanvas = $('st-editor');
+  const editCtx = editCanvas.getContext('2d');
+  const sheetCanvas = $('st-sheet');
+  const sheetCtx = sheetCanvas.getContext('2d');
+
+  function drawGrid16(ctx, grid, ox = 0, oy = 0) {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = grid[y * 16 + x];
+        if (!v) continue;
+        const [r, g, b] = pal[v];
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(ox + x, oy + y, 1, 1);
+      }
+    }
+  }
+
+  function getWeaponFrame(d, isAttack) {
+    if (weaponId === 'none' || !weapons[weaponId]) return null;
+    const wf = buildWeaponDirectionalFrames(weapons[weaponId]);
+    return wf[d]?.[isAttack ? 1 : 0] || null;
+  }
+
+  function getAnchor(d, aKind, fIdx, isAttack) {
+    const cat = weapons[weaponId]?.category || 'small_gun';
+    const def = defaultWeaponAnchor(d, aKind, fIdx, cat, isAttack);
+    if (customAnchor.auto) return def;
+    return { dx: customAnchor.dx, dy: customAnchor.dy, behind: def.behind };
+  }
+
+  function rebuildRig() {
+    currentRig = generateCharacterRig({
+      name: $('st-preset')?.value || 'custom',
+      down: baseDown,
+      up: synthMode === '3pose' ? baseUp : null,
+      right: synthMode === '3pose' ? baseRight : null,
+    });
+    if (synthMode === '1pose') {
+      baseUp = cloneGrid(currentRig.bases.up);
+      baseRight = cloneGrid(currentRig.bases.right);
+    }
+    currentCompiled = compileRigToGbdk(currentRig, 'spr_hero');
+    const st = currentCompiled.stats;
+    $('st-hw-stats').textContent = `${st.anims} anims · ${st.frames}f · ${st.columns} unique 8×16 cols · ${st.romBytes} B ROM`;
+    renderEditor();
+    renderFrameStrip();
+    renderSheet();
+  }
+
+  function loadPreset(id) {
+    const p = allPresets[id] || CHARACTER_PRESETS.adventurer;
+    synthMode = p.mode || '3pose';
+    document.querySelectorAll('input[name="st-synth-mode"]').forEach((r) => { r.checked = r.value === synthMode; });
+    baseDown = new Uint8Array(p.down);
+    baseUp = p.up ? new Uint8Array(p.up) : synthesizeUpFromDown(baseDown);
+    baseRight = p.right ? new Uint8Array(p.right) : synthesizeRightFromDown(baseDown);
+    rebuildRig();
+  }
+
+  function getActiveEditGrid() {
+    if (editTarget === 'up') return baseUp;
+    if (editTarget === 'right') return baseRight;
+    if (editTarget === 'weapon') {
+      const w = weapons[weaponId];
+      if (!w) return baseDown;
+      return attackPose ? (w.swing_right || w.fire_right || w.right) : w.right;
+    }
+    return baseDown;
+  }
+
+  function renderEditor() {
+    const g = getActiveEditGrid();
+    editCtx.clearRect(0, 0, 16, 16);
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = g[y * 16 + x];
+        if (v === 0) {
+          editCtx.fillStyle = (x + y) % 2 === 0 ? '#cdd6b0' : '#bfc9a2';
+        } else {
+          const [r, gr, b] = pal[v];
+          editCtx.fillStyle = `rgb(${r},${gr},${b})`;
+        }
+        editCtx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  function renderFrameStrip() {
+    const strip = $('st-frame-strip');
+    strip.innerHTML = '';
+    const key = `${animKind}_${dir}`;
+    const frames = currentRig.anims[key] || currentRig.anims.idle_down;
+    if (selectedFrame >= frames.length) selectedFrame = 0;
+    const wGrid = animKind === 'roll' ? null : getWeaponFrame(dir, attackPose);
+
+    frames.forEach((fGrid, idx) => {
+      const card = document.createElement('div');
+      card.className = 'fcard' + (idx === selectedFrame ? ' on' : '');
+      const c = document.createElement('canvas');
+      c.width = 24;
+      c.height = 24;
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#c4cfa1';
+      cx.fillRect(0, 0, 24, 24);
+      const anc = getAnchor(dir, animKind, idx, attackPose);
+      if (customAnchor.auto && idx === selectedFrame) {
+        $('st-anchor-dx').value = anc.dx;
+        $('st-anchor-dy').value = anc.dy;
+      }
+      if (anc.behind && wGrid) drawGrid16(cx, wGrid, 4 + anc.dx, 4 + anc.dy);
+      drawGrid16(cx, fGrid, 4, 4);
+      if (!anc.behind && wGrid) drawGrid16(cx, wGrid, 4 + anc.dx, 4 + anc.dy);
+
+      const lbl = document.createElement('span');
+      lbl.textContent = `f${idx}`;
+      card.append(c, lbl);
+      card.onclick = () => { selectedFrame = idx; renderFrameStrip(); };
+      strip.append(card);
+    });
+  }
+
+  function renderSheet() {
+    const entries = Object.entries(currentRig.anims);
+    const cols = 4;
+    const rows = entries.length;
+    sheetCanvas.width = cols * 16;
+    sheetCanvas.height = rows * 16;
+    sheetCtx.fillStyle = '#c4cfa1';
+    sheetCtx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+    entries.forEach(([, frames], r) => {
+      frames.forEach((g, c) => {
+        drawGrid16(sheetCtx, g, c * 16, r * 16);
+      });
+    });
+  }
+
+  function stepStudio() {
+    if (activeTab !== 'studio') return;
+    animTick++;
+    prevCtx.fillStyle = '#c4cfa1';
+    prevCtx.fillRect(0, 0, 64, 64);
+    // Subtle DMG tile grid background
+    prevCtx.fillStyle = '#b6c292';
+    for (let y = 0; y < 64; y += 8) {
+      for (let x = 0; x < 64; x += 8) {
+        prevCtx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    if (previewMode === 'anim') {
+      const key = `${animKind}_${dir}`;
+      const frames = currentRig.anims[key] || currentRig.anims.idle_down;
+      const period = animKind === 'idle' ? 24 : animKind === 'run' ? 8 : animKind === 'roll' ? 5 : 14;
+      if (animTick % period === 0) {
+        selectedFrame = (selectedFrame + 1) % frames.length;
+        renderFrameStrip();
+      }
+      const fGrid = frames[selectedFrame] || frames[0];
+      const wGrid = animKind === 'roll' ? null : getWeaponFrame(dir, attackPose);
+      const anc = getAnchor(dir, animKind, selectedFrame, attackPose);
+      const jumpY = animKind === 'jump' ? (selectedFrame === 1 ? -5 : selectedFrame === 2 ? -2 : 0) : 0;
+      // Shadow
+      prevCtx.fillStyle = '#8b956d';
+      prevCtx.fillRect(26, 38, 12, 2);
+      if (anc.behind && wGrid) drawGrid16(prevCtx, wGrid, 24 + anc.dx, 24 + jumpY + anc.dy);
+      drawGrid16(prevCtx, fGrid, 24, 24 + jumpY);
+      if (!anc.behind && wGrid) drawGrid16(prevCtx, wGrid, 24 + anc.dx, 24 + jumpY + anc.dy);
+    } else {
+      // Interactive Test Drive mode
+      const m = liveMask();
+      let dx = 0, dy = 0;
+      if (m & BTN.LEFT) { dx = -1; drive.dir = 'left'; }
+      if (m & BTN.RIGHT) { dx = 1; drive.dir = 'right'; }
+      if (m & BTN.UP) { dy = -1; drive.dir = 'up'; }
+      if (m & BTN.DOWN) { dy = 1; drive.dir = 'down'; }
+      if ((m & BTN.B) && drive.z === 0) drive.vz = 2.2;
+      if ((m & BTN.SELECT) && drive.rollT === 0) drive.rollT = 16;
+      if ((m & BTN.A) && drive.atkT === 0) {
+        drive.atkT = 10;
+        if (weapons[weaponId]?.category?.includes('gun')) {
+          const vx = drive.dir === 'right' ? 2.5 : drive.dir === 'left' ? -2.5 : 0;
+          const vy = drive.dir === 'down' ? 2.5 : drive.dir === 'up' ? -2.5 : 0;
+          drive.bullets.push({ x: drive.x + 8, y: drive.y + 8, vx, vy });
+        }
+      }
+      const speedMul = drive.rollT > 0 ? 1.6 : 1;
+      drive.x = Math.max(2, Math.min(46, drive.x + dx * speedMul));
+      drive.y = Math.max(2, Math.min(46, drive.y + dy * speedMul));
+      if (drive.z > 0 || drive.vz !== 0) {
+        drive.z = Math.max(0, drive.z + drive.vz);
+        drive.vz -= 0.18;
+        if (drive.z <= 0) { drive.z = 0; drive.vz = 0; }
+      }
+      if (drive.rollT > 0) drive.rollT--;
+      if (drive.atkT > 0) drive.atkT--;
+
+      let aKind = 'idle';
+      if (drive.rollT > 0) aKind = 'roll';
+      else if (drive.z > 0) aKind = 'jump';
+      else if (dx || dy) { aKind = 'run'; drive.walkDist++; }
+
+      const frames = currentRig.anims[`${aKind}_${drive.dir}`];
+      const fIdx = aKind === 'run'
+        ? Math.floor(drive.walkDist / 5) % frames.length
+        : aKind === 'roll'
+          ? Math.floor((16 - drive.rollT) / 4) % frames.length
+          : aKind === 'jump'
+            ? (drive.vz > 0 ? 1 : 2)
+            : Math.floor(animTick / 24) % frames.length;
+      const fGrid = frames[fIdx] || frames[0];
+      const isAtk = drive.atkT > 4;
+      const wGrid = aKind === 'roll' ? null : getWeaponFrame(drive.dir, isAtk);
+      const anc = getAnchor(drive.dir, aKind, fIdx, isAtk);
+      const px = Math.round(drive.x);
+      const py = Math.round(drive.y - drive.z);
+
+      prevCtx.fillStyle = '#8b956d';
+      prevCtx.fillRect(px + 2, Math.round(drive.y) + 14, 12, 2);
+      if (anc.behind && wGrid) drawGrid16(prevCtx, wGrid, px + anc.dx, py + anc.dy);
+      drawGrid16(prevCtx, fGrid, px, py);
+      if (!anc.behind && wGrid) drawGrid16(prevCtx, wGrid, px + anc.dx, py + anc.dy);
+
+      // Bullets
+      prevCtx.fillStyle = '#1f2420';
+      drive.bullets = drive.bullets.filter((b) => {
+        b.x += b.vx; b.y += b.vy;
+        prevCtx.fillRect(Math.round(b.x), Math.round(b.y), 2, 2);
+        return b.x >= 0 && b.x < 64 && b.y >= 0 && b.y < 64;
+      });
+    }
+  }
+
+  function setTab(tab) {
+    activeTab = tab;
+    $('tab-playtest').classList.toggle('on', tab === 'playtest');
+    $('tab-studio').classList.toggle('on', tab === 'studio');
+    $('playtest-view').classList.toggle('hidden', tab !== 'playtest');
+    $('studio-view').classList.toggle('hidden', tab !== 'studio');
+    if (tab === 'studio' && !paused) togglePause();
+  }
+
+  $('tab-playtest').onclick = () => setTab('playtest');
+  $('tab-studio').onclick = () => setTab('studio');
+
+  // Populate character presets dropdown
+  const presetSel = $('st-preset');
+  function populatePresets() {
+    presetSel.innerHTML = '';
+    for (const [k, v] of Object.entries(allPresets)) {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = v.name;
+      presetSel.append(opt);
+    }
+  }
+  populatePresets();
+  if (backend.name === 'local') {
+    fetch('/api/artwork-presets').then((r) => (r.ok ? r.json() : null)).then((data) => {
+      if (data) { Object.assign(allPresets, data); populatePresets(); loadPreset( Object.keys(data)[0] || 'adventurer'); }
+    }).catch(() => {});
+  }
+  presetSel.onchange = () => loadPreset(presetSel.value);
+
+  document.querySelectorAll('input[name="st-synth-mode"]').forEach((r) => {
+    r.onchange = () => { synthMode = r.value; rebuildRig(); };
+  });
+
+  $('st-anim-tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-anim]');
+    if (!b) return;
+    animKind = b.dataset.anim;
+    selectedFrame = 0;
+    for (const el of $('st-anim-tabs').querySelectorAll('button')) el.classList.toggle('on', el === b);
+    renderFrameStrip();
+  });
+
+  $('st-dir-tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-dir]');
+    if (!b) return;
+    dir = b.dataset.dir;
+    for (const el of $('st-dir-tabs').querySelectorAll('button')) el.classList.toggle('on', el === b);
+    renderFrameStrip();
+  });
+
+  $('st-weapon').onchange = (e) => { weaponId = e.target.value; renderEditor(); renderFrameStrip(); };
+  $('st-attack').onchange = (e) => { attackPose = e.target.checked; renderEditor(); renderFrameStrip(); };
+  $('st-anchor-dx').oninput = (e) => { customAnchor.auto = false; $('st-anchor-reset').checked = false; customAnchor.dx = +e.target.value; renderFrameStrip(); };
+  $('st-anchor-dy').oninput = (e) => { customAnchor.auto = false; $('st-anchor-reset').checked = false; customAnchor.dy = +e.target.value; renderFrameStrip(); };
+  $('st-anchor-reset').onchange = (e) => { customAnchor.auto = e.target.checked; renderFrameStrip(); };
+
+  $('st-mode-anim').onclick = () => {
+    previewMode = 'anim';
+    $('st-mode-anim').classList.add('on');
+    $('st-mode-drive').classList.remove('on');
+    $('st-drive-hint').classList.add('hidden');
+  };
+  $('st-mode-drive').onclick = () => {
+    previewMode = 'drive';
+    $('st-mode-drive').classList.add('on');
+    $('st-mode-anim').classList.remove('on');
+    $('st-drive-hint').classList.remove('hidden');
+  };
+
+  $('st-edit-target').onchange = (e) => { editTarget = e.target.value; renderEditor(); };
+  $('st-palette-bar').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-shade]');
+    if (!b) return;
+    brushShade = +b.dataset.shade;
+    for (const el of $('st-palette-bar').querySelectorAll('button')) el.classList.toggle('on', el === b);
+  });
+
+  let painting = false;
+  function paintAt(e) {
+    const r = editCanvas.getBoundingClientRect();
+    const x = Math.floor(((e.clientX - r.left) / r.width) * 16);
+    const y = Math.floor(((e.clientY - r.top) / r.height) * 16);
+    if (x < 0 || x >= 16 || y < 0 || y >= 16) return;
+    const g = getActiveEditGrid();
+    if (g[y * 16 + x] !== brushShade) {
+      g[y * 16 + x] = brushShade;
+      rebuildRig();
+    }
+  }
+  editCanvas.addEventListener('pointerdown', (e) => { e.preventDefault(); painting = true; editCanvas.setPointerCapture?.(e.pointerId); paintAt(e); });
+  editCanvas.addEventListener('pointermove', (e) => { if (painting) paintAt(e); });
+  editCanvas.addEventListener('pointerup', () => { painting = false; });
+  editCanvas.addEventListener('pointercancel', () => { painting = false; });
+
+  $('st-edit-flipx').onclick = () => {
+    const g = getActiveEditGrid();
+    g.set(flipGridX(g));
+    rebuildRig();
+  };
+  $('st-edit-clear').onclick = () => {
+    getActiveEditGrid().fill(0);
+    rebuildRig();
+  };
+  $('st-edit-synth-dirs').onclick = () => {
+    baseUp = synthesizeUpFromDown(baseDown);
+    baseRight = synthesizeRightFromDown(baseDown);
+    rebuildRig();
+    toast('Synthesized Up and Right poses from Down!');
+  };
+
+  $('st-upload-png').onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const cx = c.getContext('2d');
+      cx.drawImage(img, 0, 0);
+      const data = cx.getImageData(0, 0, img.width, img.height).data;
+      const grid = quantizeRgbaToGrid16(data, img.width, img.height);
+      const target = $('st-upload-target').value;
+      if (target === 'up') baseUp = grid;
+      else if (target === 'right') baseRight = grid;
+      else {
+        baseDown = grid;
+        if (synthMode === '1pose') {
+          baseUp = synthesizeUpFromDown(baseDown);
+          baseRight = synthesizeRightFromDown(baseDown);
+        }
+      }
+      rebuildRig();
+      toast(`Imported ${f.name} into ${target} (16×16 4-shade DMG)`);
+    };
+    img.src = URL.createObjectURL(f);
+    e.target.value = '';
+  };
+
+  $('st-dl-sheet').onclick = () => {
+    const c = document.createElement('canvas');
+    c.width = sheetCanvas.width * 2;
+    c.height = sheetCanvas.height * 2;
+    const cx = c.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(sheetCanvas, 0, 0, c.width, c.height);
+    download(`roguegb-${currentRig.name}-sheet.png`, c.toDataURL('image/png'));
+  };
+
+  $('st-dl-c').onclick = () => {
+    const combined = `${currentCompiled.header}\n${currentCompiled.source}`;
+    download('spr_hero_generated.c', new Blob([combined], { type: 'text/plain' }));
+  };
+
+  $('st-copy-c').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(`${currentCompiled.header}\n${currentCompiled.source}`);
+      toast('Copied GBDK C header + source to clipboard!');
+    } catch {
+      toast('Clipboard unavailable — use Download GBDK (.h + .c)');
+    }
+  };
+
+  loadPreset(Object.keys(allPresets)[0] || 'adventurer');
+  setInterval(stepStudio, 1000 / 60);
+  return { setTab, rebuildRig };
+})();
+
+// ---------------------------------------------------------------------------
 await (window.RGB_WASM ? initCore({ module_or_path: window.RGB_WASM }) : initCore());
 renderWatches();
 await loadFromBackend();
@@ -724,4 +1168,4 @@ backend.subscribe?.(onBackendEvent);
 refreshSavedReplays();
 requestAnimationFrame(loop);
 // Expose for debugging from the browser console / automation.
-window.rgb = { get emu() { return emu; }, symbols: () => symbols, playReplay, bugReport, toggleRecord };
+window.rgb = { get emu() { return emu; }, symbols: () => symbols, playReplay, bugReport, toggleRecord, studio };

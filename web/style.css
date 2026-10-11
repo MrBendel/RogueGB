@@ -218,5 +218,29 @@ pre#build-log { font-size: 11px; white-space: pre-wrap; max-height: 260px; overf
   .ab button { width: 56px; height: 56px; font-size: 18px; }
 }
 
+.mode-tabs { display: flex; gap: 4px; background: var(--btn); padding: 3px; border-radius: 8px; border: 1px solid var(--line); }
+.mode-tabs button { border: none; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 6px; background: transparent; }
+.mode-tabs button.on { background: var(--accent); color: var(--accent-ink); }
+
+.studio-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+@media (max-width: 820px) { .studio-grid { grid-template-columns: minmax(0, 1fr); } }
+.studio-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.space-between { justify-content: space-between; }
+.center { justify-content: center; }
+
+.studio-stage-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; background: var(--lcd); border-radius: 8px; border: 2px solid var(--line); }
+#st-preview { width: 224px; height: 224px; image-rendering: pixelated; image-rendering: crisp-edges; border-radius: 4px; background: #c4cfa1; }
+.frame-strip { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 72px; align-items: center; }
+.frame-strip .fcard { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--btn); cursor: pointer; font-size: 11px; }
+.frame-strip .fcard.on { border-color: var(--accent); outline: 2px solid var(--accent); }
+.frame-strip canvas { width: 48px; height: 48px; image-rendering: pixelated; background: #c4cfa1; border-radius: 3px; }
+
+.editor-wrap { display: flex; justify-content: center; padding: 8px; background: var(--btn); border-radius: 8px; touch-action: none; }
+#st-editor { width: 256px; height: 256px; image-rendering: pixelated; cursor: crosshair; touch-action: none; border: 2px solid var(--line); background: #c4cfa1; }
+
+.sheet-scroll { max-height: 280px; overflow: auto; display: flex; justify-content: center; background: var(--btn); padding: 8px; border-radius: 6px; }
+#st-sheet { image-rendering: pixelated; width: 192px; height: auto; }
+
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; max-width: calc(100vw - 32px); z-index: 20; }
 .hidden { display: none !important; }

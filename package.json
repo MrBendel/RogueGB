@@ -11,7 +11,8 @@
     "play": "node tools/serve.mjs --open",
     "run": "node harness/cli.mjs run",
     "vars": "node harness/cli.mjs vars",
-    "bundle": "node tools/bundle.mjs"
+    "bundle": "node tools/bundle.mjs",
+    "sprites": "node tools/sprite-cli.mjs"
   },
   "engines": {
     "node": ">=22"
