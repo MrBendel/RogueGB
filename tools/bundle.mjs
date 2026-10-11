@@ -115,7 +115,7 @@ body = body.replace(/<script type="module" src="app.js"><\/script>/, '');
 body = body.replace('<span>playtest</span>', `<span>playtest · hosted</span>`);
 
 const script = `<script type="module">\n${backend}\n${boy}\n${emu}\n${app}\n</script>`;
-const page = `<title>RogueGB Playtest</title>\n<style>\n${css}\n</style>\n${body}\n${script}\n`;
+const page = `<style>\n${css}\n</style>\n${body}\n${script}\n`;
 const pwaHead = [
   '<meta charset="utf-8">',
   '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
@@ -124,13 +124,14 @@ const pwaHead = [
   '<meta name="apple-mobile-web-app-capable" content="yes">',
   '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
   '<meta name="apple-mobile-web-app-title" content="RogueGB">',
+  '<title>RogueGB Playtest</title>',
   '<link rel="manifest" href="manifest.webmanifest">',
   '<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">',
   '<link rel="apple-touch-icon" href="icon-192.png">',
 ].join('');
 const html = standalone
   ? `<!doctype html><html lang="en"><head>${pwaHead}</head><body>${page}</body></html>`
-  : page;
+  : `<title>RogueGB Playtest</title>\n${page}`;
 const out = path.join(ROOT, 'build', standalone ? 'playtest-standalone.html' : 'playtest.html');
 fs.writeFileSync(out, html);
 

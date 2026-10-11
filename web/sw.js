@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then((res) => {
         if (res && res.status === 200 && res.type === 'basic') {
           const copy = res.clone();
