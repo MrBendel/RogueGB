@@ -48,7 +48,7 @@ static const uint8_t walk_anim[4] = {
     SPR_PLAYER_ANIM_WALK_DOWN, SPR_PLAYER_ANIM_WALK_UP, SPR_PLAYER_ANIM_WALK_RIGHT, SPR_PLAYER_ANIM_WALK_LEFT,
 };
 // The dash plays a roll: the crouched pose tumbling through 4 rotations (generated
-// at build time by tools/assets.mjs), once over the dash's length.
+// at build time by tools/assets.mjs), one full turn from the dash until landing.
 static const uint8_t roll_anim[4] = {
     SPR_PLAYER_ANIM_ROLL_DOWN, SPR_PLAYER_ANIM_ROLL_UP, SPR_PLAYER_ANIM_ROLL_RIGHT, SPR_PLAYER_ANIM_ROLL_LEFT,
 };
@@ -90,6 +90,8 @@ uint8_t player_dashed;     // 1 once this jump's dash is used
 uint8_t player_dash_timer; // frames of dash left
 uint8_t player_invuln;     // invulnerability frames left
 uint8_t player_jump_buffer;
+uint8_t player_roll_len;   // frames the current roll lasts (0 = not rolling)
+uint8_t player_roll_t;     // frames into the roll
 uint16_t player_jumps;     // counters, handy for tests and the Watch panel
 uint16_t player_dashes;
 // Tunables. Defaults: ~16 px high, ~32 frames in the air (2 blocks at 1 px/frame).
@@ -147,6 +149,7 @@ void player_init(uint8_t px, uint8_t py) {
     player_anim_dist = 0;
     player_z = player_vz = 0;
     player_air = player_dashed = player_dash_timer = player_invuln = player_jump_buffer = 0;
+    player_roll_len = player_roll_t = 0;
     player_jumps = player_dashes = 0;
     set_sprite_data(SHADOW_VRAM, 2, shadow_tiles);
     set_sprite_tile(SHADOW_OAM, SHADOW_VRAM);
@@ -234,7 +237,7 @@ static void move_y(void) {
 }
 
 static void update_anim(int8_t dx, int8_t dy) {
-    if (player_dash_timer) return;  // the roll keeps its direction; drawing picks the frame
+    if (player_roll_len) return;  // the roll keeps its direction; drawing picks the frame
     // Which way the art faces. On a diagonal, keep the current direction if it's part
     // of the diagonal (so the sprite doesn't flip back and forth); otherwise face sideways.
     uint8_t h = dx > 0 ? ANIM_RIGHT : dx < 0 ? ANIM_LEFT : 0xFF;
@@ -285,6 +288,17 @@ static void start_dash(int8_t dx, int8_t dy) {
     player_anim_dir = dx > 0 ? ANIM_RIGHT : dx < 0 ? ANIM_LEFT : dy < 0 ? ANIM_UP : ANIM_DOWN;
     player_vz = 0;  // hold height during the dash, then fall from there
     if (player_invuln < dash_iframes) player_invuln = dash_iframes;
+    // The roll spans the dash plus the fall that follows it, so the last quarter
+    // turn ends on landing. The fall starts from the held height with no speed.
+    int16_t z = player_z, vz = 0;
+    uint8_t fall = 0;
+    while (z > 0 && fall < 200) {
+        z += vz;
+        vz -= jump_grav;
+        fall++;
+    }
+    player_roll_len = dash_frames + fall;
+    player_roll_t = 0;
     player_dashes++;
 }
 
@@ -297,6 +311,7 @@ static void update_jump(int8_t dx, int8_t dy) {
         else player_jump_buffer = JUMP_BUFFER;
     }
     if (player_invuln) player_invuln--;
+    if (player_roll_len) player_roll_t++;
     if (!player_air) return;
     if (player_dash_timer) {
         player_dash_timer--;
@@ -309,6 +324,7 @@ static void update_jump(int8_t dx, int8_t dy) {
         player_vz = 0;
         player_air = 0;
         player_dashed = 0;
+        player_roll_len = 0;
         if (player_jump_buffer) start_jump();
     } else if (player_jump_buffer) {
         player_jump_buffer--;
@@ -339,10 +355,10 @@ void player_update(void) {
 
 void player_draw(void) {
     uint8_t anim, frame;
-    if (player_dash_timer) {
-        // One full turn over the dash: 0, 90, 180, 270 degrees.
+    if (player_roll_len) {
+        // One full turn over the roll: 0, 90, 180, 270 degrees.
         anim = roll_anim[player_anim_dir];
-        frame = (uint8_t)((dash_frames - player_dash_timer - 1) * ROLL_FRAMES / dash_frames);
+        frame = (uint8_t)((uint16_t)(player_roll_t - 1) * ROLL_FRAMES / player_roll_len);
     } else {
         anim = walk_anim[player_anim_dir];
         frame = player_air ? AIR_FRAME : player_anim_frame;

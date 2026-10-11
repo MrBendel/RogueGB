@@ -174,32 +174,39 @@ function drawnImage(emu) {
 const rot90 = (img) => img.map((_, y) => img.map((_, x) => img[15 - x][y]));
 const key = (img) => img.map((r) => r.join('')).join('/');
 
-test('the dash plays a roll: one full turn in 90-degree steps', () => {
-  const emu = startRun().idle(2).hold('B', 1).idle(3).hold('RIGHT+B', 1);
-  const seen = [];
-  for (let f = 0; f < DASH_FRAMES + 1; f++) {
-    emu.idle(1); // OAM shows the previous frame's sprite, so sample one frame later
-    const k = key(drawnImage(emu));
-    if (seen.at(-1)?.k !== k) seen.push({ k, img: drawnImage(emu) });
+/** Sample the drawn image each frame from a dash until landing; returns runs of identical frames. */
+function rollRuns(emu) {
+  const runs = [];
+  for (let f = 0; f < 80; f++) {
+    emu.idle(1); // OAM shows the previous frame's sprite, so this samples one frame behind
+    const img = drawnImage(emu);
+    if (runs.length && key(runs.at(-1).img) === key(img)) runs.at(-1).frames++;
+    else runs.push({ img, frames: 1 });
+    if (!emu.v('player_air')) break;
   }
-  // Four rotation frames, then back to the air pose.
-  const turns = seen.slice(0, 4).map((s) => s.img);
-  assert.equal(new Set(turns.map(key)).size, 4, 'four distinct roll frames');
-  for (let i = 1; i < 4; i++) assert.equal(key(turns[i]), key(rot90(turns[i - 1])), `frame ${i} is the previous one turned 90 degrees clockwise`);
+  return runs;
+}
+
+test('the dash plays a roll: one full turn in 90-degree steps, ending on landing', () => {
+  const emu = startRun().idle(2).hold('B', 1).idle(3).hold('RIGHT+B', 1);
+  const len = emu.v('player_roll_len');
+  const runs = rollRuns(emu);
+  const turns = runs.slice(0, 4);
+  assert.equal(new Set(turns.map((r) => key(r.img))).size, 4, 'four distinct roll frames');
+  for (let i = 1; i < 4; i++) assert.equal(key(turns[i].img), key(rot90(turns[i - 1].img)), `frame ${i} is the previous one turned 90 degrees clockwise`);
+  // The roll lasts the dash plus the fall, so each quarter turn is held for several frames.
+  assert.ok(len > DASH_FRAMES + 8, `roll lasts ${len} frames`);
+  for (const r of turns) assert.ok(r.frames >= Math.floor(len / 4) - 1, `quarter turn held ${r.frames} frames`);
+  assert.equal(emu.v('player_roll_len'), 0, 'roll over once landed');
 });
 
 test('rolling left turns the other way', () => {
   const emu = startRun().idle(2).hold('B', 1).idle(3).hold('LEFT+B', 1);
-  const seen = [];
-  for (let f = 0; f < DASH_FRAMES + 1; f++) {
-    emu.idle(1);
-    const img = drawnImage(emu);
-    if (seen.length === 0 || key(seen.at(-1)) !== key(img)) seen.push(img);
-  }
+  const turns = rollRuns(emu).slice(0, 4).map((r) => r.img);
   // Counter-clockwise: each frame turned 90 degrees clockwise gives the previous one.
-  for (let i = 1; i < 4; i++) assert.equal(key(rot90(seen[i])), key(seen[i - 1]));
+  for (let i = 1; i < 4; i++) assert.equal(key(rot90(turns[i])), key(turns[i - 1]));
 });
 
 test('screen: mid-roll', () => {
-  matchGolden(startRun().idle(2).hold('B', 1).idle(3).hold('RIGHT+B', 1).idle(3), 'roll-mid');
+  matchGolden(startRun().idle(2).hold('B', 1).idle(3).hold('RIGHT+B', 1).idle(8), 'roll-mid');
 });
