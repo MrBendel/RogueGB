@@ -170,8 +170,47 @@ export class Emu {
   /** Run one video frame. Inputs set before this call apply to this frame. */
   step() {
     this.gb.next_frame();
+    this._finishGameFrame();
     this.frame++;
     this._snap = null;
+  }
+
+  /**
+   * next_frame() stops at the end of vblank, but the game's loop starts at the
+   * beginning of vblank, so a long update can still be running at that point.
+   * Reading memory then would show a half-updated frame (e.g. velocity changed
+   * but position not yet). So keep running until the CPU is back in vsync(),
+   * with a cap of half a frame so a genuine lag frame doesn't skip a boundary.
+   * Needs the `_vsync` symbol; without it this does nothing.
+   */
+  _finishGameFrame() {
+    const syms = this.symbols;
+    if (!syms) return;
+    if (this._idleFor !== syms) {
+      this._idleFor = syms;
+      this._idle = null;
+      const v = syms.get('_vsync');
+      if (v) {
+        // The routine ends where the next symbol starts.
+        let end = v.addr + 0x20;
+        for (const s of syms.map.values()) if (s.addr > v.addr && s.addr < end) end = s.addr;
+        this._idle = [v.addr, end];
+      }
+    }
+    if (!this._idle) return;
+    const [lo, hi] = this._idle;
+    const pc = () => {
+      const r = this.gb.registers();
+      const p = r.pc;
+      r.free();
+      return p;
+    };
+    let budget = 35112; // half a DMG frame, in cycles
+    let p = pc();
+    while ((p < lo || p >= hi) && budget > 0) {
+      budget -= this.gb.clock();
+      p = pc();
+    }
   }
 
   run(frames) {

@@ -50,7 +50,7 @@ void main(void) {
     DISPLAY_OFF;
     gfx_init();
     BGP_REG = OBP0_REG = OBP1_REG = 0x00;  // start faded out; first enter fades in
-    SPRITES_8x8;
+    SPRITES_8x16;  // characters are 16x16 = two 8x16 sprites
     SHOW_BKG;
     SHOW_SPRITES;
 

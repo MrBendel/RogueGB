@@ -1,28 +1,8 @@
 // Tests for the game shell: title -> play (with pause) -> run over -> title.
+// Movement and collision are in movement.test.mjs.
 // Keep at least "boots" and one golden screen per major screen.
 import { test } from 'node:test';
-import { boot, assert, matchGolden } from './helpers.mjs';
-
-// Must match src/state.h.
-const TITLE = 0, PLAY = 1, RUN_OVER = 2;
-
-/** Run until the given state is active and its fade-in has finished. */
-function settle(emu, state, what) {
-  // frame_count > 0: before boot code runs, RAM reads as zeros (= TITLE, settled).
-  return emu.until(
-    (e) => e.v('frame_count', 'u16') > 0 && e.v('game_state') === state && !e.v('in_transition'),
-    300,
-    what,
-  );
-}
-
-function bootToTitle() {
-  return settle(boot(), TITLE, 'title screen');
-}
-
-function startRun(emu = bootToTitle()) {
-  return settle(emu.tap('START'), PLAY, 'play state');
-}
+import { assert, matchGolden, settle, bootToTitle, startRun, TITLE, PLAY, RUN_OVER } from './helpers.mjs';
 
 test('boots to the title screen and runs one loop per frame', () => {
   const emu = bootToTitle();
@@ -53,36 +33,15 @@ test('the START that begins a run does not also pause it', () => {
   assert.equal(emu.v('paused'), 0);
 });
 
-test('d-pad moves the player', () => {
-  const emu = startRun().idle(2);
-  const x0 = emu.v('player_x');
-  emu.hold('RIGHT', 20);
-  assert.equal(emu.v('player_x'), x0 + 20);
-  emu.hold('LEFT', 10);
-  assert.equal(emu.v('player_x'), x0 + 10);
-});
-
-test('player stays inside the room', () => {
-  const emu = startRun().hold('LEFT+UP', 300);
-  assert.equal(emu.v('player_x'), 16);
-  assert.equal(emu.v('player_y'), 24);
-});
-
-test('holding A fires on a cooldown', () => {
-  const emu = startRun().idle(2).hold('A', 40);
-  // Cooldown is 8 frames, so 40 frames => 5 shots, max 6 bullets on screen.
-  assert.equal(emu.v('bullets_fired', 'u16'), 5);
-  assert.ok(emu.v('bullets_active') <= 6);
-});
-
 test('START pauses and resumes; the run clock stops while paused', () => {
   const emu = startRun().tap('START');
   assert.equal(emu.v('paused'), 1);
-  const x0 = emu.v('player_x');
+  const x0 = emu.v('player_x', 'u16');
+  const y0 = emu.v('player_y', 'u16');
   const t0 = emu.v('run_seconds', 'u16') * 60 + emu.v('run_ticks');
-  emu.hold('RIGHT+A', 120);
-  assert.equal(emu.v('player_x'), x0);
-  assert.equal(emu.v('bullets_fired', 'u16'), 0);
+  emu.hold('DOWN+A', 120); // d-pad drives the tuning panel while paused, not the player
+  assert.equal(emu.v('player_x', 'u16'), x0);
+  assert.equal(emu.v('player_y', 'u16'), y0);
   assert.equal(emu.v('run_seconds', 'u16') * 60 + emu.v('run_ticks'), t0);
   emu.tap('START');
   assert.equal(emu.v('paused'), 0);
@@ -91,16 +50,17 @@ test('START pauses and resumes; the run clock stops while paused', () => {
 });
 
 test('SELECT while paused ends the run; START returns to the title', () => {
-  const emu = startRun().hold('A', 20).tap('START').tap('SELECT');
+  const emu = startRun().hold('RIGHT', 20).tap('START').idle(3).tap('SELECT');
   settle(emu, RUN_OVER, 'run over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), RUN_OVER, 'input is ignored for a moment');
   emu.idle(30).tap('START');
   settle(emu, TITLE, 'title screen');
-  // And a new run starts fresh.
+  // And a new run starts fresh, back at the start position.
   startRun(emu);
-  assert.equal(emu.v('bullets_fired', 'u16'), 0);
   assert.equal(emu.v('run_seconds', 'u16'), 0);
+  assert.equal(emu.v('player_x', 'u16') >> 8, 72);
+  assert.equal(emu.v('player_vx', 'i16'), 0);
 });
 
 test('screen: title', () => {
@@ -111,15 +71,11 @@ test('screen: starting room', () => {
   matchGolden(startRun().idle(10), 'start-room');
 });
 
-test('screen: moving and shooting', () => {
-  matchGolden(startRun().play('0-40:RIGHT 10-40:A', 40), 'shooting');
-});
-
 test('screen: paused', () => {
   matchGolden(startRun().idle(10).tap('START').idle(5), 'paused');
 });
 
 test('screen: run over', () => {
-  const emu = startRun().hold('A', 41).idle(80).tap('START').tap('SELECT');
+  const emu = startRun().hold('RIGHT', 30).idle(100).tap('START').idle(3).tap('SELECT');
   matchGolden(settle(emu, RUN_OVER, 'run over screen'), 'run-over');
 });

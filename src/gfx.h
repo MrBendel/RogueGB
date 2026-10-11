@@ -28,6 +28,7 @@ void bkg_text(uint8_t x, uint8_t y, const char *s);
 void win_text(uint8_t x, uint8_t y, const char *s);
 // Draw an unsigned number, right-aligned in width tiles (zero-padded if zero_pad).
 void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad);
+void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad);
 
 // Draw a framed box on the background or the window.
 void bkg_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h);

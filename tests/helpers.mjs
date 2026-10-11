@@ -85,3 +85,25 @@ export function matchGolden(emu, name) {
   }
   assert.equal(hash, goldens[name], `screen "${name}" changed; see ${path.relative(ROOT, png)} (UPDATE_GOLDENS=1 to accept)`);
 }
+
+// Scene IDs, must match src/state.h.
+export const TITLE = 0, PLAY = 1, RUN_OVER = 2;
+
+/** Run until the given scene is active and its fade-in has finished. */
+export function settle(emu, state, what = `state ${state}`) {
+  // frame_count > 0: before boot code runs, RAM reads as zeros (= TITLE, settled).
+  return emu.until(
+    (e) => e.v('frame_count', 'u16') > 0 && e.v('game_state') === state && !e.v('in_transition'),
+    300,
+    what,
+  );
+}
+
+export function bootToTitle() {
+  return settle(boot(), TITLE, 'title screen');
+}
+
+/** Boot, press START on the title, and wait until gameplay is running. */
+export function startRun(emu = bootToTitle()) {
+  return settle(emu.tap('START'), PLAY, 'play state');
+}

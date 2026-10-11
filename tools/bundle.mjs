@@ -23,8 +23,12 @@ if (!fs.existsSync(romPath)) {
 const rom = fs.readFileSync(romPath);
 const noi = romPath.replace(/\.gb$/, '.noi');
 const sym = fs.existsSync(noi) ? fs.readFileSync(noi, 'utf8') : '';
-// Keep only RAM variables from the symbol file; the page doesn't need the rest.
-const symSmall = sym.split(/\r?\n/).filter((l) => /^DEF _[A-Za-z]\w* 0x(C|D|FF)[0-9A-F]{2,3}\b/i.test(l)).join('\n');
+// Keep only RAM variables from the symbol file, plus _vsync, which the emulator
+// wrapper uses to end each frame after the game's update (see Emu._finishGameFrame).
+const symSmall = sym
+  .split(/\r?\n/)
+  .filter((l) => /^DEF _[A-Za-z]\w* 0x(C|D|FF)[0-9A-F]{2,3}\b/i.test(l) || /^DEF _vsync 0x/.test(l))
+  .join('\n');
 const wasm = fs.readFileSync(path.join(ROOT, 'harness', 'vendor', 'boytacean', 'boytacean_bg.wasm'));
 
 // Turn an ES module into a function body returning its exports.

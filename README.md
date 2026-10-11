@@ -4,8 +4,20 @@ The plan, the design decisions and the milestones are in [ROADMAP.md](ROADMAP.md
 
 A Game Boy roguelite with run-and-gun shooting, built in C with
 [GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a
-placeholder play scene (a ship that moves and shoots) with pause, and a run-over screen
-that loops back to the title.
+**movement lab** (a placeholder player in a room with pillars, with movement presets and
+live tuning) with pause, and a run-over screen that loops back to the title.
+
+### Movement lab controls
+
+| Button | In play | Paused |
+|---|---|---|
+| D-pad | Move (8 directions) | UP/DOWN pick a value, LEFT/RIGHT change it |
+| SELECT | Next movement preset (SNAPPY, SMOOTH, FLOATY, CLASSIC) | End the run |
+| START | Pause and open the tuning panel | Resume |
+
+Speed is in pixels per frame. ACCEL, DECEL and REVERSE are the frames it takes to reach top
+speed, to stop, and to cancel full speed when pushing the other way. Any change shows the
+preset as CUSTOM.
 
 ## Code structure
 
@@ -16,7 +28,9 @@ that loops back to the title.
 | `src/input.c` | Reads the joypad once per frame: `joy` (held), `joy_pressed`, `joy_released` |
 | `src/gfx.c` | Font and frame tiles, `bkg_text`/`win_text`/`bkg_number`, framed boxes, palette fades |
 | `src/title.c` | Title screen. START seeds the run's RNG and starts a run |
-| `src/play.c` | Gameplay (placeholder room). START pauses; SELECT while paused ends the run |
+| `src/play.c` | Gameplay scene: the movement lab, HUD row and the pause/tuning panel |
+| `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
+| `src/room.c` | The current room's 16×16 block grid and collision queries |
 | `src/run_over.c` | Run stats. START returns to the title |
 | `src/run.h` | Per-run state: seed, play time, stats |
 

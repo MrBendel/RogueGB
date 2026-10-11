@@ -19,8 +19,6 @@ void run_over_enter(void) {
     bkg_number(11, 7, run_seconds / 60, 2, 1);
     bkg_text(13, 7, ":");
     bkg_number(14, 7, run_seconds % 60, 2, 1);
-    bkg_text(4, 9, "SHOTS");
-    bkg_number(11, 9, bullets_fired, 5, 0);
     bkg_text(5, 14, "PRESS START");
 }
 
