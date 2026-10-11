@@ -11,6 +11,7 @@ the design notes behind it.
 | View | **Top-down**, at the scale of the Capcom-era (Oracle) Zelda games: 16×16 characters drawn as 2 hardware sprites in 8×16 mode, and 16×16 map blocks. Matches the `artwork/8bitadventure` pack |
 | Rooms | **Mixed sizes.** Most rooms are one screen (10×8 blocks) and slide to the next one, Zelda style. Some are bigger (2×1, 1×2, 2×2 screens) with a camera that follows the player, for arenas and bosses. Room data allows any size from the start |
 | Graphics | **Pre-rendered.** Nothing is drawn or combined pixel by pixel at runtime. Characters get one baked body set per **weapon type** (unarmed, melee, gun), not per weapon, so the 10-sprites-per-line budget stays at 2 sprites per character. Right-facing frames are mirrored for left. All frames live in ROM; VRAM holds only the frames on screen, swapped in when the animation changes (4 tiles = 64 bytes). Specific guns show in the HUD and pickup popup, not in the character's hands. Any combining of layers (body + weapon) happens in the build tools, not in the game. Cheap runtime effects: sprite flips (sprites only; DMG background tiles can't flip, so mirrored background art is pre-rendered by the build), palette changes, sprites stacked by the hardware where the line budget allows |
+| Movement | Eased 8-way movement with per-axis acceleration, deceleration and reversal. **Default: SNAPPY at 2 px/frame** (5 frames to top speed, 4 to stop, 3 to turn around), chosen in the movement lab. **Each character has a movement profile** (top speed + those three frame counts) from a data table, so heir classes, traits and enemies can move differently |
 | Dynamic content | Only **data** is generated at runtime: floor layouts, room picks and mirroring, spawns, gun stats. It runs during fades, so it has no per-frame budget |
 | HUD | One block row (16 px) on the window layer. **Bottom of the screen for M1**, because the hardware does that for free. A top HUD like Zelda's needs a scanline interrupt; it's an optional M6 polish item |
 | Hardware | **DMG first** (4 shades), with GBC color added later in M6. Gameplay can't depend on color, so elements are shown by bullet shape and impact effect |
@@ -135,6 +136,7 @@ same layout (with a test for it), and moving between rooms has no visible glitch
 ### M4 · Heirs and legacy (meta-progression)
 - Heir selection: pick 1 of 3 (class + 0–2 traits) after the title screen
 - 4–5 classes as stat multipliers plus one ability on A+B, with a cooldown or charge meter shown in the HUD
+- Each class has its own **movement profile** (for example a fast, slippery Runner and a heavy Grenadier that ramps up slowly); traits can modify it
 - Traits that are cheap on Game Boy: palette tricks, flipped screen, hidden HP, size changes
 - Second Wind: at 0 HP, a short last stand where a kill revives you
 - Manor upgrade tree (about 20 nodes), where every purchase raises all costs

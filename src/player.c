@@ -26,14 +26,10 @@
 static const int8_t pointer_dx[8] = {0, 8, 11, 8, 0, -8, -11, -8};
 static const int8_t pointer_dy[8] = {-11, -8, 0, 8, 11, 8, 0, -8};
 
-typedef struct {
-    uint16_t top;
-    uint8_t accel, decel, reverse;
-    const char *name;
-} MovePreset;
-
-static const MovePreset presets[MOVE_PRESET_COUNT] = {
-    {384, 5, 4, 3, "SNAPPY"},    // Gungeon-like: quick to speed, quick to stop
+// Movement profiles. Each character (and later each heir class, M4) points at one,
+// so different characters can move differently. The lab cycles through them with SELECT.
+const MoveProfile move_profiles[MOVE_PRESET_COUNT] = {
+    {512, 5, 4, 3, "SNAPPY"},    // default: Gungeon-like, 2 px/frame, quick to speed and to stop
     {384, 10, 8, 6, "SMOOTH"},
     {384, 20, 24, 14, "FLOATY"},
     {384, 1, 1, 1, "CLASSIC"},   // instant start/stop, like most GB games
@@ -76,7 +72,7 @@ void move_recalc(void) {
 }
 
 void move_apply_preset(uint8_t preset) {
-    const MovePreset *p = &presets[preset];
+    const MoveProfile *p = &move_profiles[preset];
     move_preset = preset;
     move_top = p->top;
     move_accel_frames = p->accel;
@@ -86,7 +82,7 @@ void move_apply_preset(uint8_t preset) {
 }
 
 const char *move_preset_name(void) {
-    return move_preset < MOVE_PRESET_COUNT ? presets[move_preset].name : "CUSTOM";
+    return move_preset < MOVE_PRESET_COUNT ? move_profiles[move_preset].name : "CUSTOM";
 }
 
 // Build the placeholder art: a rounded 16x16 box (light fill, dark outline)

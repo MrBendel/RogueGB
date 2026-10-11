@@ -37,7 +37,14 @@ extern uint16_t move_accel;          // derived per-frame rates, 8.8
 extern uint16_t move_decel;
 extern uint16_t move_reverse;
 
+typedef struct {
+    uint16_t top;                  // px/frame, 8.8
+    uint8_t accel, decel, reverse; // frames (see the tunables above)
+    const char *name;
+} MoveProfile;
+
 #define MOVE_PRESET_COUNT 4
+extern const MoveProfile move_profiles[MOVE_PRESET_COUNT];
 #define MOVE_PRESET_CUSTOM 0xFF
 
 void player_init(uint8_t px, uint8_t py);

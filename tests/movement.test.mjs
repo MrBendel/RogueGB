@@ -3,9 +3,9 @@
 import { test } from 'node:test';
 import { assert, matchGolden, startRun } from './helpers.mjs';
 
-// Must match the presets table in src/player.c.
+// Must match move_profiles in src/player.c.
 const PRESETS = [
-  { name: 'SNAPPY', top: 384, accel: 5, decel: 4, reverse: 3 },
+  { name: 'SNAPPY', top: 512, accel: 5, decel: 4, reverse: 3 },
   { name: 'SMOOTH', top: 384, accel: 10, decel: 8, reverse: 6 },
   { name: 'FLOATY', top: 384, accel: 20, decel: 24, reverse: 14 },
   { name: 'CLASSIC', top: 384, accel: 1, decel: 1, reverse: 1 },
@@ -125,7 +125,7 @@ test('pause panel tunes movement values', () => {
   const emu = startRun().idle(2).tap('START').idle(3); // the pause panel takes a couple of frames to draw
   assert.equal(emu.v('paused'), 1);
   emu.tap('RIGHT');
-  assert.equal(emu.v('move_top', 'u16'), 384 + 64, 'speed +0.25');
+  assert.equal(emu.v('move_top', 'u16'), 512 + 64, 'speed +0.25');
   assert.equal(emu.v('move_preset'), CUSTOM);
   emu.tap('DOWN').tap('LEFT').tap('LEFT');
   assert.equal(emu.v('move_accel_frames'), 3);
@@ -133,12 +133,12 @@ test('pause panel tunes movement values', () => {
   assert.equal(emu.v('move_decel_frames'), 5);
   emu.tap('START');
   // The tuned values take effect.
-  const up = framesUntil(emu, 'RIGHT', (e) => vx(e) === 448);
-  assert.equal(up, framesFor(448, 3));
+  const up = framesUntil(emu, 'RIGHT', (e) => vx(e) === 576);
+  assert.equal(up, framesFor(576, 3));
   // SELECT from CUSTOM goes back to the first preset.
   emu.idle(30).tap('SELECT');
   assert.equal(emu.v('move_preset'), 0);
-  assert.equal(emu.v('move_top', 'u16'), 384);
+  assert.equal(emu.v('move_top', 'u16'), 512);
 });
 
 test('screen: movement lab after moving', () => {
