@@ -33,7 +33,7 @@ static const uint8_t walk_anim[4] = {
 // Movement profiles. Each character (and later each heir class, M4) points at one,
 // so different characters can move differently. The lab cycles through them with SELECT.
 const MoveProfile move_profiles[MOVE_PRESET_COUNT] = {
-    {512, 5, 4, 3, "SNAPPY"},    // default: Gungeon-like, 2 px/frame, quick to speed and to stop
+    {256, 5, 4, 3, "SNAPPY"},    // default: 1 px/frame, quick to speed and to stop (Gungeon-like response)
     {384, 10, 8, 6, "SMOOTH"},
     {384, 20, 24, 14, "FLOATY"},
     {384, 1, 1, 1, "CLASSIC"},   // instant start/stop, like most GB games
