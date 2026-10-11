@@ -557,7 +557,9 @@ function updateRecUi() {
 // ---------------------------------------------------------------------------
 // Watches
 let watchList = store.get('watches', [
-  { name: 'player_x', type: 'u8' }, { name: 'player_y', type: 'u8' }, { name: 'frame_count', type: 'u16' },
+  // Movement lab: positions and velocities are 8.8 fixed point (divide by 256 for pixels).
+  { name: 'player_vx', type: 'i16' }, { name: 'player_vy', type: 'i16' },
+  { name: 'player_x', type: 'u16' }, { name: 'player_y', type: 'u16' }, { name: 'move_preset', type: 'u8' },
 ]);
 function fillSymbols() {
   const dl = $('symbols');
