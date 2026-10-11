@@ -1,4 +1,4 @@
-// Tests for the game shell: title -> play (with pause) -> run over -> title.
+﻿// Tests for the game shell: title -> play (with pause) -> run over -> title.
 // Movement and collision are in movement.test.mjs.
 // Keep at least "boots" and one golden screen per major screen.
 import { test } from 'node:test';
@@ -50,7 +50,7 @@ test('START pauses and resumes; the run clock stops while paused', () => {
 });
 
 test('SELECT while paused ends the run; START returns to the title', () => {
-  const emu = startRun().hold('RIGHT', 20).tap('START').idle(3).tap('SELECT');
+  const emu = startRun().hold('RIGHT', 20).tap('START').idle(6).tap('SELECT');
   settle(emu, RUN_OVER, 'run over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), RUN_OVER, 'input is ignored for a moment');
@@ -76,6 +76,6 @@ test('screen: paused', () => {
 });
 
 test('screen: run over', () => {
-  const emu = startRun().hold('RIGHT', 30).idle(100).tap('START').idle(3).tap('SELECT');
+  const emu = startRun().hold('RIGHT', 30).idle(100).tap('START').idle(6).tap('SELECT');
   matchGolden(settle(emu, RUN_OVER, 'run over screen'), 'run-over');
 });

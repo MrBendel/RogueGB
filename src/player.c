@@ -17,9 +17,27 @@
 // Diagonal speed factor, 1/sqrt(2) in 0.8 fixed point.
 #define DIAG 181
 
-// The player uses hardware sprites 0-1 and VRAM sprite tiles 0-7.
+// The player uses hardware sprites 0-1 and VRAM sprite tiles 0-7; the jump
+// shadow uses sprites 2-3 (drawn under the player) and VRAM tiles 8-9.
 #define PLAYER_OAM 0
 #define PLAYER_VRAM 0
+#define SHADOW_OAM 2
+#define SHADOW_VRAM 8
+
+// Shadow: a 14x3 ellipse in color 2 at the bottom of an 8x16 column. This is the
+// left half; the right half is the same column drawn flipped.
+static const uint8_t shadow_tiles[32] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x3F, 0x00, 0x7F, 0x00, 0x3F,
+};
+
+// Unit vectors for the 8 facings (clockwise from up), used for a dash with no d-pad input.
+static const int8_t facing_dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+static const int8_t facing_dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+// While airborne the art holds this walk frame (legs apart).
+#define AIR_FRAME 1
+// Frames a B press is remembered for, so pressing just before landing still jumps.
+#define JUMP_BUFFER 4
 
 // Animation directions (4) and the walk/hurt animation for each.
 #define ANIM_DOWN 0
@@ -57,6 +75,23 @@ uint8_t player_anim_dir;    // ANIM_DOWN/UP/RIGHT/LEFT: which way the art faces
 uint8_t player_anim_frame;  // frame within the current animation
 uint16_t player_anim_dist;  // distance walked since the last frame step, 8.8
 uint16_t anim_step = 8 << 8; // tunable: px walked per animation frame
+
+// --- jump and dash (issues #6, #7) ---
+int16_t player_z;          // height above the ground, px 8.8 (0 = on the ground)
+int16_t player_vz;         // vertical speed, px/frame 8.8 (positive = up)
+uint8_t player_air;        // 1 while airborne
+uint8_t player_dashed;     // 1 once this jump's dash is used
+uint8_t player_dash_timer; // frames of dash left
+uint8_t player_invuln;     // invulnerability frames left
+uint8_t player_jump_buffer;
+uint16_t player_jumps;     // counters, handy for tests and the Watch panel
+uint16_t player_dashes;
+// Tunables. Defaults: ~16 px high, ~32 frames in the air (2 blocks at 1 px/frame).
+uint16_t jump_vel = 512;   // takeoff speed, px/frame 8.8
+uint8_t jump_grav = 32;    // gravity, px/frame^2 in 1/256ths
+uint16_t dash_speed = 768; // px/frame 8.8
+uint8_t dash_frames = 8;
+uint8_t dash_iframes = 12;
 
 static SpriteSlot player_slot;
 
@@ -104,6 +139,16 @@ void player_init(uint8_t px, uint8_t py) {
     player_anim_dir = ANIM_DOWN;
     player_anim_frame = 0;
     player_anim_dist = 0;
+    player_z = player_vz = 0;
+    player_air = player_dashed = player_dash_timer = player_invuln = player_jump_buffer = 0;
+    player_jumps = player_dashes = 0;
+    set_sprite_data(SHADOW_VRAM, 2, shadow_tiles);
+    set_sprite_tile(SHADOW_OAM, SHADOW_VRAM);
+    set_sprite_tile(SHADOW_OAM + 1, SHADOW_VRAM);
+    set_sprite_prop(SHADOW_OAM, 0);
+    set_sprite_prop(SHADOW_OAM + 1, S_FLIPX);
+    hide_sprite(SHADOW_OAM);
+    hide_sprite(SHADOW_OAM + 1);
 }
 
 // Move v one step toward target t, using the rate that fits the situation.
@@ -211,6 +256,56 @@ static void update_anim(int8_t dx, int8_t dy) {
     }
 }
 
+static void start_jump(void) {
+    player_air = 1;
+    player_dashed = 0;
+    player_vz = jump_vel;
+    player_jump_buffer = 0;
+    player_jumps++;
+}
+
+static void start_dash(int8_t dx, int8_t dy) {
+    if (!dx && !dy) {
+        dx = facing_dx[player_facing];
+        dy = facing_dy[player_facing];
+    }
+    int16_t sp = (dx && dy) ? (int16_t)(((uint32_t)dash_speed * DIAG) >> 8) : (int16_t)dash_speed;
+    player_vx = dx > 0 ? sp : dx < 0 ? -sp : 0;
+    player_vy = dy > 0 ? sp : dy < 0 ? -sp : 0;
+    player_dashed = 1;
+    player_dash_timer = dash_frames;
+    player_vz = 0;  // hold height during the dash, then fall from there
+    if (player_invuln < dash_iframes) player_invuln = dash_iframes;
+    player_dashes++;
+}
+
+// B: jump from the ground; in the air, the first press dashes and later presses
+// are buffered so a press just before landing jumps again on touchdown.
+static void update_jump(int8_t dx, int8_t dy) {
+    if (joy_pressed & J_B) {
+        if (!player_air) start_jump();
+        else if (!player_dashed) start_dash(dx, dy);
+        else player_jump_buffer = JUMP_BUFFER;
+    }
+    if (player_invuln) player_invuln--;
+    if (!player_air) return;
+    if (player_dash_timer) {
+        player_dash_timer--;
+        return;
+    }
+    player_z += player_vz;
+    player_vz -= jump_grav;
+    if (player_z <= 0) {
+        player_z = 0;
+        player_vz = 0;
+        player_air = 0;
+        player_dashed = 0;
+        if (player_jump_buffer) start_jump();
+    } else if (player_jump_buffer) {
+        player_jump_buffer--;
+    }
+}
+
 void player_update(void) {
     uint8_t dpad = joy & 0x0F;
     int8_t dx = 0, dy = 0;
@@ -220,9 +315,13 @@ void player_update(void) {
     if ((dpad & (J_UP | J_DOWN)) == J_UP) dy = -1;
     if (facing_for_dpad[dpad] != 0xFF) player_facing = facing_for_dpad[dpad];
 
-    int16_t speed = (dx && dy) ? (int16_t)(((uint32_t)move_top * DIAG) >> 8) : (int16_t)move_top;
-    player_vx = step_axis(player_vx, dx > 0 ? speed : dx < 0 ? -speed : 0);
-    player_vy = step_axis(player_vy, dy > 0 ? speed : dy < 0 ? -speed : 0);
+    update_jump(dx, dy);
+    // A dash ignores steering; afterwards the normal easing brings the speed back down.
+    if (!player_dash_timer) {
+        int16_t speed = (dx && dy) ? (int16_t)(((uint32_t)move_top * DIAG) >> 8) : (int16_t)move_top;
+        player_vx = step_axis(player_vx, dx > 0 ? speed : dx < 0 ? -speed : 0);
+        player_vy = step_axis(player_vy, dy > 0 ? speed : dy < 0 ? -speed : 0);
+    }
 
     move_x();
     move_y();
@@ -231,7 +330,17 @@ void player_update(void) {
 
 void player_draw(void) {
     uint8_t anim = walk_anim[player_anim_dir];
-    slot_set_frame(&player_slot, spr_player_tiles, spr_player_frames, spr_player_anims[anim << 1] + player_anim_frame);
-    // Playfield (0,0) is screen (0,0).
-    slot_move(&player_slot, FX_PX(player_x), FX_PX(player_y));
+    uint8_t frame = player_air ? AIR_FRAME : player_anim_frame;
+    slot_set_frame(&player_slot, spr_player_tiles, spr_player_frames, spr_player_anims[anim << 1] + frame);
+    // Playfield (0,0) is screen (0,0). The body is raised by its height; near the top
+    // edge the subtraction wraps, which the hardware's 8-bit coordinates handle.
+    uint8_t x = FX_PX(player_x), y = FX_PX(player_y);
+    slot_move(&player_slot, x, y - FX_PX(player_z));
+    if (player_air) {
+        move_sprite(SHADOW_OAM, x + 8, y + 16);
+        move_sprite(SHADOW_OAM + 1, x + 16, y + 16);
+    } else {
+        hide_sprite(SHADOW_OAM);
+        hide_sprite(SHADOW_OAM + 1);
+    }
 }

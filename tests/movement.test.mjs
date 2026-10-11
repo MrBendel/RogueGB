@@ -1,4 +1,4 @@
-// Movement lab: easing presets, diagonal speed, collision, wall sliding, corner nudging,
+﻿// Movement lab: easing presets, diagonal speed, collision, wall sliding, corner nudging,
 // and the pause-screen tuner. Issues #1 and #2.
 import { test } from 'node:test';
 import { assert, matchGolden, startRun } from './helpers.mjs';
@@ -122,7 +122,7 @@ test('clipping a pillar corner by a pixel slides around it', () => {
 });
 
 test('pause panel tunes movement values', () => {
-  const emu = startRun().idle(2).tap('START').idle(3); // the pause panel takes a couple of frames to draw
+  const emu = startRun().idle(2).tap('START').idle(6); // the pause panel takes a couple of frames to draw
   assert.equal(emu.v('paused'), 1);
   emu.tap('RIGHT');
   assert.equal(emu.v('move_top', 'u16'), 256 + 64, 'speed +0.25');
@@ -146,5 +146,5 @@ test('screen: movement lab after moving', () => {
 });
 
 test('screen: tuning panel', () => {
-  matchGolden(startRun().idle(2).tap('START').idle(3).tap('DOWN').tap('RIGHT').idle(2), 'tuning');
+  matchGolden(startRun().idle(2).tap('START').idle(6).tap('DOWN').tap('RIGHT').idle(2), 'tuning');
 });

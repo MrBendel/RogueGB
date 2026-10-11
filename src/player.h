@@ -30,6 +30,21 @@ extern uint8_t player_anim_dir;    // art direction: 0 down, 1 up, 2 right, 3 le
 extern uint8_t player_anim_frame;  // frame within the walk cycle (0 = standing)
 extern uint16_t anim_step;         // tunable: px walked per animation frame, 8.8
 
+// --- jump and dash ---
+extern int16_t player_z;          // height above the ground, px 8.8
+extern int16_t player_vz;
+extern uint8_t player_air;
+extern uint8_t player_dashed;
+extern uint8_t player_dash_timer;
+extern uint8_t player_invuln;
+extern uint16_t player_jumps;
+extern uint16_t player_dashes;
+extern uint16_t jump_vel;          // tunables
+extern uint8_t jump_grav;
+extern uint16_t dash_speed;
+extern uint8_t dash_frames;
+extern uint8_t dash_iframes;
+
 // --- tunables (changed by presets and the pause-screen tuner) ---
 extern uint16_t move_top;            // top speed, px/frame 8.8
 extern uint8_t move_accel_frames;    // frames from standstill to top speed

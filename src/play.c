@@ -1,7 +1,8 @@
 // Gameplay scene. For now this is the movement lab: one room with pillars,
 // a placeholder player, and movement presets to compare.
+//   B             jump; B again in mid-air dashes
 //   SELECT        cycle movement presets
-//   START         pause; the pause panel tunes the movement values
+//   START         pause; the pause panel tunes movement and jump values
 //                 (UP/DOWN pick a value, LEFT/RIGHT change it)
 //   SELECT paused end the run
 #include <gb/gb.h>
@@ -15,21 +16,35 @@
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY (ROOM_PX_H)
-// Pause panel: 9 tile rows on the window layer.
-#define PAUSE_H 9
+// Pause panel: 13 tile rows on the window layer.
+#define PAUSE_H 13
 #define PAUSE_WY (144 - PAUSE_H * 8)
-
-#define TUNE_SPEED 0
-#define TUNE_ACCEL 1
-#define TUNE_DECEL 2
-#define TUNE_REVERSE 3
-#define TUNE_COUNT 4
 #define TUNE_ROW0 2  // window row of the first tunable
 
-#define SPEED_STEP 64  // 0.25 px/frame
-#define SPEED_MIN 64
-#define SPEED_MAX 768
-#define FRAMES_MAX 60
+// Tunables shown on the pause panel. FX16 = uint16 8.8 shown as x.xx,
+// FX8 = uint8 in 1/256ths shown as 0.xx, FRAMES = uint8 shown as a count.
+#define KIND_FX16 0
+#define KIND_FX8 1
+#define KIND_FRAMES 2
+typedef struct {
+    const char *label;
+    uint8_t kind;
+    uint8_t movement;  // changing it makes the movement preset CUSTOM
+    void *value;
+    uint16_t step, min, max;
+} Tunable;
+
+static const Tunable tunables[] = {
+    {"SPEED", KIND_FX16, 1, &move_top, 64, 64, 768},
+    {"ACCEL", KIND_FRAMES, 1, &move_accel_frames, 1, 1, 60},
+    {"DECEL", KIND_FRAMES, 1, &move_decel_frames, 1, 1, 60},
+    {"REVERSE", KIND_FRAMES, 1, &move_reverse_frames, 1, 1, 60},
+    {"JUMP", KIND_FX16, 0, &jump_vel, 32, 128, 1024},
+    {"GRAVITY", KIND_FX8, 0, &jump_grav, 4, 4, 128},
+    {"DASH SPD", KIND_FX16, 0, &dash_speed, 64, 256, 1536},
+    {"DASH FR", KIND_FRAMES, 0, &dash_frames, 1, 1, 30},
+};
+#define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
 // Player start: middle of the bottom corridor.
 #define START_X 72
@@ -51,36 +66,46 @@ void run_start(uint16_t seed) {
 
 static void draw_hud(void) {
     fill_win_rect(0, 0, SCREEN_TW, 2, FONT_TILES);
-    win_text(1, 0, "MOVE:");
-    win_text(7, 0, move_preset_name());
+    win_text(0, 0, "MOVE:");
+    win_text(6, 0, move_preset_name());
+    win_text(14, 0, "B:JUMP");
     win_text(0, 1, "SEL:NEXT  START:TUNE");
 }
 
+static uint16_t tune_get(const Tunable *t) {
+    return t->kind == KIND_FX16 ? *(uint16_t *)t->value : *(uint8_t *)t->value;
+}
+
+static void tune_set(const Tunable *t, uint16_t v) {
+    if (t->kind == KIND_FX16) *(uint16_t *)t->value = v;
+    else *(uint8_t *)t->value = (uint8_t)v;
+}
+
 static void draw_tune_value(uint8_t i) {
+    const Tunable *t = &tunables[i];
     uint8_t y = TUNE_ROW0 + i;
+    uint16_t v = tune_get(t);
     win_text(1, y, i == tune_sel ? ">" : " ");
-    if (i == TUNE_SPEED) {
-        win_number(11, y, move_top >> 8, 1, 0);
-        win_text(12, y, ".");
-        win_number(13, y, ((move_top & 0xFF) * 100) >> 8, 2, 1);
-        win_text(16, y, "PX");
-    } else {
-        uint8_t f = i == TUNE_ACCEL ? move_accel_frames : i == TUNE_DECEL ? move_decel_frames : move_reverse_frames;
-        win_number(12, y, f, 3, 0);
+    if (t->kind == KIND_FRAMES) {
+        win_number(12, y, v, 3, 0);
         win_text(16, y, "FR");
+    } else {
+        win_number(11, y, v >> 8, 1, 0);
+        win_text(12, y, ".");
+        win_number(13, y, ((v & 0xFF) * 100) >> 8, 2, 1);
+        win_text(16, y, "PX");
     }
 }
 
 static void draw_pause(void) {
     win_frame(0, 0, SCREEN_TW, PAUSE_H);
     win_text(4, 1, "PAUSED: TUNE");
-    win_text(2, TUNE_ROW0 + TUNE_SPEED, "SPEED");
-    win_text(2, TUNE_ROW0 + TUNE_ACCEL, "ACCEL");
-    win_text(2, TUNE_ROW0 + TUNE_DECEL, "DECEL");
-    win_text(2, TUNE_ROW0 + TUNE_REVERSE, "REVERSE");
-    for (uint8_t i = 0; i < TUNE_COUNT; i++) draw_tune_value(i);
-    win_text(2, 6, "START  RESUME");
-    win_text(2, 7, "SELECT END RUN");
+    for (uint8_t i = 0; i < TUNE_COUNT; i++) {
+        win_text(2, TUNE_ROW0 + i, tunables[i].label);
+        draw_tune_value(i);
+    }
+    win_text(2, TUNE_ROW0 + TUNE_COUNT, "START  RESUME");
+    win_text(2, TUNE_ROW0 + TUNE_COUNT + 1, "SELECT END RUN");
 }
 
 void play_enter(void) {
@@ -110,11 +135,6 @@ static void set_paused(uint8_t p) {
     }
 }
 
-static void adjust_frames(uint8_t *f, int8_t d) {
-    if (d < 0 && *f > 1) (*f)--;
-    if (d > 0 && *f < FRAMES_MAX) (*f)++;
-}
-
 static void tune_update(void) {
     uint8_t old = tune_sel;
     if ((joy_pressed & J_UP) && tune_sel > 0) tune_sel--;
@@ -123,16 +143,16 @@ static void tune_update(void) {
         draw_tune_value(old);
         draw_tune_value(tune_sel);
     }
-    int8_t d = (joy_pressed & J_RIGHT) ? 1 : (joy_pressed & J_LEFT) ? -1 : 0;
-    if (!d) return;
-    if (tune_sel == TUNE_SPEED) {
-        if (d < 0 && move_top > SPEED_MIN) move_top -= SPEED_STEP;
-        if (d > 0 && move_top < SPEED_MAX) move_top += SPEED_STEP;
-    } else if (tune_sel == TUNE_ACCEL) adjust_frames(&move_accel_frames, d);
-    else if (tune_sel == TUNE_DECEL) adjust_frames(&move_decel_frames, d);
-    else adjust_frames(&move_reverse_frames, d);
-    move_preset = MOVE_PRESET_CUSTOM;
-    move_recalc();
+    const Tunable *t = &tunables[tune_sel];
+    uint16_t v = tune_get(t);
+    if ((joy_pressed & J_RIGHT) && v + t->step <= t->max) v += t->step;
+    else if ((joy_pressed & J_LEFT) && v >= t->min + t->step) v -= t->step;
+    else return;
+    tune_set(t, v);
+    if (t->movement) {
+        move_preset = MOVE_PRESET_CUSTOM;
+        move_recalc();
+    }
     draw_tune_value(tune_sel);
 }
 

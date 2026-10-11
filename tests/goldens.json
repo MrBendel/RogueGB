@@ -1,12 +1,13 @@
 {
   "title": "2d35324a",
-  "start-room": "18cd548e",
-  "paused": "b76f5029",
+  "start-room": "4947ce24",
+  "paused": "a5b0e1c1",
   "run-over": "21e8e2ae",
-  "lab-moved": "4bc5dde4",
-  "tuning": "7a56c320",
-  "player-down": "18cd548e",
-  "player-up": "93fcebdf",
-  "player-right": "a037749d",
-  "player-left": "f404d109"
+  "lab-moved": "1a4f474e",
+  "tuning": "91032a59",
+  "player-down": "4947ce24",
+  "player-up": "c2767175",
+  "player-right": "f1bdee37",
+  "player-left": "a58e4ba3",
+  "jump-mid": "24c171c1"
 }

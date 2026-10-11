@@ -12,12 +12,14 @@ live tuning) with pause, and a run-over screen that loops back to the title.
 | Button | In play | Paused |
 |---|---|---|
 | D-pad | Move (8 directions) | UP/DOWN pick a value, LEFT/RIGHT change it |
+| B | Jump; B again in mid-air dashes toward the d-pad direction (once per jump) | |
 | SELECT | Next movement preset (SNAPPY, SMOOTH, FLOATY, CLASSIC) | End the run |
 | START | Pause and open the tuning panel | Resume |
 
 Speed is in pixels per frame. ACCEL, DECEL and REVERSE are the frames it takes to reach top
 speed, to stop, and to cancel full speed when pushing the other way. Any change shows the
-preset as CUSTOM.
+preset as CUSTOM. JUMP is takeoff speed and GRAVITY the pull per frame (both in pixels per frame);
+DASH SPD and DASH FR are the dash's speed and length.
 
 ## Code structure
 
