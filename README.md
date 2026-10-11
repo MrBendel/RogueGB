@@ -1,8 +1,29 @@
 # RogueGB
 
 A Game Boy roguelite with run-and-gun shooting, built in C with
-[GBDK-2020](https://gbdk.org/) 4.5.0. Right now `src/main.c` is a small test scene
-(a ship that moves and shoots). Its only job is to prove the build and test pipeline works.
+[GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a
+placeholder play scene (a ship that moves and shoots) with pause, and a run-over screen
+that loops back to the title.
+
+## Code structure
+
+| File | What it does |
+|---|---|
+| `src/main.c` | Boot and the main loop. Runs one scene update per frame and handles scene changes (fade out, `enter()` the new scene, fade in) |
+| `src/state.h` | Scene IDs (`STATE_TITLE`, `STATE_PLAY`, `STATE_RUN_OVER`), `state_change()`, `wait_frame()` |
+| `src/input.c` | Reads the joypad once per frame: `joy` (held), `joy_pressed`, `joy_released` |
+| `src/gfx.c` | Font and frame tiles, `bkg_text`/`win_text`/`bkg_number`, framed boxes, palette fades |
+| `src/title.c` | Title screen. START seeds the run's RNG and starts a run |
+| `src/play.c` | Gameplay (placeholder room). START pauses; SELECT while paused ends the run |
+| `src/run_over.c` | Run stats. START returns to the title |
+| `src/run.h` | Per-run state: seed, play time, stats |
+
+To add a scene: add a `STATE_*` ID and its `*_enter`/`*_update` to `state.h`, then add
+it to both switches in `main.c`.
+
+Artwork is converted at build time. `tools/assets.mjs` turns the PNGs listed in its
+`ASSETS` table into 2bpp tile arrays in `build/gen/` (for example `font_tiles`). Images
+must use at most 4 shades.
 
 ## Setup (once)
 
@@ -104,13 +125,14 @@ symbol, so tests and the watch panel can read it by name.
 
 ```
 src/              game source (C)
-tools/            build.mjs, test.mjs, serve.mjs, bundle.mjs, import-reports.mjs, GBDK archives
+tools/            build.mjs, assets.mjs, test.mjs, serve.mjs, bundle.mjs, import-reports.mjs, GBDK archives
 harness/          emu.mjs (shared core wrapper), node.mjs, cli.mjs, vendor/boytacean
 web/              playtest page
 tests/            node:test suites + goldens.json
 replays/          recordings and bug reports from playtests
 docs/gbdk/        GBDK reference docs (Markdown)
-build/            output (ignored)
+artwork/          source art (PNG); converted by tools/assets.mjs
+build/            output (ignored), including build/gen/ generated tile sources
 ```
 
 ## Accuracy note

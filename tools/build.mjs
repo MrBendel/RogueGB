@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Builds build/roguegb.gb from src/ with GBDK-2020.
+// Builds build/roguegb.gb from src/ (plus tiles generated from artwork/ by
+// tools/assets.mjs) with GBDK-2020.
 //
 //   node tools/build.mjs            incremental build
 //   node tools/build.mjs --clean    rebuild everything
@@ -14,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { buildAssets, GEN_DIR } from './assets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -91,19 +93,21 @@ export function build({ clean = false, quiet = false } = {}) {
   if (clean) fs.rmSync(path.join(ROOT, 'build', 'obj'), { recursive: true, force: true });
   fs.mkdirSync(objDir, { recursive: true });
 
-  const sources = walk(srcDir, ['.c', '.s']);
+  // Generated sources (artwork -> tiles) live in build/gen/ and are never committed.
+  const genSources = buildAssets({ quiet });
+  const sources = [...walk(srcDir, ['.c', '.s']), ...genSources];
   if (!sources.length) throw new Error('no sources in src/');
-  const newestHeader = Math.max(0, ...walk(srcDir, ['.h', '.inc']).map(mtime), mtime(fileURLToPath(import.meta.url)));
+  const newestHeader = Math.max(0, ...walk(srcDir, ['.h', '.inc']).map(mtime), ...walk(GEN_DIR, ['.h']).map(mtime), mtime(fileURLToPath(import.meta.url)));
 
   const objs = [];
   let compiled = 0;
   for (const src of sources) {
-    const rel = path.relative(srcDir, src).replace(/[\\/]/g, '__');
+    const rel = src.startsWith(GEN_DIR) ? 'gen__' + path.basename(src) : path.relative(srcDir, src).replace(/[\\/]/g, '__');
     const obj = path.join(objDir, rel.replace(/\.(c|s)$/, '.o'));
     objs.push(obj);
     if (mtime(obj) > Math.max(mtime(src), newestHeader)) continue;
     if (!quiet) console.log(`[build] cc ${path.relative(ROOT, src)}`);
-    const r = run(lcc, [...CONFIG.cflags, '-debug', `-I${srcDir}`, '-c', '-o', obj, src], quiet);
+    const r = run(lcc, [...CONFIG.cflags, '-debug', `-I${srcDir}`, `-I${GEN_DIR}`, '-c', '-o', obj, src], quiet);
     if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
     compiled++;
   }
