@@ -1,14 +1,15 @@
 {
   "title": "2d35324a",
-  "start-room": "4947ce24",
-  "paused": "a5b0e1c1",
+  "start-room": "7fc4ab13",
+  "paused": "b77f5176",
   "run-over": "21e8e2ae",
-  "lab-moved": "1a4f474e",
-  "tuning": "91032a59",
-  "player-down": "4947ce24",
-  "player-up": "c2767175",
-  "player-right": "f1bdee37",
-  "player-left": "a58e4ba3",
-  "jump-mid": "24c171c1",
-  "roll-mid": "04c705e1"
+  "lab-moved": "8563e46a",
+  "tuning": "f4f4082f",
+  "player-down": "7fc4ab13",
+  "player-up": "68305ac9",
+  "player-right": "997bae0c",
+  "player-left": "1a62de1f",
+  "jump-mid": "8ec32be3",
+  "roll-mid": "1c46deb1",
+  "scrolled-corner": "d2f6ad5d"
 }

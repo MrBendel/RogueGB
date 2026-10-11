@@ -16,7 +16,13 @@
 #define SCREEN_TW 20  // screen size in tiles
 #define SCREEN_TH 18
 
-// Load the font and frame tiles. Call once at boot; scenes never overwrite them.
+// Background scroll, applied by the vblank interrupt (together with the sprite
+// update), so the background and sprites always move in the same frame.
+extern uint8_t scroll_x;
+extern uint8_t scroll_y;
+
+// Load the font and frame tiles and install the vblank scroll handler.
+// Call once at boot; scenes never overwrite these tiles.
 void gfx_init(void);
 
 // Clear the background map to blank, hide every sprite, hide the window.

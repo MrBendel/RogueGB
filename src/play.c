@@ -13,11 +13,12 @@
 #include "run.h"
 #include "room.h"
 #include "player.h"
+#include "camera.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
-#define HUD_WY (ROOM_PX_H)
-// Pause panel: 13 tile rows on the window layer.
-#define PAUSE_H 13
+#define HUD_WY VIEW_H
+// Pause panel: 15 tile rows on the window layer.
+#define PAUSE_H 15
 #define PAUSE_WY (144 - PAUSE_H * 8)
 #define TUNE_ROW0 2  // window row of the first tunable
 
@@ -26,6 +27,7 @@
 #define KIND_FX16 0
 #define KIND_FX8 1
 #define KIND_FRAMES 2
+#define KIND_NUM 3  // uint8 shown as a plain number
 typedef struct {
     const char *label;
     uint8_t kind;
@@ -43,10 +45,12 @@ static const Tunable tunables[] = {
     {"GRAVITY", KIND_FX8, 0, &jump_grav, 4, 4, 128},
     {"DASH SPD", KIND_FX16, 0, &dash_speed, 64, 256, 1536},
     {"DASH FR", KIND_FRAMES, 0, &dash_frames, 1, 1, 30},
+    {"CAM LEAD", KIND_FRAMES, 0, &cam_lead, 2, 0, 40},
+    {"CAM EASE", KIND_NUM, 0, &cam_ease, 1, 0, 5},
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
-// Player start: middle of the bottom corridor.
+// Player start: on the ledge in the top-left screen.
 #define START_X 72
 #define START_Y 96
 
@@ -86,9 +90,9 @@ static void draw_tune_value(uint8_t i) {
     uint8_t y = TUNE_ROW0 + i;
     uint16_t v = tune_get(t);
     win_text(1, y, i == tune_sel ? ">" : " ");
-    if (t->kind == KIND_FRAMES) {
+    if (t->kind == KIND_FRAMES || t->kind == KIND_NUM) {
         win_number(12, y, v, 3, 0);
-        win_text(16, y, "FR");
+        win_text(16, y, t->kind == KIND_FRAMES ? "FR" : "  ");
     } else {
         win_number(11, y, v >> 8, 1, 0);
         win_text(12, y, ".");
@@ -112,6 +116,7 @@ void play_enter(void) {
     room_load_lab();
     player_init(START_X, START_Y);
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
+    camera_init(player_x + 8, player_y + 8);
     paused = 0;
     tune_sel = 0;
     draw_hud();
@@ -178,5 +183,6 @@ void play_update(void) {
     }
 
     player_update();
+    camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     player_draw();
 }

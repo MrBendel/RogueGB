@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import { assert, matchGolden, startRun } from './helpers.mjs';
 
 // Defaults, must match src/player.c.
-const JUMP_VEL = 512, GRAV = 32, DASH_SPEED = 768, DASH_FRAMES = 8, DASH_IFRAMES = 12;
+const JUMP_VEL = 448, GRAV = 32, DASH_SPEED = 768, DASH_FRAMES = 8, DASH_IFRAMES = 12;
 const DIAG = 181;
 
 const i16 = (emu, n) => emu.v(n, 'i16');
-const px = (emu) => emu.v('player_x', 'u16') >> 8;
+const px = (emu) => emu.v('player_x', 'u16');
 
 /** Frames from takeoff to landing for a plain jump, same integer math as the game. */
 function airFrames(vel = JUMP_VEL, grav = GRAV) {
@@ -135,7 +135,7 @@ test('B pressed just before landing (after the dash) jumps again on touchdown', 
 });
 
 test('jump values can be tuned from the pause panel', () => {
-  const emu = startRun().idle(2).tap('START').idle(6);
+  const emu = startRun().idle(2).tap('START').idle(8);
   for (let i = 0; i < 4; i++) emu.tap('DOWN'); // SPEED, ACCEL, DECEL, REVERSE -> JUMP
   emu.tap('RIGHT');
   assert.equal(emu.v('jump_vel', 'u16'), JUMP_VEL + 32);

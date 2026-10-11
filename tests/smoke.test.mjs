@@ -50,7 +50,7 @@ test('START pauses and resumes; the run clock stops while paused', () => {
 });
 
 test('SELECT while paused ends the run; START returns to the title', () => {
-  const emu = startRun().hold('RIGHT', 20).tap('START').idle(6).tap('SELECT');
+  const emu = startRun().hold('RIGHT', 20).tap('START').idle(8).tap('SELECT');
   settle(emu, RUN_OVER, 'run over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), RUN_OVER, 'input is ignored for a moment');
@@ -59,7 +59,7 @@ test('SELECT while paused ends the run; START returns to the title', () => {
   // And a new run starts fresh, back at the start position.
   startRun(emu);
   assert.equal(emu.v('run_seconds', 'u16'), 0);
-  assert.equal(emu.v('player_x', 'u16') >> 8, 72);
+  assert.equal(emu.v('player_x', 'u16'), 72);
   assert.equal(emu.v('player_vx', 'i16'), 0);
 });
 
@@ -76,6 +76,6 @@ test('screen: paused', () => {
 });
 
 test('screen: run over', () => {
-  const emu = startRun().hold('RIGHT', 30).idle(100).tap('START').idle(6).tap('SELECT');
+  const emu = startRun().hold('RIGHT', 30).idle(100).tap('START').idle(8).tap('SELECT');
   matchGolden(settle(emu, RUN_OVER, 'run over screen'), 'run-over');
 });

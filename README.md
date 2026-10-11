@@ -4,8 +4,8 @@ The plan, the design decisions and the milestones are in [ROADMAP.md](ROADMAP.md
 
 A Game Boy roguelite with run-and-gun shooting, built in C with
 [GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a
-**movement lab** (a placeholder player in a room with pillars, with movement presets and
-live tuning) with pause, and a run-over screen that loops back to the title.
+**movement lab** (the player in a 2×2-screen room with pillars and a scrolling camera,
+with movement presets and live tuning) with pause, and a run-over screen that loops back to the title.
 
 ### Movement lab controls
 
@@ -19,7 +19,9 @@ live tuning) with pause, and a run-over screen that loops back to the title.
 Speed is in pixels per frame. ACCEL, DECEL and REVERSE are the frames it takes to reach top
 speed, to stop, and to cancel full speed when pushing the other way. Any change shows the
 preset as CUSTOM. JUMP is takeoff speed and GRAVITY the pull per frame (both in pixels per frame);
-DASH SPD and DASH FR are the dash's speed and length.
+DASH SPD and DASH FR are the dash's speed and length. CAM LEAD is how many frames of
+movement the camera looks ahead; CAM EASE is how quickly it catches up (0 = locked to the
+player, higher = smoother and lazier).
 
 ## Code structure
 
@@ -33,6 +35,7 @@ DASH SPD and DASH FR are the dash's speed and length.
 | `src/play.c` | Gameplay scene: the movement lab, HUD row and the pause/tuning panel |
 | `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
 | `src/sprite_slot.c` | Draws a 16×16 character from pre-rendered frames: two 8×16 sprites and a double-buffered 8-tile VRAM slot |
+| `src/camera.c` | Camera: eased follow with lead, clamped to the room; streams background columns and rows as it scrolls |
 | `src/room.c` | The current room's 16×16 block grid and collision queries |
 | `src/run_over.c` | Run stats. START returns to the title |
 | `src/run.h` | Per-run state: seed, play time, stats |

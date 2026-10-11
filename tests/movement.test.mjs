@@ -16,8 +16,10 @@ const CUSTOM = 0xff;
 const rate = (top, frames) => Math.ceil(top / frames);
 const framesFor = (top, frames) => Math.ceil(top / rate(top, frames));
 
-const px = (emu) => emu.v('player_x', 'u16') >> 8;
-const py = (emu) => emu.v('player_y', 'u16') >> 8;
+// Positions are room pixels (player_x/y) plus a 1/256 fraction (player_xs/ys).
+const px = (emu) => emu.v('player_x', 'u16');
+const py = (emu) => emu.v('player_y', 'u16');
+const fineX = (emu) => emu.v('player_x', 'u16') * 256 + emu.v('player_xs');
 const vx = (emu) => emu.v('player_vx', 'i16');
 const vy = (emu) => emu.v('player_vy', 'i16');
 
@@ -67,10 +69,10 @@ for (const [i, p] of PRESETS.entries()) {
 
 test('input moves the player on the same frame', () => {
   const emu = startRun().idle(5);
-  const x0 = emu.v('player_x', 'u16');
+  const x0 = fineX(emu);
   emu.hold('RIGHT', 1);
   assert.ok(vx(emu) > 0, 'velocity after one frame');
-  assert.ok(emu.v('player_x', 'u16') > x0, 'position after one frame');
+  assert.ok(fineX(emu) > x0, 'position after one frame');
 });
 
 test('diagonal speed matches straight-line speed', () => {
@@ -122,7 +124,7 @@ test('clipping a pillar corner by a pixel slides around it', () => {
 });
 
 test('pause panel tunes movement values', () => {
-  const emu = startRun().idle(2).tap('START').idle(6); // the pause panel takes a couple of frames to draw
+  const emu = startRun().idle(2).tap('START').idle(8); // the pause panel takes a couple of frames to draw
   assert.equal(emu.v('paused'), 1);
   emu.tap('RIGHT');
   assert.equal(emu.v('move_top', 'u16'), 256 + 64, 'speed +0.25');
@@ -146,5 +148,5 @@ test('screen: movement lab after moving', () => {
 });
 
 test('screen: tuning panel', () => {
-  matchGolden(startRun().idle(2).tap('START').idle(6).tap('DOWN').tap('RIGHT').idle(2), 'tuning');
+  matchGolden(startRun().idle(2).tap('START').idle(8).tap('DOWN').tap('RIGHT').idle(2), 'tuning');
 });

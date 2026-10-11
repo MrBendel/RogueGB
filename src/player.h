@@ -5,10 +5,10 @@
 
 #include <stdint.h>
 
-// Fixed point: 8 integer bits, 8 fraction bits (1/256 px).
-#define FX_ONE 256
-// The one rounding rule: fixed point -> pixel is floor. Everything drawn uses this.
-#define FX_PX(v) ((uint8_t)((v) >> 8))
+// Velocities are 8.8 fixed point (1/256 px). Positions are 16-bit pixels plus an
+// 8-bit fraction kept in a separate variable, so rooms can be larger than 256 px.
+// The one rounding rule: what's drawn is the pixel part (floor), for every sprite
+// and for the camera, so nothing jitters against the background.
 
 // Facing, clockwise from up.
 #define DIR_UP 0
@@ -21,8 +21,10 @@
 #define DIR_UP_LEFT 7
 
 // --- watchable state ---
-extern uint16_t player_x;  // top-left of the 16x16 sprite, playfield coords, 8.8
+extern uint16_t player_x;  // top-left of the 16x16 sprite, room pixels
 extern uint16_t player_y;
+extern uint8_t player_xs;  // fraction of a pixel, 1/256ths
+extern uint8_t player_ys;
 extern int16_t player_vx;  // px/frame, 8.8
 extern int16_t player_vy;
 extern uint8_t player_facing;
@@ -67,7 +69,7 @@ typedef struct {
 extern const MoveProfile move_profiles[MOVE_PRESET_COUNT];
 #define MOVE_PRESET_CUSTOM 0xFF
 
-void player_init(uint8_t px, uint8_t py);
+void player_init(uint16_t px, uint16_t py);
 void player_update(void);
 void player_draw(void);
 

@@ -4,6 +4,7 @@
 #include "room.h"
 #include "sprite_slot.h"
 #include "spr_player.h"
+#include "camera.h"
 
 // Hitbox inside the 16x16 sprite: the feet, narrower than the art so the
 // player fits through 1-block gaps comfortably.
@@ -74,6 +75,8 @@ static const uint8_t facing_for_dpad[16] = {
 
 uint16_t player_x;
 uint16_t player_y;
+uint8_t player_xs;
+uint8_t player_ys;
 int16_t player_vx;
 int16_t player_vy;
 uint8_t player_facing;
@@ -94,8 +97,8 @@ uint8_t player_roll_len;   // frames the current roll lasts (0 = not rolling)
 uint8_t player_roll_t;     // frames into the roll
 uint16_t player_jumps;     // counters, handy for tests and the Watch panel
 uint16_t player_dashes;
-// Tunables. Defaults: ~16 px high, ~32 frames in the air (2 blocks at 1 px/frame).
-uint16_t jump_vel = 512;   // takeoff speed, px/frame 8.8
+// Tunables. Defaults: ~13 px high, ~28 frames in the air (about 2 blocks at 1 px/frame).
+uint16_t jump_vel = 448;   // takeoff speed, px/frame 8.8 (1.75)
 uint8_t jump_grav = 32;    // gravity, px/frame^2 in 1/256ths
 uint16_t dash_speed = 768; // px/frame 8.8
 uint8_t dash_frames = 8;
@@ -138,10 +141,11 @@ const char *move_preset_name(void) {
     return move_preset < MOVE_PRESET_COUNT ? move_profiles[move_preset].name : "CUSTOM";
 }
 
-void player_init(uint8_t px, uint8_t py) {
+void player_init(uint16_t px, uint16_t py) {
     slot_init(&player_slot, PLAYER_OAM, PLAYER_VRAM);
-    player_x = (uint16_t)px << 8;
-    player_y = (uint16_t)py << 8;
+    player_x = px;
+    player_y = py;
+    player_xs = player_ys = 0;
     player_vx = player_vy = 0;
     player_facing = DIR_DOWN;
     player_anim_dir = ANIM_DOWN;
@@ -178,34 +182,42 @@ static int16_t step_axis(int16_t v, int16_t t) {
 }
 
 // Does the hitbox fit with the sprite's top-left at pixel (x, y)?
-static uint8_t box_free(uint8_t x, uint8_t y) {
-    uint8_t l = x + HB_X, r = x + HB_X + HB_W - 1;
-    uint8_t t = y + HB_Y, b = y + HB_Y + HB_H - 1;
+static uint8_t box_free(uint16_t x, uint16_t y) {
+    uint16_t l = x + HB_X, r = x + HB_X + HB_W - 1;
+    uint16_t t = y + HB_Y, b = y + HB_Y + HB_H - 1;
     return !room_solid_at(l, t) && !room_solid_at(r, t) && !room_solid_at(l, b) && !room_solid_at(r, b);
+}
+
+// Position + velocity: 16-bit pixel and 8-bit fraction, as one 24-bit value.
+static uint16_t moved(uint16_t pos, uint8_t frac, int16_t v, uint8_t *new_frac) {
+    int32_t t = (((int32_t)pos << 8) | frac) + v;
+    *new_frac = (uint8_t)t;
+    return (uint16_t)(t >> 8);
 }
 
 static void move_x(void) {
     if (!player_vx) return;
-    uint16_t nx = player_x + player_vx;
-    uint8_t px = FX_PX(nx), py = FX_PX(player_y);
-    uint8_t edge = player_vx > 0 ? px + HB_X + HB_W - 1 : px + HB_X;
-    uint8_t top = py + HB_Y, bot = py + HB_Y + HB_H - 1;
+    uint8_t nf;
+    uint16_t px = moved(player_x, player_xs, player_vx, &nf), py = player_y;
+    uint16_t edge = player_vx > 0 ? px + HB_X + HB_W - 1 : px + HB_X;
+    uint16_t top = py + HB_Y, bot = py + HB_Y + HB_H - 1;
     uint8_t hit_top = room_solid_at(edge, top), hit_bot = room_solid_at(edge, bot);
     if (!hit_top && !hit_bot) {
-        player_x = nx;
+        player_x = px;
+        player_xs = nf;
         return;
     }
     // Blocked. Snap flush against the wall.
-    if (player_vx > 0) player_x = (uint16_t)((edge & 0xF0) - HB_W - HB_X) << 8;
-    else player_x = (uint16_t)(((edge | 0x0F) + 1) - HB_X) << 8;
-    uint8_t cx = FX_PX(player_x);
+    if (player_vx > 0) player_x = (edge & 0xFFF0) - HB_W - HB_X;
+    else player_x = ((edge | 0x0F) + 1) - HB_X;
+    player_xs = 0;
     // Clipping a corner by a few pixels: slide around it, keep the speed.
-    if (hit_top && !hit_bot && 16 - (top & 0x0F) <= NUDGE && box_free(cx, py + 1)) {
-        player_y += FX_ONE;
+    if (hit_top && !hit_bot && 16 - (top & 0x0F) <= NUDGE && box_free(player_x, py + 1)) {
+        player_y++;
         return;
     }
-    if (hit_bot && !hit_top && (bot & 0x0F) + 1 <= NUDGE && box_free(cx, py - 1)) {
-        player_y -= FX_ONE;
+    if (hit_bot && !hit_top && (bot & 0x0F) + 1 <= NUDGE && box_free(player_x, py - 1)) {
+        player_y--;
         return;
     }
     player_vx = 0;
@@ -213,24 +225,25 @@ static void move_x(void) {
 
 static void move_y(void) {
     if (!player_vy) return;
-    uint16_t ny = player_y + player_vy;
-    uint8_t px = FX_PX(player_x), py = FX_PX(ny);
-    uint8_t edge = player_vy > 0 ? py + HB_Y + HB_H - 1 : py + HB_Y;
-    uint8_t left = px + HB_X, right = px + HB_X + HB_W - 1;
+    uint8_t nf;
+    uint16_t py = moved(player_y, player_ys, player_vy, &nf), px = player_x;
+    uint16_t edge = player_vy > 0 ? py + HB_Y + HB_H - 1 : py + HB_Y;
+    uint16_t left = px + HB_X, right = px + HB_X + HB_W - 1;
     uint8_t hit_l = room_solid_at(left, edge), hit_r = room_solid_at(right, edge);
     if (!hit_l && !hit_r) {
-        player_y = ny;
+        player_y = py;
+        player_ys = nf;
         return;
     }
-    if (player_vy > 0) player_y = (uint16_t)((edge & 0xF0) - HB_H - HB_Y) << 8;
-    else player_y = (uint16_t)(((edge | 0x0F) + 1) - HB_Y) << 8;
-    uint8_t cy = FX_PX(player_y);
-    if (hit_l && !hit_r && 16 - (left & 0x0F) <= NUDGE && box_free(px + 1, cy)) {
-        player_x += FX_ONE;
+    if (player_vy > 0) player_y = (edge & 0xFFF0) - HB_H - HB_Y;
+    else player_y = ((edge | 0x0F) + 1) - HB_Y;
+    player_ys = 0;
+    if (hit_l && !hit_r && 16 - (left & 0x0F) <= NUDGE && box_free(px + 1, player_y)) {
+        player_x++;
         return;
     }
-    if (hit_r && !hit_l && (right & 0x0F) + 1 <= NUDGE && box_free(px - 1, cy)) {
-        player_x -= FX_ONE;
+    if (hit_r && !hit_l && (right & 0x0F) + 1 <= NUDGE && box_free(px - 1, player_y)) {
+        player_x--;
         return;
     }
     player_vy = 0;
@@ -364,10 +377,11 @@ void player_draw(void) {
         frame = player_air ? AIR_FRAME : player_anim_frame;
     }
     slot_set_frame(&player_slot, spr_player_tiles, spr_player_frames, spr_player_anims[anim << 1] + frame);
-    // Playfield (0,0) is screen (0,0). The body is raised by its height; near the top
-    // edge the subtraction wraps, which the hardware's 8-bit coordinates handle.
-    uint8_t x = FX_PX(player_x), y = FX_PX(player_y);
-    slot_move(&player_slot, x, y - FX_PX(player_z));
+    // Screen position = room position - camera (the camera keeps the player in view).
+    // The body is raised by its height; near the top edge the subtraction wraps,
+    // which the hardware's 8-bit coordinates handle.
+    uint8_t x = (uint8_t)(player_x - cam_x), y = (uint8_t)(player_y - cam_y);
+    slot_move(&player_slot, x, y - (uint8_t)(player_z >> 8));
     if (player_air) {
         move_sprite(SHADOW_OAM, x + 8, y + 16);
         move_sprite(SHADOW_OAM + 1, x + 16, y + 16);

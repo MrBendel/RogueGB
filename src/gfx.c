@@ -8,7 +8,18 @@
 // Normal palette is 0xE4 (shades 3,2,1,0); each step shifts one shade lighter.
 static const uint8_t fade_pal[FADE_STEPS + 1] = {0xE4, 0x90, 0x40, 0x00};
 
+uint8_t scroll_x;
+uint8_t scroll_y;
+
+static void vbl_scroll(void) {
+    SCX_REG = scroll_x;
+    SCY_REG = scroll_y;
+}
+
 void gfx_init(void) {
+    CRITICAL {
+        add_VBL(vbl_scroll);
+    }
     set_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles);
     set_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles);
     BGP_REG = 0xE4;
@@ -20,6 +31,7 @@ void gfx_clear(void) {
     fill_bkg_rect(0, 0, 32, 32, FONT_TILES);  // tile 0 = space
     hide_sprites_range(0, MAX_HARDWARE_SPRITES);
     HIDE_WIN;
+    scroll_x = scroll_y = 0;
     move_bkg(0, 0);
 }
 
