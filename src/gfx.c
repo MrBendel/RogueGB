@@ -116,7 +116,7 @@ void gfx_init(void) {
     set_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles);
     BGP_REG = 0xE4;
     OBP0_REG = 0xE4;
-    OBP1_REG = 0xE4;
+    OBP1_REG = FLASH_PAL;
 }
 
 void gfx_clear(void) {
@@ -189,7 +189,9 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
 }
 
 static void set_fade(uint8_t step) {
-    BGP_REG = OBP0_REG = OBP1_REG = fade_pal[step];
+    BGP_REG = OBP0_REG = fade_pal[step];
+    // Sprites drawn with the second palette flash inverted; while fading they fade too.
+    OBP1_REG = step ? fade_pal[step] : FLASH_PAL;
 }
 
 void fade_out(void) {

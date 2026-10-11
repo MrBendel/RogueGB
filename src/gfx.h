@@ -62,6 +62,10 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 
 // Fade the background and sprite palettes to white / back to normal.
 // Each takes FADE_STEPS * FADE_FRAMES frames.
+// Second sprite palette (S_PALETTE in a sprite's flags): colors inverted, used to
+// flash a sprite as a warning or when hit.
+#define FLASH_PAL 0x1B
+
 #define FADE_STEPS  3
 #define FADE_FRAMES 4
 void fade_out(void);

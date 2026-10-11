@@ -18,6 +18,8 @@
 //   Transparent pixels are color 0; opaque colors map to 1..3 from lightest to
 //   darkest, with one mapping for all frames of a sprite. `mirror` entries build
 //   an animation from another one flipped horizontally, at no ROM or VRAM cost.
+//   `crop8: x` makes a narrow sprite: one 8x16 column cropped from x (for small
+//   things like bullets, one hardware sprite each).
 //   An animation given as { roll: 'file.png' } is generated: the frame rotated
 //   0, 90, 180 and 270 degrees clockwise (exact for pixel art). 180 degrees is
 //   just both hardware flips, so a roll costs one extra frame of tiles.
@@ -58,6 +60,32 @@ export const ASSETS = [
     },
     // Mirroring a clockwise roll gives a counter-clockwise one, right for rolling left.
     mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
+  },
+  // Enemies. Each type's frames are loaded into VRAM once and shared by every enemy of that type.
+  {
+    name: 'spr_slime',
+    kind: 'sprite',
+    dir: 'artwork/8bitadventure/Enemies',
+    anims: { hop: numbered('slime green', 4) },
+  },
+  {
+    name: 'spr_peashooter',
+    kind: 'sprite',
+    dir: 'artwork/8bitadventure/Enemies',
+    anims: {
+      down: numbered('peashooter down', 2),
+      up: numbered('peashooter up', 2),
+      right: numbered('peashooter right', 2),
+    },
+    mirror: { left: 'right' },
+  },
+  {
+    // 10 px wide art cropped to its middle 8 px: one hardware sprite per bullet.
+    name: 'spr_pea',
+    kind: 'sprite',
+    dir: 'artwork/8bitadventure/Enemies',
+    crop8: 4,
+    anims: { fly: numbered('peashooter bullet', 2) },
   },
 ];
 
@@ -213,12 +241,13 @@ export function buildSprite(a) {
   const colorIndex = new Map(ranked.map((rgb, i) => [rgb, 4 - ranked.length + i]));
 
   // Encode one 8x16 column of a frame as 32 bytes (top tile, then bottom tile).
-  const column = (img, cx) => {
+  // x0: left edge of the 8-px column in the frame (0 or 8, or a crop offset).
+  const column = (img, x0) => {
     const out = [];
     for (let y = 0; y < 16; y++) {
       let lo = 0, hi = 0;
       for (let x = 0; x < 8; x++) {
-        const i = (y * 16 + cx * 8 + x) * 4;
+        const i = (y * 16 + x0 + x) * 4;
         const c = img.rgba[i + 3] < 128 ? 0 : colorIndex.get((img.rgba[i] << 16) | (img.rgba[i + 1] << 8) | img.rgba[i + 2]);
         lo |= (c & 1) << (7 - x);
         hi |= (c >> 1) << (7 - x);
@@ -252,7 +281,13 @@ export function buildSprite(a) {
   const anims = {}; // name -> [first frame, count]
   for (const [name, imgs] of Object.entries(animImages)) {
     anims[name] = [frames.length, imgs.length];
-    for (const img of imgs) frames.push([...addColumn(column(img, 0)), ...addColumn(column(img, 1))]);
+    for (const img of imgs) {
+      if (a.crop8 !== undefined) {
+        // Narrow sprite: one 8x16 column cropped from the frame (both slots point at it).
+        const col = addColumn(column(img, a.crop8));
+        frames.push([...col, ...col]);
+      } else frames.push([...addColumn(column(img, 0)), ...addColumn(column(img, 8))]);
+    }
   }
   for (const [name, src] of Object.entries(a.mirror ?? {})) {
     const [first, count] = anims[src];

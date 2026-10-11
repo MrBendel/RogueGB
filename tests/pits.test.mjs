@@ -73,6 +73,7 @@ test('walking into a pit falls in, then reappears on safe ground, blinking', () 
   const emu = besideNarrowPit();
   until(emu, 'RIGHT', (e) => e.v('player_fall_timer') > 0, 60, 'falling in');
   assert.equal(emu.v('player_falls', 'u16'), 1);
+  const hp = emu.v('player_hp');
   // No control while falling.
   const x0 = x(emu);
   emu.hold('LEFT', 10);
@@ -80,6 +81,7 @@ test('walking into a pit falls in, then reappears on safe ground, blinking', () 
   until(emu, [], (e) => e.v('player_fall_timer') === 0, FALL_FRAMES + 2, 'the fall to finish');
   assert.ok(e2pit(emu) === false, 'reappeared off the pit');
   assert.ok(emu.v('player_blink') > 0, 'blinking');
+  assert.equal(emu.v('player_hp'), hp - 1, 'a fall costs 1 HP');
   emu.idle(70);
   assert.equal(emu.v('player_blink'), 0);
   assert.equal(emu.v('player_falls', 'u16'), 1, 'no second fall');

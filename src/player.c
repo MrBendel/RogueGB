@@ -8,10 +8,12 @@
 
 // Hitbox inside the 16x16 sprite: the feet, narrower than the art so the
 // player fits through 1-block gaps comfortably.
-#define HB_X 3
-#define HB_W 10
-#define HB_Y 8
-#define HB_H 8
+#define HB_X PLAYER_HB_X
+#define HB_W PLAYER_HB_W
+#define HB_Y PLAYER_HB_Y
+#define HB_H PLAYER_HB_H
+// Knockback speed when hurt (px/frame 8.8); the normal easing slows it down.
+#define KNOCKBACK 640
 // Brushing a corner by up to this many pixels slides around it instead of stopping.
 #define NUDGE 4
 
@@ -101,7 +103,9 @@ uint8_t player_invuln;     // invulnerability frames left
 uint8_t player_jump_buffer;
 uint8_t player_fall_timer; // frames left in a pit fall (0 = not falling)
 uint8_t player_blink;      // frames left blinking after reappearing
-uint16_t player_falls;     // pits fallen into (HP cost comes with the damage system, #10)
+uint16_t player_falls;     // pits fallen into (each costs 1 HP)
+uint8_t player_hp;
+uint16_t player_hits;      // times damaged
 uint16_t safe_x;           // last spot standing on solid ground, for reappearing
 uint16_t safe_y;
 int16_t safe_z;
@@ -170,6 +174,8 @@ void player_init(uint16_t px, uint16_t py) {
     player_roll_len = player_roll_t = 0;
     player_fall_timer = player_blink = 0;
     player_falls = 0;
+    player_hp = PLAYER_HP_MAX;
+    player_hits = 0;
     safe_x = px;
     safe_y = py;
     safe_z = 0;
@@ -370,7 +376,8 @@ static void update_jump(int8_t dx, int8_t dy) {
     if (player_roll_len) player_roll_t++;
     if (!player_air) {
         // Walked off a raised block: start falling (a dash is still available).
-        if (ground_under() < player_z) {
+        // On the floor there's nothing to walk off, so skip the lookups.
+        if (player_z && ground_under() < player_z) {
             player_air = 1;
             player_vz = 0;
             player_dashed = 0;
@@ -396,6 +403,27 @@ static void update_jump(int8_t dx, int8_t dy) {
     }
 }
 
+static void take_damage(uint8_t dmg) {
+    player_hits++;
+    player_hp = dmg >= player_hp ? 0 : player_hp - dmg;
+    player_blink = BLINK_FRAMES;
+}
+
+uint8_t player_hittable(void) {
+    return !player_blink && !player_invuln && !player_fall_timer && player_z < PLAYER_CLEAR_Z;
+}
+
+void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) {
+    if (player_blink || player_invuln || player_fall_timer) return;
+    take_damage(dmg);
+    // Knocked away from the source (8 directions); straight down if on top of it.
+    int16_t dx = (int16_t)(player_x + 8 - from_x);
+    int16_t dy = (int16_t)(player_y + 12 - from_y);
+    player_vx = dx > 2 ? KNOCKBACK : dx < -2 ? -KNOCKBACK : 0;
+    player_vy = dy > 2 ? KNOCKBACK : dy < -2 ? -KNOCKBACK : 0;
+    if (!player_vx && !player_vy) player_vy = KNOCKBACK;
+}
+
 static void start_pit_fall(void) {
     player_fall_timer = FALL_FRAMES;
     player_vx = player_vy = 0;
@@ -410,7 +438,7 @@ static void update_pit_fall(void) {
     player_y = safe_y;
     player_xs = player_ys = 0;
     player_z = safe_z;
-    player_blink = BLINK_FRAMES;
+    take_damage(1);  // also starts the blink
 }
 
 void player_update(void) {
@@ -438,12 +466,14 @@ void player_update(void) {
     move_x();
     move_y();
     if (!player_air) {
-        if (player_z == 0 && over_pit()) {
+        uint8_t pit = player_z == 0 && over_pit();
+        if (pit) {
             start_pit_fall();
             return;
         }
         // Remember where solid ground was, to reappear there after a fall.
-        if (!over_pit()) {
+        // (Standing on a raised block over a pit isn't possible: pits are floor-level.)
+        {
             safe_x = player_x;
             safe_y = player_y;
             safe_z = player_z;

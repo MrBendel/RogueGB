@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { assert, matchGolden, startRun } from './helpers.mjs';
 
 const VIEW_W = 160, VIEW_H = 128;
-const ROOM_PX_W = 20 * 16, ROOM_PX_H = 16 * 16; // the lab room is 2x2 screens
+const ROOM_PX_W = 20 * 16, ROOM_PX_H = 24 * 16; // the lab: 2x2 screens plus the arena below
 // Must match src/room.c: floor, wall, then 4-tile raised blocks and pits.
 const TILE_FLOOR = 80, TILE_WALL = 81, TILE_RAISED = 82, TILE_PIT = 86;
 const BLK_SOLID = 1, BLK_PIT = 2, BLK_RAISED = 3;
@@ -62,7 +62,9 @@ test('the scroll registers follow the camera in the next vblank', () => {
 
 test('the camera stops at the room edges', () => {
   const emu = walkToBottomRight(startRun().idle(2)).idle(90);
-  assert.deepEqual(cam(emu), { x: ROOM_PX_W - VIEW_W, y: ROOM_PX_H - VIEW_H });
+  // Right edge; vertically the lab's bottom-right corner isn't the room's bottom any more.
+  const p = pos(emu);
+  assert.deepEqual(cam(emu), { x: ROOM_PX_W - VIEW_W, y: Math.min(ROOM_PX_H - VIEW_H, p.y + 8 - VIEW_H / 2) });
   emu.hold('LEFT', 80).hold('UP', 300).idle(90);
   assert.equal(cam(emu).y, 0, 'top edge');
 });

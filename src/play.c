@@ -14,6 +14,7 @@
 #include "room.h"
 #include "player.h"
 #include "camera.h"
+#include "actor.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -50,6 +51,11 @@ static const Tunable tunables[] = {
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
+// Hardware sprites 0-3 are the player's (body and shadow); actors draw from here.
+#define FIRST_ACTOR_OAM 4
+// The arena is the screen below the lab (rows 16-22): entering it spawns a wave.
+#define ARENA_TOP (16 * BLOCK_SIZE)
+
 // Player start: on the ledge in the top-left screen.
 #define START_X 72
 #define START_Y 96
@@ -60,6 +66,8 @@ uint16_t run_seconds;
 uint8_t run_ticks;
 uint8_t paused;
 uint8_t tune_sel;
+uint8_t wave_spawned;
+uint8_t hud_hp;  // HP shown on the HUD, to redraw only on change
 
 void run_start(uint16_t seed) {
     run_seed = seed;
@@ -68,11 +76,18 @@ void run_start(uint16_t seed) {
     run_ticks = 0;
 }
 
+// HP is one digit: draw it directly (win_number divides, which is slow).
+static void draw_hp(void) {
+    set_win_tile_xy(17, 0, FONT_TILES + ('0' - ' ') + player_hp);
+    hud_hp = player_hp;
+}
+
 static void draw_hud(void) {
     fill_win_rect(0, 0, SCREEN_TW, 2, FONT_TILES);
     win_text(0, 0, "MOVE:");
     win_text(6, 0, move_preset_name());
-    win_text(14, 0, "B:JUMP");
+    win_text(14, 0, "HP:");
+    draw_hp();
     win_text(0, 1, "SEL:NEXT  START:TUNE");
 }
 
@@ -117,6 +132,8 @@ void play_enter(void) {
     player_init(START_X, START_Y);
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
     camera_init(player_x + 8, player_y + 8);
+    actors_init();
+    wave_spawned = 0;
     paused = 0;
     tune_sel = 0;
     draw_hud();
@@ -124,6 +141,16 @@ void play_enter(void) {
     SHOW_WIN;
     SHOW_SPRITES;
     player_draw();
+}
+
+// First wave: two peashooters in the top corners, three slimes below.
+static void spawn_wave(void) {
+    wave_spawned = 1;
+    actor_spawn(ACTOR_PEASHOOTER, 2 * BLOCK_SIZE, 17 * BLOCK_SIZE);
+    actor_spawn(ACTOR_PEASHOOTER, 17 * BLOCK_SIZE, 17 * BLOCK_SIZE);
+    actor_spawn(ACTOR_SLIME, 4 * BLOCK_SIZE, 20 * BLOCK_SIZE);
+    actor_spawn(ACTOR_SLIME, 15 * BLOCK_SIZE, 20 * BLOCK_SIZE);
+    actor_spawn(ACTOR_SLIME, 9 * BLOCK_SIZE, 22 * BLOCK_SIZE);
 }
 
 static void set_paused(uint8_t p) {
@@ -183,6 +210,11 @@ void play_update(void) {
     }
 
     player_update();
+    if (!wave_spawned && player_y >= ARENA_TOP) spawn_wave();
+    actors_update();
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     player_draw();
+    actors_draw(FIRST_ACTOR_OAM);
+    if (player_hp != hud_hp) draw_hp();
+    if (!player_hp) state_change(STATE_RUN_OVER);
 }

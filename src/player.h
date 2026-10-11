@@ -72,6 +72,26 @@ typedef struct {
 extern const MoveProfile move_profiles[MOVE_PRESET_COUNT];
 #define MOVE_PRESET_CUSTOM 0xFF
 
+// Hitbox: the feet, inside the 16x16 frame (offsets from player_x/y).
+#define PLAYER_HB_X 3
+#define PLAYER_HB_W 10
+#define PLAYER_HB_Y 8
+#define PLAYER_HB_H 8
+// While at least this high (px 8.8) off the floor, ground enemies and their
+// bullets pass underneath.
+#define PLAYER_CLEAR_Z (6 << 8)
+
+// --- health (a minimal version; the damage model proper is issue #10) ---
+#define PLAYER_HP_MAX 6
+extern uint8_t player_hp;
+extern uint16_t player_hits;
+// Take damage from something at room pixel (from_x, from_y): knocked back away
+// from it, then blinking and invulnerable for a moment. Ignored while already
+// invulnerable (blinking, dashing) or falling into a pit.
+void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y);
+// Can ground-level things (enemies, bullets) hit the player right now?
+uint8_t player_hittable(void);
+
 void player_init(uint16_t px, uint16_t py);
 void player_update(void);
 void player_draw(void);

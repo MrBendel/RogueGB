@@ -5,7 +5,9 @@ The plan, the design decisions and the milestones are in [ROADMAP.md](ROADMAP.md
 A Game Boy roguelite with run-and-gun shooting, built in C with
 [GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a
 **movement lab** (the player in a 2×2-screen room with pillars, pits, raised platforms
-and a scrolling camera, with movement presets and live tuning) with pause, and a run-over screen that loops back to the title.
+and a scrolling camera, with movement presets and live tuning) with an **arena** below it:
+walk through the gap in the bottom wall to spawn slimes and peashooters. You have 6 HP;
+hits, and falling into pits, cost 1. There's no attacking yet (auto-aim is next) with pause, and a run-over screen that loops back to the title.
 
 ### Movement lab controls
 
@@ -36,6 +38,9 @@ player, higher = smoother and lazier).
 | `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
 | `src/sprite_slot.c` | Draws a 16×16 character from pre-rendered frames: two 8×16 sprites and a double-buffered 8-tile VRAM slot |
 | `src/camera.c` | Camera: eased follow with lead, clamped to the room; streams background columns and rows as it scrolls |
+| `src/actor.c` | Enemies and enemy bullets: pools, AI (slime chaser, peashooter shooter), contact and bullet damage, sprite allocation |
+| `src/actor_draw.s` | Assembly: writes actors and bullets into the sprite table, moves bullets |
+| `src/room_fill.s` | Assembly: builds background rows/columns for the scrolling camera |
 | `src/room.c` | The current room's 16×16 block grid and collision queries |
 | `src/run_over.c` | Run stats. START returns to the title |
 | `src/run.h` | Per-run state: seed, play time, stats |
@@ -48,7 +53,10 @@ columns, sprite animation frames) are queued during the frame and written by the
 interrupt (`gfx_strip`, `gfx_vram_copy`), because writing VRAM while the screen is drawing
 waits on every byte. Avoid 32-bit math in per-frame code: the CPU has no multiply, so a
 32-bit multiply is a long software routine. `tests/camera.test.mjs` fails if any frame of
-walking, scrolling and jumping uses more than half the frame (`emu.lastFrameCycles`).
+walking, scrolling and jumping uses more than half the frame (`emu.lastFrameCycles`), and
+`tests/actors.test.mjs` fails if an arena fight ever exceeds a frame. The hottest loops are
+in assembly (`*.s` in `src/`), and enemies think at 30 Hz (half of them each frame).
+`harness/profile.mjs` profiles which functions the CPU time goes to.
 
 Artwork is converted at build time. `tools/assets.mjs` turns the PNGs listed in its
 `ASSETS` table into C arrays in `build/gen/`:

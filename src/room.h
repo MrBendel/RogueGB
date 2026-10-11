@@ -29,10 +29,21 @@ extern uint8_t room_w;  // size in blocks
 extern uint8_t room_h;
 extern uint16_t room_px_w;  // size in pixels
 extern uint16_t room_px_h;
-extern uint8_t room_map[ROOM_MAX_W * ROOM_MAX_H];  // row-major, stride ROOM_MAX_W
+// The block map lives at a fixed, 256-aligned address in WRAM, so a block's address
+// is just ROOM_MAP_ADDR | (by << 5) | bx (no tables); room_fill.s relies on it.
+// The stack grows down from 0xDFFF, far above it.
+#define ROOM_MAP_ADDR 0xD000
+// Tile for each (block type << 2 | quadrant), copied to RAM next to the map so the
+// fill loops can index it with one byte.
+#define ROOM_TILE_LUT_ADDR 0xD400
+extern uint8_t __at(ROOM_MAP_ADDR) room_map[ROOM_MAX_W * ROOM_MAX_H];  // row-major, stride ROOM_MAX_W
 
 // Load the movement-lab room (2x2 screens) and its tiles.
 void room_load_lab(void);
+
+// Block at a pixel known to be inside the room (no bounds check), for hot loops.
+#define ROOM_BLOCK_IN(x, y) \
+    (*(const uint8_t *)(ROOM_MAP_ADDR | ((uint16_t)((uint8_t)((y) >> 4)) << 5) | (uint8_t)((x) >> 4)))
 
 // Block type at the pixel (x, y). Anything outside the room counts as solid,
 // including coordinates that wrapped below zero.

@@ -115,7 +115,9 @@ export function build({ clean = false, quiet = false } = {}) {
   const linkNeeded = compiled > 0 || mtime(out) < Math.max(...objs.map(mtime));
   if (linkNeeded) {
     const flags = [
-      '-debug', '-autobank',
+      // -autobank runs bankpack, which by default rewrites the .o files in place;
+      // that broke incremental links. -ext=.rel makes it write copies instead.
+      '-debug', '-autobank', '-Wb-ext=.rel',
       `-Wm-yt${CONFIG.cartType}`, `-Wm-yo${CONFIG.romBanks}`, `-Wm-ya${CONFIG.ramBanks}`,
       `-Wm-yn${CONFIG.title}`, '-Wm-yS',
     ];
