@@ -1,0 +1,58 @@
+// ROM banking (#17): what lives in bank 0 (always visible at 0x0000-0x3FFF) and
+// what lives in switchable banks (shown one at a time at 0x4000-0x7FFF).
+import { test } from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { assert, ROOT, startRun } from './helpers.mjs';
+import { checkBank0, BANK0_LIMIT } from '../tools/build.mjs';
+
+const NOI = path.join(ROOT, 'build', 'roguegb.noi');
+const syms = new Map([...fs.readFileSync(NOI, 'utf8').matchAll(/^DEF (\S+) 0x([0-9A-F]+)/gim)].map((m) => [m[1], parseInt(m[2], 16)]));
+// Banked symbols carry their bank above bit 16 (bank 1 at 0x4000 is 0x14000).
+const bankOf = (name) => {
+  const a = syms.get('_' + name);
+  assert.ok(a !== undefined, `symbol ${name} exists`);
+  return a >> 16;
+};
+
+test('bank 0 holds all fixed code and data, with room to spare', () => {
+  const r = checkBank0(NOI);
+  assert.ok(r.ok, r.error);
+  assert.ok(r.used <= 0x4000 * BANK0_LIMIT, `bank 0 used ${r.used} bytes`);
+});
+
+test('cold code and once-per-scene data live in switchable banks', () => {
+  for (const name of [
+    'title_enter', 'title_update', 'play_enter', 'play_update', 'run_over_enter', 'run_over_update',
+    'run_start', 'room_load_lab',
+    'font_tiles', 'frame_tiles', 'spr_slime_tiles', 'spr_peashooter_tiles', 'spr_pea_tiles',
+  ]) {
+    assert.ok(bankOf(name) >= 1, `${name} is banked`);
+  }
+});
+
+test('hot paths, vblank code and text drawing stay in bank 0', () => {
+  for (const name of [
+    'main', 'wait_frame', 'gfx_init', 'gfx_commit', 'vram_queue_write', 'fade_in', 'fade_out',
+    'player_update', 'player_draw', 'actors_update', 'actors_draw', 'actors_emit', 'bullets_emit', 'bullets_move',
+    'camera_update', 'room_block_at', 'room_draw_row', 'room_draw_column', 'room_fill_row', 'room_fill_column',
+    // The vblank handler copies the player's frames, whatever bank is switched in.
+    'spr_player_tiles',
+    // Banked code passes strings from its own bank to these; if they were in another
+    // switchable bank, calling them would hide the caller's strings.
+    'bkg_text', 'win_text', 'bkg_number', 'win_number', 'bkg_frame', 'win_frame',
+  ]) {
+    assert.equal(bankOf(name), 0, `${name} is in bank 0`);
+    assert.ok(syms.get('_' + name) < 0x4000, `${name} is below 0x4000`);
+  }
+});
+
+test('the game runs across banks: banked scenes call bank-0 code every frame', () => {
+  // play_update is banked and calls into bank 0 each frame; a full run through the
+  // lab, scrolling and jumping, exercises those calls and the bank switches around
+  // asset loading (gfx_init, actors_init, room_load_lab).
+  const emu = startRun().idle(2).hold('LEFT', 80).hold('DOWN+B', 200).hold('RIGHT', 200);
+  assert.equal(emu.v('game_state'), 1, 'still playing');
+  // The bank variable GBDK keeps in sync with the hardware register.
+  assert.equal(emu.read8(syms.get('__current_bank')), bankOf('play_update'), 'the play scene\'s bank is switched in');
+});

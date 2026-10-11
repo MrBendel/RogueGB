@@ -58,6 +58,21 @@ walking, scrolling and jumping uses more than half the frame (`emu.lastFrameCycl
 in assembly (`*.s` in `src/`), and enemies think at 30 Hz (half of them each frame).
 `harness/profile.mjs` profiles which functions the CPU time goes to.
 
+**ROM banks.** The CPU sees bank 0 (0x0000-0x3FFF) at all times and one switchable bank
+at a time at 0x4000-0x7FFF. Bank 0 holds the hot paths: the main loop, vblank code, player,
+actors, camera, collision, text drawing, the assembly loops, and the player's sprite frames
+(the vblank handler copies them). Cold code and data go in switchable banks:
+
+- C files that start with `#pragma bank 255` (the scenes, `room_lab.c`). Their entry points
+  are declared `BANKED`, so calls switch banks automatically.
+- Assets marked `bank: true` in `tools/assets.mjs` (font, frame, enemy graphics). Code that
+  reads them switches to `BANK(name)` with `SWITCH_ROM` and switches back afterwards.
+- Don't pass pointers to banked data into a function in a *different* switchable bank:
+  calling it hides the caller's bank. That's why text drawing stays in bank 0.
+
+The build fails if anything fixed spills past 0x4000 (it would land in whichever bank is
+switched in) or bank 0 is over 90% full; `tests/banks.test.mjs` checks what lives where.
+
 Artwork is converted at build time. `tools/assets.mjs` turns the PNGs listed in its
 `ASSETS` table into C arrays in `build/gen/`:
 

@@ -24,11 +24,14 @@ void state_change(uint8_t state);
 // outside the main loop (fades, etc.) should call this instead of vsync().
 void wait_frame(void);
 
-void title_enter(void);
-void title_update(void);
-void play_enter(void);
-void play_update(void);
-void run_over_enter(void);
-void run_over_update(void);
+// Scenes live in switchable ROM banks (#pragma bank 255); main calls them with
+// banked calls, which switch the right bank in and back out.
+#include <gb/gb.h>
+void title_enter(void) BANKED;
+void title_update(void) BANKED;
+void play_enter(void) BANKED;
+void play_update(void) BANKED;
+void run_over_enter(void) BANKED;
+void run_over_update(void) BANKED;
 
 #endif

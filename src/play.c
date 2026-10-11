@@ -1,3 +1,4 @@
+#pragma bank 255
 // Gameplay scene. For now this is the movement lab: one room with pillars,
 // a placeholder player, and movement presets to compare.
 //   B             jump; B again in mid-air dashes
@@ -69,7 +70,7 @@ uint8_t tune_sel;
 uint8_t wave_spawned;
 uint8_t hud_hp;  // HP shown on the HUD, to redraw only on change
 
-void run_start(uint16_t seed) {
+void run_start(uint16_t seed) BANKED {
     run_seed = seed;
     initrand(seed);
     run_seconds = 0;
@@ -127,7 +128,7 @@ static void draw_pause(void) {
     win_text(2, TUNE_ROW0 + TUNE_COUNT + 1, "SELECT END RUN");
 }
 
-void play_enter(void) {
+void play_enter(void) BANKED {
     room_load_lab();
     player_init(START_X, START_Y);
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
@@ -188,7 +189,7 @@ static void tune_update(void) {
     draw_tune_value(tune_sel);
 }
 
-void play_update(void) {
+void play_update(void) BANKED {
     if (paused) {
         if (joy_pressed & J_START) set_paused(0);
         else if (joy_pressed & J_SELECT) state_change(STATE_RUN_OVER);

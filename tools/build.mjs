@@ -82,6 +82,37 @@ function run(cmd, args, quiet) {
   return { ok: r.status === 0, out };
 }
 
+// Bank 0 (0x0000-0x3FFF) is always visible; banks 1+ share the 0x4000 window and
+// are switched in on demand. Code and data that aren't marked `#pragma bank 255`
+// go in fixed areas that must all fit in bank 0: if they overflow past 0x4000 they
+// land in whatever bank is switched in, and the game crashes the first time a
+// different bank is selected. So the build fails on overflow, and also when bank 0
+// is nearly full, to leave room for hot code.
+export const BANK0_LIMIT = 0.9;
+const FIXED_AREAS = ['_HEADER', '_HOME', '_BASE', '_CODE', '_LIT', '_GSINIT', '_GSFINAL', '_INITIALIZER'];
+
+export function checkBank0(noiPath) {
+  const syms = new Map();
+  for (const m of fs.readFileSync(noiPath, 'utf8').matchAll(/^DEF (\S+) 0x([0-9A-F]+)/gim)) syms.set(m[1], parseInt(m[2], 16));
+  let used = 0;
+  for (const area of FIXED_AREAS) {
+    const start = syms.get('s_' + area), len = syms.get('l_' + area);
+    if (start === undefined || !len) continue;
+    if (start + len > 0x4000) {
+      return { ok: false, error: `[build] ${area} ends at 0x${(start + len).toString(16)}, past bank 0 (0x4000). ` +
+        'Move cold code or data to a switchable bank with #pragma bank 255 (see README, ROM banks).' };
+    }
+    if (start < 0x4000) used += len;
+  }
+  // The header and interrupt vectors fill 0x000-0x1FF.
+  used += 0x200;
+  if (used > 0x4000 * BANK0_LIMIT) {
+    return { ok: false, error: `[build] bank 0 is ${Math.round((used / 0x4000) * 100)}% full (limit ${BANK0_LIMIT * 100}%). ` +
+      'Move cold code or data to a switchable bank with #pragma bank 255 (see README, ROM banks).' };
+  }
+  return { ok: true, used };
+}
+
 /** Returns { ok, rom, ms, changed } */
 export function build({ clean = false, quiet = false } = {}) {
   const t0 = Date.now();
@@ -127,6 +158,11 @@ export function build({ clean = false, quiet = false } = {}) {
     const r = run(lcc, [...flags, '-o', out, ...objs], quiet);
     if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
 
+    const bank0 = checkBank0(out.replace(/\.gb$/, '.noi'));
+    if (!bank0.ok) {
+      console.error(bank0.error);
+      return { ok: false, ms: Date.now() - t0, error: bank0.error };
+    }
     const romusage = path.join(gbdk, 'bin', exe('romusage'));
     if (!quiet && fs.existsSync(romusage)) run(romusage, [out.replace(/\.gb$/, '.noi'), '-g'], false);
   }

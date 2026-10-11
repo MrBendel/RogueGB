@@ -37,9 +37,11 @@ extern uint16_t room_px_h;
 // fill loops can index it with one byte.
 #define ROOM_TILE_LUT_ADDR 0xD400
 extern uint8_t __at(ROOM_MAP_ADDR) room_map[ROOM_MAX_W * ROOM_MAX_H];  // row-major, stride ROOM_MAX_W
+extern uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[16];  // filled by the room loader
 
 // Load the movement-lab room (2x2 screens) and its tiles.
-void room_load_lab(void);
+#include <gb/gb.h>
+void room_load_lab(void) BANKED;  // room_lab.c (banked)
 
 // Block at a pixel known to be inside the room (no bounds check), for hot loops.
 #define ROOM_BLOCK_IN(x, y) \

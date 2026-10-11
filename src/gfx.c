@@ -15,16 +15,18 @@ typedef struct {
     uint8_t x, y, vertical, len;
     uint8_t tiles[STRIP_MAX_LEN];
 } Strip;
-static Strip strips[STRIP_MAX];
-static uint8_t strip_count;
+// Not static: vram_queue.s reads these.
+Strip strips[STRIP_MAX];
+uint8_t strip_count;
 
 typedef struct {
     uint8_t *dst;
     const uint8_t *src;
     uint8_t len;
 } Copy;
-static Copy copies[COPY_MAX];
-static uint8_t copy_count;
+Copy copies[COPY_MAX];
+uint8_t copy_count;
+void vram_queue_write(void);  // vram_queue.s
 
 // Set by gfx_commit(); the vblank handler only touches the queues when set, so it
 // never sees a half-built frame (e.g. when a frame runs long).
@@ -52,10 +54,9 @@ void gfx_commit(void) {
     if (strip_count || copy_count) vram_ready = 1;
 }
 
-// Write everything queued. In vblank (or with the display off) VRAM can be written
-// directly, with tight loops: the whole vblank is only ~4500 cycles. During the
-// frame (the rare fallback when a queue overflows) each byte must wait for VRAM
-// access instead, via set_vram_byte.
+// Write everything queued, outside vblank: directly with the display off, or with
+// each byte waiting for VRAM access (set_vram_byte) when the display is on (the
+// rare fallback when a queue overflows). In vblank, vram_queue.s does this.
 static void write_queued(uint8_t wait) {
     for (uint8_t i = 0; i < copy_count; i++) {
         uint8_t *d = copies[i].dst;
@@ -102,18 +103,31 @@ void gfx_flush(void) {
     write_queued(LCDC_REG & LCDCF_ON);
 }
 
+// Vblank handler (after GBDK's sprite DMA). Scroll first: it must land inside
+// vblank or the screen tears. Then the queued VRAM writes, in assembly so even a
+// full queue (a row, a column and a sprite frame) fits in the rest of vblank.
 static void vbl_scroll(void) {
-    if (vram_ready) write_queued(0);
     SCX_REG = scroll_x;
     SCY_REG = scroll_y;
+    if (vram_ready) {
+        vram_queue_write();
+        copy_count = 0;
+        strip_count = 0;
+        vram_ready = 0;
+    }
 }
 
 void gfx_init(void) {
     CRITICAL {
         add_VBL(vbl_scroll);
     }
+    // The font and frame are in switchable banks: switch in, copy, switch back.
+    uint8_t saved = CURRENT_BANK;
+    SWITCH_ROM(BANK(font));
     set_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles);
+    SWITCH_ROM(BANK(frame));
     set_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles);
+    SWITCH_ROM(saved);
     BGP_REG = 0xE4;
     OBP0_REG = 0xE4;
     OBP1_REG = FLASH_PAL;

@@ -1,4 +1,5 @@
 #include <gb/gb.h>
+#include <string.h>
 #include "actor.h"
 #include "player.h"
 #include "room.h"
@@ -81,7 +82,12 @@ uint8_t shooter_telegraph = 24; // flash for 0.4 s first
 uint16_t bullet_speed = 384;    // 1.5 px/frame
 
 // Per-type graphics: converted frame tables and where the tiles went in VRAM.
-static const uint8_t *type_frames[ACTOR_TYPE_COUNT] = {0, spr_slime_frames, spr_peashooter_frames};
+// Frame tables are copied to RAM at load: the graphics live in a switchable bank,
+// and these are read every frame (cache_frame, bullets) while other banks may be in.
+static uint8_t slime_frames[SPR_SLIME_FRAME_COUNT * 4];
+static uint8_t shooter_frames[SPR_PEASHOOTER_FRAME_COUNT * 4];
+static uint8_t pea_frames[SPR_PEA_FRAME_COUNT * 4];
+static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames};
 static uint8_t type_vram[ACTOR_TYPE_COUNT];
 static uint8_t bullet_vram;
 
@@ -96,16 +102,26 @@ void bullets_move(void);
 static uint8_t oam_end_last;
 
 void actors_init(void) {
-    // Load each type's columns (2 tiles each) into its own block of sprite VRAM.
+    // Load each type's columns (2 tiles each) into its own block of sprite VRAM,
+    // and its frame table into RAM. The graphics are in switchable banks, and this
+    // may be called from banked code, so restore the caller's bank afterwards.
+    uint8_t saved = CURRENT_BANK;
     uint8_t v = ENEMY_VRAM;
     type_vram[ACTOR_SLIME] = v;
+    SWITCH_ROM(BANK(spr_slime));
     set_sprite_data(v, SPR_SLIME_COLUMN_COUNT * 2, spr_slime_tiles);
+    memcpy(slime_frames, spr_slime_frames, sizeof(slime_frames));
     v += SPR_SLIME_COLUMN_COUNT * 2;
     type_vram[ACTOR_PEASHOOTER] = v;
+    SWITCH_ROM(BANK(spr_peashooter));
     set_sprite_data(v, SPR_PEASHOOTER_COLUMN_COUNT * 2, spr_peashooter_tiles);
+    memcpy(shooter_frames, spr_peashooter_frames, sizeof(shooter_frames));
     v += SPR_PEASHOOTER_COLUMN_COUNT * 2;
     bullet_vram = v;
+    SWITCH_ROM(BANK(spr_pea));
     set_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles);
+    memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames));
+    SWITCH_ROM(saved);
 
     for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;
     for (uint8_t i = 0; i < BULLET_MAX; i++) bullet_alive[i] = 0;
@@ -345,8 +361,8 @@ void actors_draw(uint8_t first_oam) {
     if (actor_count) actors_emit();
     if (bullet_count) {
         uint8_t anim = (uint8_t)(frame_count >> 3) & 1;
-        bullet_draw_tile = bullet_vram + (spr_pea_frames[anim << 2] << 1);
-        bullet_draw_prop = spr_pea_frames[(anim << 2) + 1];
+        bullet_draw_tile = bullet_vram + (pea_frames[anim << 2] << 1);
+        bullet_draw_prop = pea_frames[(anim << 2) + 1];
         bullets_emit();
     }
     uint8_t used = oam_next;

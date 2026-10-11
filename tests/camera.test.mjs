@@ -108,3 +108,33 @@ test('CPU budget: no frame of walking, scrolling and jumping uses more than half
   }
   assert.ok(worst < BUDGET, `worst frame used ${worst} cycles past vblank (budget ${BUDGET})`);
 });
+
+test('queued VRAM writes and the scroll update finish inside vblank', () => {
+  // The vblank handler sets the scroll registers, then writes the queued rows,
+  // columns and sprite frames (vram_queue.s). If that ran past vblank, the screen
+  // would tear and the hardware would ignore some VRAM writes. Stop at every run
+  // of the writer while scrolling diagonally (rows, columns and animation frames
+  // all queue up) and check every instruction executes on a vblank line (144-153).
+  const emu = startRun().idle(2).hold('LEFT', 80).hold('UP', 200);
+  const entry = emu.symbols.addr('vram_queue_write');
+  const end = entry + 0x100; // generous: the routine is well under 256 bytes
+  const pc = () => {
+    const r = emu.gb.registers();
+    const p = r.pc;
+    r.free();
+    return p;
+  };
+  emu.setButtons(0x01 | 0x08); // RIGHT+DOWN: scroll on both axes
+  let runs = 0, worstLy = 0;
+  for (; runs < 40; runs++) {
+    emu.gb.step_to(entry);
+    for (let p = pc(); p >= entry && p < end; p = pc()) {
+      const ly = emu.gb.ppu_ly();
+      assert.ok(ly >= 144 && ly <= 153, `VRAM queue write on visible line ${ly}`);
+      worstLy = Math.max(worstLy, ly);
+      emu.gb.clock();
+    }
+  }
+  assert.equal(runs, 40);
+  assert.ok(worstLy >= 144, 'the writer was observed running');
+});

@@ -9,6 +9,7 @@ extern uint16_t run_seed;     // RNG seed for this run (from title-screen timing
 extern uint16_t run_seconds;  // play time, excluding pause
 extern uint8_t run_ticks;     // frames into the current second
 
-void run_start(uint16_t seed);
+#include <gb/gb.h>
+void run_start(uint16_t seed) BANKED;  // in play.c (banked)
 
 #endif

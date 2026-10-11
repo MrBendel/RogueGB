@@ -1,3 +1,4 @@
+#pragma bank 255
 // Run-over screen: stats for the run that just ended. START returns to the title.
 // This is where meta-progression (spending gold, picking an heir) will hook in.
 #include <gb/gb.h>
@@ -11,7 +12,7 @@
 
 uint8_t run_over_timer;
 
-void run_over_enter(void) {
+void run_over_enter(void) BANKED {
     run_over_timer = 0;
     bkg_frame(2, 3, 16, 9);
     bkg_text(6, 4, "RUN OVER");
@@ -22,7 +23,7 @@ void run_over_enter(void) {
     bkg_text(5, 14, "PRESS START");
 }
 
-void run_over_update(void) {
+void run_over_update(void) BANKED {
     if (run_over_timer < INPUT_DELAY) {
         run_over_timer++;
         return;

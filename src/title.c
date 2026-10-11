@@ -1,3 +1,4 @@
+#pragma bank 255
 // Title screen: logo, blinking "PRESS START". START (or A) begins a run.
 #include <gb/gb.h>
 #include "state.h"
@@ -10,7 +11,7 @@
 
 uint8_t title_timer;
 
-void title_enter(void) {
+void title_enter(void) BANKED {
     title_timer = 0;
     bkg_frame(2, 2, 16, 7);
     bkg_text(6, 4, "ROGUE GB");
@@ -19,7 +20,7 @@ void title_enter(void) {
     bkg_text(1, 16, "V0.1");
 }
 
-void title_update(void) {
+void title_update(void) BANKED {
     title_timer++;
     if ((title_timer & (BLINK_MASK - 1)) == 0) {
         bkg_text(5, PROMPT_Y, (title_timer & BLINK_MASK) ? "           " : "PRESS START");
