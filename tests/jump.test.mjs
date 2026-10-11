@@ -148,3 +148,58 @@ test('jump values can be tuned from the pause panel', () => {
 test('screen: mid-jump with shadow', () => {
   matchGolden(startRun().idle(2).hold('B', 1).idle(12), 'jump-mid');
 });
+
+// --- the dash's roll animation ---------------------------------------------
+
+const reverseBits = (b) => {
+  let r = 0;
+  for (let i = 0; i < 8; i++) if (b & (1 << i)) r |= 0x80 >> i;
+  return r;
+};
+/** The player's 16x16 image as drawn (OAM tiles + flip flags applied), as rows of color indices. */
+function drawnImage(emu) {
+  const img = Array.from({ length: 16 }, () => new Array(16).fill(0));
+  for (let c = 0; c < 2; c++) {
+    const [, , tile, flags] = emu.readBytes(0xfe00 + c * 4, 4);
+    const bytes = emu.readBytes(0x8000 + tile * 16, 32);
+    for (let r = 0; r < 16; r++) {
+      const sr = flags & 0x40 ? 15 - r : r;
+      let lo = bytes[sr * 2], hi = bytes[sr * 2 + 1];
+      if (flags & 0x20) [lo, hi] = [reverseBits(lo), reverseBits(hi)];
+      for (let x = 0; x < 8; x++) img[r][c * 8 + x] = ((lo >> (7 - x)) & 1) | (((hi >> (7 - x)) & 1) << 1);
+    }
+  }
+  return img;
+}
+const rot90 = (img) => img.map((_, y) => img.map((_, x) => img[15 - x][y]));
+const key = (img) => img.map((r) => r.join('')).join('/');
+
+test('the dash plays a roll: one full turn in 90-degree steps', () => {
+  const emu = startRun().idle(2).hold('B', 1).idle(3).hold('RIGHT+B', 1);
+  const seen = [];
+  for (let f = 0; f < DASH_FRAMES + 1; f++) {
+    emu.idle(1); // OAM shows the previous frame's sprite, so sample one frame later
+    const k = key(drawnImage(emu));
+    if (seen.at(-1)?.k !== k) seen.push({ k, img: drawnImage(emu) });
+  }
+  // Four rotation frames, then back to the air pose.
+  const turns = seen.slice(0, 4).map((s) => s.img);
+  assert.equal(new Set(turns.map(key)).size, 4, 'four distinct roll frames');
+  for (let i = 1; i < 4; i++) assert.equal(key(turns[i]), key(rot90(turns[i - 1])), `frame ${i} is the previous one turned 90 degrees clockwise`);
+});
+
+test('rolling left turns the other way', () => {
+  const emu = startRun().idle(2).hold('B', 1).idle(3).hold('LEFT+B', 1);
+  const seen = [];
+  for (let f = 0; f < DASH_FRAMES + 1; f++) {
+    emu.idle(1);
+    const img = drawnImage(emu);
+    if (seen.length === 0 || key(seen.at(-1)) !== key(img)) seen.push(img);
+  }
+  // Counter-clockwise: each frame turned 90 degrees clockwise gives the previous one.
+  for (let i = 1; i < 4; i++) assert.equal(key(rot90(seen[i])), key(seen[i - 1]));
+});
+
+test('screen: mid-roll', () => {
+  matchGolden(startRun().idle(2).hold('B', 1).idle(3).hold('RIGHT+B', 1).idle(3), 'roll-mid');
+});

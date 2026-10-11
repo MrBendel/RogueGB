@@ -10,14 +10,17 @@
 //
 // Sprites (kind: 'sprite'): 16x16 animation frames for 8x16 sprite mode.
 //   <name>_tiles[]   32 bytes per 8x16 column (two 8x8 tiles, top then bottom),
-//                    deduplicated, including columns that are mirror images
+//                    deduplicated, including columns that are flipped copies
 //   <name>_frames[]  4 bytes per frame: left column, left flags, right column,
-//                    right flags (flags = S_FLIPX when the column is drawn mirrored)
+//                    right flags (flags = S_FLIPX / S_FLIPY for flipped columns)
 //   <name>_anims[]   2 bytes per animation: first frame, frame count
 //   #define <NAME>_ANIM_<ANIM> index, plus column/frame/anim counts
 //   Transparent pixels are color 0; opaque colors map to 1..3 from lightest to
 //   darkest, with one mapping for all frames of a sprite. `mirror` entries build
 //   an animation from another one flipped horizontally, at no ROM or VRAM cost.
+//   An animation given as { roll: 'file.png' } is generated: the frame rotated
+//   0, 90, 180 and 270 degrees clockwise (exact for pixel art). 180 degrees is
+//   just both hardware flips, so a roll costs one extra frame of tiles.
 //
 // Called by build.mjs; generated files are only rewritten when a source PNG is newer.
 import fs from 'node:fs';
@@ -46,8 +49,13 @@ export const ASSETS = [
       hurt_down: ['player hurt down.png'],
       hurt_up: ['player hurt up.png'],
       hurt_right: ['player hurt right.png'],
+      // Dash roll: the crouched pose tumbling clockwise (no roll art in the pack).
+      roll_down: { roll: 'player float down.png' },
+      roll_up: { roll: 'player float up.png' },
+      roll_right: { roll: 'player float right.png' },
     },
-    mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right' },
+    // Mirroring a clockwise roll gives a counter-clockwise one, right for rolling left.
+    mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
   },
 ];
 
@@ -152,22 +160,47 @@ const reverseBits = (b) => {
   return r;
 };
 const S_FLIPX = 0x20;
+const S_FLIPY = 0x40;
+
+/** Rotate a 16x16 RGBA image 90 degrees clockwise. */
+function rotate90(img) {
+  const out = new Uint8Array(img.rgba.length);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      // Destination (x, y) takes source (y, 15 - x).
+      const si = ((15 - x) * 16 + y) * 4, di = (y * 16 + x) * 4;
+      out.set(img.rgba.subarray(si, si + 4), di);
+    }
+  }
+  return { width: 16, height: 16, rgba: out };
+}
+
+/** The PNG files an animation entry reads. */
+const animFiles = (v) => (Array.isArray(v) ? v : [v.roll]);
 
 /** Convert a sprite asset (see the header comment) into its C arrays. */
 export function buildSprite(a) {
   const dir = path.join(ROOT, a.dir);
   const animNames = [...Object.keys(a.anims), ...Object.keys(a.mirror ?? {})];
-  const images = {};
-  for (const files of Object.values(a.anims)) {
-    for (const f of files) {
+  // Frame images per animation, in order.
+  const animImages = {};
+  for (const [name, v] of Object.entries(a.anims)) {
+    const load = (f) => {
       const img = decodePng(fs.readFileSync(path.join(dir, f)));
       if (img.width !== 16 || img.height !== 16) throw new Error(`${a.dir}/${f}: expected 16x16, got ${img.width}x${img.height}`);
-      images[f] = img;
+      return img;
+    };
+    if (Array.isArray(v)) animImages[name] = v.map(load);
+    else {
+      const frames = [load(v.roll)];
+      for (let i = 1; i < 4; i++) frames.push(rotate90(frames[i - 1]));
+      animImages[name] = frames;
     }
   }
+  const images = Object.values(animImages).flat();
   // One color mapping for the whole sprite: lightest opaque color = 1, darkest = 3.
   const opaque = new Map();
-  for (const img of Object.values(images)) {
+  for (const img of images) {
     for (let i = 0; i < img.rgba.length; i += 4) {
       if (img.rgba[i + 3] < 128) continue;
       opaque.set((img.rgba[i] << 16) | (img.rgba[i + 1] << 8) | img.rgba[i + 2], lumOf(img.rgba[i], img.rgba[i + 1], img.rgba[i + 2]));
@@ -194,25 +227,30 @@ export function buildSprite(a) {
   };
   const columns = [];
   const index = new Map(); // bytes -> [column, flags]
+  // Flip a column vertically: reverse the order of its 16 rows (2 bytes each).
+  const flipRows = (bytes) => Array.from({ length: 16 }, (_, r) => bytes.slice((15 - r) * 2, (15 - r) * 2 + 2)).flat();
   const addColumn = (bytes) => {
-    const key = bytes.join(',');
-    if (index.has(key)) return index.get(key);
-    const flippedKey = bytes.map(reverseBits).join(',');
-    if (index.has(flippedKey)) {
-      const [col, flags] = index.get(flippedKey);
-      return [col, flags ^ S_FLIPX];
+    const variants = [
+      [bytes, 0],
+      [bytes.map(reverseBits), S_FLIPX],
+      [flipRows(bytes), S_FLIPY],
+      [flipRows(bytes).map(reverseBits), S_FLIPX | S_FLIPY],
+    ];
+    for (const [v, flip] of variants) {
+      const hit = index.get(v.join(','));
+      if (hit) return [hit[0], hit[1] ^ flip];
     }
     columns.push(bytes);
     const ref = [columns.length - 1, 0];
-    index.set(key, ref);
+    index.set(bytes.join(','), ref);
     return ref;
   };
 
   const frames = []; // [left column, left flags, right column, right flags]
   const anims = {}; // name -> [first frame, count]
-  for (const [name, files] of Object.entries(a.anims)) {
-    anims[name] = [frames.length, files.length];
-    for (const f of files) frames.push([...addColumn(column(images[f], 0)), ...addColumn(column(images[f], 1))]);
+  for (const [name, imgs] of Object.entries(animImages)) {
+    anims[name] = [frames.length, imgs.length];
+    for (const img of imgs) frames.push([...addColumn(column(img, 0)), ...addColumn(column(img, 1))]);
   }
   for (const [name, src] of Object.entries(a.mirror ?? {})) {
     const [first, count] = anims[src];
@@ -263,7 +301,7 @@ export function buildAssets({ quiet = false } = {}) {
     const h = path.join(GEN_DIR, `${a.name}.h`);
     out.push(c);
     const sources = a.kind === 'sprite'
-      ? Object.values(a.anims).flat().map((f) => path.join(ROOT, a.dir, f))
+      ? Object.values(a.anims).flatMap(animFiles).map((f) => path.join(ROOT, a.dir, f))
       : [path.join(ROOT, a.src)];
     const genTime = fs.existsSync(c) && fs.existsSync(h) ? fs.statSync(c).mtimeMs : 0;
     if (genTime > Math.max(self, ...sources.map((f) => fs.statSync(f).mtimeMs))) continue;

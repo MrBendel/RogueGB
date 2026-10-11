@@ -47,6 +47,12 @@ static const int8_t facing_dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 static const uint8_t walk_anim[4] = {
     SPR_PLAYER_ANIM_WALK_DOWN, SPR_PLAYER_ANIM_WALK_UP, SPR_PLAYER_ANIM_WALK_RIGHT, SPR_PLAYER_ANIM_WALK_LEFT,
 };
+// The dash plays a roll: the crouched pose tumbling through 4 rotations (generated
+// at build time by tools/assets.mjs), once over the dash's length.
+static const uint8_t roll_anim[4] = {
+    SPR_PLAYER_ANIM_ROLL_DOWN, SPR_PLAYER_ANIM_ROLL_UP, SPR_PLAYER_ANIM_ROLL_RIGHT, SPR_PLAYER_ANIM_ROLL_LEFT,
+};
+#define ROLL_FRAMES 4
 
 // Movement profiles. Each character (and later each heir class, M4) points at one,
 // so different characters can move differently. The lab cycles through them with SELECT.
@@ -228,6 +234,7 @@ static void move_y(void) {
 }
 
 static void update_anim(int8_t dx, int8_t dy) {
+    if (player_dash_timer) return;  // the roll keeps its direction; drawing picks the frame
     // Which way the art faces. On a diagonal, keep the current direction if it's part
     // of the diagonal (so the sprite doesn't flip back and forth); otherwise face sideways.
     uint8_t h = dx > 0 ? ANIM_RIGHT : dx < 0 ? ANIM_LEFT : 0xFF;
@@ -274,6 +281,8 @@ static void start_dash(int8_t dx, int8_t dy) {
     player_vy = dy > 0 ? sp : dy < 0 ? -sp : 0;
     player_dashed = 1;
     player_dash_timer = dash_frames;
+    // Roll the way the dash goes (sideways wins on a diagonal).
+    player_anim_dir = dx > 0 ? ANIM_RIGHT : dx < 0 ? ANIM_LEFT : dy < 0 ? ANIM_UP : ANIM_DOWN;
     player_vz = 0;  // hold height during the dash, then fall from there
     if (player_invuln < dash_iframes) player_invuln = dash_iframes;
     player_dashes++;
@@ -329,8 +338,15 @@ void player_update(void) {
 }
 
 void player_draw(void) {
-    uint8_t anim = walk_anim[player_anim_dir];
-    uint8_t frame = player_air ? AIR_FRAME : player_anim_frame;
+    uint8_t anim, frame;
+    if (player_dash_timer) {
+        // One full turn over the dash: 0, 90, 180, 270 degrees.
+        anim = roll_anim[player_anim_dir];
+        frame = (uint8_t)((dash_frames - player_dash_timer - 1) * ROLL_FRAMES / dash_frames);
+    } else {
+        anim = walk_anim[player_anim_dir];
+        frame = player_air ? AIR_FRAME : player_anim_frame;
+    }
     slot_set_frame(&player_slot, spr_player_tiles, spr_player_frames, spr_player_anims[anim << 1] + frame);
     // Playfield (0,0) is screen (0,0). The body is raised by its height; near the top
     // edge the subtraction wraps, which the hardware's 8-bit coordinates handle.
