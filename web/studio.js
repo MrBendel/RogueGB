@@ -819,33 +819,130 @@ $('st-edit-synth-dirs').onclick = () => {
   toast('Synthesized Up, Right & Attack poses from Down!');
 };
 
-// Shared helper to import an HTMLImageElement into the active upload target
-function importImageToStudio(img, sourceName = 'image') {
-  pushUndo();
+// Interactive Image -> Game Boy (2bpp / GBC RGB555) Sprite Converter state
+let activeConvImg = null;
+let activeConvData = null;
+let activeConvName = 'image';
+let lastConvResult = null;
+
+function openImageConverter(img, sourceName = 'image') {
+  activeConvImg = img;
+  activeConvName = sourceName;
   const c = document.createElement('canvas');
   c.width = img.width;
   c.height = img.height;
   const cx = c.getContext('2d');
   cx.drawImage(img, 0, 0);
-  const data = cx.getImageData(0, 0, img.width, img.height).data;
-  // Auto-detect 16x24 if image aspect ratio is clearly taller than square (>= 1.3:1), else use current spriteHeight
+  activeConvData = cx.getImageData(0, 0, img.width, img.height).data;
+
+  // Auto-detect 16x24 if image aspect ratio is clearly taller than square (>= 1.3:1)
   const aspect = img.height / Math.max(1, img.width);
-  const targetH = img.height === 24 ? 24 : img.height === 16 ? 16 : aspect >= 1.3 ? 24 : spriteHeight;
+  const autoH = img.height === 24 ? 24 : img.height === 16 ? 16 : aspect >= 1.3 ? 24 : spriteHeight;
+  if ($('st-conv-size')) $('st-conv-size').value = String(autoH);
+  if ($('st-conv-target') && $('st-upload-target')) {
+    $('st-conv-target').value = $('st-upload-target').value || 'down';
+  }
+  // Default Auto-Crop ON for larger images, OFF for exact 16x16 or 16x24 pixel art
+  if ($('st-conv-crop')) {
+    $('st-conv-crop').checked = img.width > 20 || img.height > 28;
+  }
+
+  $('st-converter-card')?.classList.remove('hidden');
+  pushUndo();
+  updateConverterPreview(true);
+  toast(`Loaded ${sourceName} (${img.width}×${img.height}) into Sprite Converter!`);
+}
+
+function updateConverterPreview(applyLive = true) {
+  if (!activeConvImg || !activeConvData) return;
+  const targetH = +($('st-conv-size')?.value || spriteHeight) === 24 ? 24 : 16;
+  const bgMode = $('st-conv-bgmode')?.value || 'auto';
+  const bgTolerance = +($('st-conv-tol')?.value ?? 36);
+  const shadeBias = +($('st-conv-bias')?.value ?? 0);
+  const autoCrop = $('st-conv-crop') ? $('st-conv-crop').checked : true;
+  const autoOutline = $('st-conv-outline') ? $('st-conv-outline').checked : false;
+  const usePal = $('st-conv-usepal') ? $('st-conv-usepal').checked : true;
+
+  if ($('st-conv-tol-val')) $('st-conv-tol-val').textContent = String(bgTolerance);
+  if ($('st-conv-bias-val')) $('st-conv-bias-val').textContent = (shadeBias > 0 ? '+' : '') + shadeBias;
+  if ($('st-conv-dst-label')) $('st-conv-dst-label').textContent = `Converted 16×${targetH} (2bpp)`;
+
+  // Render source thumbnail
+  const srcCanvas = $('st-conv-src');
+  if (srcCanvas) {
+    srcCanvas.width = 96;
+    srcCanvas.height = targetH === 24 ? 144 : 96;
+    const sctx = srcCanvas.getContext('2d');
+    sctx.clearRect(0, 0, srcCanvas.width, srcCanvas.height);
+    sctx.imageSmoothingEnabled = activeConvImg.width > 64;
+    const scale = Math.min(srcCanvas.width / activeConvImg.width, srcCanvas.height / activeConvImg.height);
+    const dw = Math.round(activeConvImg.width * scale);
+    const dh = Math.round(activeConvImg.height * scale);
+    sctx.drawImage(
+      activeConvImg,
+      Math.floor((srcCanvas.width - dw) / 2),
+      Math.floor((srcCanvas.height - dh) / 2),
+      dw,
+      dh,
+    );
+  }
+
+  // Run 2bpp quantization + GBC RGB555 palette extraction
+  lastConvResult = extractGridAndPalette(activeConvData, activeConvImg.width, activeConvImg.height, targetH, {
+    bgMode,
+    bgTolerance,
+    autoCrop,
+    shadeBias,
+    autoOutline,
+  });
+
+  // Render converted 2bpp preview canvas
+  const dstCanvas = $('st-conv-dst');
+  if (dstCanvas) {
+    const scale = 6;
+    dstCanvas.width = 16 * scale;
+    dstCanvas.height = targetH * scale;
+    const dctx = dstCanvas.getContext('2d');
+    dctx.clearRect(0, 0, dstCanvas.width, dstCanvas.height);
+    const palToPreview = usePal ? lastConvResult.palette : charPalette;
+    for (let y = 0; y < targetH; y++) {
+      for (let x = 0; x < 16; x++) {
+        const v = lastConvResult.grid[y * 16 + x];
+        if (!v) continue;
+        const [r, g, b] = palToPreview[v] || [0, 0, 0];
+        dctx.fillStyle = `rgb(${r},${g},${b})`;
+        dctx.fillRect(x * scale, y * scale, scale, scale);
+      }
+    }
+  }
+
+  if (applyLive) {
+    applyConvertedSpriteToRig(false);
+  }
+}
+
+function applyConvertedSpriteToRig(showToast = true) {
+  if (!lastConvResult) return;
+  const targetH = gridHeight(lastConvResult.grid);
   if (targetH !== spriteHeight) {
     baseDown = resizeGridHeight(baseDown, targetH, true);
     baseUp = resizeGridHeight(baseUp, targetH, true);
     baseRight = resizeGridHeight(baseRight, targetH, true);
     spriteHeight = targetH;
   }
-  const { grid, palette } = extractGridAndPalette(data, img.width, img.height, spriteHeight);
-  const target = $('st-upload-target')?.value || 'down';
-  if (target === 'up') baseUp = grid;
-  else if (target === 'right') baseRight = grid;
-  else {
-    baseDown = grid;
-    charPalette = palette;
-    if (charPalSel) charPalSel.value = 'preset_auto';
-    if (synthMode === '1pose') {
+  const target = $('st-conv-target')?.value || $('st-upload-target')?.value || 'down';
+  const usePal = $('st-conv-usepal') ? $('st-conv-usepal').checked : true;
+  if (target === 'up') {
+    baseUp = cloneGrid(lastConvResult.grid);
+  } else if (target === 'right') {
+    baseRight = cloneGrid(lastConvResult.grid);
+  } else {
+    baseDown = cloneGrid(lastConvResult.grid);
+    if (usePal) {
+      charPalette = lastConvResult.palette.map((c) => (c ? [...c] : null));
+      if (charPalSel) charPalSel.value = 'preset_auto';
+    }
+    if (synthMode === '1pose' || target === 'down') {
       baseUp = synthesizeUpFromDown(baseDown);
       baseRight = synthesizeRightFromDown(baseDown);
     }
@@ -854,17 +951,47 @@ function importImageToStudio(img, sourceName = 'image') {
   baseAtkUp = null;
   baseAtkRight = null;
   rebuildRig();
-  toast(`Imported ${sourceName} (16×${spriteHeight}) into ${target} with GBC palette!`);
+  if (showToast) {
+    toast(`Applied converted 16×${spriteHeight} sprite (${activeConvName}) & synthesized all animations!`);
+  }
 }
 
-$('st-upload-png').onchange = (e) => {
-  const f = e.target.files[0];
+['st-conv-size', 'st-conv-target', 'st-conv-bgmode', 'st-conv-tol', 'st-conv-bias', 'st-conv-crop', 'st-conv-outline', 'st-conv-usepal'].forEach((id) => {
+  const el = $(id);
+  if (el) el.oninput = () => updateConverterPreview(true);
+});
+if ($('st-conv-apply')) {
+  $('st-conv-apply').onclick = () => {
+    applyConvertedSpriteToRig(true);
+    $('st-converter-card')?.classList.add('hidden');
+  };
+}
+if ($('st-conv-close')) {
+  $('st-conv-close').onclick = () => $('st-converter-card')?.classList.add('hidden');
+}
+
+function handleFileUploadInput(e) {
+  const f = e.target.files?.[0];
   if (!f) return;
   const img = new Image();
-  img.onload = () => importImageToStudio(img, f.name);
+  img.onload = () => openImageConverter(img, f.name);
   img.src = URL.createObjectURL(f);
   e.target.value = '';
-};
+}
+if ($('st-upload-png')) $('st-upload-png').onchange = handleFileUploadInput;
+if ($('st-upload-hero')) $('st-upload-hero').onchange = handleFileUploadInput;
+if ($('st-upload-another')) $('st-upload-another').onchange = handleFileUploadInput;
+
+// Drag-and-drop image anywhere onto the Studio page
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => {
+  const f = e.dataTransfer?.files?.[0];
+  if (!f || !f.type.startsWith('image/')) return;
+  e.preventDefault();
+  const img = new Image();
+  img.onload = () => openImageConverter(img, f.name);
+  img.src = URL.createObjectURL(f);
+});
 
 if ($('st-paste-btn')) {
   $('st-paste-btn').onclick = async () => {
@@ -876,7 +1003,7 @@ if ($('st-paste-btn')) {
           if (imgType) {
             const blob = await item.getType(imgType);
             const img = new Image();
-            img.onload = () => importImageToStudio(img, 'Clipboard Image');
+            img.onload = () => openImageConverter(img, 'Clipboard Image');
             img.src = URL.createObjectURL(blob);
             return;
           }
@@ -889,9 +1016,9 @@ if ($('st-paste-btn')) {
           return;
         }
       }
-      toast('No image found on clipboard — copy an image or use 📂 Import Image');
+      toast('No image found on clipboard — tap 🖼️ Upload Image → Sprite');
     } catch {
-      toast('Use📂 Import Image or press Ctrl+V to paste');
+      toast('Tap 🖼️ Upload Image → Sprite or press Ctrl+V to paste');
     }
   };
 }
@@ -906,7 +1033,7 @@ addEventListener('paste', (e) => {
       const blob = item.getAsFile();
       if (!blob) return;
       const img = new Image();
-      img.onload = () => importImageToStudio(img, 'Clipboard Image');
+      img.onload = () => openImageConverter(img, 'Clipboard Image');
       img.src = URL.createObjectURL(blob);
       return;
     }

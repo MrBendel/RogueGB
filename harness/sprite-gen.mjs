@@ -226,23 +226,115 @@ export function resizeGridHeight(grid, targetH = 24, stretch = false) {
 /**
  * Extract both the 16xH 2bpp grid (`targetH` = 16 or 24) AND the 4-color Game Boy Color
  * palette from an RGBA image buffer (ranking opaque colors from lightest=1 to darkest=3).
+ *
+ * Options (`opts`):
+ * - `bgMode`: `'auto'` (default: alpha if corners transparent, else corner color key), `'alpha'`, `'corner'`, `'white'`
+ * - `bgTolerance`: Color distance threshold (0..140, default 36) for background removal
+ * - `autoCrop`: Automatically crop to foreground subject & fit proportionally into 16xH (default: true for images > 20x28)
+ * - `shadeBias`: Shift luminance cutoffs (-25..+25, default 0) to favor lighter or darker shades
+ * - `autoOutline`: Reinforce outer silhouette edge with Shade 3 (dark outline)
  */
-export function extractGridAndPalette(rgba, width, height, targetH = 16) {
+export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = {}) {
   const H = targetH === 24 ? 24 : 16;
   const totalPx = 16 * H;
-  const sample = new Uint8Array(totalPx * 4);
-  for (let y = 0; y < H; y++) {
-    const sy = Math.min(height - 1, Math.floor((y + 0.5) * height / H));
-    for (let x = 0; x < 16; x++) {
-      const sx = Math.min(width - 1, Math.floor((x + 0.5) * width / 16));
-      const si = (sy * width + sx) * 4;
-      const di = (y * 16 + x) * 4;
-      sample[di] = rgba[si];
-      sample[di + 1] = rgba[si + 1];
-      sample[di + 2] = rgba[si + 2];
-      sample[di + 3] = rgba[si + 3];
+  const bgMode = opts.bgMode || 'auto';
+  const bgTol = opts.bgTolerance ?? 36;
+  const autoCrop = opts.autoCrop ?? (width > 20 || height > 28);
+  const shadeBias = (opts.shadeBias ?? 0) * 0.01;
+  const autoOutline = !!opts.autoOutline;
+
+  // Determine background keying from image corners
+  const cornerCoords = [
+    [0, 0],
+    [Math.max(0, width - 1), 0],
+    [0, Math.max(0, height - 1)],
+    [Math.max(0, width - 1), Math.max(0, height - 1)],
+  ];
+  let hasAlphaCorner = false;
+  let bgR = 255, bgG = 255, bgB = 255;
+  for (const [cx, cy] of cornerCoords) {
+    const ci = (cy * width + cx) * 4;
+    if (rgba[ci + 3] < 128) {
+      hasAlphaCorner = true;
+      break;
     }
   }
+  if (!hasAlphaCorner && width > 0 && height > 0) {
+    bgR = rgba[0];
+    bgG = rgba[1];
+    bgB = rgba[2];
+  }
+  const useCornerKey = bgMode === 'corner' || (bgMode === 'auto' && !hasAlphaCorner && bgTol > 0);
+  const useWhiteKey = bgMode === 'white';
+  const tolSq = bgTol * bgTol * 3;
+
+  const isBgAt = (si) => {
+    const a = rgba[si + 3];
+    if (a < 128) return true;
+    const r = rgba[si], g = rgba[si + 1], b = rgba[si + 2];
+    if (useCornerKey) {
+      const dr = r - bgR, dg = g - bgG, db = b - bgB;
+      if (dr * dr + dg * dg + db * db <= tolSq) return true;
+    } else if (useWhiteKey) {
+      const thr = 255 - bgTol;
+      if (r >= thr && g >= thr && b >= thr) return true;
+    }
+    return false;
+  };
+
+  // Optional auto-crop to foreground bounding box + proportional fit into 16xH
+  let cropX0 = 0, cropY0 = 0, cropW = width, cropH = height;
+  let dstX0 = 0, dstY0 = 0, dstW = 16, dstH = H;
+  if (autoCrop && width > 0 && height > 0) {
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!isBgAt((y * width + x) * 4)) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX >= minX && maxY >= minY) {
+      cropX0 = minX;
+      cropY0 = minY;
+      cropW = Math.max(1, maxX - minX + 1);
+      cropH = Math.max(1, maxY - minY + 1);
+      // Fit proportionally inside (14 x (H-2)) so 1px margin remains on top/sides/bottom
+      const availW = 14;
+      const availH = H - 2;
+      const scale = Math.min(availW / cropW, availH / cropH);
+      dstW = Math.max(4, Math.min(16, Math.round(cropW * scale)));
+      dstH = Math.max(6, Math.min(H - 1, Math.round(cropH * scale)));
+      dstX0 = Math.floor((16 - dstW) / 2);
+      dstY0 = Math.max(0, H - 1 - dstH); // Anchor feet at row H-2
+    }
+  }
+
+  const sample = new Uint8Array(totalPx * 4);
+  for (let y = 0; y < dstH; y++) {
+    const gy = dstY0 + y;
+    if (gy < 0 || gy >= H) continue;
+    const sy = Math.min(height - 1, cropY0 + Math.floor(((y + 0.5) * cropH) / dstH));
+    for (let x = 0; x < dstW; x++) {
+      const gx = dstX0 + x;
+      if (gx < 0 || gx >= 16) continue;
+      const sx = Math.min(width - 1, cropX0 + Math.floor(((x + 0.5) * cropW) / dstW));
+      const si = (sy * width + sx) * 4;
+      const di = (gy * 16 + gx) * 4;
+      if (isBgAt(si)) {
+        sample[di + 3] = 0;
+      } else {
+        sample[di] = rgba[si];
+        sample[di + 1] = rgba[si + 1];
+        sample[di + 2] = rgba[si + 2];
+        sample[di + 3] = 255;
+      }
+    }
+  }
+
   const lumOf = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
   const colorCounts = new Map();
   const pixelLums = new Float32Array(totalPx);
@@ -264,7 +356,7 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16) {
   const defaultPal = GBC_PALETTES.gbc_hero_red.colors.map((c) => [...c]);
   if (colorCounts.size === 0) return { grid, palette: defaultPal };
 
-  if (colorCounts.size <= 3) {
+  if (colorCounts.size <= 3 && !shadeBias && !autoOutline) {
     const ranked = [...colorCounts.entries()].sort((a, b) => b[1].lum - a[1].lum);
     const colorIdx = new Map(
       ranked.map(([k], idx) => [k, ranked.length === 1 ? 3 : ranked.length === 2 ? (idx === 0 ? 1 : 3) : idx + 1]),
@@ -283,8 +375,10 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16) {
   }
 
   const validLums = [...pixelLums].filter((l) => l >= 0).sort((a, b) => a - b);
-  const t1 = validLums[Math.floor(validLums.length * 0.34)];
-  const t2 = validLums[Math.floor(validLums.length * 0.68)];
+  const p1 = Math.max(0.08, Math.min(0.65, 0.34 + shadeBias));
+  const p2 = Math.max(p1 + 0.12, Math.min(0.92, 0.68 + shadeBias));
+  const t1 = validLums[Math.floor(validLums.length * p1)];
+  const t2 = validLums[Math.floor(validLums.length * p2)];
   const sums = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
   for (let i = 0; i < totalPx; i++) {
     const l = pixelLums[i];
@@ -296,6 +390,23 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16) {
     sums[s][2] += sample[i * 4 + 2];
     sums[s][3]++;
   }
+
+  if (autoOutline) {
+    const copy = cloneGrid(grid);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < 16; x++) {
+        if (copy[y * 16 + x] === 0) continue;
+        const touchesAir =
+          x === 0 || x === 15 || y === 0 || y === H - 1 ||
+          copy[y * 16 + (x - 1)] === 0 ||
+          copy[y * 16 + (x + 1)] === 0 ||
+          copy[(y - 1) * 16 + x] === 0 ||
+          copy[(y + 1) * 16 + x] === 0;
+        if (touchesAir) grid[y * 16 + x] = 3;
+      }
+    }
+  }
+
   const palette = [[0, 0, 0, 0], [...defaultPal[1]], [...defaultPal[2]], [...defaultPal[3]]];
   for (let s = 1; s <= 3; s++) {
     const n = sums[s][3];
@@ -312,8 +423,8 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16) {
 }
 
 /** Quantize an arbitrary RGBA image buffer into a 16xH 4-shade grid (0..3). */
-export function quantizeRgbaToGrid16(rgba, width, height, targetH = 16) {
-  return extractGridAndPalette(rgba, width, height, targetH).grid;
+export function quantizeRgbaToGrid16(rgba, width, height, targetH = 16, opts = {}) {
+  return extractGridAndPalette(rgba, width, height, targetH, opts).grid;
 }
 
 /** Analyze a 16xH character sprite's bounding box and anatomy splits (head, torso, legs). */

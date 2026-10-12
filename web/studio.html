@@ -15,11 +15,74 @@
       <div class="brand">RogueGB <span>sprite studio</span></div>
     </div>
     <div class="row">
-      <button id="st-copy-chat" class="primary" title="Copy compact JSON/ASCII sprite spec to paste into chat">📤 Copy Sprite for Chat</button>
-      <button id="st-toggle-import" title="Paste JSON or ASCII sprite code">📥 Load Sprite Code</button>
-      <a href="index.html" class="filebtn" style="text-decoration:none">🎮 Open Playtest</a>
+      <label class="filebtn primary" title="Upload any photo, artwork, or PNG to convert into a 4-color Game Boy sprite">🖼️ Upload Image → Sprite <input type="file" id="st-upload-hero" accept="image/png,image/*"></label>
+      <button id="st-copy-chat" title="Copy compact JSON/ASCII sprite spec to paste into chat">📤 Copy for Chat</button>
+      <button id="st-toggle-import" title="Paste JSON or ASCII sprite code">📥 Load Code</button>
+      <a href="index.html" class="filebtn" style="text-decoration:none">🎮 Playtest</a>
     </div>
   </header>
+
+  <section id="st-converter-card" class="card hidden" style="margin-bottom:12px">
+    <div class="row space-between">
+      <strong>🖼️ Image → Game Boy (2bpp / GBC RGB555) Sprite Converter</strong>
+      <div class="row small">
+        <label class="filebtn">📂 Another Image… <input type="file" id="st-upload-another" accept="image/png,image/*"></label>
+        <button id="st-conv-apply" class="primary">✓ Apply Sprite &amp; Generate Animations</button>
+        <button id="st-conv-close">✕ Close</button>
+      </div>
+    </div>
+
+    <div class="conv-preview-row">
+      <div class="conv-box">
+        <span class="small muted">Source Image</span>
+        <canvas id="st-conv-src" width="96" height="96"></canvas>
+      </div>
+      <div class="conv-arrow">➔</div>
+      <div class="conv-box">
+        <span class="small muted" id="st-conv-dst-label">Converted 16×16 (2bpp)</span>
+        <canvas id="st-conv-dst" width="96" height="96"></canvas>
+      </div>
+    </div>
+
+    <div class="row space-between small">
+      <label>Sprite Size:
+        <select id="st-conv-size">
+          <option value="16">16×16 Standard</option>
+          <option value="24">16×24 Tall Hero</option>
+        </select>
+      </label>
+      <label>Import Into:
+        <select id="st-conv-target">
+          <option value="down">Down (Front + Synth All Anims)</option>
+          <option value="up">Up (Back Pose)</option>
+          <option value="right">Right (Side Pose)</option>
+        </select>
+      </label>
+      <label>Background Removal:
+        <select id="st-conv-bgmode">
+          <option value="auto" selected>Auto (Alpha or Corner Color)</option>
+          <option value="corner">Solid Corner Color Key</option>
+          <option value="white">White / Light Background</option>
+          <option value="alpha">Alpha Transparency Only</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="row space-between small">
+      <label style="flex:1">BG Tolerance: <span id="st-conv-tol-val">36</span>
+        <input type="range" id="st-conv-tol" min="0" max="120" value="36" style="width:100%">
+      </label>
+      <label style="flex:1">Shade Balance (Light ↔ Dark): <span id="st-conv-bias-val">0</span>
+        <input type="range" id="st-conv-bias" min="-25" max="25" value="0" style="width:100%">
+      </label>
+    </div>
+
+    <div class="row space-between small">
+      <label><input type="checkbox" id="st-conv-crop" checked> Auto-Crop &amp; Fit Subject</label>
+      <label><input type="checkbox" id="st-conv-outline"> Add Crisp Dark Outline (Shade 3)</label>
+      <label><input type="checkbox" id="st-conv-usepal" checked> Extract 15-bit GBC Palette</label>
+    </div>
+  </section>
 
   <section id="st-code-drawer" class="card hidden" style="margin-bottom:12px">
     <div class="row space-between">
