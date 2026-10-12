@@ -1482,7 +1482,7 @@ export const CHARACTER_PRESETS = {
     name: 'Gungeon Ranger (16x24 Tall Hero)',
     mode: '1pose',
     height: 24,
-    palette: GBC_PALETTES.gbc_emerald_tunic.colors,
+    palette: GBC_PALETTES.gbc_oracle_green.colors,
     down: parseAsciiGrid([
       '....33333333....',
       '...3222222223...',
