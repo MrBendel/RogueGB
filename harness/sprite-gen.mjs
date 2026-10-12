@@ -37,8 +37,12 @@ export const GBC_PALETTES = {
     name: 'GBC Shadow Violet (Rogue Cloak)',
     colors: [[0, 0, 0, 0], [0xf8, 0xd8, 0xf8, 255], [0x90, 0x38, 0xd0, 255], [0x18, 0x08, 0x28, 255]],
   },
+  gbc_volt_blade: {
+    name: 'GBC Volt Cyan (Electric Blade)',
+    colors: [[0, 0, 0, 0], [0xff, 0xff, 0xe0, 255], [0x18, 0xd8, 0xff, 255], [0x10, 0x18, 0x48, 255]],
+  },
   gbc_steel_cyan: {
-    name: 'GBC Sky Steel (Oracle Sword)',
+    name: 'GBC Sky Steel (Blade & Ice)',
     colors: [[0, 0, 0, 0], [0xf8, 0xff, 0xff, 255], [0x38, 0xa8, 0xf8, 255], [0x10, 0x20, 0x38, 255]],
   },
   gbc_gunmetal: {
@@ -438,9 +442,112 @@ export function synthesizeJumpFrames(baseGrid) {
   return [fCrouch, fAir, fFall];
 }
 
-/** Synthesize a 4-frame roll/dash tumble (crouched ball rotated 0, 90, 180, 270 deg). */
-export function synthesizeRollFrames(baseGrid) {
-  const { topY, headEnd, botY } = analyzeAnatomy(baseGrid);
+/**
+ * Synthesize a 4-frame dodge-roll / dash sequence:
+ * - For `down` and `up`: Enter-the-Gungeon-style vertical dive, tucked vertical
+ *   somersault/dash (around the horizontal X-axis, never sideways!), high-speed
+ *   vertical streak with motion lines, and crouched landing slide with dust puffs.
+ * - For `right` (and `left` via flipGridX): horizontal forward tumble with dash trails.
+ */
+export function synthesizeRollFrames(baseGrid, dir = 'down') {
+  const { topY, headEnd, legStart, botY, leftX, rightX } = analyzeAnatomy(baseGrid);
+
+  if (dir === 'down' || dir === 'up') {
+    const isDown = dir === 'down';
+    const sign = isDown ? 1 : -1;
+
+    // Frame 0: Dive / Launch into the vertical dash (body pitches forward, trailing dash ticks)
+    const f0 = new Uint8Array(256);
+    for (let y = topY; y <= botY; y++) {
+      const isLegs = y >= legStart;
+      const dy = isLegs ? -sign : sign * 2;
+      const ny = Math.max(0, Math.min(15, y + dy));
+      for (let x = 0; x < 16; x++) {
+        const v = baseGrid[y * 16 + x];
+        if (v !== 0) f0[ny * 16 + x] = v;
+      }
+    }
+    // Add vertical launch speed lines behind the character
+    const trailY0 = isDown ? Math.max(0, topY - 1) : Math.min(15, botY + 1);
+    f0[trailY0 * 16 + 5] = 2;
+    f0[trailY0 * 16 + 10] = 2;
+
+    // Frame 1: Tight vertical tuck / forward somersault (compressed vertically,
+    // symmetric horizontally — rolling over the X-axis toward/away from camera, NOT sideways!)
+    const f1 = new Uint8Array(256);
+    const tuckStart = isDown ? 5 : 2;
+    const srcSpan = Math.max(1, botY - topY);
+    for (let dy = 0; dy < 9; dy++) {
+      // Sample flipped vertically so the back/shoulders roll over the head
+      const sy = isDown
+        ? Math.min(botY, Math.max(topY, Math.round(botY - (dy / 8) * srcSpan)))
+        : Math.min(botY, Math.max(topY, Math.round(topY + (dy / 8) * srcSpan)));
+      const ny = tuckStart + dy;
+      if (ny < 0 || ny >= 16) continue;
+      for (let x = 2; x < 14; x++) {
+        const v = baseGrid[sy * 16 + x];
+        if (!v) continue;
+        // Keep a rounded vertical silhouette without rotating sideways
+        if ((dy === 0 || dy === 8) && (x < 5 || x > 10)) continue;
+        // Emphasize cloak/tunic back (shade 2) during the mid-air somersault tuck
+        f1[ny * 16 + x] = (dy >= 2 && dy <= 5 && v === 1) ? 2 : v;
+      }
+    }
+    // High-speed vertical motion-blur streaks trailing behind the dash
+    const streakRows1 = isDown ? [0, 1, 2, 3] : [12, 13, 14, 15];
+    for (const ry of streakRows1) {
+      f1[ry * 16 + 4] = (ry % 2 === 0) ? 2 : 1;
+      f1[ry * 16 + 8] = 1;
+      f1[ry * 16 + 11] = (ry % 2 === 0) ? 1 : 2;
+    }
+
+    // Frame 2: High-speed vertical dash / inverted flip recovery with long speed lines
+    const f2 = new Uint8Array(256);
+    const dashShift = isDown ? 2 : -2;
+    for (let y = topY; y <= botY; y++) {
+      // Compress torso slightly while stretching along the vertical dash vector
+      const ny = Math.max(0, Math.min(15, Math.round(8 + (y - 8) * 0.75 + dashShift)));
+      for (let x = 2; x < 14; x++) {
+        const v = baseGrid[y * 16 + x];
+        if (v !== 0) f2[ny * 16 + x] = v;
+      }
+    }
+    const streakRows2 = isDown ? [0, 1, 2, 3, 4] : [11, 12, 13, 14, 15];
+    for (const ry of streakRows2) {
+      if (f2[ry * 16 + 5] === 0) f2[ry * 16 + 5] = 1;
+      if (f2[ry * 16 + 7] === 0 && ry % 2 === 0) f2[ry * 16 + 7] = 2;
+      if (f2[ry * 16 + 10] === 0) f2[ry * 16 + 10] = 1;
+    }
+
+    // Frame 3: Landing slide & recovery squash (upright facing dir, crouched low + dust puffs)
+    const f3 = new Uint8Array(256);
+    for (let y = legStart; y <= botY; y++) {
+      for (let x = 0; x < 16; x++) {
+        if (baseGrid[y * 16 + x] !== 0) f3[y * 16 + x] = baseGrid[y * 16 + x];
+      }
+    }
+    for (let y = topY; y < legStart; y++) {
+      const ny = Math.min(15, y + 2);
+      for (let x = 0; x < 16; x++) {
+        const v = baseGrid[y * 16 + x];
+        if (v !== 0) f3[ny * 16 + x] = v;
+      }
+    }
+    // Landing slide dust puffs at left & right of boots
+    const dustY = Math.min(15, botY);
+    const lx = Math.max(0, leftX - 2);
+    const rx = Math.min(15, rightX + 2);
+    f3[dustY * 16 + lx] = 1;
+    f3[dustY * 16 + rx] = 1;
+    if (dustY - 1 >= 0) {
+      f3[(dustY - 1) * 16 + lx] = 2;
+      f3[(dustY - 1) * 16 + rx] = 2;
+    }
+
+    return [f0, f1, f2, f3];
+  }
+
+  // Horizontal roll (right / left): forward dive + tucked roll + dash recovery
   const ball = new Uint8Array(256);
   for (let y = topY; y <= headEnd; y++) {
     const ny = Math.min(14, y + 2);
@@ -572,16 +679,16 @@ export function synthesizeDiagUpRightFromRight(rightGrid) {
 }
 
 /**
- * Add Oracle of Ages/Seasons motion-blur smear wings above and below a
- * horizontal right-facing melee weapon (for the Phase 2 impact frame).
+ * Add crackling electric discharge & Oracle-style motion-blur smear wings
+ * above and below a horizontal right-facing melee weapon (Phase 2 impact frame).
  */
 export function synthesizeSmearRightFromRight(rightGrid) {
   const out = cloneGrid(rightGrid);
-  // Add curved motion-blur wings flaring above and below the blade (cols 6..13).
+  // Jagged lightning / energy-arc wings flaring above and below the blade (cols 6..14).
   const wingTop = [
-    [7, 1, 3], [8, 1, 1], [9, 1, 3],
-    [8, 2, 3], [9, 2, 1], [10, 2, 2], [11, 2, 3],
-    [9, 3, 3], [10, 3, 1], [11, 3, 1], [12, 3, 3],
+    [6, 1, 2], [7, 1, 1], [8, 1, 3], [11, 0, 1],
+    [7, 2, 3], [8, 2, 1], [9, 2, 2], [10, 2, 1], [11, 2, 3],
+    [8, 3, 2], [9, 3, 3], [10, 3, 1], [11, 3, 2], [12, 3, 1], [13, 3, 3],
   ];
   for (const [x, y, c] of wingTop) {
     if (out[y * 16 + x] === 0) out[y * 16 + x] = c;
@@ -595,59 +702,66 @@ export const WEAPON_TEMPLATES = {
   melee_sword: {
     id: 'melee_sword',
     category: 'melee',
-    name: 'Oracle Broadsword (Melee)',
-    paletteId: 'gbc_steel_cyan',
+    name: 'Volt Sabre (Electric Blade)',
+    palette: 'gbc_volt_blade',
+    paletteId: 'gbc_volt_blade',
+    // Twin-prong inductor hilt + jagged serrated metal conductor spine with
+    // crackling white-hot (1) & cyan (2) lightning arcs jumping along the edges!
     right: parseAsciiGrid([
       '................',
       '................',
-      '................',
-      '.....33.........',
-      '.....313........',
-      '..3333233333333.',
-      '.321331111111113',
-      '.32133222222223.',
-      '..333313333333..',
-      '.....33.........',
-      '................',
+      '........1...1...',
+      '....333.21.212..',
+      '....32133131313.',
+      '.333323311111113',
+      '3212312113333121',
+      '.333323322112113',
+      '....32133131323.',
+      '....333.21.12...',
+      '........1.......',
       '................',
       '................',
       '................',
       '................',
       '................',
     ]),
+    // Phase 1 (45° Diagonal Slash): angled rail-blade with forked lightning
+    // bolts arcing off the trailing edge of the swing!
     diag_ur: parseAsciiGrid([
-      '...........333..',
-      '..........31123.',
-      '.........311223.',
-      '........311223..',
-      '.......311223...',
-      '......311223....',
-      '...33.31223.....',
-      '...3133223......',
-      '....32123.......',
-      '...3332133......',
-      '..32133313......',
-      '..333...3.......',
+      '...........2121.',
+      '........1.311213',
+      '.......21311312.',
+      '......12.313123.',
+      '.......3311323..',
+      '....21.311322...',
+      '...323311323.1..',
+      '...31231323.21..',
+      '....321223..1...',
+      '..33321233......',
+      '.321333213......',
+      '.333...33.......',
       '................',
       '................',
       '................',
       '................',
     ]),
+    // Phase 2 (Impact Lunge): full-width jagged electric shockwave arc with
+    // zig-zagging lightning bolts & high-voltage sparks!
     smear_right: parseAsciiGrid([
-      '.......313......',
-      '......31123.....',
-      '.....3112213....',
-      '.....33111213...',
-      '.....313321123..',
-      '..3333233333333.',
-      '.321331111111113',
-      '.32133222222223.',
-      '..333313333333..',
-      '.....313321123..',
-      '.....33111213...',
-      '.....3112213....',
-      '......31123.....',
-      '.......313......',
+      '......21..1.....',
+      '.....3121.21....',
+      '....312312121...',
+      '....3213311213..',
+      '....32132121123.',
+      '.333323311111113',
+      '3212312113333121',
+      '.333323322112113',
+      '....32132121123.',
+      '....3213311213..',
+      '....312312121...',
+      '.....3121.21....',
+      '......21..1.....',
+      '................',
       '................',
       '................',
     ]),
@@ -656,6 +770,7 @@ export const WEAPON_TEMPLATES = {
     id: 'melee_club',
     category: 'melee',
     name: 'Spiked Club (Artwork Melee)',
+    palette: 'gbc_monk_gold',
     paletteId: 'gbc_monk_gold',
     right: parseAsciiGrid([
       '................',
@@ -716,6 +831,7 @@ export const WEAPON_TEMPLATES = {
     id: 'small_pistol',
     category: 'small_gun',
     name: 'Rogue Sidearm (Small Gun)',
+    palette: 'gbc_gunmetal',
     paletteId: 'gbc_gunmetal',
     right: parseAsciiGrid([
       '................',
@@ -758,6 +874,7 @@ export const WEAPON_TEMPLATES = {
     id: 'small_wand',
     category: 'small_gun',
     name: 'Arcane Rod (Small Gun / Wand)',
+    palette: 'gbc_guard_blue',
     paletteId: 'gbc_guard_blue',
     right: parseAsciiGrid([
       '................',
@@ -801,6 +918,7 @@ export const WEAPON_TEMPLATES = {
     id: 'big_shotgun',
     category: 'big_gun',
     name: 'Boomstick (Big Gun)',
+    palette: 'gbc_gunmetal',
     paletteId: 'gbc_gunmetal',
     right: parseAsciiGrid([
       '................',
@@ -843,6 +961,7 @@ export const WEAPON_TEMPLATES = {
     id: 'big_launcher',
     category: 'big_gun',
     name: 'Heavy Cannon (Big Gun)',
+    palette: 'gbc_monk_gold',
     paletteId: 'gbc_monk_gold',
     right: parseAsciiGrid([
       '................',
@@ -1010,9 +1129,9 @@ export function generateCharacterRig({
   const jumpRight = synthesizeJumpFrames(baseRight);
   const jumpLeft = jumpRight.map(flipGridX);
 
-  const rollDown = synthesizeRollFrames(baseDown);
-  const rollUp = synthesizeRollFrames(baseUp);
-  const rollRight = synthesizeRollFrames(baseRight);
+  const rollDown = synthesizeRollFrames(baseDown, 'down');
+  const rollUp = synthesizeRollFrames(baseUp, 'up');
+  const rollRight = synthesizeRollFrames(baseRight, 'right');
   const rollLeft = rollRight.map(flipGridX);
 
   const atkDown = attack_down?.length === 3 ? attack_down.map(cloneGrid) : synthesizeAttackFrames(baseDown, 'down');

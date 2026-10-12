@@ -750,7 +750,7 @@ const studio = (() => {
 
   // Game Boy Color 4-color palettes (index 0 = transparent, 1 = light, 2 = mid, 3 = dark)
   let charPalette = GBC_PALETTES.gbc_hero_red.colors.map((c) => (c ? [...c] : null));
-  let weapPalette = GBC_PALETTES.gbc_steel_cyan.colors.map((c) => (c ? [...c] : null));
+  let weapPalette = GBC_PALETTES.gbc_volt_blade.colors.map((c) => (c ? [...c] : null));
 
   // Base 16x16 grids currently loaded in the studio
   let baseDown = cloneGrid(CHARACTER_PRESETS.adventurer.down);
@@ -948,6 +948,24 @@ const studio = (() => {
     });
   }
 
+  function drawVoltSparks(ctx, wx, wy, isSwinging) {
+    if (weaponId !== 'melee_sword') return;
+    const c1 = weapPalette[1] || [255, 255, 224];
+    const c2 = weapPalette[2] || [24, 216, 255];
+    const count = isSwinging ? 5 : 2;
+    for (let i = 0; i < count; i++) {
+      const h = (animTick * 7 + i * 19) & 31;
+      const sx = wx + 3 + (h % 10);
+      const sy = wy + 3 + ((h >> 1) % 10);
+      const [r, g, b] = (i + animTick) % 2 === 0 ? c1 : c2;
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(sx, sy, 1, 1);
+      if (isSwinging && i % 2 === 0) {
+        ctx.fillRect(sx + ((h & 1) ? 1 : -1), sy + ((h & 2) ? 1 : -1), 1, 1);
+      }
+    }
+  }
+
   function stepStudio() {
     if (activeTab !== 'studio') return;
     animTick++;
@@ -972,12 +990,38 @@ const studio = (() => {
       const fGrid = frames[selectedFrame] || frames[0];
       const wStep = resolveWeaponStep(dir, animKind, selectedFrame, attackPose);
       const jumpY = animKind === 'jump' ? (selectedFrame === 1 ? -5 : selectedFrame === 2 ? -2 : 0) : 0;
-      // Ground shadow
+
+      // Enter the Gungeon-style directional dodge-dash travel in Roll preview
+      const dashStep = animKind === 'roll' ? ([-6, -1, 4, 7][selectedFrame] || 0) : 0;
+      const dashDx = dir === 'right' ? dashStep : dir === 'left' ? -dashStep : 0;
+      const dashDy = dir === 'down' ? dashStep : dir === 'up' ? -dashStep : 0;
+      const dashHopY = animKind === 'roll' && (selectedFrame === 1 || selectedFrame === 2) ? -2 : 0;
+      const ox = 24 + dashDx;
+      const oy = 24 + dashDy + jumpY + dashHopY;
+
+      // Ground shadow follows the dash position
       prevCtx.fillStyle = '#9aa690';
-      prevCtx.fillRect(26, 38, 12, 2);
-      if (wStep && wStep.behind) drawGrid16(prevCtx, wStep.grid, 24 + wStep.dx, 24 + jumpY + wStep.dy, weapPalette);
-      drawGrid16(prevCtx, fGrid, 24, 24 + jumpY, charPalette);
-      if (wStep && !wStep.behind) drawGrid16(prevCtx, wStep.grid, 24 + wStep.dx, 24 + jumpY + wStep.dy, weapPalette);
+      prevCtx.fillRect(ox + 2, 38 + dashDy, 12, 2);
+
+      // Dash afterimage trail on mid-dash frames (frames 1 & 2)
+      if (animKind === 'roll' && (selectedFrame === 1 || selectedFrame === 2)) {
+        const trailX = ox - (dir === 'right' ? 4 : dir === 'left' ? -4 : 0);
+        const trailY = oy - (dir === 'down' ? 4 : dir === 'up' ? -4 : 0);
+        prevCtx.globalAlpha = 0.35;
+        drawGrid16(prevCtx, frames[0], trailX, trailY, charPalette);
+        prevCtx.globalAlpha = 1.0;
+      }
+
+      const isSwinging = animKind === 'attack' || attackPose;
+      if (wStep && wStep.behind) {
+        drawGrid16(prevCtx, wStep.grid, ox + wStep.dx, oy + wStep.dy, weapPalette);
+        drawVoltSparks(prevCtx, ox + wStep.dx, oy + wStep.dy, isSwinging);
+      }
+      drawGrid16(prevCtx, fGrid, ox, oy, charPalette);
+      if (wStep && !wStep.behind) {
+        drawGrid16(prevCtx, wStep.grid, ox + wStep.dx, oy + wStep.dy, weapPalette);
+        drawVoltSparks(prevCtx, ox + wStep.dx, oy + wStep.dy, isSwinging);
+      }
     } else {
       // Interactive Test Drive mode
       const m = liveMask();
@@ -997,9 +1041,12 @@ const studio = (() => {
           drive.bullets.push({ x: drive.x + 8, y: drive.y + 8, vx, vy });
         }
       }
-      const speedMul = drive.rollT > 0 ? 1.6 : (isMelee && drive.atkT > 0 ? 0.35 : 1);
-      drive.x = Math.max(2, Math.min(46, drive.x + dx * speedMul));
-      drive.y = Math.max(2, Math.min(46, drive.y + dy * speedMul));
+      // During a dodge-roll, propel the character along their facing direction even if D-pad is released
+      const rollVx = drive.rollT > 0 && !dx && !dy ? (drive.dir === 'right' ? 1 : drive.dir === 'left' ? -1 : 0) : dx;
+      const rollVy = drive.rollT > 0 && !dx && !dy ? (drive.dir === 'down' ? 1 : drive.dir === 'up' ? -1 : 0) : dy;
+      const speedMul = drive.rollT > 0 ? 1.8 : (isMelee && drive.atkT > 0 ? 0.35 : 1);
+      drive.x = Math.max(2, Math.min(46, drive.x + rollVx * speedMul));
+      drive.y = Math.max(2, Math.min(46, drive.y + rollVy * speedMul));
       if (drive.z > 0 || drive.vz !== 0) {
         drive.z = Math.max(0, drive.z + drive.vz);
         drive.vz -= 0.18;
@@ -1027,14 +1074,21 @@ const studio = (() => {
       const fGrid = frames[fIdx] || frames[0];
       const isAtk = isMelee ? drive.atkT > 0 : drive.atkT > 4;
       const wStep = resolveWeaponStep(drive.dir, aKind, fIdx, isAtk);
+      const rollHop = aKind === 'roll' && (fIdx === 1 || fIdx === 2) ? 2 : 0;
       const px = Math.round(drive.x);
-      const py = Math.round(drive.y - drive.z);
+      const py = Math.round(drive.y - drive.z - rollHop);
 
       prevCtx.fillStyle = '#9aa690';
       prevCtx.fillRect(px + 2, Math.round(drive.y) + 14, 12, 2);
-      if (wStep && wStep.behind) drawGrid16(prevCtx, wStep.grid, px + wStep.dx, py + wStep.dy, weapPalette);
+      if (wStep && wStep.behind) {
+        drawGrid16(prevCtx, wStep.grid, px + wStep.dx, py + wStep.dy, weapPalette);
+        drawVoltSparks(prevCtx, px + wStep.dx, py + wStep.dy, isAtk);
+      }
       drawGrid16(prevCtx, fGrid, px, py, charPalette);
-      if (wStep && !wStep.behind) drawGrid16(prevCtx, wStep.grid, px + wStep.dx, py + wStep.dy, weapPalette);
+      if (wStep && !wStep.behind) {
+        drawGrid16(prevCtx, wStep.grid, px + wStep.dx, py + wStep.dy, weapPalette);
+        drawVoltSparks(prevCtx, px + wStep.dx, py + wStep.dy, isAtk);
+      }
 
       // Bullets
       prevCtx.fillStyle = '#1f2420';
@@ -1076,7 +1130,7 @@ const studio = (() => {
       o2.textContent = v.name;
       weapPalSel.append(o2);
     }
-    weapPalSel.value = 'gbc_steel_cyan';
+    weapPalSel.value = 'gbc_volt_blade';
     charPalSel.onchange = () => {
       const p = GBC_PALETTES[charPalSel.value];
       if (p) {
