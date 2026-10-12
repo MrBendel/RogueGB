@@ -37,6 +37,7 @@
 #define KIND_FRAMES 2
 #define KIND_NUM 3  // uint8 shown as a plain number
 #define KIND_PRESET 4  // the movement preset, by name
+#define KIND_RIFLE 5   // the rifle's trigger: TAP, BURST, AUTO
 // What else changing a value does.
 #define TUNE_MOVEMENT 1  // makes the movement preset CUSTOM
 #define TUNE_WEAPON 2    // the held weapon's: reload it (its recoil table is scaled)
@@ -60,6 +61,7 @@ static const Tunable tunables[] = {
     {"DASH FR", KIND_FRAMES, 0, &dash_frames, 1, 1, 30},
     {"CAM LEAD", KIND_FRAMES, 0, &cam_lead, 2, 0, 40},
     {"LEAD SPD", KIND_FX16, 0, &cam_lead_rate, 32, 32, 1024},  // at most 64/16 px: camera_lead.s
+    {"RIFLE", KIND_RIFLE, 0, &rifle_mode, 1, 0, RIFLE_MODES - 1},
     // The held weapon (weapon.h; SELECT switches it).
     {"FIRE RATE", KIND_FRAMES, TUNE_WEAPON, &wpn.fire_interval, 1, 2, 90},
     {"TAP RATE", KIND_FRAMES, TUNE_WEAPON, &wpn.tap_interval, 1, 1, 60},
@@ -145,6 +147,8 @@ static void draw_tune_row(uint8_t i) {
     win_text(2, y, t->label);
     if (t->kind == KIND_PRESET) {
         win_text(11, y, move_preset_name());
+    } else if (t->kind == KIND_RIFLE) {
+        win_text(13, y, v == RIFLE_TAP ? "TAP  " : v == RIFLE_BURST ? "BURST" : "AUTO ");
     } else if (t->kind == KIND_FRAMES || t->kind == KIND_NUM) {
         win_number(12, y, v, 3, 0);
         win_text(16, y, t->kind == KIND_FRAMES ? "FR" : "  ");
@@ -239,6 +243,15 @@ static void tune_update(void) {
         return;
     }
     uint16_t v = tune_get(t);
+    if (t->kind == KIND_RIFLE) {
+        // LEFT/RIGHT cycle the three.
+        if (joy_pressed & J_RIGHT) v = v >= RIFLE_MODES - 1 ? 0 : v + 1;
+        else if (joy_pressed & J_LEFT) v = v == 0 ? RIFLE_MODES - 1 : v - 1;
+        else return;
+        tune_set(t, v);
+        draw_tune_row(tune_sel);
+        return;
+    }
     if ((joy_pressed & J_RIGHT) && v + t->step <= t->max) v += t->step;
     else if ((joy_pressed & J_LEFT) && v >= t->min + t->step) v -= t->step;
     else return;

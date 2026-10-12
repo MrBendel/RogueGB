@@ -34,7 +34,8 @@ extern uint16_t enemies_killed;
 extern uint8_t aim_dir32;               // where the gun points now (0-31)
 extern uint8_t gun_dir16;               // the gun sprite's direction (0-15)
 extern uint8_t aim_facing;              // art direction while shooting (player.c), or 0xFF
-extern uint8_t weapon_windup;           // spin-up / steadying progress, frames
+extern uint8_t weapon_windup;           // steadying progress, frames (sniper)
+extern uint8_t burst_left;              // shots left in the rifle's burst
 extern uint8_t shot_damage;             // HP a shot in flight takes off
 extern uint16_t crits;                  // critical shots fired
 extern uint8_t swing_t, swing_step;     // melee: frames into the swing, combo step (1-3)

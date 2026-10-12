@@ -27,7 +27,7 @@ const OUT_ART = path.join(ROOT, 'artwork', 'weapons');
 // Weapons, each drawn pointing right (shades 1-3, '.' transparent). `grip` is the
 // pixel the hand holds; `muzzle` is where shots and the flash come out (for the
 // sword, the tip). The pistol and shotgun are adapted from the Sprite Studio
-// templates (small_pistol, big_shotgun in harness/sprite-gen.mjs); the minigun
+// templates (small_pistol, big_shotgun in harness/sprite-gen.mjs); the rifle
 // and sniper are new; the sword is a slimmer take on the Volt Sabre
 // (melee_sword), so it keeps its shape at every swing angle.
 const WEAPONS = {
@@ -76,27 +76,27 @@ const WEAPONS = {
     grip: { x: 6.5, y: 8.5 },
     muzzle: { x: 15.5, y: 6.5 },
   },
-  // Rotary cannon: a chunky housing and a cluster of three barrels.
-  minigun: {
+  // Assault rifle: stock, receiver with a sight rail, magazine, long barrel.
+  rifle: {
     right: parseAsciiGrid([
       '................',
       '................',
       '................',
       '................',
-      '....3333........',
-      '...322223333333.',
-      '..32111231111113',
-      '..322222333333..',
-      '..32111231111113',
-      '...322223333333.',
-      '....3233........',
-      '....333.........',
+      '................',
+      '.......333......',
+      '3...33322233333.',
+      '3333311112111113',
+      '3223333233333...',
+      '.33..323........',
+      '......33........',
+      '................',
       '................',
       '................',
       '................',
       '................',
     ]),
-    grip: { x: 5.5, y: 10.5 },
+    grip: { x: 6.5, y: 9.5 },
     muzzle: { x: 15.5, y: 7.5 },
   },
   // Long rifle with a scope on top.

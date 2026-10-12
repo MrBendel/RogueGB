@@ -3,7 +3,7 @@
 //   node harness/profile.mjs walk    walk the lab: left column, bottom row
 //   node harness/profile.mjs arena   fight in the arena
 //   node harness/profile.mjs shoot   the same fight, holding A (auto-aim, the player's shots);
-//                                    add --weapon=N to fire weapon N (1 shotgun, 2 minigun, 3 sniper)
+//                                    add --weapon=N to fire weapon N (1 shotgun, 2 rifle, 3 sniper, 4 sword)
 //   node harness/profile.mjs stress  arena with the pools kept full (8 enemies, 20 bullets)
 // Functions without an exported symbol (static C functions, asm local labels) are
 // counted under the nearest symbol before them.
@@ -24,7 +24,7 @@ const mask = (s) => s.split('+').filter(Boolean).reduce((a, d) => a | m[d], 0);
 const step = (b, n = 1) => { emu.setButtons(mask(b)); emu.run(n); };
 const v = (n) => emu.read16(emu.symbols.addr(n));
 step('', 30); step('START'); step('', 42);
-// --weapon=N: switch to weapon N first (SELECT cycles: 0 pistol, 1 shotgun, 2 minigun, 3 sniper).
+// --weapon=N: switch to weapon N first (SELECT cycles: 0 pistol, 1 shotgun, 2 rifle, 3 sniper, 4 sword).
 const weaponArg = process.argv.find((a) => a.startsWith('--weapon='));
 for (let k = 0; k < (weaponArg ? Number(weaponArg.slice(9)) : 0); k++) { step('SELECT'); step(''); }
 const scenario = process.argv[2] || 'walk';

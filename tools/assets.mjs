@@ -139,11 +139,11 @@ export const ASSETS = [
     anims: { aim: numbered('shotgun', 16) },
   },
   {
-    name: 'spr_minigun',
+    name: 'spr_rifle',
     kind: 'sprite',
     bank: true,
     dir: 'artwork/weapons',
-    anims: { aim: numbered('minigun', 16) },
+    anims: { aim: numbered('rifle', 16) },
   },
   {
     name: 'spr_sniper',

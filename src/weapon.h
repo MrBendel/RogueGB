@@ -1,7 +1,7 @@
 // Weapons: what the player holds and how it fires (see ROADMAP "Weapons").
 //
-// Five classes for now, switched with SELECT: a pistol, a shotgun, a minigun, a
-// sniper rifle and a sword. Each is a set of stats (WeaponStats) plus art: 16
+// Five classes for now, switched with SELECT: a pistol, a shotgun, an assault
+// rifle, a sniper rifle and a sword. Each is a set of stats (WeaponStats) plus art: 16
 // aiming directions drawn by tools/make-weapon-art.mjs. Every weapon's art is
 // loaded into sprite VRAM at the start of a scene, so switching is instant: it
 // copies the chosen one's frame and placement tables into the fixed RAM tables
@@ -16,7 +16,7 @@
 
 #define WEAPON_PISTOL 0
 #define WEAPON_SHOTGUN 1
-#define WEAPON_MINIGUN 2
+#define WEAPON_RIFLE 2
 #define WEAPON_SNIPER 3
 #define WEAPON_SWORD 4
 #define WEAPON_COUNT 5
@@ -24,7 +24,7 @@
 // How holding and tapping A fire.
 #define FIRE_SEMI 0    // each press fires at once (tap_interval apart); holding fires every fire_interval
 #define FIRE_AUTO 1    // holding fires every fire_interval
-#define FIRE_SPIN 2    // holding spins up for windup frames, then fires every fire_interval
+#define FIRE_RIFLE 2   // the assault rifle: tap, burst or full auto, by rifle_mode (below)
 #define FIRE_CHARGE 3  // holding steadies for windup frames and fires a critical shot (2x damage);
                        // letting go earlier fires a normal one
 #define FIRE_MELEE 4   // each press swings (aim.c): a 3-hit combo if pressed within tap_interval
@@ -43,9 +43,19 @@ typedef struct {
     uint8_t damage;         // HP per hit
     uint8_t kick;           // px the gun kicks back (1-3)
     uint8_t push;           // shoves the player back by shot velocity >> push (0 = no shove)
-    uint8_t windup;         // FIRE_SPIN / FIRE_CHARGE: frames
+    uint8_t windup;         // FIRE_CHARGE: frames to steady; FIRE_RIFLE: the pause after a burst
     uint8_t slow;           // halve walking speed while A is held
 } WeaponStats;
+
+// The assault rifle's trigger (FIRE_RIFLE). A setting: for now on the pause
+// panel; later on an options screen off the title.
+#define RIFLE_TAP 0    // one shot per press (tap_interval apart at most)
+#define RIFLE_BURST 1  // each press fires BURST_SHOTS, BURST_GAP frames apart, then pauses windup frames
+#define RIFLE_AUTO 2   // holding fires every fire_interval
+#define RIFLE_MODES 3
+#define BURST_SHOTS 3
+#define BURST_GAP 4
+extern uint8_t rifle_mode;
 
 // --- watchable state ---
 extern uint8_t weapon_cur;                 // WEAPON_*

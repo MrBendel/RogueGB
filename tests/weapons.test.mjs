@@ -1,10 +1,11 @@
 // Weapons (weapon.c, firing in aim.c): SELECT switches between the pistol,
-// shotgun, minigun, sniper rifle and sword, and each fires its own way (ROADMAP
+// shotgun, assault rifle, sniper rifle and sword, and each fires its own way (ROADMAP
 // "Weapons").
 import { test } from 'node:test';
 import { assert, matchGolden, startRun } from './helpers.mjs';
 
-const PISTOL = 0, SHOTGUN = 1, MINIGUN = 2, SNIPER = 3, SWORD = 4;
+const PISTOL = 0, SHOTGUN = 1, RIFLE = 2, SNIPER = 3, SWORD = 4;
+const RIFLE_TAP = 0, RIFLE_BURST = 1, RIFLE_AUTO = 2;
 const SLIME = 1;
 const DIR_RIGHT = 2;
 const SHOT_SIZE = 13, SHOT_MAX = 16;
@@ -48,7 +49,7 @@ function spawnStill(emu, x, y) {
 test('SELECT switches weapons in turn, and the HUD names the one held', () => {
   const emu = startRun().idle(2);
   assert.equal(emu.v('weapon_cur'), PISTOL);
-  for (const w of [SHOTGUN, MINIGUN, SNIPER, SWORD, PISTOL]) {
+  for (const w of [SHOTGUN, RIFLE, SNIPER, SWORD, PISTOL]) {
     emu.tap('SELECT');
     assert.equal(emu.v('weapon_cur'), w);
   }
@@ -79,20 +80,58 @@ test('shotgun: one shot is a fan of pellets, and it shoves you back', () => {
   assert.ok(emu.v('player_vx', 'i16') < 0, 'shoved back (left)');
 });
 
-test('minigun: spins up before it fires, then fires fast, and you walk at half speed', () => {
-  const emu = holding(MINIGUN);
-  const windup = wpn(emu, 'windup');
-  emu.hold('A', windup - 1);
-  assert.equal(emu.v('shots_fired', 'u16'), 0, 'nothing while spinning up');
-  emu.hold('A', 31);
-  const fired = emu.v('shots_fired', 'u16');
-  assert.ok(fired >= 9, `${fired} shots in about half a second after spinning up`);
-  // Walking while firing: half the top speed (row 6 of the lab is open to the right).
-  const top = emu.v('move_top', 'u16');
-  emu.hold('RIGHT+A', 20);
-  assert.equal(emu.v('player_vx', 'i16'), top >> 1);
-  emu.hold('RIGHT', 20);
-  assert.equal(emu.v('player_vx', 'i16'), top, 'full speed again once A is let go');
+/** Holding the rifle with its trigger set to `mode` (rifle_mode, weapon.h). */
+function rifle(mode) {
+  const emu = holding(RIFLE);
+  w8(emu, 'rifle_mode', mode);
+  return emu.idle(2);
+}
+const fired = (emu) => emu.v('shots_fired', 'u16');
+
+test('rifle on auto: holding A fires every fire_interval frames', () => {
+  const emu = rifle(RIFLE_AUTO);
+  const interval = wpn(emu, 'fire_interval');
+  emu.hold('A', interval * 6);
+  assert.equal(fired(emu), 6);
+});
+
+test('rifle on tap: one shot per press, however long it is held', () => {
+  const emu = rifle(RIFLE_TAP).hold('A', 40);
+  assert.equal(fired(emu), 1, 'held: one shot');
+  emu.idle(10);
+  const tap = wpn(emu, 'tap_interval');
+  for (let k = 0; k < 6; k++) emu.hold('A', 1).idle(tap);
+  assert.equal(fired(emu), 7, 'each tap fires');
+});
+
+test('rifle on burst: a press fires 3 rounds a few frames apart, then pauses', () => {
+  const emu = rifle(RIFLE_BURST).hold('A', 1);
+  const times = [0];
+  let last = fired(emu);
+  assert.equal(last, 1, 'the first round at once');
+  for (let f = 1; f <= 30; f++) {
+    emu.idle(1);  // the burst goes on with A let go
+    if (fired(emu) !== last) times.push(f);
+    last = fired(emu);
+  }
+  assert.equal(fired(emu), 3, `three rounds: at frames ${times}`);
+  assert.equal(times[1] - times[0], times[2] - times[1], 'evenly spaced');
+  // Holding A doesn't start another; the next press does (after the pause).
+  const emu2 = rifle(RIFLE_BURST).hold('A', 40);
+  assert.equal(fired(emu2), 3, 'held: one burst');
+  emu2.idle(2).hold('A', 1).idle(12);
+  assert.equal(fired(emu2), 6, 'the next press: another burst');
+});
+
+test('the RIFLE row on the pause panel switches tap, burst and auto', () => {
+  const emu = startRun().idle(2);
+  assert.equal(emu.v('rifle_mode'), RIFLE_AUTO, 'auto to start');
+  emu.tap('START').idle(8);
+  for (let k = 0; k < 11; k++) emu.tap('DOWN');  // MOVE ... LEAD SPD -> RIFLE
+  for (const m of [RIFLE_TAP, RIFLE_BURST, RIFLE_AUTO]) {
+    emu.tap('RIGHT');
+    assert.equal(emu.v('rifle_mode'), m);
+  }
 });
 
 test('sniper: holding steadies into a critical that one-shots a slime; a quick tap fires a normal shot', () => {
@@ -117,11 +156,11 @@ test('sniper: holding steadies into a critical that one-shots a slime; a quick t
 });
 
 test('CPU budget: an arena fight with each weapon, A held, stays within the frame', () => {
-  // The heaviest: the shotgun (5 pellets spawned at once) and the minigun (up to
-  // ~9 shots in flight), ~58-59k at worst; 65,664 is where a frame drops. The
+  // The heaviest: the shotgun (5 pellets spawned at once) and the rifle on auto
+  // (several shots in flight), ~58-59k at worst; 65,664 is where a frame drops. The
   // sword taps A instead (it swings once per press).
-  const names = ['pistol', 'shotgun', 'minigun', 'sniper', 'sword'];
-  for (const w of [PISTOL, SHOTGUN, MINIGUN, SNIPER, SWORD]) {
+  const names = ['pistol', 'shotgun', 'rifle', 'sniper', 'sword'];
+  for (const w of [PISTOL, SHOTGUN, RIFLE, SNIPER, SWORD]) {
     const emu = startRun().idle(2);
     for (let k = 0; k < w; k++) emu.tap('SELECT');
     emu.hold('LEFT', 80).hold('DOWN', 200);

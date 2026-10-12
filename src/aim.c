@@ -42,7 +42,8 @@ uint8_t shot_draw_tile;
 uint8_t shot_draw_prop;
 uint8_t shots_killed;
 uint8_t shot_damage;      // HP the shots in flight take off (shots.s); the last shot's
-uint8_t weapon_windup;    // spin-up or steadying progress, frames (FIRE_SPIN, FIRE_CHARGE)
+uint8_t weapon_windup;    // steadying progress, frames (FIRE_CHARGE)
+uint8_t burst_left;       // shots left in the rifle's current burst
 uint8_t reticle_tight;    // the reticle closes in (steadying past halfway) (aim_score.s)
 uint16_t crits;           // critical shots fired
 
@@ -124,6 +125,7 @@ void aim_init(uint8_t v) BANKED {
     shots_killed = 0;
     gun_kick = gun_flash = aim_hold = 0;
     weapon_windup = reticle_tight = 0;
+    burst_left = 0;
     crits = 0;
     swing_t = swing_step = combo_left = 0;
     melee_hits = deflects = 0;
@@ -488,15 +490,24 @@ static uint8_t trigger(void) {
     case FIRE_AUTO:
         if (able && held && !fire_cooldown) fire(wpn.damage);
         break;
-    case FIRE_SPIN:
-        // Spins up while held, down twice as slowly when let go.
-        if (able && held) {
-            if (weapon_windup < wpn.windup) weapon_windup++;
-            else if (!fire_cooldown) fire(wpn.damage);
-        } else if (weapon_windup && (frame_count & 1)) {
-            weapon_windup--;
+    case FIRE_RIFLE:
+        if (rifle_mode == RIFLE_AUTO) {
+            if (able && held && !fire_cooldown) fire(wpn.damage);
+        } else if (rifle_mode == RIFLE_TAP) {
+            // One shot per press, as fast as you can tap (but tap_interval apart).
+            if (able && pressed && fire_cooldown <= wpn.fire_interval - wpn.tap_interval) fire(wpn.damage);
+        } else if (burst_left) {
+            // A burst finishes even if A is let go.
+            if (able && !fire_cooldown) {
+                fire(wpn.damage);
+                fire_cooldown = --burst_left ? BURST_GAP : wpn.windup;
+            }
+        } else if (able && pressed && !fire_cooldown) {
+            fire(wpn.damage);
+            burst_left = BURST_SHOTS - 1;
+            fire_cooldown = BURST_GAP;
         }
-        break;
+        return (held || burst_left) && able;
     case FIRE_CHARGE:
         if (able && held) {
             if (fire_cooldown) break;  // the next steadying starts after the cooldown

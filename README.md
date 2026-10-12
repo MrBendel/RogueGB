@@ -16,12 +16,13 @@ hits, and falling into pits, cost 1. There's no attacking yet (auto-aim is next)
 | D-pad | Move (8 directions) | UP/DOWN pick a value, LEFT/RIGHT change it |
 | A | Fire at the auto-aim target (hold or tap, depending on the weapon) | |
 | B | Jump; B again in mid-air dashes toward the d-pad direction (once per jump) | |
-| SELECT | Next weapon (pistol, shotgun, minigun, sniper, sword) | End the run |
+| SELECT | Next weapon (pistol, shotgun, assault rifle, sniper, sword) | End the run |
 | START | Pause and open the tuning panel | Resume |
 
 Weapons: the **pistol** fires as fast as you tap (holding fires slower); the **shotgun**
-fires a fan of 5 pellets and shoves you back; the **minigun** spins up for half a second,
-then sprays, and you walk at half speed while it fires; the **sniper** steadies while you
+fires a fan of 5 pellets and shoves you back; the **assault rifle** fires by tap (one shot
+per press), burst (3 rounds per press) or full auto (hold), set by the RIFLE row of the
+pause panel; the **sniper** steadies while you
 hold A (the reticle closes in) and fires a critical (double damage) when it locks; letting
 go early fires a normal shot. The **sword** swings on each press of A: tap again as a swing
 finishes to chain a 3-hit combo (a sweep, a sweep back, then a thrust that does double
@@ -39,7 +40,8 @@ change direction (pixels per frame: lower is smoother and lazier). It eases in a
 camera otherwise moves exactly with the player. The rest tune the weapon you're holding
 (the panel's title names it): FIRE RATE (frames between shots while held), TAP RATE (when
 tapping), PELLETS, SPREAD (32-direction steps between pellets), JITTER, SHOT SPD, RANGE,
-DAMAGE, KICK, WINDUP (spin-up or steadying frames) and AIM RANGE (for the sword: TAP RATE is
+DAMAGE, KICK, WINDUP (the sniper's steadying frames; the rifle's pause after a burst) and
+AIM RANGE (for the sword: TAP RATE is
 the combo window, RANGE its reach, KICK its knockback); AIM BIAS is how strongly auto-aim
 prefers what you face, and HITSTOP how many frames a landed sword hit freezes the game.
 
