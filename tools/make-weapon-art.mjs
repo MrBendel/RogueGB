@@ -144,6 +144,8 @@ const WEAPONS = {
     ]),
     grip: { x: 1.5, y: 7.5 },
     muzzle: { x: 15.5, y: 7.5 },
+    // Also drawn with motion-smear wings, shown while a swing can hit (see smeared()).
+    smear: { centre: 7 },
   },
 };
 
@@ -214,6 +216,28 @@ const mirrorX = (g) => {
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) out[y * 16 + x] = g[y * 16 + 15 - x];
   return out;
 };
+
+// The Sprite Studio's smear: jagged energy wings flaring above and below the
+// blade, the frame Oracle-style swings show at full extension. The wing pattern
+// is synthesizeSmearRightFromRight's (harness/sprite-gen.mjs: [x, row, shade],
+// rows 0-3 above, mirrored below); it was laid out for the thicker Volt Sabre, so
+// here it's moved to hug a blade whose middle row is `centre` (the top wing ends
+// on the row above the blade's top edge, the bottom one mirrors it).
+const SMEAR_WING = [
+  [6, 1, 2], [7, 1, 1], [8, 1, 3], [11, 0, 1],
+  [7, 2, 3], [8, 2, 1], [9, 2, 2], [10, 2, 1], [11, 2, 3],
+  [8, 3, 2], [9, 3, 3], [10, 3, 1], [11, 3, 2], [12, 3, 1], [13, 3, 3],
+];
+function smeared(grid, centre) {
+  const out = grid.slice();
+  // The wings' last row (3) goes just above the blade's top edge, centre - 1.
+  const shift = centre - 1 - 1 - 3;
+  for (const [x, y, c] of SMEAR_WING) {
+    const top = y + shift, bottom = 2 * centre - top;
+    for (const row of [top, bottom]) if (row >= 0 && row < 16 && !out[row * 16 + x]) out[row * 16 + x] = c;
+  }
+  return out;
+}
 
 const RIGHT_HALF = [0, 1, 2, 3, 4, 12, 13, 14, 15];
 const isLeft = (d) => d >= 5 && d <= 11;
@@ -311,6 +335,18 @@ for (const [name, weapon] of Object.entries(WEAPONS)) {
   frames.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name} (${d + 1}).png`), png(g)));
   fs.writeFileSync(path.join(ROOT, 'src', `weapon_${name}.h`), header(name, placement(weapon, c)));
   console.log(`[weapon-art] ${name}: 16 directions -> artwork/weapons/, src/weapon_${name}.h`);
+  if (weapon.smear) {
+    // Turned around the same centre as the plain drawing, so the placement table fits both.
+    const sm = directions({ ...weapon, right: smeared(weapon.right, weapon.smear.centre) }, c);
+    sm.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name}_smear (${d + 1}).png`), png(g)));
+    console.log(`[weapon-art] ${name}_smear: 16 directions -> artwork/weapons/`);
+    if (process.argv.includes('--show')) {
+      for (const d of [0, 2]) {
+        console.log(`${name}_smear dir ${d}`);
+        for (let y = 0; y < 16; y++) console.log('  ' + Array.from(sm[d].slice(y * 16, y * 16 + 16), (v) => '.123'[v]).join(''));
+      }
+    }
+  }
   if (process.argv.includes('--show')) {
     frames.forEach((g, d) => {
       if (![0, 2, 4, 14].includes(d)) return;

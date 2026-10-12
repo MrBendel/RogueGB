@@ -68,6 +68,12 @@ extern WeaponStats weapon_stats[WEAPON_COUNT];  // each weapon's (tuned) stats
 extern uint8_t gun_vram, gun_blank;
 extern uint8_t gun_frames[16 * 4];
 extern int8_t gun_place[7][16];
+// The sword's smeared frames (the same placement), shown while a swing can hit.
+extern uint8_t smear_vram, smear_blank;
+extern uint8_t smear_frames[16 * 4];
+// What draw_gun (aim.c) draws this frame: the held weapon's frames, or the smear's.
+extern uint8_t draw_vram, draw_blank;
+extern uint8_t *draw_frames;
 
 // Load every weapon's art into sprite VRAM from tile `vram` on (display off);
 // the first run also sets each weapon's stats from its preset.

@@ -10,6 +10,7 @@
 #include "spr_minigun.h"
 #include "spr_sniper.h"
 #include "spr_sword.h"
+#include "spr_sword_smear.h"
 #include "weapon_pistol.h"
 #include "weapon_shotgun.h"
 #include "weapon_minigun.h"
@@ -22,6 +23,10 @@ WeaponStats weapon_stats[WEAPON_COUNT];
 uint8_t gun_vram, gun_blank;
 uint8_t gun_frames[16 * 4];
 int8_t gun_place[7][16];
+uint8_t smear_vram, smear_blank;
+uint8_t smear_frames[16 * 4];
+uint8_t draw_vram, draw_blank;
+uint8_t *draw_frames;
 
 // Where each weapon's art went in sprite VRAM.
 static uint8_t weapon_vram[WEAPON_COUNT];
@@ -62,6 +67,11 @@ void weapon_init(uint8_t v) BANKED {
     v += SPR_SNIPER_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_SWORD] = v;
     banked_sprite_data(v, SPR_SWORD_COLUMN_COUNT * 2, spr_sword_tiles, BANK(spr_sword));
+    v += SPR_SWORD_COLUMN_COUNT * 2;
+    smear_vram = v;
+    smear_blank = SPR_SWORD_SMEAR_BLANK_COLUMN;
+    banked_sprite_data(v, SPR_SWORD_SMEAR_COLUMN_COUNT * 2, spr_sword_smear_tiles, BANK(spr_sword_smear));
+    banked_memcpy(smear_frames, spr_sword_smear_frames, sizeof(smear_frames), BANK(spr_sword_smear));
     // First run: the presets. Later runs keep what was tuned (like movement).
     if (!stats_ready) {
         stats_ready = 1;
@@ -78,6 +88,9 @@ void weapon_select(uint8_t w) BANKED {
     wpn = weapon_stats[w];
     gun_vram = weapon_vram[w];
     gun_blank = blanks[w];
+    draw_frames = gun_frames;  // what draw_gun draws (the sword swaps in its smear: aim.c)
+    draw_vram = gun_vram;
+    draw_blank = gun_blank;
     switch (w) {
     case WEAPON_PISTOL: banked_memcpy(gun_frames, spr_pistol_frames, sizeof(gun_frames), BANK(spr_pistol)); break;
     case WEAPON_SHOTGUN: banked_memcpy(gun_frames, spr_shotgun_frames, sizeof(gun_frames), BANK(spr_shotgun)); break;

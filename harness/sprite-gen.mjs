@@ -85,10 +85,16 @@ export function formatGbcPaletteC(palColors, cName = 'spr_hero_pal') {
   return `const palette_color_t ${cName}[4] = { RGB8(0, 0, 0), ${entries.join(', ')} };`;
 }
 
-/** Parse a 16x16 ASCII art template ('.' or '0' = 0, '1' = 1, '2' = 2, '3' = 3). */
+/** Infer sprite height (16 or 24) from a 16-wide grid buffer. */
+export function gridHeight(g) {
+  return Math.round((g?.length || 256) / 16);
+}
+
+/** Parse a 16x16 or 16x24 ASCII art template ('.' or '0' = 0, '1' = 1, '2' = 2, '3' = 3). */
 export function parseAsciiGrid(rows) {
-  const out = new Uint8Array(256);
-  for (let y = 0; y < 16; y++) {
+  const H = rows.length > 16 ? 24 : 16;
+  const out = new Uint8Array(16 * H);
+  for (let y = 0; y < H; y++) {
     const row = rows[y] || '';
     for (let x = 0; x < 16; x++) {
       const ch = row[x] || '.';
@@ -99,8 +105,9 @@ export function parseAsciiGrid(rows) {
 }
 
 export function gridToAscii(grid) {
+  const H = gridHeight(grid);
   const rows = [];
-  for (let y = 0; y < 16; y++) {
+  for (let y = 0; y < H; y++) {
     let s = '';
     for (let x = 0; x < 16; x++) {
       const v = grid[y * 16 + x];
@@ -115,10 +122,11 @@ export function cloneGrid(g) {
   return new Uint8Array(g);
 }
 
-/** Mirror a 16x16 grid horizontally. */
+/** Mirror a 16xH grid horizontally. */
 export function flipGridX(g) {
-  const out = new Uint8Array(256);
-  for (let y = 0; y < 16; y++) {
+  const H = gridHeight(g);
+  const out = new Uint8Array(16 * H);
+  for (let y = 0; y < H; y++) {
     for (let x = 0; x < 16; x++) {
       out[y * 16 + x] = g[y * 16 + (15 - x)];
     }
@@ -126,12 +134,13 @@ export function flipGridX(g) {
   return out;
 }
 
-/** Mirror a 16x16 grid vertically. */
+/** Mirror a 16xH grid vertically. */
 export function flipGridY(g) {
-  const out = new Uint8Array(256);
-  for (let y = 0; y < 16; y++) {
+  const H = gridHeight(g);
+  const out = new Uint8Array(16 * H);
+  for (let y = 0; y < H; y++) {
     for (let x = 0; x < 16; x++) {
-      out[y * 16 + x] = g[(15 - y) * 16 + x];
+      out[y * 16 + x] = g[(H - 1 - y) * 16 + x];
     }
   }
   return out;
@@ -148,14 +157,82 @@ export function rotateGrid90(g) {
   return out;
 }
 
+/** Shift a 16xH grid by (dx, dy) pixels without wrapping. */
+export function shiftGrid(g, dx, dy) {
+  const H = gridHeight(g);
+  const out = new Uint8Array(16 * H);
+  for (let y = 0; y < H; y++) {
+    const sy = y - dy;
+    if (sy < 0 || sy >= H) continue;
+    for (let x = 0; x < 16; x++) {
+      const sx = x - dx;
+      if (sx < 0 || sx >= 16) continue;
+      out[y * 16 + x] = g[sy * 16 + sx];
+    }
+  }
+  return out;
+}
+
+/** Flood-fill a contiguous region in a 16xH grid with `newShade`. */
+export function floodFillGrid(g, startX, startY, newShade) {
+  const H = gridHeight(g);
+  if (startX < 0 || startX >= 16 || startY < 0 || startY >= H) return g;
+  const target = g[startY * 16 + startX];
+  if (target === newShade) return g;
+  const stack = [[startX, startY]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || x >= 16 || y < 0 || y >= H) continue;
+    if (g[y * 16 + x] !== target) continue;
+    g[y * 16 + x] = newShade;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  return g;
+}
+
 /**
- * Extract both the 16x16 2bpp grid AND the 4-color Game Boy Color palette
- * from an RGBA image buffer (ranking opaque colors from lightest=1 to darkest=3).
+ * Convert a character grid between 16x16 and 16x24.
+ * - `stretch = false`: Pads/crops from the top (keeps feet anchored at the bottom).
+ * - `stretch = true`:  Proportionally scales the character's vertical anatomy to fill the new height.
  */
-export function extractGridAndPalette(rgba, width, height) {
-  const sample = new Uint8Array(16 * 16 * 4);
-  for (let y = 0; y < 16; y++) {
-    const sy = Math.min(height - 1, Math.floor((y + 0.5) * height / 16));
+export function resizeGridHeight(grid, targetH = 24, stretch = false) {
+  const srcH = gridHeight(grid);
+  if (srcH === targetH) return cloneGrid(grid);
+  const out = new Uint8Array(16 * targetH);
+  if (!stretch) {
+    const yOff = targetH - srcH; // e.g., +8 when 16->24, -8 when 24->16
+    for (let y = 0; y < targetH; y++) {
+      const sy = y - yOff;
+      if (sy < 0 || sy >= srcH) continue;
+      for (let x = 0; x < 16; x++) out[y * 16 + x] = grid[sy * 16 + x];
+    }
+    return out;
+  }
+  const { topY, botY } = analyzeAnatomy(grid);
+  const spanSrc = Math.max(1, botY - topY + 1);
+  const dstTop = targetH === 24 ? 1 : 1;
+  const dstBot = targetH === 24 ? 22 : 14;
+  const spanDst = dstBot - dstTop + 1;
+  for (let y = dstTop; y <= dstBot; y++) {
+    const t = (y - dstTop) / Math.max(1, spanDst - 1);
+    const sy = Math.min(botY, Math.max(topY, Math.round(topY + t * (spanSrc - 1))));
+    for (let x = 0; x < 16; x++) {
+      out[y * 16 + x] = grid[sy * 16 + x];
+    }
+  }
+  return out;
+}
+
+/**
+ * Extract both the 16xH 2bpp grid (`targetH` = 16 or 24) AND the 4-color Game Boy Color
+ * palette from an RGBA image buffer (ranking opaque colors from lightest=1 to darkest=3).
+ */
+export function extractGridAndPalette(rgba, width, height, targetH = 16) {
+  const H = targetH === 24 ? 24 : 16;
+  const totalPx = 16 * H;
+  const sample = new Uint8Array(totalPx * 4);
+  for (let y = 0; y < H; y++) {
+    const sy = Math.min(height - 1, Math.floor((y + 0.5) * height / H));
     for (let x = 0; x < 16; x++) {
       const sx = Math.min(width - 1, Math.floor((x + 0.5) * width / 16));
       const si = (sy * width + sx) * 4;
@@ -167,9 +244,9 @@ export function extractGridAndPalette(rgba, width, height) {
     }
   }
   const lumOf = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
-  const colorCounts = new Map(); // rgbInt -> { r, g, b, lum, count }
-  const pixelLums = new Float32Array(256);
-  for (let i = 0; i < 256; i++) {
+  const colorCounts = new Map();
+  const pixelLums = new Float32Array(totalPx);
+  for (let i = 0; i < totalPx; i++) {
     const a = sample[i * 4 + 3];
     if (a < 128) {
       pixelLums[i] = -1;
@@ -183,7 +260,7 @@ export function extractGridAndPalette(rgba, width, height) {
     if (prev) prev.count++;
     else colorCounts.set(key, { r, g, b, lum: l, count: 1 });
   }
-  const grid = new Uint8Array(256);
+  const grid = new Uint8Array(totalPx);
   const defaultPal = GBC_PALETTES.gbc_hero_red.colors.map((c) => [...c]);
   if (colorCounts.size === 0) return { grid, palette: defaultPal };
 
@@ -197,7 +274,7 @@ export function extractGridAndPalette(rgba, width, height) {
       const s = colorIdx.get(k);
       palette[s] = snapColorToGbc([info.r, info.g, info.b, 255]);
     }
-    for (let i = 0; i < 256; i++) {
+    for (let i = 0; i < totalPx; i++) {
       if (pixelLums[i] < 0) continue;
       const k = (sample[i * 4] << 16) | (sample[i * 4 + 1] << 8) | sample[i * 4 + 2];
       grid[i] = colorIdx.get(k) || 3;
@@ -205,13 +282,11 @@ export function extractGridAndPalette(rgba, width, height) {
     return { grid, palette };
   }
 
-  // More than 3 opaque colors: quantize luminance by tertiles into 1 (light), 2 (mid), 3 (dark)
-  // and average each bucket's RGB for the GBC palette.
   const validLums = [...pixelLums].filter((l) => l >= 0).sort((a, b) => a - b);
   const t1 = validLums[Math.floor(validLums.length * 0.34)];
   const t2 = validLums[Math.floor(validLums.length * 0.68)];
   const sums = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
-  for (let i = 0; i < 256; i++) {
+  for (let i = 0; i < totalPx; i++) {
     const l = pixelLums[i];
     if (l < 0) continue;
     const s = l <= t1 ? 3 : l <= t2 ? 2 : 1;
@@ -236,16 +311,17 @@ export function extractGridAndPalette(rgba, width, height) {
   return { grid, palette };
 }
 
-/** Quantize an arbitrary RGBA image buffer into a 16x16 4-shade grid (0..3). */
-export function quantizeRgbaToGrid16(rgba, width, height) {
-  return extractGridAndPalette(rgba, width, height).grid;
+/** Quantize an arbitrary RGBA image buffer into a 16xH 4-shade grid (0..3). */
+export function quantizeRgbaToGrid16(rgba, width, height, targetH = 16) {
+  return extractGridAndPalette(rgba, width, height, targetH).grid;
 }
 
-/** Analyze a 16x16 character sprite's bounding box and anatomy splits (head, torso, legs). */
+/** Analyze a 16xH character sprite's bounding box and anatomy splits (head, torso, legs). */
 export function analyzeAnatomy(grid) {
-  let topY = 16, botY = -1, leftX = 16, rightX = -1;
-  const rowWidths = new Uint8Array(16);
-  for (let y = 0; y < 16; y++) {
+  const H = gridHeight(grid);
+  let topY = H, botY = -1, leftX = 16, rightX = -1;
+  const rowWidths = new Uint8Array(H);
+  for (let y = 0; y < H; y++) {
     let rMin = 16, rMax = -1;
     for (let x = 0; x < 16; x++) {
       if (grid[y * 16 + x] !== 0) {
@@ -259,15 +335,29 @@ export function analyzeAnatomy(grid) {
     }
     rowWidths[y] = rMax >= rMin ? rMax - rMin + 1 : 0;
   }
-  if (botY < topY) return { topY: 1, botY: 14, leftX: 2, rightX: 13, centerX: 7.5, headEnd: 9, legStart: 13 };
+  if (botY < topY) {
+    return {
+      H,
+      topY: 1,
+      botY: H - 2,
+      leftX: 2,
+      rightX: 13,
+      centerX: 7.5,
+      headEnd: Math.round(H * 0.5),
+      legStart: H - 4,
+      rowWidths,
+    };
+  }
   const h = botY - topY + 1;
-  const headEnd = Math.min(botY - 3, Math.max(topY + 4, topY + Math.round(h * 0.6)));
-  const legStart = Math.max(headEnd + 2, botY - 2);
+  const headRatio = H > 16 ? 0.45 : 0.6;
+  const legRows = H > 16 ? 5 : 2;
+  const headEnd = Math.min(botY - 3, Math.max(topY + 4, topY + Math.round(h * headRatio)));
+  const legStart = Math.max(headEnd + 2, botY - legRows);
   const centerX = (leftX + rightX) / 2;
-  return { topY, botY, leftX, rightX, centerX, headEnd, legStart, rowWidths };
+  return { H, topY, botY, leftX, rightX, centerX, headEnd, legStart, rowWidths };
 }
 
-/** Synthesize a back-facing (UP) 16x16 sprite from a front-facing (DOWN) sprite. */
+/** Synthesize a back-facing (UP) 16xH sprite from a front-facing (DOWN) sprite. */
 export function synthesizeUpFromDown(downGrid) {
   const out = cloneGrid(downGrid);
   const { topY, headEnd, legStart, leftX, rightX } = analyzeAnatomy(downGrid);
@@ -305,10 +395,10 @@ export function synthesizeUpFromDown(downGrid) {
   return out;
 }
 
-/** Synthesize a right-facing (RIGHT) profile 16x16 sprite from a front-facing (DOWN) sprite. */
+/** Synthesize a right-facing (RIGHT) profile 16xH sprite from a front-facing (DOWN) sprite. */
 export function synthesizeRightFromDown(downGrid) {
-  const out = new Uint8Array(256);
-  const { topY, headEnd, legStart, botY } = analyzeAnatomy(downGrid);
+  const { H, topY, headEnd, legStart, botY } = analyzeAnatomy(downGrid);
+  const out = new Uint8Array(16 * H);
   for (let y = topY; y <= botY; y++) {
     const row = [];
     for (let x = 0; x < 16; x++) {
@@ -346,14 +436,14 @@ export function synthesizeRightFromDown(downGrid) {
 
 /** Create a 4-frame walk/run cycle from a single standing directional frame. */
 export function synthesizeRunFrames(baseGrid, dir = 'down') {
-  const { topY, headEnd, legStart, botY, centerX } = analyzeAnatomy(baseGrid);
+  const { H, topY, headEnd, legStart, botY, centerX } = analyzeAnatomy(baseGrid);
   const f0 = cloneGrid(baseGrid);
 
   const makeStride = (bodyDy, leftLegDy, rightLegDy, armSwing) => {
-    const g = new Uint8Array(256);
+    const g = new Uint8Array(16 * H);
     for (let y = topY; y < legStart; y++) {
       const ny = y + bodyDy;
-      if (ny < 0 || ny >= 16) continue;
+      if (ny < 0 || ny >= H) continue;
       for (let x = 0; x < 16; x++) {
         let sx = x;
         if (y > headEnd && armSwing && (dir === 'right' || dir === 'left')) {
@@ -370,7 +460,7 @@ export function synthesizeRunFrames(baseGrid, dir = 'down') {
         const isLeftHalf = x < centerX;
         const dy = isLeftHalf ? leftLegDy : rightLegDy;
         const dx = (dir === 'right' || dir === 'left') ? (isLeftHalf ? armSwing : -armSwing) : 0;
-        const ny = Math.max(0, Math.min(15, y + dy));
+        const ny = Math.max(0, Math.min(H - 1, y + dy));
         const nx = Math.max(0, Math.min(15, x + dx));
         g[ny * 16 + nx] = v;
       }
@@ -378,24 +468,25 @@ export function synthesizeRunFrames(baseGrid, dir = 'down') {
     return g;
   };
 
-  const f1 = makeStride(0, -1, 0, 1);
+  const strideAmt = H > 16 ? -2 : -1;
+  const f1 = makeStride(0, strideAmt, 0, 1);
   const f2 = makeStride(1, 0, 0, 0);
-  const f3 = makeStride(0, 0, -1, -1);
+  const f3 = makeStride(0, 0, strideAmt, -1);
   return [f0, f1, f2, f3];
 }
 
 /** Synthesize a 2-frame idle animation (standing + 1px breathing bob). */
 export function synthesizeIdleFrames(baseGrid) {
-  const { topY, legStart, botY } = analyzeAnatomy(baseGrid);
+  const { H, topY, legStart, botY } = analyzeAnatomy(baseGrid);
   const f0 = cloneGrid(baseGrid);
-  const f1 = new Uint8Array(256);
+  const f1 = new Uint8Array(16 * H);
   for (let y = legStart; y <= botY; y++) {
     for (let x = 0; x < 16; x++) {
       if (baseGrid[y * 16 + x] !== 0) f1[y * 16 + x] = baseGrid[y * 16 + x];
     }
   }
   for (let y = topY; y < legStart; y++) {
-    const ny = Math.min(15, y + 1);
+    const ny = Math.min(H - 1, y + 1);
     for (let x = 0; x < 16; x++) {
       const v = baseGrid[y * 16 + x];
       if (v !== 0) f1[ny * 16 + x] = v;
@@ -406,10 +497,10 @@ export function synthesizeIdleFrames(baseGrid) {
 
 /** Synthesize a 3-frame jump sequence (takeoff squash, airborne tuck, fall stretch). */
 export function synthesizeJumpFrames(baseGrid) {
-  const { topY, headEnd, legStart, botY } = analyzeAnatomy(baseGrid);
+  const { H, topY, headEnd, legStart, botY } = analyzeAnatomy(baseGrid);
   const [, fCrouch] = synthesizeIdleFrames(baseGrid);
 
-  const fAir = new Uint8Array(256);
+  const fAir = new Uint8Array(16 * H);
   for (let y = topY; y < legStart; y++) {
     const ny = Math.max(0, y - 1);
     for (let x = 0; x < 16; x++) {
@@ -425,7 +516,7 @@ export function synthesizeJumpFrames(baseGrid) {
     }
   }
 
-  const fFall = new Uint8Array(256);
+  const fFall = new Uint8Array(16 * H);
   for (let y = topY; y <= headEnd; y++) {
     const ny = Math.max(0, y - 1);
     for (let x = 0; x < 16; x++) {
@@ -443,98 +534,95 @@ export function synthesizeJumpFrames(baseGrid) {
 }
 
 /**
- * Synthesize a 4-frame dodge-roll / dash sequence:
+ * Synthesize a 4-frame dodge-roll / dash sequence for 16x16 or 16x24 sprites:
  * - For `down` and `up`: Enter-the-Gungeon-style vertical dive, tucked vertical
  *   somersault/dash (around the horizontal X-axis, never sideways!), high-speed
  *   vertical streak with motion lines, and crouched landing slide with dust puffs.
  * - For `right` (and `left` via flipGridX): horizontal forward tumble with dash trails.
  */
 export function synthesizeRollFrames(baseGrid, dir = 'down') {
-  const { topY, headEnd, legStart, botY, leftX, rightX } = analyzeAnatomy(baseGrid);
+  const { H, topY, headEnd, legStart, botY, leftX, rightX } = analyzeAnatomy(baseGrid);
+  const yPad = H - 16; // 0 for 16x16, 8 for 16x24
 
   if (dir === 'down' || dir === 'up') {
     const isDown = dir === 'down';
     const sign = isDown ? 1 : -1;
 
     // Frame 0: Dive / Launch into the vertical dash (body pitches forward, trailing dash ticks)
-    const f0 = new Uint8Array(256);
+    const f0 = new Uint8Array(16 * H);
     for (let y = topY; y <= botY; y++) {
       const isLegs = y >= legStart;
       const dy = isLegs ? -sign : sign * 2;
-      const ny = Math.max(0, Math.min(15, y + dy));
+      const ny = Math.max(0, Math.min(H - 1, y + dy));
       for (let x = 0; x < 16; x++) {
         const v = baseGrid[y * 16 + x];
         if (v !== 0) f0[ny * 16 + x] = v;
       }
     }
-    // Add vertical launch speed lines behind the character
-    const trailY0 = isDown ? Math.max(0, topY - 1) : Math.min(15, botY + 1);
+    const trailY0 = isDown ? Math.max(0, topY - 1) : Math.min(H - 1, botY + 1);
     f0[trailY0 * 16 + 5] = 2;
     f0[trailY0 * 16 + 10] = 2;
 
-    // Frame 1: Tight vertical tuck / forward somersault (compressed vertically,
-    // symmetric horizontally — rolling over the X-axis toward/away from camera, NOT sideways!)
-    const f1 = new Uint8Array(256);
-    const tuckStart = isDown ? 5 : 2;
+    // Frame 1: Tight vertical tuck / forward somersault
+    const f1 = new Uint8Array(16 * H);
+    const tuckSpan = H > 16 ? 12 : 9;
+    const tuckStart = isDown ? (H - tuckSpan - 2) : 2;
     const srcSpan = Math.max(1, botY - topY);
-    for (let dy = 0; dy < 9; dy++) {
-      // Sample flipped vertically so the back/shoulders roll over the head
+    for (let dy = 0; dy < tuckSpan; dy++) {
       const sy = isDown
-        ? Math.min(botY, Math.max(topY, Math.round(botY - (dy / 8) * srcSpan)))
-        : Math.min(botY, Math.max(topY, Math.round(topY + (dy / 8) * srcSpan)));
+        ? Math.min(botY, Math.max(topY, Math.round(botY - (dy / (tuckSpan - 1)) * srcSpan)))
+        : Math.min(botY, Math.max(topY, Math.round(topY + (dy / (tuckSpan - 1)) * srcSpan)));
       const ny = tuckStart + dy;
-      if (ny < 0 || ny >= 16) continue;
+      if (ny < 0 || ny >= H) continue;
       for (let x = 2; x < 14; x++) {
         const v = baseGrid[sy * 16 + x];
         if (!v) continue;
-        // Keep a rounded vertical silhouette without rotating sideways
-        if ((dy === 0 || dy === 8) && (x < 5 || x > 10)) continue;
-        // Emphasize cloak/tunic back (shade 2) during the mid-air somersault tuck
-        f1[ny * 16 + x] = (dy >= 2 && dy <= 5 && v === 1) ? 2 : v;
+        if ((dy === 0 || dy === tuckSpan - 1) && (x < 5 || x > 10)) continue;
+        f1[ny * 16 + x] = (dy >= 2 && dy <= tuckSpan - 4 && v === 1) ? 2 : v;
       }
     }
-    // High-speed vertical motion-blur streaks trailing behind the dash
-    const streakRows1 = isDown ? [0, 1, 2, 3] : [12, 13, 14, 15];
+    const streakRows1 = isDown ? [yPad + 0, yPad + 1, yPad + 2, yPad + 3] : [H - 4, H - 3, H - 2, H - 1];
     for (const ry of streakRows1) {
+      if (ry < 0 || ry >= H) continue;
       f1[ry * 16 + 4] = (ry % 2 === 0) ? 2 : 1;
       f1[ry * 16 + 8] = 1;
       f1[ry * 16 + 11] = (ry % 2 === 0) ? 1 : 2;
     }
 
     // Frame 2: High-speed vertical dash / inverted flip recovery with long speed lines
-    const f2 = new Uint8Array(256);
+    const f2 = new Uint8Array(16 * H);
     const dashShift = isDown ? 2 : -2;
+    const midY = H / 2;
     for (let y = topY; y <= botY; y++) {
-      // Compress torso slightly while stretching along the vertical dash vector
-      const ny = Math.max(0, Math.min(15, Math.round(8 + (y - 8) * 0.75 + dashShift)));
+      const ny = Math.max(0, Math.min(H - 1, Math.round(midY + (y - midY) * 0.75 + dashShift)));
       for (let x = 2; x < 14; x++) {
         const v = baseGrid[y * 16 + x];
         if (v !== 0) f2[ny * 16 + x] = v;
       }
     }
-    const streakRows2 = isDown ? [0, 1, 2, 3, 4] : [11, 12, 13, 14, 15];
+    const streakRows2 = isDown ? [yPad + 0, yPad + 1, yPad + 2, yPad + 3, yPad + 4] : [H - 5, H - 4, H - 3, H - 2, H - 1];
     for (const ry of streakRows2) {
+      if (ry < 0 || ry >= H) continue;
       if (f2[ry * 16 + 5] === 0) f2[ry * 16 + 5] = 1;
       if (f2[ry * 16 + 7] === 0 && ry % 2 === 0) f2[ry * 16 + 7] = 2;
       if (f2[ry * 16 + 10] === 0) f2[ry * 16 + 10] = 1;
     }
 
     // Frame 3: Landing slide & recovery squash (upright facing dir, crouched low + dust puffs)
-    const f3 = new Uint8Array(256);
+    const f3 = new Uint8Array(16 * H);
     for (let y = legStart; y <= botY; y++) {
       for (let x = 0; x < 16; x++) {
         if (baseGrid[y * 16 + x] !== 0) f3[y * 16 + x] = baseGrid[y * 16 + x];
       }
     }
     for (let y = topY; y < legStart; y++) {
-      const ny = Math.min(15, y + 2);
+      const ny = Math.min(H - 1, y + 2);
       for (let x = 0; x < 16; x++) {
         const v = baseGrid[y * 16 + x];
         if (v !== 0) f3[ny * 16 + x] = v;
       }
     }
-    // Landing slide dust puffs at left & right of boots
-    const dustY = Math.min(15, botY);
+    const dustY = Math.min(H - 1, botY);
     const lx = Math.max(0, leftX - 2);
     const rx = Math.min(15, rightX + 2);
     f3[dustY * 16 + lx] = 1;
@@ -547,31 +635,40 @@ export function synthesizeRollFrames(baseGrid, dir = 'down') {
     return [f0, f1, f2, f3];
   }
 
-  // Horizontal roll (right / left): forward dive + tucked roll + dash recovery
-  const ball = new Uint8Array(256);
-  for (let y = topY; y <= headEnd; y++) {
+  // Horizontal roll (right / left): form a 16x16 tucked roll ball, rotate 0/90/180/270,
+  // and place into the bottom 16 rows of the 16xH frame.
+  const g16 = H === 16 ? baseGrid : resizeGridHeight(baseGrid, 16, true);
+  const a16 = analyzeAnatomy(g16);
+  const ball16 = new Uint8Array(256);
+  for (let y = a16.topY; y <= a16.headEnd; y++) {
     const ny = Math.min(14, y + 2);
     for (let x = 2; x < 14; x++) {
-      const v = baseGrid[y * 16 + x];
-      if (v !== 0) ball[ny * 16 + x] = v;
+      const v = g16[y * 16 + x];
+      if (v !== 0) ball16[ny * 16 + x] = v;
     }
   }
-  for (let y = headEnd + 1; y <= botY; y++) {
+  for (let y = a16.headEnd + 1; y <= a16.botY; y++) {
     const ny = Math.max(2, y - 2);
     for (let x = 2; x < 14; x++) {
-      const v = baseGrid[y * 16 + x];
-      if (v !== 0 && ball[ny * 16 + x] === 0) ball[ny * 16 + x] = v;
+      const v = g16[y * 16 + x];
+      if (v !== 0 && ball16[ny * 16 + x] === 0) ball16[ny * 16 + x] = v;
     }
   }
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
-      if (Math.hypot(x - 7.5, y - 7.5) > 6.8) ball[y * 16 + x] = 0;
+      if (Math.hypot(x - 7.5, y - 7.5) > 6.8) ball16[y * 16 + x] = 0;
     }
   }
-  const r90 = rotateGrid90(ball);
+  const r90 = rotateGrid90(ball16);
   const r180 = rotateGrid90(r90);
   const r270 = rotateGrid90(r180);
-  return [ball, r90, r180, r270];
+  const balls = [ball16, r90, r180, r270];
+  if (H === 16) return balls;
+  return balls.map((b) => {
+    const out = new Uint8Array(16 * H);
+    out.set(b, yPad * 16);
+    return out;
+  });
 }
 
 /**
@@ -579,20 +676,20 @@ export function synthesizeRollFrames(baseGrid, dir = 'down') {
  * (Phase 0: Windup -> Phase 1: Diagonal Twist -> Phase 2: Forward Lunge).
  */
 export function synthesizeAttackFrames(baseGrid, dir = 'down') {
-  const { topY, headEnd, legStart, botY, leftX, rightX } = analyzeAnatomy(baseGrid);
+  const { H, topY, headEnd, legStart, botY, leftX, rightX } = analyzeAnatomy(baseGrid);
 
   // Phase 0: Windup (cock arm back to starting side, slight torso coil)
   const f0 = cloneGrid(baseGrid);
   const coilDx = dir === 'down' ? 1 : dir === 'up' ? -1 : 0;
   const coilDy = dir === 'right' || dir === 'left' ? -1 : 0;
   if (coilDx || coilDy) {
-    const coiled = new Uint8Array(256);
+    const coiled = new Uint8Array(16 * H);
     for (let y = topY; y < legStart; y++) {
       for (let x = 0; x < 16; x++) {
         const v = baseGrid[y * 16 + x];
         if (!v) continue;
         const nx = Math.max(0, Math.min(15, x + (y <= headEnd ? 0 : coilDx)));
-        const ny = Math.max(0, Math.min(15, y + coilDy));
+        const ny = Math.max(0, Math.min(H - 1, y + coilDy));
         coiled[ny * 16 + nx] = v;
       }
     }
@@ -606,17 +703,17 @@ export function synthesizeAttackFrames(baseGrid, dir = 'down') {
 
   // Phase 1: Mid-Slash Diagonal Twist (extend lead hand toward diagonal corner)
   const f1 = cloneGrid(baseGrid);
-  const handY = Math.min(14, headEnd + 2);
+  const handY = Math.min(H - 2, headEnd + 2);
   const handX = dir === 'down' ? Math.max(1, leftX - 1) : Math.min(14, rightX + 1);
   f1[handY * 16 + handX] = 1;
   if (handY - 1 >= 0) f1[(handY - 1) * 16 + handX] = 3;
 
   // Phase 2: Forward Lunge & Thrust (body shifts 1px into the strike, wide stance)
-  const f2 = new Uint8Array(256);
+  const f2 = new Uint8Array(16 * H);
   const lungeDx = dir === 'right' ? 1 : dir === 'left' ? -1 : 0;
   const lungeDy = dir === 'down' ? 1 : dir === 'up' ? -1 : 0;
   for (let y = topY; y < legStart; y++) {
-    const ny = Math.max(0, Math.min(15, y + lungeDy));
+    const ny = Math.max(0, Math.min(H - 1, y + lungeDy));
     for (let x = 0; x < 16; x++) {
       const v = baseGrid[y * 16 + x];
       if (!v) continue;
@@ -625,7 +722,7 @@ export function synthesizeAttackFrames(baseGrid, dir = 'down') {
     }
   }
   for (let y = legStart; y <= botY; y++) {
-    const ny = Math.max(0, Math.min(15, y + (lungeDy > 0 ? 1 : 0)));
+    const ny = Math.max(0, Math.min(H - 1, y + (lungeDy > 0 ? 1 : 0)));
     for (let x = 0; x < 16; x++) {
       const v = baseGrid[y * 16 + x];
       if (!v) continue;
@@ -638,13 +735,15 @@ export function synthesizeAttackFrames(baseGrid, dir = 'down') {
 
 /** Synthesize a 1-frame hurt/knockback pose. */
 export function synthesizeHurtFrame(baseGrid) {
-  const out = new Uint8Array(256);
-  for (let y = 0; y < 16; y++) {
+  const H = gridHeight(baseGrid);
+  const out = new Uint8Array(16 * H);
+  const midY = Math.round(H * 0.55);
+  for (let y = 0; y < H; y++) {
     for (let x = 0; x < 16; x++) {
       const v = baseGrid[y * 16 + x];
       if (v === 0) continue;
-      const nx = Math.max(0, Math.min(15, x + (y < 9 ? -1 : 0)));
-      out[y * 16 + nx] = v === 2 && y < 8 ? 1 : v;
+      const nx = Math.max(0, Math.min(15, x + (y < midY ? -1 : 0)));
+      out[y * 16 + nx] = v === 2 && y < midY ? 1 : v;
     }
   }
   return out;

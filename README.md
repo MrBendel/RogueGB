@@ -26,7 +26,8 @@ hold A (the reticle closes in) and fires a critical (double damage) when it lock
 go early fires a normal shot. The **sword** swings on each press of A: tap again as a swing
 finishes to chain a 3-hit combo (a sweep, a sweep back, then a thrust that does double
 damage). Each swing lunges you forward, knocks enemies back, freezes the action for a few
-frames when it connects (hitstop), and swats enemy bullets back as your own shots.
+frames when it connects (hitstop), and swats enemy bullets back as your own shots; while it
+can hit, the blade shows motion-smear wings (from the Sprite Studio).
 
 The panel scrolls. MOVE picks the movement preset (SNAPPY, SMOOTH, FLOATY, CLASSIC).
 Speed is in pixels per frame. ACCEL, DECEL and REVERSE are the frames it takes to reach top
@@ -97,7 +98,7 @@ waits on every byte. Keep per-frame code cheap:
 Tests guard it: `tests/camera.test.mjs` fails if a frame of walking, scrolling and jumping
 uses more than half the frame (`emu.lastFrameCycles`); `tests/actors.test.mjs` caps an arena
 fight at 52k (55k while shooting) and checks full pools (8 enemies, 20 bullets: median
-~55k, at most 1.5% of frames over). `node harness/profile.mjs walk|arena|shoot|stress` shows
+~55k, at most 2% of frames over: past M1's target of 6+ enemies and 10+ bullets). `node harness/profile.mjs walk|arena|shoot|stress` shows
 which functions the cycles go to in the worst frames (banked ones too), and how many
 frames are over budget.
 

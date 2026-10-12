@@ -159,6 +159,14 @@ export const ASSETS = [
     dir: 'artwork/weapons',
     anims: { aim: numbered('sword', 16) },
   },
+  {
+    // The sword with the Sprite Studio's motion-smear wings, shown while a swing can hit.
+    name: 'spr_sword_smear',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/weapons',
+    anims: { aim: numbered('sword_smear', 16) },
+  },
 ];
 
 /** "player walk down", 4 -> ["player walk down (1).png", ..., "player walk down (4).png"] */

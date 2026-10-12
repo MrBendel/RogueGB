@@ -227,3 +227,33 @@ test('screen: mid-swing', () => {
   emu.idle(24).hold('A', 1).idle(3);
   matchGolden(emu, 'sword-swing');
 });
+
+test('sword: the blade shows its motion smear while the swing can hit, then the plain blade', () => {
+  const emu = holding(SWORD, 136, 10);
+  const smear = emu.v('smear_vram'), plain = emu.v('gun_vram');
+  // The blade's sprites: OAM 1-2 in front of the body or 5-6 behind (oam.h); the
+  // tile of whichever is shown.
+  const bladeTile = () => {
+    for (const i of [1, 2, 5, 6]) {
+      const [y, , tile] = emu.readBytes(0xc000 + i * 4, 3);
+      if (y) return tile;
+    }
+    return -1;
+  };
+  const isSmear = (t) => t >= smear && t < 256;
+  const isPlain = (t) => t >= plain && t < smear;
+  assert.ok(isPlain(bladeTile()), 'at rest: the plain blade');
+  emu.hold('A', 1);
+  const seen = [];
+  for (let f = 0; f < 14; f++) {
+    emu.idle(1);
+    seen.push(isSmear(bladeTile()) ? 'S' : 'p');
+  }
+  assert.ok(seen.join('').includes('SSS'), `smeared through the active frames: ${seen.join('')}`);
+  assert.ok(isPlain(bladeTile()), 'and plain again after');
+});
+
+test('screen: the sword smear mid-swing', () => {
+  // Nothing to hit, so no hitstop: the frame shown is the swing's.
+  matchGolden(holding(SWORD, 136, 10).idle(60).hold('A', 1).idle(4), 'sword-smear');
+});

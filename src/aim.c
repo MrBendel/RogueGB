@@ -670,7 +670,10 @@ static void draw_gun(void) __naked {
     ld a, (hl)
     add a, c
     ld c, a                 ; c = y
-    ld hl, #_gun_frames     ; hl = gun_frames + direction * 4
+    ld a, (_draw_frames)    ; hl = draw_frames + direction * 4
+    ld l, a
+    ld a, (_draw_frames + 1)
+    ld h, a
     sla e
     sla e
     add hl, de
@@ -739,7 +742,7 @@ static void draw_gun(void) __naked {
 ; one column: entry hl (y, x, tile, flags) <- b = x, c = y, (de) = column, flags;
 ; skipped if it is the empty column. hl and de step to the next.
 60$:
-    ld a, (_gun_blank)
+    ld a, (_draw_blank)
     push hl
     ld h, d
     ld l, e
@@ -754,7 +757,7 @@ static void draw_gun(void) __naked {
     inc de
     add a, a
     push hl
-    ld hl, #_gun_vram
+    ld hl, #_draw_vram
     add a, (hl)
     pop hl
     ld (hl+), a
@@ -803,5 +806,13 @@ void aim_update(void) BANKED {
     move_slow = firing && wpn.slow;
     aim_facing = (firing || aim_hold) ? aim_art_dir[((aim_dir32 + 4) >> 3) & 3] : 0xFF;
     aim_draw_reticle();
+    // The sword shows its smear while a swing can hit (the thrust too). Other
+    // weapons keep what weapon_select set.
+    if (wpn.mode == FIRE_MELEE) {
+        uint8_t smear = swing_t >= SWING_ACTIVE_FROM && swing_t <= SWING_ACTIVE_TO;
+        draw_frames = smear ? smear_frames : gun_frames;
+        draw_vram = smear ? smear_vram : gun_vram;
+        draw_blank = smear ? smear_blank : gun_blank;
+    }
     draw_gun();
 }
