@@ -17,9 +17,8 @@ static int16_t centered(uint16_t t, uint8_t half, int16_t max) {
 void camera_init(uint16_t tx, uint16_t ty) BANKED {
     cam_max_fx = room_px_w > VIEW_W ? (int16_t)((room_px_w - VIEW_W) << 4) : 0;
     cam_max_fy = room_px_h > VIEW_H ? (int16_t)((room_px_h - VIEW_H) << 4) : 0;
-    last_tx = tx;
-    last_ty = ty;
-    lead_vx = lead_vy = lead_x = lead_y = 0;
+    lead_vx = lead_vy = lead_goal_x = lead_goal_y = 0;
+    lead_x = lead_y = 0;
     lead_frames = cam_lead;
     cam_fx = centered(tx, VIEW_W / 2, cam_max_fx);
     cam_fy = centered(ty, VIEW_H / 2, cam_max_fy);

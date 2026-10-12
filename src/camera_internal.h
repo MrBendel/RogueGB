@@ -18,8 +18,8 @@
 
 extern int16_t cam_fx, cam_fy;          // camera position, 12.4
 extern int16_t cam_max_fx, cam_max_fy;  // largest camera position per axis, 12.4
-extern uint16_t last_tx, last_ty;       // the target last frame
-extern int16_t lead_vx, lead_vy, lead_x, lead_y;  // cached lead and its velocity
+extern int16_t lead_vx, lead_vy, lead_goal_x, lead_goal_y;  // where the lead is heading, for this velocity
+extern int16_t lead_x, lead_y;          // the lead now, 12.4
 extern uint8_t lead_frames;             // cam_lead the lead was computed with
 extern uint8_t drawn_tx, drawn_ty;      // top-left tile of the drawn area
 

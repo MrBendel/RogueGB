@@ -22,8 +22,9 @@ Speed is in pixels per frame. ACCEL, DECEL and REVERSE are the frames it takes t
 speed, to stop, and to cancel full speed when pushing the other way. Any change shows the
 preset as CUSTOM. JUMP is takeoff speed and GRAVITY the pull per frame (both in pixels per frame);
 DASH SPD and DASH FR are the dash's speed and length. CAM LEAD is how many frames of
-movement the camera looks ahead; CAM EASE is how quickly it catches up (0 = locked to the
-player, higher = smoother and lazier).
+movement the camera looks ahead; LEAD RATE is how fast that look-ahead slides when you
+change direction (pixels per frame: lower is smoother and lazier). The camera otherwise
+moves exactly with the player. FIRE RATE, SHOT SPD, AIM RANGE and AIM BIAS tune auto-aim.
 
 ## Code structure
 
@@ -39,7 +40,7 @@ player, higher = smoother and lazier).
 | `src/play.c` | Gameplay scene: the movement lab, HUD row and the pause/tuning panel |
 | `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
 | `src/sprite_slot.c` | Draws a 16×16 character from pre-rendered frames: two 8×16 sprites and a double-buffered 8-tile VRAM slot |
-| `src/camera.c` | Camera: eased follow with lead, clamped to the room, at most 4 px a frame; streams one background row or column per frame |
+| `src/camera.c` | Camera: follows the player with a look-ahead (lead) that slides at a steady rate, clamped to the room, at most 4 px a frame; streams one background row or column per frame |
 | `src/camera_setup.c` | Banked: placing the camera and drawing the whole view when a room starts |
 | `src/actor.c` | Enemies and enemy bullets: pools, AI (slime chaser, peashooter shooter), contact and bullet damage, sprite allocation |
 | `src/actor_draw.s` | Assembly: writes actors into the sprite table |

@@ -9,7 +9,7 @@
 uint16_t cam_x;
 uint16_t cam_y;
 uint8_t cam_lead = 16;
-uint8_t cam_ease = 3;
+uint16_t cam_lead_rate = 256;  // 1 px/frame
 
 // Camera position in 12.4 fixed point (1/16 px): smooth enough for easing, and
 // 16 bits cover rooms up to 2048 px, so the camera needs no 32-bit math (a 32-bit
@@ -19,49 +19,44 @@ int16_t cam_fy;
 // Largest camera position per axis (12.4), so the view stays inside the room.
 int16_t cam_max_fx;
 int16_t cam_max_fy;
-// The target point last frame, to move the camera by the same pixel step.
-uint16_t last_tx;
-uint16_t last_ty;
-// The lead (velocity * cam_lead, 12.4) for the velocity it was computed from: a
-// multiply, so it's only redone when the velocity or the tunable changes.
-int16_t lead_vx, lead_vy, lead_x, lead_y;
+// Where the lead is heading (velocity * cam_lead, 12.4), for the velocity it was
+// computed from: a multiply, so it's only redone when the velocity or the tunable
+// changes. And the lead itself (12.4), which moves toward it at cam_lead_rate.
+int16_t lead_vx, lead_vy, lead_goal_x, lead_goal_y;
+int16_t lead_x, lead_y;
 uint8_t lead_frames;
 // Top-left tile of the area currently drawn in the background map.
 uint8_t drawn_tx;
 uint8_t drawn_ty;
 
-// Close 1/2^cam_ease of the gap. Within a pixel of the target, lock onto it: in
-// steady movement the camera then moves in exactly the player's pixel steps, so
-// the player can't wobble a pixel against the background (easing at fractional
-// positions rounds differently from the player's own steps).
-#define CAM_LOCK 16  // 1 px in 12.4
+// How the camera moves: it stays a fixed offset (the lead) from the target, so in
+// steady movement it steps exactly with the player's pixel steps and the player
+// can't wobble against the background. When the velocity changes, the lead
+// slides to its new value at a steady cam_lead_rate (1 px/frame), so the camera's
+// speed changes by at most that much a frame. (An eased camera moved fastest
+// right as the player turned around, up to 4 px a frame, and in uneven
+// 1-2-1-2 px steps while it caught up: that read as jerky.)
 
 // The camera moves at most CAM_MAX_STEP per axis per frame (4 px in 12.4). The
 // drawn area catches up one strip per frame, alternating axes when both lag, so
 // each axis gets a strip at least every other frame: 8 px per 2 frames. Faster,
-// and the camera could outrun it (a hit's knockback flips the lead, and the ease
-// alone jumped 7-8 px a frame), forcing a full, very slow redraw.
+// and the camera could outrun it (a teleport, a respawn), forcing a full, very
+// slow redraw. It also turns those jumps into a quick pan.
 #define CAM_MAX_STEP 64
 
+// The lead, one frame closer to its goal (rate in 12.4).
+static int16_t lead_step(int16_t lead, int16_t goal, int16_t rate) {
+    int16_t d = goal - lead;
+    if (d > rate) return lead + rate;
+    if (d < -rate) return lead - rate;
+    return goal;
+}
 
-// One axis of the camera, f -> its new position. goal is where the camera wants
-// to be (target centered plus the lead); step is the target's pixel step this
-// frame (12.4). Move with that step first, then ease only what's left (the lead,
-// or catching up): an eased camera alone trails a moving player by a few pixels
-// and steps on different frames, so the player would wobble against the background.
-static int16_t follow(int16_t f, int16_t step, int16_t goal, int16_t max) {
-    CLAMP(goal, max);
-    int16_t n;
-    if (cam_ease) {
-        n = f + step;
-        CLAMP(n, max);
-        int16_t gap = goal - n;
-        if ((uint16_t)(gap + CAM_LOCK) > 2 * CAM_LOCK) gap >>= cam_ease;
-        n += gap;
-    } else {
-        n = goal;
-    }
-    int16_t d = n - f;
+// One axis: the camera at target + lead (pos, 12.4), kept in the room and at
+// most CAM_MAX_STEP from where it was (f).
+static int16_t follow(int16_t f, int16_t pos, int16_t max) {
+    CLAMP(pos, max);
+    int16_t d = pos - f;
     if ((uint16_t)(d + CAM_MAX_STEP) > 2 * CAM_MAX_STEP) d = d < 0 ? -CAM_MAX_STEP : CAM_MAX_STEP;
     return f + d;
 }
@@ -81,18 +76,17 @@ void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
     }
     if (vx != lead_vx) {
         lead_vx = vx;
-        lead_x = (vx >> 4) * cam_lead;
+        lead_goal_x = (vx >> 4) * cam_lead;
     }
     if (vy != lead_vy) {
         lead_vy = vy;
-        lead_y = (vy >> 4) * cam_lead;
+        lead_goal_y = (vy >> 4) * cam_lead;
     }
-    cam_fx = follow(cam_fx, (int16_t)(tx - last_tx) << 4,
-                    (((int16_t)tx - VIEW_W / 2) << 4) + lead_x, cam_max_fx);
-    cam_fy = follow(cam_fy, (int16_t)(ty - last_ty) << 4,
-                    (((int16_t)ty - VIEW_H / 2) << 4) + lead_y, cam_max_fy);
-    last_tx = tx;
-    last_ty = ty;
+    int16_t rate = cam_lead_rate >> 4;
+    lead_x = lead_step(lead_x, lead_goal_x, rate);
+    lead_y = lead_step(lead_y, lead_goal_y, rate);
+    cam_fx = follow(cam_fx, (((int16_t)tx - VIEW_W / 2) << 4) + lead_x, cam_max_fx);
+    cam_fy = follow(cam_fy, (((int16_t)ty - VIEW_H / 2) << 4) + lead_y, cam_max_fy);
     camera_apply();
 
     // Stream in rows and columns as the camera moves. The drawn area's target is
