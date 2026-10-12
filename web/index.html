@@ -154,6 +154,7 @@
         <div class="row center" id="st-anim-tabs">
           <button data-anim="idle" class="on">Idle</button>
           <button data-anim="run">Run</button>
+          <button data-anim="attack">⚔️ Swipe</button>
           <button data-anim="jump">Jump</button>
           <button data-anim="roll">Roll</button>
           <button data-anim="hurt">Hurt</button>
@@ -170,9 +171,9 @@
           <label>Weapon:
             <select id="st-weapon">
               <option value="none">Unarmed (None)</option>
-              <option value="melee_sword">⚔️ Melee: Broadsword</option>
-              <option value="melee_club">🏏 Melee: Spiked Club</option>
-              <option value="small_pistol" selected>🔫 Small Gun: Rogue Sidearm</option>
+              <option value="melee_sword" selected>⚔️ Melee: Broadsword (Oracle Swipe)</option>
+              <option value="melee_club">🏏 Melee: Spiked Club (Oracle Swipe)</option>
+              <option value="small_pistol">🔫 Small Gun: Rogue Sidearm</option>
               <option value="small_wand">✨ Small Gun: Arcane Blaster</option>
               <option value="big_shotgun">💥 Big Gun: Boomstick</option>
               <option value="big_launcher">🚀 Big Gun: Heavy Cannon</option>
@@ -184,8 +185,8 @@
         <div class="row space-between small">
           <span>Hand Anchor Offset:</span>
           <div class="row">
-            <label>dx <input type="number" id="st-anchor-dx" value="0" min="-8" max="8" style="width:48px"></label>
-            <label>dy <input type="number" id="st-anchor-dy" value="0" min="-8" max="8" style="width:48px"></label>
+            <label>dx <input type="number" id="st-anchor-dx" value="0" min="-16" max="16" style="width:48px"></label>
+            <label>dy <input type="number" id="st-anchor-dy" value="0" min="-16" max="16" style="width:48px"></label>
             <label><input type="checkbox" id="st-anchor-reset" checked> Auto</label>
           </div>
         </div>
@@ -196,11 +197,11 @@
 
       <div class="card">
         <div class="row space-between">
-          <strong>All Generated Sequences (16×16 DMG Sheet)</strong>
+          <strong>All Generated Sequences (16×16 GBC/DMG Sheet)</strong>
           <span id="st-hw-stats" class="pill ok">0 cols · 0 bytes</span>
         </div>
         <div class="sheet-scroll">
-          <canvas id="st-sheet" width="64" height="320"></canvas>
+          <canvas id="st-sheet" width="64" height="384"></canvas>
         </div>
         <div class="row">
           <button id="st-dl-sheet">⤓ Download Sheet (.png)</button>
@@ -235,8 +236,28 @@
       </div>
 
       <div class="card">
+        <strong>2. Game Boy Color (CGB) 4-Color Palettes</strong>
+        <div class="row space-between small">
+          <label style="flex:1">Hero OBJ Pal:
+            <select id="st-char-pal" style="width:100%"></select>
+          </label>
+          <label style="flex:1">Weapon OBJ Pal:
+            <select id="st-weap-pal" style="width:100%"></select>
+          </label>
+        </div>
+        <div class="row space-between small">
+          <span>Custom 15-bit GBC Swatches (Hero):</span>
+          <div class="row">
+            <label title="Shade 1: Light / Skin"><input type="color" id="st-col-1" value="#ffd8a0"> 1</label>
+            <label title="Shade 2: Mid / Primary"><input type="color" id="st-col-2" value="#e81800"> 2</label>
+            <label title="Shade 3: Dark / Outline"><input type="color" id="st-col-3" value="#000000"> 3</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="row space-between">
-          <strong>2. 16×16 DMG 2bpp Pixel Editor</strong>
+          <strong>3. 16×16 2bpp Pixel Editor</strong>
           <select id="st-edit-target" class="small">
             <option value="down">Edit Base: Down</option>
             <option value="up">Edit Base: Up</option>

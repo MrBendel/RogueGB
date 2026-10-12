@@ -13,35 +13,50 @@ import { decodePng } from './assets.mjs';
 import { encodePng } from '../harness/node.mjs';
 import {
   quantizeRgbaToGrid16,
+  extractGridAndPalette,
   flipGridX,
   generateCharacterRig,
   compileRigToGbdk,
   CHARACTER_PRESETS,
+  GBC_PALETTES,
   DMG_PALETTES,
 } from '../harness/sprite-gen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-function loadGrid(relPath) {
+function loadGridAndPal(relPath) {
   const full = path.join(ROOT, relPath);
   if (!fs.existsSync(full)) return null;
   const img = decodePng(fs.readFileSync(full));
-  return quantizeRgbaToGrid16(img.rgba, img.width, img.height);
+  return extractGridAndPalette(img.rgba, img.width, img.height);
 }
 
-/** Load real 16x16 character presets from artwork/8bitadventure/ (if present). */
+function loadGrid(relPath) {
+  const res = loadGridAndPal(relPath);
+  return res ? res.grid : null;
+}
+
+/** Load real 16x16 character presets + GBC 4-color palettes from artwork/8bitadventure/ (if present). */
 export function loadArtworkPresets() {
   const out = {};
   const playerDir = 'artwork/8bitadventure/Player';
-  const pDown = loadGrid(`${playerDir}/player walk down (1).png`);
-  if (pDown) {
+  const pDownRes = loadGridAndPal(`${playerDir}/player walk down (1).png`);
+  if (pDownRes) {
+    const pDown = pDownRes.grid;
+    const atkD = [1, 2, 3].map((i) => loadGrid(`${playerDir}/player attack down (${i}).png`)).filter(Boolean);
+    const atkU = [1, 2, 3].map((i) => loadGrid(`${playerDir}/player attack up (${i}).png`)).filter(Boolean);
+    const atkR = [1, 2, 3].map((i) => loadGrid(`${playerDir}/player attack right (${i}).png`)).filter(Boolean);
     out.player_pack = {
       id: 'player_pack',
       name: '8-Bit Hero (Artwork Pack)',
       mode: '3pose',
+      palette: pDownRes.palette,
       down: Array.from(pDown),
       up: Array.from(loadGrid(`${playerDir}/player walk up (1).png`) || pDown),
       right: Array.from(loadGrid(`${playerDir}/player walk right (1).png`) || pDown),
+      attack_down: atkD.length === 3 ? atkD.map((g) => Array.from(g)) : null,
+      attack_up: atkU.length === 3 ? atkU.map((g) => Array.from(g)) : null,
+      attack_right: atkR.length === 3 ? atkR.map((g) => Array.from(g)) : null,
     };
   }
   const npcs = [
@@ -58,8 +73,9 @@ export function loadArtworkPresets() {
   ];
   const npcDir = 'artwork/8bitadventure/NPCs';
   for (const n of npcs) {
-    const down = loadGrid(`${npcDir}/${n.prefix} down (1).png`);
-    if (!down) continue;
+    const downRes = loadGridAndPal(`${npcDir}/${n.prefix} down (1).png`);
+    if (!downRes) continue;
+    const down = downRes.grid;
     const up = loadGrid(`${npcDir}/${n.prefix} up (1).png`);
     const rightRaw = n.hasRight
       ? loadGrid(`${npcDir}/${n.prefix} right (1).png`)
@@ -69,6 +85,7 @@ export function loadArtworkPresets() {
       id: n.id,
       name: n.name,
       mode: '3pose',
+      palette: downRes.palette,
       down: Array.from(down),
       up: up ? Array.from(up) : null,
       right: right ? Array.from(right) : null,
@@ -77,7 +94,7 @@ export function loadArtworkPresets() {
   return out;
 }
 
-/** Render a character rig's animations to an RGB contact sheet PNG buffer. */
+/** Render a character rig's animations to an RGB contact sheet PNG buffer using its GBC palette. */
 export function renderRigSheetPng(rig, scale = 2) {
   const animEntries = Object.entries(rig.anims);
   const maxFrames = Math.max(...animEntries.map(([, f]) => f.length));
@@ -87,8 +104,8 @@ export function renderRigSheetPng(rig, scale = 2) {
   const W = cols * cell;
   const H = rows * cell;
   const rgb = new Uint8Array(W * H * 3);
-  const pal = DMG_PALETTES.dmg_olive;
-  // Fill background with light checker / olive shade 1
+  const pal = rig.palette || GBC_PALETTES.gbc_hero_red.colors;
+  // Fill background with light neutral backdrop
   for (let i = 0; i < W * H; i++) {
     rgb[i * 3] = 0xf4;
     rgb[i * 3 + 1] = 0xf3;
@@ -114,7 +131,7 @@ export function renderRigSheetPng(rig, scale = 2) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allPresets = { ... loadArtworkPresets(), ...CHARACTER_PRESETS };
+  const allPresets = { ...loadArtworkPresets(), ...CHARACTER_PRESETS };
   if (args.includes('--list')) {
     console.log('Available character presets:');
     for (const [k, v] of Object.entries(allPresets)) {
@@ -134,19 +151,23 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 
   let rigInput;
   if (inFile) {
-    const down = loadGrid(inFile);
-    if (!down) {
+    const res = loadGridAndPal(inFile);
+    if (!res) {
       console.error(`[sprite-cli] File not found: ${inFile}`);
       process.exit(1);
     }
-    rigInput = { name: path.basename(inFile, '.png'), down };
+    rigInput = { name: path.basename(inFile, '.png'), down: res.grid, palette: res.palette };
   } else {
     const p = allPresets[presetId] || Object.values(allPresets)[0];
     rigInput = {
       name: p.name,
+      palette: p.palette,
       down: new Uint8Array(p.down),
       up: !singlePose && p.up ? new Uint8Array(p.up) : null,
       right: !singlePose && p.right ? new Uint8Array(p.right) : null,
+      attack_down: !singlePose && p.attack_down ? p.attack_down.map((g) => new Uint8Array(g)) : null,
+      attack_up: !singlePose && p.attack_up ? p.attack_up.map((g) => new Uint8Array(g)) : null,
+      attack_right: !singlePose && p.attack_right ? p.attack_right.map((g) => new Uint8Array(g)) : null,
     };
   }
 
