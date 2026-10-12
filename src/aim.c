@@ -13,10 +13,11 @@
 #include "spr_shot.h"
 #include "spr_reticle.h"
 #include "spr_flash.h"
-#include "spr_pistol.h"
-#include "weapon_pistol.h"
+#include "weapon.h"
+#include <rand.h>
 #include "aim_dir_table.h"
 #include "oam.h"
+#include "gfx.h"
 
 // --- watchable state ---
 uint8_t aim_target = AIM_NONE;
@@ -30,18 +31,20 @@ uint16_t enemies_killed;
 Bullet shots[SHOT_MAX];
 uint8_t shot_count;
 
-// --- tunables ---
-uint8_t aim_range = 112;    // 7 blocks
+// --- tunables (the weapon's own are in wpn, weapon.h) ---
+uint8_t aim_range = 112;    // copied from the weapon every frame (aim_score.s reads it)
 uint8_t aim_bias = 24;      // 1.5 blocks
 uint8_t aim_sticky = 16;    // 1 block
-uint8_t fire_interval = 10; // 6 shots a second
-uint16_t shot_speed = 768;  // 3 px/frame
 
 // Shared with shots.s and actor.c.
 uint8_t shot_parity;
 uint8_t shot_draw_tile;
 uint8_t shot_draw_prop;
 uint8_t shots_killed;
+uint8_t shot_damage;      // HP the shots in flight take off (shots.s); the last shot's
+uint8_t weapon_windup;    // spin-up or steadying progress, frames (FIRE_SPIN, FIRE_CHARGE)
+uint8_t reticle_tight;    // the reticle closes in (steadying past halfway) (aim_score.s)
+uint16_t crits;           // critical shots fired
 // Graphics: where the tiles went and the frame tables (copied to RAM: the assets
 // are in a switchable bank). Set by aim_init.
 uint8_t shot_vram;
@@ -56,7 +59,7 @@ uint8_t reticle_frames[SPR_RETICLE_FRAME_COUNT * 4];
 uint8_t aim_skipped;  // frames scoring was skipped for lack of time (watchable)
 uint8_t aim_ly;       // the scanline aim_update last started on (watchable)
 
-// --- the held weapon (for now always the pistol; the loadout comes with M3) ---
+// --- the held weapon (weapon.h: its stats, art and placement tables) ---
 uint8_t aim_dir32;       // where the gun points: at the target, or the facing (0-31)
 uint8_t gun_dir16;       // the gun sprite's direction (0-15, 0 = right, clockwise)
 uint8_t gun_kick;        // frames of recoil left after a shot
@@ -66,9 +69,6 @@ uint8_t aim_facing = 0xFF;  // art direction the body faces while shooting (play
 #define KICK_FRAMES 4    // recoil: 2 px for 2 frames, then 1 px for 2
 #define FLASH_FRAMES 4   // muzzle flash: the big burst for 2 frames, then the small one
 #define HOLD_FRAMES 20   // keep facing the aim for 1/3 s after a shot
-// Graphics, set by aim_init: tiles in sprite VRAM, frame tables copied to RAM.
-uint8_t gun_vram, gun_blank;  // gun_blank: the empty column's index, not drawn
-uint8_t gun_frames[SPR_PISTOL_FRAME_COUNT * 4];
 uint8_t flash_vram;
 uint8_t flash_frames[SPR_FLASH_FRAME_COUNT * 4];
 
@@ -78,39 +78,30 @@ static const uint8_t facing_dir[8] = {24, 28, 0, 4, 8, 12, 16, 20};
 // cos(k * 11.25 deg) * 256 for k = 0..8: one quadrant of the 32 directions.
 static const uint16_t unit[9] = {256, 251, 237, 213, 181, 142, 98, 50, 0};
 
-static void build_dir_table(void);
+static void build_dir_table(uint8_t w);
+
+// shots.s: writes the pellets of a shot into the pool (see fire()).
+void shots_spawn(void);
+extern uint8_t spawn_n, spawn_dir, spawn_spread, spawn_life;
+extern uint16_t spawn_x, spawn_y;
+extern int16_t *spawn_vx, *spawn_vy;
 
 void aim_init(uint8_t v) BANKED {
-    uint8_t saved = CURRENT_BANK;
+    // Graphics in switchable banks: the banked_* helpers (gfx.c, bank 0) switch
+    // to them and back (this code is banked too, so it can't switch itself).
     shot_vram = v;
-    SWITCH_ROM(BANK(spr_shot));
-    set_sprite_data(v, SPR_SHOT_COLUMN_COUNT * 2, spr_shot_tiles);
-    for (uint8_t i = 0; i < sizeof(shot_frames); i++) shot_frames[i] = spr_shot_frames[i];
+    banked_sprite_data(v, SPR_SHOT_COLUMN_COUNT * 2, spr_shot_tiles, BANK(spr_shot));
+    banked_memcpy(shot_frames, spr_shot_frames, sizeof(shot_frames), BANK(spr_shot));
     v += SPR_SHOT_COLUMN_COUNT * 2;
     reticle_vram = v;
-    SWITCH_ROM(BANK(spr_reticle));
-    set_sprite_data(v, SPR_RETICLE_COLUMN_COUNT * 2, spr_reticle_tiles);
-    for (uint8_t i = 0; i < sizeof(reticle_frames); i++) reticle_frames[i] = spr_reticle_frames[i];
+    banked_sprite_data(v, SPR_RETICLE_COLUMN_COUNT * 2, spr_reticle_tiles, BANK(spr_reticle));
+    banked_memcpy(reticle_frames, spr_reticle_frames, sizeof(reticle_frames), BANK(spr_reticle));
     v += SPR_RETICLE_COLUMN_COUNT * 2;
     flash_vram = v;
-    SWITCH_ROM(BANK(spr_flash));
-    set_sprite_data(v, SPR_FLASH_COLUMN_COUNT * 2, spr_flash_tiles);
-    for (uint8_t i = 0; i < sizeof(flash_frames); i++) flash_frames[i] = spr_flash_frames[i];
+    banked_sprite_data(v, SPR_FLASH_COLUMN_COUNT * 2, spr_flash_tiles, BANK(spr_flash));
+    banked_memcpy(flash_frames, spr_flash_frames, sizeof(flash_frames), BANK(spr_flash));
     v += SPR_FLASH_COLUMN_COUNT * 2;
-    gun_vram = v;
-    SWITCH_ROM(BANK(spr_pistol));
-    set_sprite_data(v, SPR_PISTOL_COLUMN_COUNT * 2, spr_pistol_tiles);
-    for (uint8_t i = 0; i < sizeof(gun_frames); i++) gun_frames[i] = spr_pistol_frames[i];
-    // A frame with an empty column (a short gun pointing up or down fits in one
-    // 8-px column) doesn't need its second sprite: find the empty column.
-    gun_blank = 0xFF;
-    for (uint8_t c = 0; c < SPR_PISTOL_COLUMN_COUNT && gun_blank == 0xFF; c++) {
-        const uint8_t *t = spr_pistol_tiles + ((uint16_t)c << 5);
-        uint8_t any = 0;
-        for (uint8_t i = 0; i < 32; i++) any |= t[i];
-        if (!any) gun_blank = c;
-    }
-    SWITCH_ROM(saved);
+    weapon_init(v);  // all the weapons' art, after these
 
     aim_target = AIM_NONE;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) aim_score[i] = AIM_NONE;
@@ -121,8 +112,12 @@ void aim_init(uint8_t v) BANKED {
     shots_fired = shots_hit = enemies_killed = 0;
     shots_killed = 0;
     gun_kick = gun_flash = aim_hold = 0;
+    weapon_windup = reticle_tight = 0;
+    crits = 0;
     aim_facing = 0xFF;
-    build_dir_table();  // here, with the display off: it's ~60,000 cycles
+    move_slow = 0;
+    // Here, with the display off: it's ~60,000 cycles per weapon.
+    for (uint8_t w = 0; w < WEAPON_COUNT; w++) build_dir_table(w);
     shadow_OAM[RETICLE_OAM].y = 0;
     shadow_OAM[RETICLE_OAM + 1].y = 0;
     shadow_OAM[OAM_FLASH].y = 0;
@@ -266,61 +261,122 @@ static int16_t scaled(uint16_t speed, uint16_t u) {
     return (int16_t)((speed >> 8) * u + (((speed & 0xFF) * u) >> 8));
 }
 
-// Shot velocity for each of the 32 directions at shot_speed. Built by aim_init,
-// and again on the next shot if the tunable changes (multiplies are slow here).
-static int16_t dir_vx[32], dir_vy[32];
-static uint16_t speed_for;
+// Shot velocity for each weapon and each of the 32 directions at its speed.
+// Built by aim_init, and again on the next shot if the speed is tuned
+// (multiplies are slow here). 512 bytes of RAM.
+static int16_t dir_vx[WEAPON_COUNT][32], dir_vy[WEAPON_COUNT][32];
+static uint16_t speed_for[WEAPON_COUNT];
 
-static void build_dir_table(void) {
-    speed_for = shot_speed;
+static void build_dir_table(uint8_t w) {
+    uint16_t speed = w == weapon_cur ? wpn.speed : weapon_stats[w].speed;
+    speed_for[w] = speed;
     for (uint8_t d = 0; d < 32; d++) {
         // Quadrant and steps below the x axis (0..8). Right-down: x = cos, y = sin
         // = cos(8 - q); each further quadrant turns 90 degrees: (x, y) -> (-y, x).
         uint8_t q = d & 7, quad = d >> 3;
-        int16_t c = scaled(shot_speed, unit[q]), s = scaled(shot_speed, unit[8 - q]);
+        int16_t c = scaled(speed, unit[q]), s = scaled(speed, unit[8 - q]);
         int16_t vx, vy;
         if (quad == 0) { vx = c; vy = s; }
         else if (quad == 1) { vx = -s; vy = c; }
         else if (quad == 2) { vx = -c; vy = -s; }
         else { vx = s; vy = -c; }
-        dir_vx[d] = vx;
-        dir_vy[d] = vy;
+        dir_vx[w][d] = vx;
+        dir_vy[w][d] = vy;
     }
 }
 
-// Frames a shot flies: aim range / speed, plus a little. A division, so it's only
-// redone when either tunable changes.
+// Frames a shot flies: range / speed, plus a little. A division, so it's only
+// redone when either changes.
 static uint8_t life_for_range, life;
 static uint16_t life_for_speed;
 
-static void fire(void) {
-    Bullet *b = shots;
-    for (uint8_t k = 0; k < SHOT_MAX; k++, b++) {
-        if (b->alive) continue;
-        uint8_t dir = aim_dir32;
-        aim_dir = dir;
-        if (speed_for != shot_speed) build_dir_table();
-        int16_t vx = dir_vx[dir], vy = dir_vy[dir];
-        if (life_for_range != aim_range || life_for_speed != shot_speed) {
-            life_for_range = aim_range;
-            life_for_speed = shot_speed;
-            life = (uint8_t)(((uint16_t)aim_range << 8) / shot_speed) + 4;
-        }
-        b->alive = life;
-        // Out of the gun's muzzle: the shot's 8x16 sprite top-left, so its hitbox
-        // (6x6 at 1, 5) centres on the muzzle.
-        uint8_t d = gun_dir16;
-        b->x = player_x + weapon_pistol_mx[d] - 4;
-        b->y = player_y + weapon_pistol_my[d] - 8;
-        gun_kick = KICK_FRAMES;
-        gun_flash = FLASH_FRAMES;
-        aim_hold = HOLD_FRAMES;
-        b->xs = b->ys = 0x80;
-        bullet_set_velocity(b, vx, vy);
-        shot_count++;
-        shots_fired++;
-        return;
+// Fire the held weapon: its pellets fanned around the aim (plus any jitter), out
+// of the muzzle, each taking `damage` HP on a hit. Kicks the gun back, flashes
+// the muzzle, and (shotgun) shoves the player back. The pellets themselves are
+// written into the pool by shots_spawn (shots.s).
+static void fire(uint8_t damage) {
+    uint8_t w = weapon_cur;
+    if (speed_for[w] != wpn.speed) build_dir_table(w);
+    if (life_for_range != wpn.range || life_for_speed != wpn.speed) {
+        life_for_range = wpn.range;
+        life_for_speed = wpn.speed;
+        life = (uint8_t)(((uint16_t)wpn.range << 8) / wpn.speed) + 2;
     }
+    shot_damage = damage;
+    uint8_t aim = aim_dir32;
+    uint8_t j = wpn.jitter;
+    if (j) {
+        // A random step in -j..j, without a division: fold 0..15 into 0..2j.
+        uint8_t r = (uint8_t)rand() & 15, n = (j << 1) + 1;
+        while (r >= n) r -= n;
+        aim += r - j;
+    }
+    aim_dir = aim & 31;
+    // The fan: pellet p at aim + (p - (pellets - 1) / 2) * spread.
+    uint8_t half = 0;
+    for (uint8_t p = 1; p < wpn.pellets; p++) half += wpn.spread;
+    uint8_t d16 = gun_dir16;
+    spawn_n = wpn.pellets;
+    spawn_dir = aim - (half >> 1);
+    spawn_spread = wpn.spread;
+    spawn_life = life;
+    spawn_x = player_x + gun_place[PLACE_MX][d16] - 4;  // the shot's 8x16 sprite top-left,
+    spawn_y = player_y + gun_place[PLACE_MY][d16] - 8;  // so its hitbox centres on the muzzle
+    spawn_vx = dir_vx[w];
+    spawn_vy = dir_vy[w];
+    shots_spawn();
+    gun_kick = KICK_FRAMES;
+    gun_flash = FLASH_FRAMES;
+    aim_hold = HOLD_FRAMES;
+    fire_cooldown = wpn.fire_interval;
+    if (wpn.push) {
+        // Shoved back along the aim: the shot's velocity, scaled down.
+        player_vx -= dir_vx[w][aim_dir] >> wpn.push;
+        player_vy -= dir_vy[w][aim_dir] >> wpn.push;
+    }
+}
+
+// How holding and tapping A fire, per mode (weapon.h). Returns whether A counts
+// as "firing" this frame (the body faces the aim; heavy weapons slow you down).
+static uint8_t trigger(void) {
+    uint8_t held = joy & J_A, pressed = joy_pressed & J_A;
+    uint8_t able = !player_roll_len && !player_fall_timer;
+    if (fire_cooldown) fire_cooldown--;
+    switch (wpn.mode) {
+    case FIRE_SEMI:
+        // A press fires once the tap interval has passed; holding, the full interval.
+        if (able && ((pressed && fire_cooldown <= wpn.fire_interval - wpn.tap_interval) ||
+                     (held && !fire_cooldown)))
+            fire(wpn.damage);
+        break;
+    case FIRE_AUTO:
+        if (able && held && !fire_cooldown) fire(wpn.damage);
+        break;
+    case FIRE_SPIN:
+        // Spins up while held, down twice as slowly when let go.
+        if (able && held) {
+            if (weapon_windup < wpn.windup) weapon_windup++;
+            else if (!fire_cooldown) fire(wpn.damage);
+        } else if (weapon_windup && (frame_count & 1)) {
+            weapon_windup--;
+        }
+        break;
+    case FIRE_CHARGE:
+        if (able && held) {
+            if (fire_cooldown) break;  // the next steadying starts after the cooldown
+            if (++weapon_windup >= wpn.windup) {
+                fire(wpn.damage << 1);  // a critical
+                crits++;
+                weapon_windup = 0;
+            }
+        } else {
+            if (weapon_windup && able) fire(wpn.damage);  // let go early: a normal shot
+            weapon_windup = 0;
+        }
+        break;
+    }
+    reticle_tight = wpn.mode == FIRE_CHARGE && weapon_windup >= (wpn.windup >> 1);
+    return held && able;
 }
 
 // Where the gun points this frame: at the target (exactly, in 32 steps), or the
@@ -445,13 +501,13 @@ static void draw_gun(void) __naked {
     ld a, (_gun_kick)
     or a, a
     jr z, 3$
-    ld hl, #_weapon_pistol_kx
+    ld hl, #_gun_place + 64
     add hl, de
     ld a, (hl)
     call 50$
     add a, b
     ld b, a
-    ld hl, #_weapon_pistol_ky
+    ld hl, #_gun_place + 80
     add hl, de
     ld a, (hl)
     call 50$
@@ -459,7 +515,7 @@ static void draw_gun(void) __naked {
     ld c, a
 3$:
     ; the two gun columns: front or behind the body
-    ld hl, #_weapon_pistol_behind
+    ld hl, #_gun_place + 96
     add hl, de
     ld a, (hl)
     or a, a
@@ -468,12 +524,12 @@ static void draw_gun(void) __naked {
     ld hl, #_shadow_OAM + 20
 4$:
     push hl                 ; OAM entry
-    ld hl, #_weapon_pistol_gx
+    ld hl, #_gun_place + 0
     add hl, de
     ld a, (hl)
     add a, b
     ld b, a                 ; b = x
-    ld hl, #_weapon_pistol_gy
+    ld hl, #_gun_place + 16
     add hl, de
     ld a, (hl)
     add a, c
@@ -503,13 +559,13 @@ static void draw_gun(void) __naked {
     ld e, a
     ld d, #0
     push hl
-    ld hl, #_weapon_pistol_my
+    ld hl, #_gun_place + 48
     add hl, de
     ld a, (_gun_py)
     add a, (hl)
     sub a, #8
     ld (_shadow_OAM + 0), a
-    ld hl, #_weapon_pistol_mx
+    ld hl, #_gun_place + 32
     add hl, de
     ld a, (_gun_px)
     add a, (hl)
@@ -603,15 +659,13 @@ void aim_update(void) BANKED {
     // frames), so the two don't add up in one frame; a frame late doesn't show.
     // Pressing A always gets a fresh one, so a first shot goes the right way.
     if (!((uint8_t)frame_count & 1) || (joy_pressed & J_A)) update_aim_dir();
-    if (fire_cooldown) fire_cooldown--;
+    aim_range = wpn.aim_range;
     if (gun_kick) gun_kick--;
     if (gun_flash) gun_flash--;
     if (aim_hold) aim_hold--;
-    if ((joy & J_A) && !fire_cooldown && !player_roll_len && !player_fall_timer) {
-        fire();
-        fire_cooldown = fire_interval;
-    }
-    aim_facing = ((joy & J_A) || aim_hold) ? aim_art_dir[((aim_dir32 + 4) >> 3) & 3] : 0xFF;
+    uint8_t firing = trigger();
+    move_slow = firing && wpn.slow;
+    aim_facing = (firing || aim_hold) ? aim_art_dir[((aim_dir32 + 4) >> 3) & 3] : 0xFF;
     aim_draw_reticle();
     draw_gun();
 }

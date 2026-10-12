@@ -4,29 +4,25 @@
 #include <gb/gb.h>
 #include <string.h>
 #include "actor_internal.h"
+#include "gfx.h"
 #include "aim.h"
 
 void actors_init(void) BANKED {
     // Load each type's columns (2 tiles each) into its own block of sprite VRAM,
-    // and its frame table into RAM. The graphics are in switchable banks, and this
-    // may be called from banked code, so restore the caller's bank afterwards.
-    uint8_t saved = CURRENT_BANK;
+    // and its frame table into RAM. The graphics are in switchable banks: the
+    // banked_* helpers (gfx.c, bank 0) switch to them and back.
     uint8_t v = ENEMY_VRAM;
     type_vram[ACTOR_SLIME] = v;
-    SWITCH_ROM(BANK(spr_slime));
-    set_sprite_data(v, SPR_SLIME_COLUMN_COUNT * 2, spr_slime_tiles);
-    memcpy(slime_frames, spr_slime_frames, sizeof(slime_frames));
+    banked_sprite_data(v, SPR_SLIME_COLUMN_COUNT * 2, spr_slime_tiles, BANK(spr_slime));
+    banked_memcpy(slime_frames, spr_slime_frames, sizeof(slime_frames), BANK(spr_slime));
     v += SPR_SLIME_COLUMN_COUNT * 2;
     type_vram[ACTOR_PEASHOOTER] = v;
-    SWITCH_ROM(BANK(spr_peashooter));
-    set_sprite_data(v, SPR_PEASHOOTER_COLUMN_COUNT * 2, spr_peashooter_tiles);
-    memcpy(shooter_frames, spr_peashooter_frames, sizeof(shooter_frames));
+    banked_sprite_data(v, SPR_PEASHOOTER_COLUMN_COUNT * 2, spr_peashooter_tiles, BANK(spr_peashooter));
+    banked_memcpy(shooter_frames, spr_peashooter_frames, sizeof(shooter_frames), BANK(spr_peashooter));
     v += SPR_PEASHOOTER_COLUMN_COUNT * 2;
     bullet_vram = v;
-    SWITCH_ROM(BANK(spr_pea));
-    set_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles);
-    memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames));
-    SWITCH_ROM(saved);
+    banked_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles, BANK(spr_pea));
+    banked_memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames), BANK(spr_pea));
     aim_init(v + SPR_PEA_COLUMN_COUNT * 2);
 
     for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;

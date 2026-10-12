@@ -1,19 +1,20 @@
-// Builds a held weapon's 16 aiming directions from one right-facing drawing
-// (a Sprite Studio template in harness/sprite-gen.mjs), plus the table the game
-// needs to place it. Run it after editing a weapon's drawing:
-//   node tools/make-weapon-art.mjs
+// Builds each held weapon's 16 aiming directions from one right-facing drawing,
+// plus the table the game needs to place it. Run it after editing a drawing:
+//   node tools/make-weapon-art.mjs [--show]
 //
 // Writes, per weapon:
 //   artwork/weapons/<name> (1..16).png   one 16x16 frame per direction (dir16 0 =
 //                                        right, clockwise; y grows downward)
-//   src/weapon_<name>.h                  per-direction placement (see below)
+//   src/weapon_<name>.h                  per-direction placement (see header())
 //
 // Rotation is RotSprite-style, so small pixel art survives 22.5-degree steps:
 // upscale 8x with Scale2x (three times), rotate with nearest-neighbour sampling,
-// then sample each output pixel's centre. The gun turns around its grip (the
-// "pivot"), which sits at the frame's point (8, 8). The right half of the circle
-// is rotated; the left half is mirrored from it so the grip stays underneath,
-// and mirroring about x = 8 means the converter stores those columns once.
+// then sample each output pixel's centre. A weapon turns around the middle of its
+// drawing (so even a 15-px rifle fits the 16x16 frame at every angle); the table
+// then places each frame so the grip lands in the player's hand. The right half
+// of the circle is rotated; the left half is mirrored from it so the grip stays
+// underneath, and mirroring about x = 8 means the converter stores those columns
+// once.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -23,10 +24,10 @@ import { parseAsciiGrid } from '../harness/sprite-gen.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_ART = path.join(ROOT, 'artwork', 'weapons');
 
-// Weapons. `right` is the drawing pointing right (shades 1-3, '.' transparent);
-// `pivot` is the pixel the hand holds; `muzzle` is where shots and the flash come
-// out. Adapted from the Sprite Studio's sidearm (WEAPON_TEMPLATES.small_pistol):
-// the barrel is a pixel shorter so every direction fits within 7 px of the grip.
+// Weapons, each drawn pointing right (shades 1-3, '.' transparent). `grip` is the
+// pixel the hand holds; `muzzle` is where shots and the flash come out. The
+// pistol and shotgun are adapted from the Sprite Studio templates (small_pistol,
+// big_shotgun in harness/sprite-gen.mjs); the minigun and sniper are new.
 const WEAPONS = {
   pistol: {
     right: parseAsciiGrid([
@@ -47,8 +48,77 @@ const WEAPONS = {
       '................',
       '................',
     ]),
-    pivot: { x: 7.5, y: 9.5 },   // the grip, between the two 3s of the handle
-    muzzle: { x: 13.5, y: 7.5 }, // just past the barrel's end
+    grip: { x: 7.5, y: 9.5 },
+    muzzle: { x: 13.5, y: 7.5 },
+  },
+  // Double-barrel: long and low, a stock behind the grip.
+  shotgun: {
+    right: parseAsciiGrid([
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '.....3333333333.',
+      '..33311111111123',
+      '.322222223333333',
+      '.32233223.......',
+      '..33..33........',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+    ]),
+    grip: { x: 6.5, y: 8.5 },
+    muzzle: { x: 15.5, y: 6.5 },
+  },
+  // Rotary cannon: a chunky housing and a cluster of three barrels.
+  minigun: {
+    right: parseAsciiGrid([
+      '................',
+      '................',
+      '................',
+      '................',
+      '....3333........',
+      '...322223333333.',
+      '..32111231111113',
+      '..322222333333..',
+      '..32111231111113',
+      '...322223333333.',
+      '....3233........',
+      '....333.........',
+      '................',
+      '................',
+      '................',
+      '................',
+    ]),
+    grip: { x: 5.5, y: 10.5 },
+    muzzle: { x: 15.5, y: 7.5 },
+  },
+  // Long rifle with a scope on top.
+  sniper: {
+    right: parseAsciiGrid([
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '.....3333.......',
+      '....311113......',
+      '.33333333333333.',
+      '3222221111111113',
+      '.3333223333333..',
+      '....3223........',
+      '....333.........',
+      '................',
+      '................',
+      '................',
+      '................',
+    ]),
+    grip: { x: 5.5, y: 10.5 },
+    muzzle: { x: 15.5, y: 8.5 },
   },
 };
 
@@ -79,8 +149,18 @@ function scale2x(src, w, h) {
   return out;
 }
 
-/** The drawing rotated clockwise by `deg` around its pivot, pivot at (8, 8). */
-function rotated(weapon, deg) {
+/** The middle of the drawing's opaque pixels: what it turns around. */
+function centre(grid) {
+  let x0 = 16, x1 = -1, y0 = 16, y1 = -1;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (!grid[y * 16 + x]) continue;
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  return { x: (x0 + x1 + 1) / 2, y: (y0 + y1 + 1) / 2 };
+}
+
+/** The drawing rotated clockwise by `deg` around its centre, placed at (8, 8). */
+function rotated(weapon, c, deg) {
   let big = weapon.right, size = 16;
   for (let i = 0; i < 3; i++) {
     big = scale2x(big, size, size);
@@ -91,10 +171,10 @@ function rotated(weapon, deg) {
   const out = new Uint8Array(256);
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
-      // Output pixel centre relative to the pivot, rotated back into the drawing.
+      // Output pixel centre relative to (8, 8), rotated back into the drawing.
       const ox = x + 0.5 - 8, oy = y + 0.5 - 8;
-      const sx = weapon.pivot.x + (ox * cos + oy * sin);
-      const sy = weapon.pivot.y + (-ox * sin + oy * cos);
+      const sx = c.x + (ox * cos + oy * sin);
+      const sy = c.y + (-ox * sin + oy * cos);
       const bx = Math.floor(sx * s), by = Math.floor(sy * s);
       if (bx >= 0 && bx < size && by >= 0 && by < size) out[y * 16 + x] = big[by * size + bx];
     }
@@ -108,12 +188,24 @@ const mirrorX = (g) => {
   return out;
 };
 
+const RIGHT_HALF = [0, 1, 2, 3, 4, 12, 13, 14, 15];
+const isLeft = (d) => d >= 5 && d <= 11;
+const mirrorOf = (d) => (16 + 8 - d) % 16;
+
 /** The 16 direction frames: rotate the right half, mirror it for the left half. */
-function directions(weapon) {
+function directions(weapon, c) {
   const frames = new Array(16);
-  for (const d of [0, 1, 2, 3, 4, 12, 13, 14, 15]) frames[d] = rotated(weapon, d * 22.5);
-  for (const d of [5, 6, 7, 8, 9, 10, 11]) frames[d] = mirrorX(frames[(16 + 8 - d) % 16]);
+  for (const d of RIGHT_HALF) frames[d] = rotated(weapon, c, d * 22.5);
+  for (let d = 0; d < 16; d++) if (isLeft(d)) frames[d] = mirrorX(frames[mirrorOf(d)]);
   return frames;
+}
+
+/** A vector from the drawing turned to direction d, as the frames are (mirrored on the left). */
+function turn(v, d) {
+  const left = isLeft(d);
+  const t = ((left ? mirrorOf(d) : d) * 22.5 * Math.PI) / 180;
+  const x = v.x * Math.cos(t) - v.y * Math.sin(t), y = v.x * Math.sin(t) + v.y * Math.cos(t);
+  return { x: left ? -x : x, y };
 }
 
 function png(grid) {
@@ -142,20 +234,18 @@ function png(grid) {
 }
 
 /** Per-direction placement, relative to the player's 16x16 frame top-left. */
-function placement(weapon) {
+function placement(weapon, c) {
   const rows = [];
   for (let d = 0; d < 16; d++) {
     const t = (d * 22.5 * Math.PI) / 180, cos = Math.cos(t), sin = Math.sin(t);
-    const hx = Math.round(HAND.x + HAND.rx * cos), hy = Math.round(HAND.y + HAND.ry * sin);
-    // The muzzle, rotated with the gun (mirrored on the left half, like the art).
-    let mx = weapon.muzzle.x - weapon.pivot.x, my = weapon.muzzle.y - weapon.pivot.y;
-    const left = d >= 5 && d <= 11;
-    const rt = left ? ((8 - d) * 22.5 * Math.PI) / 180 : t;
-    let rx = mx * Math.cos(rt) - my * Math.sin(rt), ry = mx * Math.sin(rt) + my * Math.cos(rt);
-    if (left) rx = -rx;
+    const hx = HAND.x + HAND.rx * cos, hy = HAND.y + HAND.ry * sin;
+    // The frame goes where the grip lands in the hand; the muzzle turns with it.
+    const g = turn({ x: weapon.grip.x - c.x, y: weapon.grip.y - c.y }, d);
+    const m = turn({ x: weapon.muzzle.x - c.x, y: weapon.muzzle.y - c.y }, d);
+    const fx = hx - g.x, fy = hy - g.y;  // the frame's centre (8, 8)
     rows.push({
-      gx: hx - 8, gy: hy - 8,  // the frame's top-left (the pivot is at 8, 8)
-      mx: Math.round(hx + rx), my: Math.round(hy + ry),
+      gx: Math.round(fx - 8), gy: Math.round(fy - 8),
+      mx: Math.round(fx + m.x), my: Math.round(fy + m.y),
       kx: Math.round(-KICK * cos), ky: Math.round(-KICK * sin),
       behind: BEHIND.has(d) ? 1 : 0,
     });
@@ -174,27 +264,34 @@ function header(name, rows) {
 #ifndef WEAPON_${N}_H
 #define WEAPON_${N}_H
 #include <stdint.h>
-static const int8_t weapon_${name}_gx[16] = {${list('gx')}};
-static const int8_t weapon_${name}_gy[16] = {${list('gy')}};
-static const int8_t weapon_${name}_mx[16] = {${list('mx')}};
-static const int8_t weapon_${name}_my[16] = {${list('my')}};
-static const int8_t weapon_${name}_kx[16] = {${list('kx')}};
-static const int8_t weapon_${name}_ky[16] = {${list('ky')}};
-static const uint8_t weapon_${name}_behind[16] = {${list('behind')}};
+static const int8_t weapon_${name}_place[7][16] = {
+    {${list('gx')}},  // GX
+    {${list('gy')}},  // GY
+    {${list('mx')}},  // MX
+    {${list('my')}},  // MY
+    {${list('kx')}},  // KX
+    {${list('ky')}},  // KY
+    {${list('behind')}},  // BEHIND
+};
 #endif
 `;
 }
 
 fs.mkdirSync(OUT_ART, { recursive: true });
 for (const [name, weapon] of Object.entries(WEAPONS)) {
-  const frames = directions(weapon);
+  const c = centre(weapon.right);
+  const frames = directions(weapon, c);
   frames.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name} (${d + 1}).png`), png(g)));
-  fs.writeFileSync(path.join(ROOT, 'src', `weapon_${name}.h`), header(name, placement(weapon)));
+  fs.writeFileSync(path.join(ROOT, 'src', `weapon_${name}.h`), header(name, placement(weapon, c)));
   console.log(`[weapon-art] ${name}: 16 directions -> artwork/weapons/, src/weapon_${name}.h`);
   if (process.argv.includes('--show')) {
     frames.forEach((g, d) => {
-      console.log(`dir ${d}`);
-      for (let y = 0; y < 16; y++) console.log('  ' + Array.from(g.slice(y * 16, y * 16 + 16), (v) => '.123'[v]).join(''));
+      if (![0, 2, 4, 14].includes(d)) return;
+      console.log(`${name} dir ${d}`);
+      for (let y = 0; y < 16; y++) {
+        const row = Array.from(g.slice(y * 16, y * 16 + 16), (v) => '.123'[v]).join('');
+        if (row !== '................') console.log('  ' + row);
+      }
     });
   }
 }

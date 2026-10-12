@@ -74,4 +74,11 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 void fade_out(void) BANKED;  // gfx_setup.c
 void fade_in(void) BANKED;
 
+// Copying from a switchable ROM bank. Banked code must not switch banks itself
+// (SWITCH_ROM would swap its own code out from under the CPU), so it calls these:
+// they live in bank 0, switch to `bank`, copy, and switch back.
+void banked_memcpy(void *dst, const void *src, uint16_t n, uint8_t bank);
+void banked_sprite_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank);
+void banked_bkg_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank);
+
 #endif

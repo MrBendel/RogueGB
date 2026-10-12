@@ -19,7 +19,7 @@
     .globl _aim_range, _aim_bias
     .globl _line_fx, _line_fy, _line_sx, _line_sy, _line_n, _room_line_clear
     .globl _aim_score, _aim_target, _aim_sticky
-    .globl _cam_x, _cam_y, _frame_count, _shadow_OAM, _reticle_vram, _reticle_frames
+    .globl _cam_x, _cam_y, _frame_count, _shadow_OAM, _reticle_vram, _reticle_frames, _reticle_tight
 
 AIM_NONE = 0xFF
 ENEMY_DY = 3        ; (enemy + 11) - (player + 8); x offsets cancel (8 - 8)
@@ -403,10 +403,16 @@ _aim_draw_reticle::
     cp a, #VIEW_H + 16
     jp nc, 9$
     ld b, e                 ; b = hardware y
-    ; frame: ((frame_count >> 3) & 1) * 4 bytes into reticle_frames
+    ; frame: ((frame_count >> 3) & 1) * 4 bytes into reticle_frames (pulsing),
+    ; or the closed-in one (4) while a sniper shot steadies
+    ld a, (_reticle_tight)
+    or a, a
+    ld a, #4
+    jr nz, 30$
     ld a, (_frame_count)
     rrca
     and a, #4
+30$:
     ld hl, #_reticle_frames
     add a, l
     ld l, a

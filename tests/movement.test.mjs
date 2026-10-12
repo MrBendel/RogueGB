@@ -23,10 +23,14 @@ const fineX = (emu) => emu.v('player_x', 'u16') * 256 + emu.v('player_xs');
 const vx = (emu) => emu.v('player_vx', 'i16');
 const vy = (emu) => emu.v('player_vy', 'i16');
 
-/** Start a run with the given preset selected (SELECT cycles presets). */
+/** Start a run with the given preset picked on the pause panel (its first row, MOVE). */
 function runWithPreset(i) {
   const emu = startRun().idle(2);
-  for (let k = 0; k < i; k++) emu.tap('SELECT');
+  if (i) {
+    emu.tap('START').idle(8);
+    for (let k = 0; k < i; k++) emu.tap('RIGHT');
+    emu.tap('START').idle(2);
+  }
   assert.equal(emu.v('move_preset'), i);
   return emu;
 }
@@ -40,14 +44,16 @@ function framesUntil(emu, buttons, pred, max = 120) {
   assert.fail(`not reached within ${max} frames`);
 }
 
-test('SELECT cycles the movement presets', () => {
-  const emu = startRun().idle(2);
+test('the MOVE row of the pause panel cycles the movement presets', () => {
+  const emu = startRun().idle(2).tap('START').idle(8);
   assert.equal(emu.v('move_preset'), 0);
   for (const i of [1, 2, 3, 0]) {
-    emu.tap('SELECT');
+    emu.tap('RIGHT');
     assert.equal(emu.v('move_preset'), i);
     assert.equal(emu.v('move_accel_frames'), PRESETS[i].accel);
   }
+  emu.tap('LEFT');
+  assert.equal(emu.v('move_preset'), 3, 'and back');
 });
 
 for (const [i, p] of PRESETS.entries()) {
@@ -126,7 +132,7 @@ test('clipping a pillar corner by a pixel slides around it', () => {
 test('pause panel tunes movement values', () => {
   const emu = startRun().idle(2).tap('START').idle(8); // the pause panel takes a couple of frames to draw
   assert.equal(emu.v('paused'), 1);
-  emu.tap('RIGHT');
+  emu.tap('DOWN').tap('RIGHT');  // MOVE -> SPEED
   assert.equal(emu.v('move_top', 'u16'), 256 + 64, 'speed +0.25');
   assert.equal(emu.v('move_preset'), CUSTOM);
   emu.tap('DOWN').tap('LEFT').tap('LEFT');
@@ -137,8 +143,10 @@ test('pause panel tunes movement values', () => {
   // The tuned values take effect.
   const up = framesUntil(emu, 'RIGHT', (e) => vx(e) === 320);
   assert.equal(up, framesFor(320, 3));
-  // SELECT from CUSTOM goes back to the first preset.
-  emu.idle(30).tap('SELECT');
+  // The MOVE row from CUSTOM goes back to the first preset.
+  emu.idle(30).tap('START').idle(8);
+  for (let k = 0; k < 3; k++) emu.tap('UP');  // back to MOVE
+  emu.tap('RIGHT');
   assert.equal(emu.v('move_preset'), 0);
   assert.equal(emu.v('move_top', 'u16'), 256);
 });
@@ -148,7 +156,7 @@ test('screen: movement lab after moving', () => {
 });
 
 test('screen: tuning panel', () => {
-  matchGolden(startRun().idle(2).tap('START').idle(8).tap('DOWN').tap('RIGHT').idle(2), 'tuning');
+  matchGolden(startRun().idle(2).tap('START').idle(8).tap('DOWN').tap('DOWN').tap('RIGHT').idle(2), 'tuning');
 });
 
 // --- wall contact and camera wobble (jitter reports) --------------------------

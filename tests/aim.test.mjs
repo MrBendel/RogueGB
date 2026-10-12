@@ -70,9 +70,14 @@ test('no target: A fires straight ahead, and the shot stops at a wall', () => {
   assert.equal(up.v('shots_hit', 'u16'), 0);
 });
 
+// The held weapon's stats (WeaponStats in weapon.h: mode 0, fire_interval 1,
+// tap_interval 2, pellets 3, spread 4, jitter 5, speed 6-7, range 8, aim_range 9,
+// damage 10, kick 11, push 12, windup 13, slow 14).
+const wpn = (emu, offset) => emu.read8(addr(emu, 'wpn') + offset);
+
 test('holding A fires every fire_interval frames', () => {
   const emu = place(startRun().idle(2), PX, PY, DIR_RIGHT).idle(2);
-  const interval = emu.v('fire_interval');
+  const interval = wpn(emu, 1);
   emu.hold('A', interval * 3);
   assert.equal(emu.v('shots_fired', 'u16'), 3);
 });

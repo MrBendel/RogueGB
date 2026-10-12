@@ -87,7 +87,9 @@ How weapons look and how each class feels. Decided: **16 aiming directions** (op
 | Minigun | Hold A: ~0.5 s spin-up, then very fast | A bullet every 3 frames, with jitter | 1 px rumble while firing | Half speed while firing | Spin-up and spin-down, a committed stance |
 | Sniper | Hold A to steady (the reticle closes in ~0.6 s), fires at lock; a quick tap fires weak | Instant hit (the line-of-sight check) with a 2-frame tracer, pierces | Big screen kick, hitstop on hit | Slowed while steadying | 2x aim range, a crit on a full lock |
 
-Next steps: a weapon data record with these presets (and a temporary way to switch between them), then the melee swing, then the shared hitstop / screen shake / knockback effects (#13).
+Built so far (`src/weapon.c`, firing in `src/aim.c`): pistol, shotgun, minigun and sniper as stat presets (fire mode, fire rate, tap rate, pellets, spread, jitter, speed, range, aim range, damage, kick, shove, windup, slow), switched with SELECT and tunable on the pause panel. Fire modes: semi (tap fires at once), auto, spin-up, and charge (a critical at lock). Not yet: the shotgun pump, the minigun barrel spin, the sniper's instant hit and pierce (it's a fast 6 px/frame shot for now), screen kick and enemy knockback (with #13), and melee.
+
+Next: the melee swing, then the shared hitstop / screen shake / knockback effects (#13).
 
 ### Weapon loadout
 
@@ -95,6 +97,7 @@ Next steps: a weapon data record with these presets (and a temporary way to swit
 - Holding SELECT (about 12 frames) opens a **weapon wheel**: the 4 slots sit on the d-pad's
   up/right/down/left. Press a direction to highlight a slot, release SELECT to equip it.
 - While the wheel is open the game pauses or drops to slow motion (to decide in playtests).
+- **Deferred for now:** SELECT just cycles weapons. When the wheel is built, the world dims with the *faded* palette (one palette-register write, the same palette the scene fades use; the darkened one costs the same), the wheel is sprites on the second sprite palette at full contrast, and a scanline split keeps the HUD row bright for the weapon's name and stats.
 - Tapping SELECT acts on release, so a tap and the start of a hold can't be confused.
 
 ### Loot

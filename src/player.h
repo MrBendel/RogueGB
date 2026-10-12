@@ -54,6 +54,7 @@ extern uint8_t dash_iframes;
 
 // --- tunables (changed by presets and the pause-screen tuner) ---
 extern uint16_t move_top;            // top speed, px/frame 8.8
+extern uint8_t move_slow;            // 1: half speed while a heavy weapon fires (aim.c)
 extern uint8_t move_accel_frames;    // frames from standstill to top speed
 extern uint8_t move_decel_frames;    // frames from top speed to standstill
 extern uint8_t move_reverse_frames;  // frames to cancel full speed when pushing the other way

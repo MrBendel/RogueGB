@@ -6,11 +6,13 @@
 #ifndef WEAPON_PISTOL_H
 #define WEAPON_PISTOL_H
 #include <stdint.h>
-static const int8_t weapon_pistol_gx[16] = {  4,  4,  3,  2,  0, -2, -3, -4, -4, -4, -3, -2,  0,  2,  3,  4};
-static const int8_t weapon_pistol_gy[16] = {  2,  3,  4,  5,  5,  5,  4,  3,  2,  1,  0, -1, -1, -1,  0,  1};
-static const int8_t weapon_pistol_mx[16] = { 18, 18, 17, 14, 10,  2, -1, -2, -2, -1,  2,  6,  6, 10, 14, 17};
-static const int8_t weapon_pistol_my[16] = {  8, 11, 15, 18, 19, 18, 15, 11,  8,  5,  2,  1,  1,  1,  2,  5};
-static const int8_t weapon_pistol_kx[16] = { -2, -2, -1, -1,  0,  1,  1,  2,  2,  2,  1,  1,  0, -1, -1, -2};
-static const int8_t weapon_pistol_ky[16] = {  0, -1, -1, -2, -2, -2, -1, -1,  0,  1,  1,  2,  2,  2,  1,  1};
-static const uint8_t weapon_pistol_behind[16] = {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  0};
+static const int8_t weapon_pistol_place[7][16] = {
+    {  7,  6,  5,  3,  1, -3, -5, -6, -6, -6, -4, -2, -1,  2,  4,  6},  // GX
+    {  1,  3,  5,  7,  8,  7,  5,  3,  1, -1, -3, -3, -3, -3, -3, -1},  // GY
+    { 18, 18, 16, 14, 10,  2,  0, -2, -2,  0,  2,  6,  6, 10, 14, 16},  // MX
+    {  8, 12, 15, 18, 19, 18, 15, 12,  8,  5,  2,  1,  1,  1,  2,  5},  // MY
+    { -2, -2, -1, -1,  0,  1,  1,  2,  2,  2,  1,  1,  0, -1, -1, -2},  // KX
+    {  0, -1, -1, -2, -2, -2, -1, -1,  0,  1,  1,  2,  2,  2,  1,  1},  // KY
+    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  0},  // BEHIND
+};
 #endif

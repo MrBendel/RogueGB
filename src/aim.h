@@ -20,7 +20,7 @@
 #include "actor.h"
 
 #define AIM_NONE 0xFF
-#define SHOT_MAX 6  // also in shots.s
+#define SHOT_MAX 16  // also in shots.s
 
 // --- watchable state ---
 extern uint8_t aim_target;              // enemy slot, or AIM_NONE
@@ -34,6 +34,9 @@ extern uint16_t enemies_killed;
 extern uint8_t aim_dir32;               // where the gun points now (0-31)
 extern uint8_t gun_dir16;               // the gun sprite's direction (0-15)
 extern uint8_t aim_facing;              // art direction while shooting (player.c), or 0xFF
+extern uint8_t weapon_windup;           // spin-up / steadying progress, frames
+extern uint8_t shot_damage;             // HP a shot in flight takes off
+extern uint16_t crits;                  // critical shots fired
 
 // The pool uses the enemy bullet record (actor.h); `alive` counts the frames of
 // flight left (0 = free slot).
@@ -41,11 +44,9 @@ extern Bullet shots[SHOT_MAX];
 extern uint8_t shot_count;
 
 // --- tunables ---
-extern uint8_t aim_range;      // px: farthest target (octagonal distance)
+extern uint8_t aim_range;      // px: farthest target (octagonal distance), the weapon's
 extern uint8_t aim_bias;       // px taken off the distance of enemies in front of the player
 extern uint8_t aim_sticky;     // px better another enemy must be to take the target over
-extern uint8_t fire_interval;  // frames between shots while A is held
-extern uint16_t shot_speed;    // px/frame 8.8
 
 // Load the shot and reticle graphics into sprite VRAM from tile `vram` on, and
 // clear targeting and the shot pool. Called by actors_init (display off).

@@ -1,4 +1,5 @@
 #include <gb/gb.h>
+#include <string.h>
 #include <gb/metasprites.h>
 #include "gfx.h"
 #include "state.h"
@@ -155,4 +156,25 @@ void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pa
 
 void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) {
     draw_number(1, x, y, n, width, zero_pad);
+}
+
+void banked_memcpy(void *dst, const void *src, uint16_t n, uint8_t bank) {
+    uint8_t saved = CURRENT_BANK;
+    SWITCH_ROM(bank);
+    memcpy(dst, src, n);
+    SWITCH_ROM(saved);
+}
+
+void banked_sprite_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank) {
+    uint8_t saved = CURRENT_BANK;
+    SWITCH_ROM(bank);
+    set_sprite_data(first, n, data);
+    SWITCH_ROM(saved);
+}
+
+void banked_bkg_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank) {
+    uint8_t saved = CURRENT_BANK;
+    SWITCH_ROM(bank);
+    set_bkg_data(first, n, data);
+    SWITCH_ROM(saved);
 }

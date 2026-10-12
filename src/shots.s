@@ -9,18 +9,18 @@
 ; an enemy (17 x 15), so it can't pass through either.
 ;
 ; Enemies: a table of the live ones (adjusted top-left, slot) is built first, so
-; each check is a short walk through it. A hit takes 1 HP from the enemy, sets
+; each check is a short walk through it. A hit takes shot_damage HP, sets
 ; its hurt timer, and sets shots_killed when that was its last HP; actors_update
 ; removes it.
 
     .module shots
 
-    .globl _shots, _shot_count, _shots_hit, _shots_killed, _shot_parity
+    .globl _shots, _shot_count, _shots_hit, _shots_killed, _shot_parity, _shot_damage
     .globl _shot_draw_tile, _shot_draw_prop
     .globl _actor_type, _actor_hp, _actor_x, _actor_y, _actor_hurt
     .globl _cam_x, _cam_y, _oam_next, _shadow_OAM
 
-SHOT_MAX = 6        ; must match aim.h
+SHOT_MAX = 16       ; must match aim.h
 B_SIZE = 13         ; sizeof(Bullet): alive 0, vx 1-2, vx_sign 3, xs 4, x 5-6,
                     ;                 vy 7-8, vy_sign 9, ys 10, y 11-12
 ACTOR_MAX = 8       ; actor.h
@@ -32,6 +32,7 @@ E_SIZE = 5          ; enemy table entry: x - 4 (2 bytes), y - 4 (2), slot
 
     .area _DATA
 left:       .ds 1   ; records left to visit
+live_left:  .ds 1   ; live shots not yet visited: stop when it reaches 0
 e_count:    .ds 1   ; live enemies in the table
 e_left:     .ds 1
 dlo:        .ds 1   ; low byte of a difference
@@ -144,6 +145,8 @@ _shots_update::
     sbc a, #0
     ld (cam16_y + 1), a
 
+    ld a, (_shot_count)
+    ld (live_left), a
     ld a, #SHOT_MAX
     ld (left), a
     ld hl, #_shots
@@ -153,7 +156,7 @@ _shots_update::
     jr nz, 11$
     ld de, #B_SIZE          ; free slot
     add hl, de
-    jp 90$
+    jp 91$
 11$:
     dec a                   ; one frame less to fly
     ld (hl+), a
@@ -272,7 +275,14 @@ _shots_update::
     ld a, (hl)
     or a, a
     jr z, 41$               ; already down this frame
-    dec a
+    ld b, a                 ; (c is the enemy slot, still needed; de is free now)
+    ld a, (_shot_damage)
+    ld e, a
+    ld a, b
+    sub a, e                ; hp - damage, stopping at 0
+    jr nc, 42$
+    xor a, a
+42$:
     ld (hl), a
     jr nz, 41$
     ld a, #1
@@ -346,6 +356,11 @@ _shots_update::
 70$:
     pop hl                  ; the next record
 90$:
+    ld a, (live_left)       ; a live shot done: the rest of the pool may be empty
+    dec a
+    ld (live_left), a
+    ret z
+91$:
     ld a, (left)
     dec a
     ld (left), a
@@ -360,4 +375,127 @@ add_b:
     adc a, h
     sub a, l
     ld h, a
+    ret
+
+; ---------------------------------------------------------------------------
+; void shots_spawn(void): fire spawn_n shots (1 or more) into free slots of the
+; pool (fewer if it's full). Each starts at (spawn_x, spawn_y) with 1/2-px
+; fractions, flies spawn_life frames, and takes its velocity from the tables at
+; spawn_vx / spawn_vy (32 int16 entries each) for its direction: spawn_dir for the
+; first, then + spawn_spread for each next one (a fan). Updates shot_count and
+; shots_fired. aim.c sets these up (fire()); this is the per-pellet work, which
+; cost ~2,200 cycles a pellet compiled.
+    .globl _spawn_n, _spawn_x, _spawn_y, _spawn_dir, _spawn_spread, _spawn_life
+    .globl _spawn_vx, _spawn_vy, _shots_fired
+
+    .area _DATA
+_spawn_n::      .ds 1
+_spawn_x::      .ds 2
+_spawn_y::      .ds 2
+_spawn_dir::    .ds 1
+_spawn_spread:: .ds 1
+_spawn_life::   .ds 1
+_spawn_vx::     .ds 2   ; int16_t * (32 entries)
+_spawn_vy::     .ds 2
+sp_slots:       .ds 1   ; pool slots left to look at
+sp_rec:         .ds 2   ; the record being written
+
+    .area _CODE
+_shots_spawn::
+    ld a, #SHOT_MAX
+    ld (sp_slots), a
+    ld hl, #_shots
+1$:
+    ld a, (hl)
+    or a, a
+    jr z, 3$                ; a free slot
+2$:
+    ld de, #B_SIZE
+    add hl, de
+    ld a, (sp_slots)
+    dec a
+    ld (sp_slots), a
+    jr nz, 1$
+    ret                     ; pool full
+3$:
+    ld a, l
+    ld (sp_rec), a
+    ld a, h
+    ld (sp_rec + 1), a
+    ld a, (_spawn_life)
+    ld (hl+), a             ; alive = frames to fly
+    ; de = 2 * direction: the offset into the velocity tables
+    ld a, (_spawn_dir)
+    and a, #31
+    add a, a
+    ld e, a
+    ld d, #0
+    ; x axis: vx (2), its sign (1), fraction (1), x (2)
+    push hl
+    ld a, (_spawn_vx)
+    ld l, a
+    ld a, (_spawn_vx + 1)
+    ld h, a
+    add hl, de
+    ld a, (hl+)
+    ld c, a
+    ld b, (hl)              ; bc = vx
+    pop hl
+    call 20$
+    ld a, (_spawn_x)
+    ld (hl+), a
+    ld a, (_spawn_x + 1)
+    ld (hl+), a
+    ; y axis: the same layout
+    push hl
+    ld a, (_spawn_vy)
+    ld l, a
+    ld a, (_spawn_vy + 1)
+    ld h, a
+    add hl, de
+    ld a, (hl+)
+    ld c, a
+    ld b, (hl)              ; bc = vy
+    pop hl
+    call 20$
+    ld a, (_spawn_y)
+    ld (hl+), a
+    ld a, (_spawn_y + 1)
+    ld (hl), a
+    ; counted
+    ld hl, #_shot_count
+    inc (hl)
+    ld hl, #_shots_fired
+    inc (hl)
+    jr nz, 4$
+    inc hl
+    inc (hl)
+4$:
+    ; the next pellet, if any: the next direction of the fan
+    ld a, (_spawn_n)
+    dec a
+    ld (_spawn_n), a
+    ret z
+    ld a, (_spawn_spread)
+    ld b, a
+    ld a, (_spawn_dir)
+    add a, b
+    ld (_spawn_dir), a
+    ld a, (sp_rec)
+    ld l, a
+    ld a, (sp_rec + 1)
+    ld h, a
+    jr 2$                   ; on from this record
+
+; (hl+) <- velocity bc (low, high), its sign byte (0 or 0xFF), a 1/2-px fraction
+20$:
+    ld a, c
+    ld (hl+), a
+    ld a, b
+    ld (hl+), a
+    rlca                    ; the sign bit into carry: 0x00 or 0xFF
+    sbc a, a
+    ld (hl+), a
+    ld a, #0x80
+    ld (hl+), a
     ret

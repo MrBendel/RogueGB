@@ -3,9 +3,10 @@
 // a placeholder player, and movement presets to compare.
 //   A (hold)      fire at the auto-aim target (aim.c)
 //   B             jump; B again in mid-air dashes
-//   SELECT        cycle movement presets
-//   START         pause; the pause panel tunes movement and jump values
-//                 (UP/DOWN pick a value, LEFT/RIGHT change it)
+//   SELECT        switch weapon (weapon.c)
+//   START         pause; the pause panel picks the movement preset and tunes
+//                 movement, camera and the held weapon (UP/DOWN pick a value,
+//                 LEFT/RIGHT change it)
 //   SELECT paused end the run
 #include <gb/gb.h>
 #include <rand.h>
@@ -19,13 +20,15 @@
 #include "actor.h"
 #include "aim.h"
 #include "oam.h"
+#include "weapon.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
 // Pause panel: the whole screen (18 tile rows) on the window layer.
 #define PAUSE_H 18
 #define PAUSE_WY (144 - PAUSE_H * 8)
-#define TUNE_ROW0 2  // window row of the first tunable
+#define TUNE_ROW0 2  // window row of the first tunable shown
+#define TUNE_ROWS 14 // tunables shown at once; the list scrolls
 
 // Tunables shown on the pause panel. FX16 = uint16 8.8 shown as x.xx,
 // FX8 = uint8 in 1/256ths shown as 0.xx, FRAMES = uint8 shown as a count.
@@ -33,28 +36,42 @@
 #define KIND_FX8 1
 #define KIND_FRAMES 2
 #define KIND_NUM 3  // uint8 shown as a plain number
+#define KIND_PRESET 4  // the movement preset, by name
+// What else changing a value does.
+#define TUNE_MOVEMENT 1  // makes the movement preset CUSTOM
+#define TUNE_WEAPON 2    // the held weapon's: reload it (its recoil table is scaled)
 typedef struct {
     const char *label;
     uint8_t kind;
-    uint8_t movement;  // changing it makes the movement preset CUSTOM
+    uint8_t flags;  // TUNE_*
     void *value;
     uint16_t step, min, max;
 } Tunable;
 
 static const Tunable tunables[] = {
-    {"SPEED", KIND_FX16, 1, &move_top, 64, 64, 768},
-    {"ACCEL", KIND_FRAMES, 1, &move_accel_frames, 1, 1, 60},
-    {"DECEL", KIND_FRAMES, 1, &move_decel_frames, 1, 1, 60},
-    {"REVERSE", KIND_FRAMES, 1, &move_reverse_frames, 1, 1, 60},
+    {"MOVE", KIND_PRESET, 0, &move_preset, 1, 0, MOVE_PRESET_COUNT - 1},
+    {"SPEED", KIND_FX16, TUNE_MOVEMENT, &move_top, 64, 64, 768},
+    {"ACCEL", KIND_FRAMES, TUNE_MOVEMENT, &move_accel_frames, 1, 1, 60},
+    {"DECEL", KIND_FRAMES, TUNE_MOVEMENT, &move_decel_frames, 1, 1, 60},
+    {"REVERSE", KIND_FRAMES, TUNE_MOVEMENT, &move_reverse_frames, 1, 1, 60},
     {"JUMP", KIND_FX16, 0, &jump_vel, 32, 128, 1024},
     {"GRAVITY", KIND_FX8, 0, &jump_grav, 4, 4, 128},
     {"DASH SPD", KIND_FX16, 0, &dash_speed, 64, 256, 1536},
     {"DASH FR", KIND_FRAMES, 0, &dash_frames, 1, 1, 30},
     {"CAM LEAD", KIND_FRAMES, 0, &cam_lead, 2, 0, 40},
-    {"LEAD RATE", KIND_FX16, 0, &cam_lead_rate, 32, 32, 1024},  // at most 64/16 px: camera_lead.s
-    {"FIRE RATE", KIND_FRAMES, 0, &fire_interval, 1, 2, 60},
-    {"SHOT SPD", KIND_FX16, 0, &shot_speed, 32, 128, 1024},
-    {"AIM RANGE", KIND_NUM, 0, &aim_range, 8, 32, 160},
+    {"LEAD SPD", KIND_FX16, 0, &cam_lead_rate, 32, 32, 1024},  // at most 64/16 px: camera_lead.s
+    // The held weapon (weapon.h; SELECT switches it).
+    {"FIRE RATE", KIND_FRAMES, TUNE_WEAPON, &wpn.fire_interval, 1, 2, 90},
+    {"TAP RATE", KIND_FRAMES, TUNE_WEAPON, &wpn.tap_interval, 1, 1, 60},
+    {"PELLETS", KIND_NUM, TUNE_WEAPON, &wpn.pellets, 1, 1, 9},
+    {"SPREAD", KIND_NUM, TUNE_WEAPON, &wpn.spread, 1, 0, 4},
+    {"JITTER", KIND_NUM, TUNE_WEAPON, &wpn.jitter, 1, 0, 4},
+    {"SHOT SPD", KIND_FX16, TUNE_WEAPON, &wpn.speed, 32, 128, 1792},
+    {"RANGE", KIND_NUM, TUNE_WEAPON, &wpn.range, 8, 16, 248},
+    {"DAMAGE", KIND_NUM, TUNE_WEAPON, &wpn.damage, 1, 1, 9},
+    {"KICK", KIND_NUM, TUNE_WEAPON, &wpn.kick, 1, 1, 3},
+    {"WINDUP", KIND_FRAMES, TUNE_WEAPON, &wpn.windup, 2, 2, 90},
+    {"AIM RANGE", KIND_NUM, TUNE_WEAPON, &wpn.aim_range, 8, 32, 160},
     {"AIM BIAS", KIND_NUM, 0, &aim_bias, 4, 0, 64},
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
@@ -74,6 +91,7 @@ uint16_t run_seconds;
 uint8_t run_ticks;
 uint8_t paused;
 uint8_t tune_sel;
+uint8_t tune_top;  // the first tunable shown (the list scrolls)
 uint8_t wave_spawned;
 uint8_t hud_hp;  // HP shown on the HUD, to redraw only on change
 // Debug/test hook: tests set this through emulator memory writes; the next frame
@@ -99,11 +117,11 @@ static void draw_hp(void) {
 
 static void draw_hud(void) {
     fill_win_rect(0, 0, SCREEN_TW, 2, FONT_TILES);
-    win_text(0, 0, "MOVE:");
-    win_text(6, 0, move_preset_name());
+    win_text(0, 0, "GUN:");
+    weapon_draw_name(5, 0);
     win_text(14, 0, "HP:");
     draw_hp();
-    win_text(0, 1, "SEL:NEXT  START:TUNE");
+    win_text(0, 1, "SEL:GUN   START:TUNE");
 }
 
 static uint16_t tune_get(const Tunable *t) {
@@ -115,12 +133,18 @@ static void tune_set(const Tunable *t, uint16_t v) {
     else *(uint8_t *)t->value = (uint8_t)v;
 }
 
-static void draw_tune_value(uint8_t i) {
+// Tunable i's row, if it's in view.
+static void draw_tune_row(uint8_t i) {
+    if (i < tune_top || i >= tune_top + TUNE_ROWS) return;
     const Tunable *t = &tunables[i];
-    uint8_t y = TUNE_ROW0 + i;
+    uint8_t y = TUNE_ROW0 + i - tune_top;
     uint16_t v = tune_get(t);
+    fill_win_rect(1, y, SCREEN_TW - 2, 1, FONT_TILES);
     win_text(1, y, i == tune_sel ? ">" : " ");
-    if (t->kind == KIND_FRAMES || t->kind == KIND_NUM) {
+    win_text(2, y, t->label);
+    if (t->kind == KIND_PRESET) {
+        win_text(11, y, move_preset_name());
+    } else if (t->kind == KIND_FRAMES || t->kind == KIND_NUM) {
         win_number(12, y, v, 3, 0);
         win_text(16, y, t->kind == KIND_FRAMES ? "FR" : "  ");
     } else {
@@ -131,14 +155,20 @@ static void draw_tune_value(uint8_t i) {
     }
 }
 
+static void draw_tune_rows(void) {
+    for (uint8_t i = tune_top; i < tune_top + TUNE_ROWS && i < TUNE_COUNT; i++) draw_tune_row(i);
+    // Arrows on the frame when there's more above or below.
+    set_win_tile_xy(SCREEN_TW - 1, TUNE_ROW0, tune_top ? FONT_TILES + ('^' - ' ') : FRAME_TILES + 5);
+    set_win_tile_xy(SCREEN_TW - 1, TUNE_ROW0 + TUNE_ROWS - 1,
+                    tune_top + TUNE_ROWS < TUNE_COUNT ? FONT_TILES + ('V' - ' ') : FRAME_TILES + 5);
+}
+
 static void draw_pause(void) {
     win_frame(0, 0, SCREEN_TW, PAUSE_H);
-    win_text(4, 1, "PAUSED: TUNE");
-    for (uint8_t i = 0; i < TUNE_COUNT; i++) {
-        win_text(2, TUNE_ROW0 + i, tunables[i].label);
-        draw_tune_value(i);
-    }
-    win_text(1, TUNE_ROW0 + TUNE_COUNT, "START:BACK SEL:END");
+    win_text(2, 1, "TUNE   GUN:");
+    weapon_draw_name(13, 1);
+    draw_tune_rows();
+    win_text(1, TUNE_ROW0 + TUNE_ROWS, "START:BACK SEL:END");
 }
 
 void play_enter(void) BANKED {
@@ -149,7 +179,7 @@ void play_enter(void) BANKED {
     actors_init();
     wave_spawned = 0;
     paused = 0;
-    tune_sel = 0;
+    tune_sel = tune_top = 0;
     draw_hud();
     move_win(7, HUD_WY);
     SHOW_WIN;
@@ -186,20 +216,39 @@ static void tune_update(void) {
     if ((joy_pressed & J_UP) && tune_sel > 0) tune_sel--;
     if ((joy_pressed & J_DOWN) && tune_sel < TUNE_COUNT - 1) tune_sel++;
     if (old != tune_sel) {
-        draw_tune_value(old);
-        draw_tune_value(tune_sel);
+        if (tune_sel < tune_top || tune_sel >= tune_top + TUNE_ROWS) {
+            tune_top = tune_sel < tune_top ? tune_sel : tune_sel - TUNE_ROWS + 1;
+            draw_tune_rows();
+        } else {
+            draw_tune_row(old);
+            draw_tune_row(tune_sel);
+        }
     }
     const Tunable *t = &tunables[tune_sel];
+    if (t->kind == KIND_PRESET) {
+        // LEFT/RIGHT step through the presets (from CUSTOM, back to the first).
+        uint8_t p = move_preset;
+        if (joy_pressed & J_RIGHT) p = p >= MOVE_PRESET_COUNT - 1 ? 0 : p + 1;
+        else if (joy_pressed & J_LEFT) p = p == 0 || p >= MOVE_PRESET_COUNT ? MOVE_PRESET_COUNT - 1 : p - 1;
+        else return;
+        move_apply_preset(p);
+        // It and the movement values under it change (rows 0-4); redrawing just
+        // those keeps the panel responsive (numbers are slow to draw).
+        for (uint8_t i = 0; i <= 4; i++) draw_tune_row(i);
+        return;
+    }
     uint16_t v = tune_get(t);
     if ((joy_pressed & J_RIGHT) && v + t->step <= t->max) v += t->step;
     else if ((joy_pressed & J_LEFT) && v >= t->min + t->step) v -= t->step;
     else return;
     tune_set(t, v);
-    if (t->movement) {
+    if (t->flags & TUNE_MOVEMENT) {
         move_preset = MOVE_PRESET_CUSTOM;
         move_recalc();
+        draw_tune_row(0);
     }
-    draw_tune_value(tune_sel);
+    if (t->flags & TUNE_WEAPON) weapon_select(weapon_cur);
+    draw_tune_row(tune_sel);
 }
 
 void play_update(void) BANKED {
@@ -214,8 +263,8 @@ void play_update(void) BANKED {
         return;
     }
     if (joy_pressed & J_SELECT) {
-        move_apply_preset(move_preset < MOVE_PRESET_COUNT - 1 ? move_preset + 1 : 0);
-        draw_hud();
+        weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);
+        weapon_draw_name(5, 0);  // just the name: the whole HUD takes over a frame to draw
     }
 
     if (++run_ticks == 60) {

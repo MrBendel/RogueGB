@@ -54,3 +54,15 @@ test('the game runs across banks: banked scenes call bank-0 code every frame', (
   // The bank variable GBDK keeps in sync with the hardware register.
   assert.equal(emu.read8(syms.get('__current_bank')), bankOf('play_update'), 'the play scene\'s bank is switched in');
 });
+
+test('banked code never switches banks itself (it would swap its own code out)', () => {
+  // A #pragma bank file that calls SWITCH_ROM runs fine only while the code and
+  // the data happen to share a bank; once the ROM grows, it crashes. Banked code
+  // uses the bank-0 helpers instead (banked_memcpy, banked_sprite_data, ...).
+  const src = path.join(ROOT, 'src');
+  for (const f of fs.readdirSync(src).filter((n) => n.endsWith('.c'))) {
+    const text = fs.readFileSync(path.join(src, f), 'utf8');
+    if (!/^#pragma bank/m.test(text)) continue;
+    assert.ok(!/SWITCH_ROM\s*\(/.test(text), `${f} is banked and calls SWITCH_ROM`);
+  }
+});

@@ -18,13 +18,9 @@ void gfx_init(void) BANKED {
     CRITICAL {
         add_VBL(gfx_vbl);
     }
-    // The font and frame are in switchable banks: switch in, copy, switch back.
-    uint8_t saved = CURRENT_BANK;
-    SWITCH_ROM(BANK(font));
-    set_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles);
-    SWITCH_ROM(BANK(frame));
-    set_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles);
-    SWITCH_ROM(saved);
+    // The font and frame are in switchable banks (banked_bkg_data: gfx.c, bank 0).
+    banked_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles, BANK(font));
+    banked_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles, BANK(frame));
     BGP_REG = 0xE4;
     OBP0_REG = 0xE4;
     OBP1_REG = FLASH_PAL;
