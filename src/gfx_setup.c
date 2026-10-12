@@ -60,3 +60,23 @@ void fade_in(void) BANKED {
         set_fade(s);
     }
 }
+
+// Frame tiles are row-major: 0 1 2 / 3 4 5 / 6 7 8.
+#define FRAME_DRAW(fill, set)                                                    \
+    fill(x, y, w, h, FRAME_TILES + 4);                                           \
+    fill(x + 1, y, w - 2, 1, FRAME_TILES + 1);                                   \
+    fill(x + 1, y + h - 1, w - 2, 1, FRAME_TILES + 7);                           \
+    fill(x, y + 1, 1, h - 2, FRAME_TILES + 3);                                   \
+    fill(x + w - 1, y + 1, 1, h - 2, FRAME_TILES + 5);                           \
+    set(x, y, FRAME_TILES + 0);                                                  \
+    set(x + w - 1, y, FRAME_TILES + 2);                                          \
+    set(x, y + h - 1, FRAME_TILES + 6);                                          \
+    set(x + w - 1, y + h - 1, FRAME_TILES + 8)
+
+void bkg_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED {
+    FRAME_DRAW(fill_bkg_rect, set_bkg_tile_xy);
+}
+
+void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED {
+    FRAME_DRAW(fill_win_rect, set_win_tile_xy);
+}

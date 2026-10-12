@@ -50,7 +50,7 @@ static const Tunable tunables[] = {
     {"DASH SPD", KIND_FX16, 0, &dash_speed, 64, 256, 1536},
     {"DASH FR", KIND_FRAMES, 0, &dash_frames, 1, 1, 30},
     {"CAM LEAD", KIND_FRAMES, 0, &cam_lead, 2, 0, 40},
-    {"LEAD RATE", KIND_FX16, 0, &cam_lead_rate, 32, 32, 1024},
+    {"LEAD RATE", KIND_FX16, 0, &cam_lead_rate, 32, 32, 1024},  // at most 64/16 px: camera_lead.s
     {"FIRE RATE", KIND_FRAMES, 0, &fire_interval, 1, 2, 60},
     {"SHOT SPD", KIND_FX16, 0, &shot_speed, 32, 128, 1024},
     {"AIM RANGE", KIND_NUM, 0, &aim_range, 8, 32, 160},

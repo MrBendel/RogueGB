@@ -188,7 +188,12 @@ test('sliding along a wall below: full speed along it, and the camera does not b
 
 test('steady diagonal movement keeps the player at a fixed spot on screen (no wobble)', () => {
   const emu = startRun().idle(2).hold('UP', 60).hold('RIGHT', 300).hold('UP', 40);
-  emu.hold('RIGHT+DOWN', 34); // camera settles into its lead
+  // Let the camera's look-ahead finish sliding to its new place (camera.c): it
+  // eases out, so a 27 px swing takes most of a second.
+  const sliding = () => emu.read16(emu.symbols.addr('lead_h') + 4) || emu.read16(emu.symbols.addr('lead_v') + 4);
+  emu.hold('RIGHT+DOWN', 4);
+  for (let f = 0; f < 120 && sliding(); f++) emu.hold('RIGHT+DOWN', 1);
+  assert.ok(!sliding(), 'the look-ahead settles');
   const screen = [];
   for (let f = 0; f < 12; f++) {
     emu.hold('RIGHT+DOWN', 1);

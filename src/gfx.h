@@ -59,8 +59,9 @@ void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pa
 void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad);
 
 // Draw a framed box on the background or the window.
-void bkg_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
-void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
+// Banked (gfx_setup.c): they take no strings, so they needn't be in bank 0.
+void bkg_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
+void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 
 // Fade the background and sprite palettes to white / back to normal.
 // Each takes FADE_STEPS * FADE_FRAMES frames.

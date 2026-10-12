@@ -22,8 +22,8 @@ Speed is in pixels per frame. ACCEL, DECEL and REVERSE are the frames it takes t
 speed, to stop, and to cancel full speed when pushing the other way. Any change shows the
 preset as CUSTOM. JUMP is takeoff speed and GRAVITY the pull per frame (both in pixels per frame);
 DASH SPD and DASH FR are the dash's speed and length. CAM LEAD is how many frames of
-movement the camera looks ahead; LEAD RATE is how fast that look-ahead slides when you
-change direction (pixels per frame: lower is smoother and lazier). The camera otherwise
+movement the camera looks ahead; LEAD RATE is the top speed of that look-ahead when you
+change direction (pixels per frame: lower is smoother and lazier). It eases in and out. The camera otherwise
 moves exactly with the player. FIRE RATE, SHOT SPD, AIM RANGE and AIM BIAS tune auto-aim.
 
 ## Code structure
@@ -40,7 +40,8 @@ moves exactly with the player. FIRE RATE, SHOT SPD, AIM RANGE and AIM BIAS tune 
 | `src/play.c` | Gameplay scene: the movement lab, HUD row and the pause/tuning panel |
 | `src/player.c` | Player movement (8.8 fixed point, eased per axis), collision with wall sliding and corner nudging, presets |
 | `src/sprite_slot.c` | Draws a 16×16 character from pre-rendered frames: two 8×16 sprites and a double-buffered 8-tile VRAM slot |
-| `src/camera.c` | Camera: follows the player with a look-ahead (lead) that slides at a steady rate, clamped to the room, at most 4 px a frame; streams one background row or column per frame |
+| `src/camera.c` | Camera: follows the player with a look-ahead (lead) that eases to its new place when you change direction, clamped to the room, at most 4 px a frame; streams one background row or column per frame |
+| `src/camera_lead.s` | Assembly: the look-ahead's slide (ease in, cruise, ease out) and the camera's pixel position |
 | `src/camera_setup.c` | Banked: placing the camera and drawing the whole view when a room starts |
 | `src/actor.c` | Enemies and enemy bullets: pools, AI (slime chaser, peashooter shooter), contact and bullet damage, sprite allocation |
 | `src/actor_draw.s` | Assembly: writes actors into the sprite table |
@@ -76,7 +77,7 @@ waits on every byte. Keep per-frame code cheap:
 
 Tests guard it: `tests/camera.test.mjs` fails if a frame of walking, scrolling and jumping
 uses more than half the frame (`emu.lastFrameCycles`); `tests/actors.test.mjs` caps an arena
-fight at 48k (52k while shooting) and checks full pools (8 enemies, 20 bullets: median
+fight at 50k (52k while shooting) and checks full pools (8 enemies, 20 bullets: median
 ~54k, at most 1% of frames over). `node harness/profile.mjs walk|arena|shoot|stress` shows
 which functions the cycles go to in the worst frames (banked ones too), and how many
 frames are over budget.

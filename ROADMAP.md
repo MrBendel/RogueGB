@@ -117,7 +117,7 @@ Turn one room into a seeded floor of hand-made rooms.
 - Indoor tileset pipeline: tile deduplication, with flags per block for collision, pit and height
 - ROM banking for room data and tile sets
 - Doors and Zelda-style scrolling between rooms
-- Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges, and a look-ahead (lead) in the direction of travel that slides at a steady rate when the direction changes (an eased camera felt jerky on quick turns)
+- Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges, and a look-ahead (lead) in the direction of travel that eases in and out when the direction changes, with a capped top speed (a plain eased camera lurched on quick turns; a constant-rate slide stopped dead)
 - Enemies outside the camera view are paused or simplified, and their sprites are skipped
 - Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed. Variety from data: rooms mirrored horizontally or vertically (via a block mirror table, since DMG background tiles can't be flipped in hardware), per-room layout variants (pits, platforms, cover), random spawn and decoration picks
 - Doors lock until the room is cleared; cleared rooms are remembered for the run

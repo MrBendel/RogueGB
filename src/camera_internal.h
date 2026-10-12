@@ -18,12 +18,22 @@
 
 extern int16_t cam_fx, cam_fy;          // camera position, 12.4
 extern int16_t cam_max_fx, cam_max_fy;  // largest camera position per axis, 12.4
-extern int16_t lead_vx, lead_vy, lead_goal_x, lead_goal_y;  // where the lead is heading, for this velocity
-extern int16_t lead_x, lead_y;          // the lead now, 12.4
+extern int16_t lead_vx, lead_vy;        // the velocity the lead goals were computed for
+
+// One axis of the look-ahead, 12.4: where it's heading, where it is, how fast it's
+// sliding. The layout is used by camera_lead.s.
+typedef struct {
+    int16_t goal;
+    int16_t lead;
+    int16_t vel;
+} CamLead;
+extern CamLead lead_h, lead_v;
+// Slide l toward its goal (camera_lead.s); rate is the top speed, 12.4 per frame.
+void cam_slide(CamLead *l, uint16_t rate);
 extern uint8_t lead_frames;             // cam_lead the lead was computed with
 extern uint8_t drawn_tx, drawn_ty;      // top-left tile of the drawn area
 
-// cam_x/cam_y and the scroll registers from cam_fx/cam_fy.
+// cam_x/cam_y and the scroll registers from cam_fx/cam_fy (camera_lead.s).
 void camera_apply(void);
 
 #endif

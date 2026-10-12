@@ -22,8 +22,8 @@ int16_t cam_max_fy;
 // Where the lead is heading (velocity * cam_lead, 12.4), for the velocity it was
 // computed from: a multiply, so it's only redone when the velocity or the tunable
 // changes. And the lead itself (12.4), which moves toward it at cam_lead_rate.
-int16_t lead_vx, lead_vy, lead_goal_x, lead_goal_y;
-int16_t lead_x, lead_y;
+int16_t lead_vx, lead_vy;
+CamLead lead_h, lead_v;  // horizontal and vertical (camera_internal.h)
 uint8_t lead_frames;
 // Top-left tile of the area currently drawn in the background map.
 uint8_t drawn_tx;
@@ -31,11 +31,11 @@ uint8_t drawn_ty;
 
 // How the camera moves: it stays a fixed offset (the lead) from the target, so in
 // steady movement it steps exactly with the player's pixel steps and the player
-// can't wobble against the background. When the velocity changes, the lead
-// slides to its new value at a steady cam_lead_rate (1 px/frame), so the camera's
-// speed changes by at most that much a frame. (An eased camera moved fastest
-// right as the player turned around, up to 4 px a frame, and in uneven
-// 1-2-1-2 px steps while it caught up: that read as jerky.)
+// can't wobble against the background. When the velocity changes, the lead slides
+// to its new value (camera_lead.s): it speeds up gently, cruises at no more than
+// cam_lead_rate, and eases out, slowing to 1/8 of the distance left each frame.
+// (A plain eased camera moved fastest right as the player turned around, up to
+// 4 px a frame, which read as jerky; a constant-rate slide stopped dead.)
 
 // The camera moves at most CAM_MAX_STEP per axis per frame (4 px in 12.4). The
 // drawn area catches up one strip per frame, alternating axes when both lag, so
@@ -43,14 +43,6 @@ uint8_t drawn_ty;
 // and the camera could outrun it (a teleport, a respawn), forcing a full, very
 // slow redraw. It also turns those jumps into a quick pan.
 #define CAM_MAX_STEP 64
-
-// The lead, one frame closer to its goal (rate in 12.4).
-static int16_t lead_step(int16_t lead, int16_t goal, int16_t rate) {
-    int16_t d = goal - lead;
-    if (d > rate) return lead + rate;
-    if (d < -rate) return lead - rate;
-    return goal;
-}
 
 // One axis: the camera at target + lead (pos, 12.4), kept in the room and at
 // most CAM_MAX_STEP from where it was (f).
@@ -61,13 +53,6 @@ static int16_t follow(int16_t f, int16_t pos, int16_t max) {
     return f + d;
 }
 
-void camera_apply(void) {
-    cam_x = (uint16_t)cam_fx >> 4;
-    cam_y = (uint16_t)cam_fy >> 4;
-    scroll_x = (uint8_t)cam_x;
-    scroll_y = (uint8_t)cam_y;
-}
-
 void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
     if (lead_frames != cam_lead) {
         lead_frames = cam_lead;
@@ -76,17 +61,17 @@ void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
     }
     if (vx != lead_vx) {
         lead_vx = vx;
-        lead_goal_x = (vx >> 4) * cam_lead;
+        lead_h.goal = (vx >> 4) * cam_lead;
     }
     if (vy != lead_vy) {
         lead_vy = vy;
-        lead_goal_y = (vy >> 4) * cam_lead;
+        lead_v.goal = (vy >> 4) * cam_lead;
     }
-    int16_t rate = cam_lead_rate >> 4;
-    lead_x = lead_step(lead_x, lead_goal_x, rate);
-    lead_y = lead_step(lead_y, lead_goal_y, rate);
-    cam_fx = follow(cam_fx, (((int16_t)tx - VIEW_W / 2) << 4) + lead_x, cam_max_fx);
-    cam_fy = follow(cam_fy, (((int16_t)ty - VIEW_H / 2) << 4) + lead_y, cam_max_fy);
+    uint16_t rate = cam_lead_rate >> 4;
+    cam_slide(&lead_h, rate);
+    cam_slide(&lead_v, rate);
+    cam_fx = follow(cam_fx, (((int16_t)tx - VIEW_W / 2) << 4) + lead_h.lead, cam_max_fx);
+    cam_fy = follow(cam_fy, (((int16_t)ty - VIEW_H / 2) << 4) + lead_v.lead, cam_max_fy);
     camera_apply();
 
     // Stream in rows and columns as the camera moves. The drawn area's target is
