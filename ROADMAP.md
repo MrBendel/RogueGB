@@ -16,6 +16,8 @@ the design notes behind it.
 | Dynamic content | Only **data** is generated at runtime: floor layouts, room picks and mirroring, spawns, gun stats. It runs during fades, so it has no per-frame budget |
 | HUD | One block row (16 px) on the window layer. **Bottom of the screen for M1**, because the hardware does that for free. A top HUD like Zelda's needs a scanline interrupt; it's an optional M6 polish item |
 | Hardware | **DMG first** (4 shades), with GBC color added later in M6. Gameplay can't depend on color, so elements are shown by bullet shape and impact effect |
+| Health and shields | **Borderlands-style layers.** A shield takes damage first and recharges after a delay without hits. Health only regenerates with a perk (class, trait or Manor). **You start without a shield** and earn the first one from a chest. Falling into a pit skips the shield. Shown as **bars, not hearts**: they grow as max values grow (Rogue Legacy style), and exact numbers are on the pause screen. How the character levels up (in-run XP, the Manor, or both) is decided once the story is outlined (see Open questions) |
+| Loot | **As close to Borderlands as the hardware allows**, so there's always a newer, better gun to find. Procedural guns from a few manufacturers, each with one gimmick (explodes when reloaded, burst fire, semi-auto heavy hitter, always elemental, accuracy that improves while firing, huge magazines). Rarity tiers, elements, chests with a loot fountain, and a stat card that compares a find with what you hold (see "Loot" below) |
 | Order | Get the **combat feel** right in one room before building systems around it |
 | Tracking | This file has the overall plan. GitHub milestones match the sections below. Issues are filed only for the next one or two milestones |
 
@@ -72,6 +74,32 @@ Jumping makes the top-down world partly 3D, Link's Awakening style:
 - While the wheel is open the game pauses or drops to slow motion (to decide in playtests).
 - Tapping SELECT acts on release, so a tap and the start of a hold can't be confused.
 
+### Loot
+
+The Borderlands loop: kill or open → loot fountain → look → compare → equip. Notes on fitting it to a Game Boy (details in [docs/inspiration/borderlands-2.md](docs/inspiration/borderlands-2.md)):
+
+- **Guns are a few packed bytes** rolled from a seed: manufacturer, rarity, element, part indices. Their stats come from those. The icon is assembled from pre-drawn part tiles; no runtime pixel work.
+- **Manufacturers** (our own names, to be written with the story), one gimmick each:
+  - thrown like a grenade when reloaded, and explodes;
+  - burst fire;
+  - semi-auto: fires as fast as you tap A, hits hard;
+  - always elemental;
+  - accuracy improves while firing;
+  - fast fire rate with huge magazines;
+  - slow explosive rounds.
+- **Magazines and reloads** come with M3, since several gimmicks hang off the reload. Every button is taken, so reloading is automatic when a magazine empties (open: also reload after a pause in firing?).
+- **Rarity without color (DMG):** the height and sparkle of the light beam over a drop, the frame style of the item card, and a pickup sound. GBC adds the classic colors (M6).
+- **Loot fountain:** chests and elite enemies pop items out in arcs, using the same height/shadow system as jumping.
+- **Item card:** standing on an item shows its card in the window: name (with a joke prefix), manufacturer, rarity, and each stat with ▲/▼ against what you're holding. Picking up needs a button: proposal, a tap of SELECT while standing on an item takes it (swapping if the loadout is full); elsewhere SELECT keeps its normal job.
+- **Shields are loot too:** capacity, recharge delay and rate, plus special effects (bursts when broken, damages enemies that touch you, absorbs bullets as ammo, boosts the next shot).
+- **Elements and status:** Fire burns flesh over time, Shock strips shields, Acid eats armor, Slag marks enemies to take more damage. Shown on DMG by palette flicker and a small effect sprite, not color.
+- **Budget:** shotguns and fast guns need a bigger shot pool than today's 6, with CPU budget tests to match.
+
+### Open questions
+
+- **Story and progression.** Map out the story first. It decides how the character grows (in-run levels, the Manor, or both), where shields, chests and special guns show up, and the manufacturer names.
+- **Pickup button** and **reload trigger** (see Loot).
+
 ## How we work
 
 - **Plan:** this file holds the decisions and the milestone outline. When a design decision changes, update it here in the same commit as the code.
@@ -98,8 +126,8 @@ One room with real movement, shooting, enemies, damage and death.
 - Firing with auto-aim: nearest-target selection with a facing bias, sticky targeting, a reticle, 32-direction bullets, a bullet pool, and bullets that stop at walls
 - Actor system: pools for enemies, bullets and pickups, sprite/OAM budget, flicker past 10 sprites per scanline
 - Two enemy archetypes: a **chaser** (slime) and a **shooter** (peashooter, with a telegraph before it fires)
-- Damage model: HP, hit flash, knockback, invulnerability frames, enemy bullets
-- HUD row along the bottom on the window layer (hearts), death → run over with the cause of death
+- Damage model: health plus a shield layer (empty until you find a shield), hit flash, knockback, invulnerability frames, enemy bullets. A chest in the test arena holds the first shield
+- HUD row along the bottom on the window layer: shield and health bars that grow with max values, space for the gun icon (M3) and ability meter (M4). Death → run over with the cause of death and kills
 - Jump on B: height (`z`), a shadow sprite, a gravity arc, and passing over ground enemies and bullets while airborne
 - Roll out of a jump with a second B tap: a burst toward the d-pad direction, with invulnerability frames
 - Pits and raised blocks in the test room: falling into pits, jumping across gaps, standing on raised blocks
@@ -130,10 +158,13 @@ Turn one room into a seeded floor of hand-made rooms.
 same layout (with a test for it), and moving between rooms has no visible glitches.
 
 ### M3 · Guns and loot
-- Gun data: manufacturer, fire rate, spread, projectile count, speed, damage, element, joke name
-- Seeded procedural gun generation with rarity tiers. A gun is rolled stats plus an icon assembled from pre-drawn part tiles (barrel, body, grip); no runtime pixel work
-- Drops from enemies and chests, pickup and a stat-compare popup
+The full Borderlands loot loop (see "Loot" above).
+
+- Gun data and seeded generation: manufacturer, rarity, element, part indices → damage, fire rate, spread, projectile count, speed, magazine, reload; a joke name; an icon from part tiles
+- Magazines and automatic reloads, and the manufacturer gimmicks (including explode-on-reload)
+- Chests and elite drops with a loot fountain; rarity beams; pickup and the item card with ▲/▼ stat compare
 - 4-weapon loadout: tap SELECT to cycle, hold SELECT for the weapon wheel (d-pad picks a slot); a full loadout means dropping or swapping a weapon on pickup
+- Shields as loot: capacity, recharge delay and rate, special effects
 - Elements (Fire, Shock, Acid, plus a Slag-style "mark" debuff) against defense layers (flesh, shield, armor), with distinct bullet shapes and impact effects
 - Gold drops and pickups
 - "Badass" elite variants: ×2 HP, an extra attack, a guaranteed better drop
