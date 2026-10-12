@@ -252,17 +252,24 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = 
   ];
   let hasAlphaCorner = false;
   let bgR = 255, bgG = 255, bgB = 255;
-  for (const [cx, cy] of cornerCoords) {
-    const ci = (cy * width + cx) * 4;
-    if (rgba[ci + 3] < 128) {
-      hasAlphaCorner = true;
-      break;
+  if (Array.isArray(opts.bgColor) && opts.bgColor.length >= 4) {
+    hasAlphaCorner = opts.bgColor[3] < 128;
+    bgR = opts.bgColor[0];
+    bgG = opts.bgColor[1];
+    bgB = opts.bgColor[2];
+  } else {
+    for (const [cx, cy] of cornerCoords) {
+      const ci = (cy * width + cx) * 4;
+      if (rgba[ci + 3] < 128) {
+        hasAlphaCorner = true;
+        break;
+      }
     }
-  }
-  if (!hasAlphaCorner && width > 0 && height > 0) {
-    bgR = rgba[0];
-    bgG = rgba[1];
-    bgB = rgba[2];
+    if (!hasAlphaCorner && width > 0 && height > 0) {
+      bgR = rgba[0];
+      bgG = rgba[1];
+      bgB = rgba[2];
+    }
   }
   const useCornerKey = bgMode === 'corner' || (bgMode === 'auto' && !hasAlphaCorner && bgTol > 0);
   const useWhiteKey = bgMode === 'white';

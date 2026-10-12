@@ -819,79 +819,254 @@ $('st-edit-synth-dirs').onclick = () => {
   toast('Synthesized Up, Right & Attack poses from Down!');
 };
 
-// Interactive Image -> Game Boy (2bpp / GBC RGB555) Sprite Converter state
+// Interactive Image -> Game Boy (2bpp / GBC RGB555) Sprite Converter + 1:1 / 2:3 Crop Phase
 let activeConvImg = null;
+let activeConvCanvas = null;
 let activeConvData = null;
 let activeConvName = 'image';
 let lastConvResult = null;
 
+// Crop state: cx, cy in [0..1] normalized source coords, zoom in [12..100] % of max fitting 1:1 or 2:3 frame
+const convCrop = {
+  targetH: 16, // 16 => 1:1 Square, 24 => 2:3 Tall
+  cx: 0.5,
+  cy: 0.5,
+  zoom: 88,
+};
+
+// Display layout cache for #st-conv-src interactive pointer events
+let srcView = { ox: 0, oy: 0, dw: 200, dh: 200, scale: 1, cropRect: { x: 0, y: 0, w: 16, h: 16 } };
+
+function syncCropRatioTabsUI() {
+  if ($('st-crop-ratio-tabs')) {
+    for (const b of $('st-crop-ratio-tabs').querySelectorAll('button[data-size]')) {
+      b.classList.toggle('on', +b.dataset.size === convCrop.targetH);
+    }
+  }
+  if ($('st-crop-zoom')) $('st-crop-zoom').value = String(Math.round(convCrop.zoom));
+  if ($('st-crop-zoom-val')) $('st-crop-zoom-val').textContent = `${Math.round(convCrop.zoom)}%`;
+}
+
+/** Compute the source-image pixel rectangle { x, y, w, h } locked to 1:1 (targetH=16) or 2:3 (targetH=24). */
+function getLockedCropRect() {
+  if (!activeConvImg) return { x: 0, y: 0, w: 16, h: 16, maxW: 16, maxH: 16 };
+  const imgW = activeConvImg.width;
+  const imgH = activeConvImg.height;
+  const aspect = 16 / convCrop.targetH; // 1.0 for 16x16, 0.6667 for 16x24
+  let maxW, maxH;
+  if (imgW / imgH > aspect) {
+    maxH = imgH;
+    maxW = imgH * aspect;
+  } else {
+    maxW = imgW;
+    maxH = imgW / aspect;
+  }
+  const z = Math.max(0.12, Math.min(1.0, convCrop.zoom / 100));
+  const w = Math.max(1, maxW * z);
+  const h = Math.max(1, maxH * z);
+  const halfW = w / 2;
+  const halfH = h / 2;
+  const cxPx = Math.max(halfW, Math.min(imgW - halfW, convCrop.cx * imgW));
+  const cyPx = Math.max(halfH, Math.min(imgH - halfH, convCrop.cy * imgH));
+  // Keep normalized center clamped so dragging never drifts out of bounds
+  convCrop.cx = imgW > 0 ? cxPx / imgW : 0.5;
+  convCrop.cy = imgH > 0 ? cyPx / imgH : 0.5;
+  return {
+    x: cxPx - halfW,
+    y: cyPx - halfH,
+    w,
+    h,
+    maxW,
+    maxH,
+  };
+}
+
+/** Auto-snap the 1:1 or 2:3 crop box tightly around the foreground subject. */
+function autoFitCropToSubject() {
+  if (!activeConvImg || !activeConvData) return;
+  const W = activeConvImg.width;
+  const H = activeConvImg.height;
+  // Exact 16x16 or 16x24 pixel art -> use 100% full frame
+  if ((W === 16 && H === 16) || (W === 16 && H === 24)) {
+    convCrop.cx = 0.5;
+    convCrop.cy = 0.5;
+    convCrop.zoom = 100;
+    syncCropRatioTabsUI();
+    return;
+  }
+  const bgMode = $('st-conv-bgmode')?.value || 'auto';
+  const bgTol = +($('st-conv-tol')?.value ?? 36);
+  const tolSq = bgTol * bgTol * 3;
+  const hasAlphaCorner =
+    activeConvData[3] < 128 ||
+    activeConvData[(W - 1) * 4 + 3] < 128 ||
+    activeConvData[(H - 1) * W * 4 + 3] < 128;
+  const bgR = activeConvData[0], bgG = activeConvData[1], bgB = activeConvData[2];
+  const useCorner = bgMode === 'corner' || (bgMode === 'auto' && !hasAlphaCorner && bgTol > 0);
+  const useWhite = bgMode === 'white';
+
+  let minX = W, minY = H, maxX = -1, maxY = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const si = (y * W + x) * 4;
+      const a = activeConvData[si + 3];
+      if (a < 128) continue;
+      const r = activeConvData[si], g = activeConvData[si + 1], b = activeConvData[si + 2];
+      if (useCorner) {
+        const dr = r - bgR, dg = g - bgG, db = b - bgB;
+        if (dr * dr + dg * dg + db * db <= tolSq) continue;
+      } else if (useWhite) {
+        const thr = 255 - bgTol;
+        if (r >= thr && g >= thr && b >= thr) continue;
+      }
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX >= minX && maxY >= minY) {
+    const subW = Math.max(1, maxX - minX + 1);
+    const subH = Math.max(1, maxY - minY + 1);
+    convCrop.cx = (minX + maxX + 1) / (2 * W);
+    convCrop.cy = (minY + maxY + 1) / (2 * H);
+    const { maxW, maxH } = getLockedCropRect();
+    // Leave ~10% breathing margin around the detected subject so feet & head fit cleanly
+    const neededZoom = Math.max((subW * 1.12) / Math.max(1, maxW), (subH * 1.12) / Math.max(1, maxH)) * 100;
+    convCrop.zoom = Math.max(12, Math.min(100, Math.round(neededZoom)));
+  } else {
+    convCrop.cx = 0.5;
+    convCrop.cy = 0.5;
+    convCrop.zoom = 100;
+  }
+  syncCropRatioTabsUI();
+}
+
 function openImageConverter(img, sourceName = 'image') {
   activeConvImg = img;
   activeConvName = sourceName;
-  const c = document.createElement('canvas');
-  c.width = img.width;
-  c.height = img.height;
-  const cx = c.getContext('2d');
+  activeConvCanvas = document.createElement('canvas');
+  activeConvCanvas.width = img.width;
+  activeConvCanvas.height = img.height;
+  const cx = activeConvCanvas.getContext('2d');
   cx.drawImage(img, 0, 0);
   activeConvData = cx.getImageData(0, 0, img.width, img.height).data;
 
-  // Auto-detect 16x24 if image aspect ratio is clearly taller than square (>= 1.3:1)
+  // Auto-select 2:3 (16x24) if image aspect ratio is clearly taller than square (>= 1.28:1)
   const aspect = img.height / Math.max(1, img.width);
-  const autoH = img.height === 24 ? 24 : img.height === 16 ? 16 : aspect >= 1.3 ? 24 : spriteHeight;
-  if ($('st-conv-size')) $('st-conv-size').value = String(autoH);
+  convCrop.targetH = img.height === 24 ? 24 : img.height === 16 ? 16 : aspect >= 1.28 ? 24 : spriteHeight;
   if ($('st-conv-target') && $('st-upload-target')) {
     $('st-conv-target').value = $('st-upload-target').value || 'down';
   }
-  // Default Auto-Crop ON for larger images, OFF for exact 16x16 or 16x24 pixel art
-  if ($('st-conv-crop')) {
-    $('st-conv-crop').checked = img.width > 20 || img.height > 28;
-  }
 
+  autoFitCropToSubject();
   $('st-converter-card')?.classList.remove('hidden');
   pushUndo();
   updateConverterPreview(true);
-  toast(`Loaded ${sourceName} (${img.width}×${img.height}) into Sprite Converter!`);
+  toast(`Loaded ${sourceName} (${img.width}×${img.height}) — drag the ${convCrop.targetH === 24 ? '2:3' : '1:1'} box to crop!`);
 }
 
 function updateConverterPreview(applyLive = true) {
-  if (!activeConvImg || !activeConvData) return;
-  const targetH = +($('st-conv-size')?.value || spriteHeight) === 24 ? 24 : 16;
+  if (!activeConvImg || !activeConvData || !activeConvCanvas) return;
+  const targetH = convCrop.targetH === 24 ? 24 : 16;
   const bgMode = $('st-conv-bgmode')?.value || 'auto';
   const bgTolerance = +($('st-conv-tol')?.value ?? 36);
   const shadeBias = +($('st-conv-bias')?.value ?? 0);
-  const autoCrop = $('st-conv-crop') ? $('st-conv-crop').checked : true;
   const autoOutline = $('st-conv-outline') ? $('st-conv-outline').checked : false;
   const usePal = $('st-conv-usepal') ? $('st-conv-usepal').checked : true;
 
   if ($('st-conv-tol-val')) $('st-conv-tol-val').textContent = String(bgTolerance);
   if ($('st-conv-bias-val')) $('st-conv-bias-val').textContent = (shadeBias > 0 ? '+' : '') + shadeBias;
-  if ($('st-conv-dst-label')) $('st-conv-dst-label').textContent = `Converted 16×${targetH} (2bpp)`;
+  if ($('st-conv-dst-label')) $('st-conv-dst-label').textContent = `Converted 16×${targetH} (${targetH === 24 ? '2:3' : '1:1'} 2bpp)`;
+  syncCropRatioTabsUI();
 
-  // Render source thumbnail
-  const srcCanvas = $('st-conv-src');
-  if (srcCanvas) {
-    srcCanvas.width = 96;
-    srcCanvas.height = targetH === 24 ? 144 : 96;
-    const sctx = srcCanvas.getContext('2d');
-    sctx.clearRect(0, 0, srcCanvas.width, srcCanvas.height);
-    sctx.imageSmoothingEnabled = activeConvImg.width > 64;
-    const scale = Math.min(srcCanvas.width / activeConvImg.width, srcCanvas.height / activeConvImg.height);
-    const dw = Math.round(activeConvImg.width * scale);
-    const dh = Math.round(activeConvImg.height * scale);
-    sctx.drawImage(
-      activeConvImg,
-      Math.floor((srcCanvas.width - dw) / 2),
-      Math.floor((srcCanvas.height - dh) / 2),
-      dw,
-      dh,
-    );
+  const rect = getLockedCropRect();
+  if ($('st-crop-readout')) {
+    const ratioStr = targetH === 24 ? '2:3' : '1:1';
+    $('st-crop-readout').textContent = `Crop (${ratioStr}): ${Math.round(rect.w)}×${Math.round(rect.h)}px at (${Math.round(rect.x)}, ${Math.round(rect.y)})`;
   }
 
-  // Run 2bpp quantization + GBC RGB555 palette extraction
-  lastConvResult = extractGridAndPalette(activeConvData, activeConvImg.width, activeConvImg.height, targetH, {
+  // Render interactive source crop canvas with dark exterior mask, 8x8 tile guides, and corner handles
+  const srcCanvas = $('st-conv-src');
+  if (srcCanvas) {
+    const maxBox = 200;
+    const scale = Math.min(maxBox / activeConvImg.width, maxBox / activeConvImg.height);
+    const dw = Math.max(64, Math.round(activeConvImg.width * scale));
+    const dh = Math.max(64, Math.round(activeConvImg.height * scale));
+    srcCanvas.width = dw;
+    srcCanvas.height = dh;
+    const sctx = srcCanvas.getContext('2d');
+    sctx.clearRect(0, 0, dw, dh);
+    sctx.imageSmoothingEnabled = activeConvImg.width > 64;
+    sctx.drawImage(activeConvImg, 0, 0, dw, dh);
+
+    const cx0 = rect.x * scale;
+    const cy0 = rect.y * scale;
+    const cw = rect.w * scale;
+    const ch = rect.h * scale;
+    srcView = { ox: 0, oy: 0, dw, dh, scale, cropRect: { x: cx0, y: cy0, w: cw, h: ch } };
+
+    // Dim area outside the crop box
+    sctx.fillStyle = 'rgba(10, 14, 12, 0.55)';
+    sctx.fillRect(0, 0, dw, cy0);
+    sctx.fillRect(0, cy0 + ch, dw, dh - (cy0 + ch));
+    sctx.fillRect(0, cy0, cx0, ch);
+    sctx.fillRect(cx0 + cw, cy0, dw - (cx0 + cw), ch);
+
+    // Subtle 8x8 hardware tile grid inside the crop box (2x2 for 16x16, 2x3 for 16x24)
+    sctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    sctx.lineWidth = 1;
+    sctx.beginPath();
+    sctx.moveTo(cx0 + cw / 2, cy0);
+    sctx.lineTo(cx0 + cw / 2, cy0 + ch);
+    const tileRows = targetH === 24 ? 3 : 2;
+    for (let r = 1; r < tileRows; r++) {
+      const ty = cy0 + (ch * r) / tileRows;
+      sctx.moveTo(cx0, ty);
+      sctx.lineTo(cx0 + cw, ty);
+    }
+    sctx.stroke();
+
+    // Crisp crop border
+    sctx.strokeStyle = '#18d8ff';
+    sctx.lineWidth = 2;
+    sctx.strokeRect(cx0 + 1, cy0 + 1, Math.max(2, cw - 2), Math.max(2, ch - 2));
+
+    // 4 Corner resize handles
+    const hs = 7;
+    sctx.fillStyle = '#ffe878';
+    sctx.strokeStyle = '#101820';
+    sctx.lineWidth = 1;
+    const corners = [
+      [cx0, cy0],
+      [cx0 + cw - hs, cy0],
+      [cx0, cy0 + ch - hs],
+      [cx0 + cw - hs, cy0 + ch - hs],
+    ];
+    for (const [hx, hy] of corners) {
+      sctx.fillRect(hx, hy, hs, hs);
+      sctx.strokeRect(hx, hy, hs, hs);
+    }
+  }
+
+  // Extract the exact cropped sub-image into a temporary canvas & run 2bpp GBC conversion
+  const cropW = Math.max(1, Math.round(rect.w));
+  const cropH = Math.max(1, Math.round(rect.h));
+  const subCanvas = document.createElement('canvas');
+  subCanvas.width = cropW;
+  subCanvas.height = cropH;
+  const subCtx = subCanvas.getContext('2d');
+  subCtx.drawImage(activeConvCanvas, rect.x, rect.y, rect.w, rect.h, 0, 0, cropW, cropH);
+  const subRgba = subCtx.getImageData(0, 0, cropW, cropH).data;
+
+  const bgColor = activeConvData.length >= 4
+    ? [activeConvData[0], activeConvData[1], activeConvData[2], activeConvData[3]]
+    : null;
+  lastConvResult = extractGridAndPalette(subRgba, cropW, cropH, targetH, {
     bgMode,
     bgTolerance,
-    autoCrop,
+    bgColor,
+    autoCrop: false, // The interactive 1:1 or 2:3 crop box defines the exact framing!
     shadeBias,
     autoOutline,
   });
@@ -952,11 +1127,125 @@ function applyConvertedSpriteToRig(showToast = true) {
   baseAtkRight = null;
   rebuildRig();
   if (showToast) {
-    toast(`Applied converted 16×${spriteHeight} sprite (${activeConvName}) & synthesized all animations!`);
+    toast(`Applied cropped 16×${spriteHeight} sprite (${activeConvName}) & synthesized all animations!`);
   }
 }
 
-['st-conv-size', 'st-conv-target', 'st-conv-bgmode', 'st-conv-tol', 'st-conv-bias', 'st-conv-crop', 'st-conv-outline', 'st-conv-usepal'].forEach((id) => {
+// Interactive pointer drag / corner-resize / wheel zoom on #st-conv-src
+const convSrcCanvas = $('st-conv-src');
+if (convSrcCanvas) {
+  let dragMode = null; // 'pan' | 'resize'
+  let startX = 0, startY = 0, startCx = 0.5, startCy = 0.5, startZoom = 85;
+
+  const toCanvasCoords = (e) => {
+    const r = convSrcCanvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / Math.max(1, r.width)) * convSrcCanvas.width,
+      y: ((e.clientY - r.top) / Math.max(1, r.height)) * convSrcCanvas.height,
+    };
+  };
+
+  convSrcCanvas.addEventListener('pointerdown', (e) => {
+    if (!activeConvImg) return;
+    e.preventDefault();
+    convSrcCanvas.setPointerCapture?.(e.pointerId);
+    const pt = toCanvasCoords(e);
+    const cr = srcView.cropRect;
+    const cornerDist = Math.min(
+      Math.hypot(pt.x - cr.x, pt.y - cr.y),
+      Math.hypot(pt.x - (cr.x + cr.w), pt.y - cr.y),
+      Math.hypot(pt.x - cr.x, pt.y - (cr.y + cr.h)),
+      Math.hypot(pt.x - (cr.x + cr.w), pt.y - (cr.y + cr.h)),
+    );
+    dragMode = cornerDist <= 16 ? 'resize' : 'pan';
+    startX = pt.x;
+    startY = pt.y;
+    startCx = convCrop.cx;
+    startCy = convCrop.cy;
+    startZoom = convCrop.zoom;
+    // If user taps completely outside the crop box, jump the crop center there and pan
+    if (
+      dragMode === 'pan' &&
+      (pt.x < cr.x || pt.x > cr.x + cr.w || pt.y < cr.y || pt.y > cr.y + cr.h)
+    ) {
+      convCrop.cx = pt.x / Math.max(1, convSrcCanvas.width);
+      convCrop.cy = pt.y / Math.max(1, convSrcCanvas.height);
+      startCx = convCrop.cx;
+      startCy = convCrop.cy;
+      updateConverterPreview(true);
+    }
+  });
+
+  convSrcCanvas.addEventListener('pointermove', (e) => {
+    if (!dragMode || !activeConvImg) return;
+    const pt = toCanvasCoords(e);
+    const dx = pt.x - startX;
+    const dy = pt.y - startY;
+    if (dragMode === 'pan') {
+      convCrop.cx = startCx + dx / Math.max(1, convSrcCanvas.width);
+      convCrop.cy = startCy + dy / Math.max(1, convSrcCanvas.height);
+    } else if (dragMode === 'resize') {
+      const centerPxX = convCrop.cx * convSrcCanvas.width;
+      const centerPxY = convCrop.cy * convSrcCanvas.height;
+      const d0 = Math.max(8, Math.hypot(startX - centerPxX, startY - centerPxY));
+      const d1 = Math.max(8, Math.hypot(pt.x - centerPxX, pt.y - centerPxY));
+      convCrop.zoom = Math.max(12, Math.min(100, startZoom * (d1 / d0)));
+    }
+    updateConverterPreview(true);
+  });
+
+  const endCropDrag = () => { dragMode = null; };
+  convSrcCanvas.addEventListener('pointerup', endCropDrag);
+  convSrcCanvas.addEventListener('pointercancel', endCropDrag);
+
+  convSrcCanvas.addEventListener('wheel', (e) => {
+    if (!activeConvImg) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 5 : -5;
+    convCrop.zoom = Math.max(12, Math.min(100, convCrop.zoom + delta));
+    updateConverterPreview(true);
+  }, { passive: false });
+}
+
+if ($('st-crop-ratio-tabs')) {
+  $('st-crop-ratio-tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-size]');
+    if (!b) return;
+    convCrop.targetH = +b.dataset.size === 24 ? 24 : 16;
+    updateConverterPreview(true);
+  });
+}
+if ($('st-crop-zoom')) {
+  $('st-crop-zoom').oninput = (e) => {
+    convCrop.zoom = +e.target.value;
+    updateConverterPreview(true);
+  };
+}
+if ($('st-crop-autosnap')) {
+  $('st-crop-autosnap').onclick = () => {
+    autoFitCropToSubject();
+    updateConverterPreview(true);
+  };
+}
+if ($('st-crop-reset')) {
+  $('st-crop-reset').onclick = () => {
+    convCrop.cx = 0.5;
+    convCrop.cy = 0.5;
+    convCrop.zoom = 100;
+    updateConverterPreview(true);
+  };
+}
+const nudgeCrop = (dxNorm, dyNorm) => {
+  convCrop.cx = Math.max(0, Math.min(1, convCrop.cx + dxNorm));
+  convCrop.cy = Math.max(0, Math.min(1, convCrop.cy + dyNorm));
+  updateConverterPreview(true);
+};
+if ($('st-crop-left')) $('st-crop-left').onclick = () => nudgeCrop(-0.025, 0);
+if ($('st-crop-right')) $('st-crop-right').onclick = () => nudgeCrop(0.025, 0);
+if ($('st-crop-up')) $('st-crop-up').onclick = () => nudgeCrop(0, -0.025);
+if ($('st-crop-down')) $('st-crop-down').onclick = () => nudgeCrop(0, 0.025);
+
+['st-conv-target', 'st-conv-bgmode', 'st-conv-tol', 'st-conv-bias', 'st-conv-outline', 'st-conv-usepal'].forEach((id) => {
   const el = $(id);
   if (el) el.oninput = () => updateConverterPreview(true);
 });

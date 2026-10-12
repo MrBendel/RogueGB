@@ -24,7 +24,7 @@
 
   <section id="st-converter-card" class="card hidden" style="margin-bottom:12px">
     <div class="row space-between">
-      <strong>🖼️ Image → Game Boy (2bpp / GBC RGB555) Sprite Converter</strong>
+      <strong>🖼️ Crop &amp; Convert Image → Game Boy Sprite (2bpp / GBC RGB555)</strong>
       <div class="row small">
         <label class="filebtn">📂 Another Image… <input type="file" id="st-upload-another" accept="image/png,image/*"></label>
         <button id="st-conv-apply" class="primary">✓ Apply Sprite &amp; Generate Animations</button>
@@ -32,25 +32,46 @@
       </div>
     </div>
 
+    <div class="row space-between small">
+      <div class="row">
+        <span><strong>Step 1 — Crop Aspect Ratio:</strong></span>
+        <div class="row" id="st-crop-ratio-tabs">
+          <button data-size="16" class="on" title="1:1 Square crop for 16x16 Standard Sprite">1:1 Square (16×16)</button>
+          <button data-size="24" title="2:3 Vertical rectangle crop for 16x24 Tall Hero">2:3 Tall (16×24)</button>
+        </div>
+      </div>
+      <div class="row">
+        <button id="st-crop-autosnap" title="Automatically snap the 1:1 or 2:3 crop box around the character">🎯 Auto-Fit Subject</button>
+        <button id="st-crop-reset" title="Reset crop box to maximum 1:1 or 2:3 frame">⛶ Full Frame</button>
+      </div>
+    </div>
+
     <div class="conv-preview-row">
       <div class="conv-box">
-        <span class="small muted">Source Image</span>
-        <canvas id="st-conv-src" width="96" height="96"></canvas>
+        <span class="small muted" id="st-crop-readout">Drag box or corners to crop (1:1)</span>
+        <canvas id="st-conv-src" width="200" height="200" class="crop-canvas"></canvas>
       </div>
       <div class="conv-arrow">➔</div>
       <div class="conv-box">
         <span class="small muted" id="st-conv-dst-label">Converted 16×16 (2bpp)</span>
-        <canvas id="st-conv-dst" width="96" height="96"></canvas>
+        <canvas id="st-conv-dst" width="112" height="112"></canvas>
       </div>
     </div>
 
     <div class="row space-between small">
-      <label>Sprite Size:
-        <select id="st-conv-size">
-          <option value="16">16×16 Standard</option>
-          <option value="24">16×24 Tall Hero</option>
-        </select>
+      <label style="flex:1">🔍 Crop Box Size: <span id="st-crop-zoom-val">85%</span>
+        <input type="range" id="st-crop-zoom" min="12" max="100" value="85" style="width:100%">
       </label>
+      <div class="row">
+        <span class="muted">Nudge Crop:</span>
+        <button id="st-crop-left" title="Nudge crop box left">◀</button>
+        <button id="st-crop-up" title="Nudge crop box up">▲</button>
+        <button id="st-crop-down" title="Nudge crop box down">▼</button>
+        <button id="st-crop-right" title="Nudge crop box right">▶</button>
+      </div>
+    </div>
+
+    <div class="row space-between small">
       <label>Import Into:
         <select id="st-conv-target">
           <option value="down">Down (Front + Synth All Anims)</option>
@@ -78,7 +99,6 @@
     </div>
 
     <div class="row space-between small">
-      <label><input type="checkbox" id="st-conv-crop" checked> Auto-Crop &amp; Fit Subject</label>
       <label><input type="checkbox" id="st-conv-outline"> Add Crisp Dark Outline (Shade 3)</label>
       <label><input type="checkbox" id="st-conv-usepal" checked> Extract 15-bit GBC Palette</label>
     </div>
