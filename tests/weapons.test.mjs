@@ -296,3 +296,24 @@ test('screen: the sword smear mid-swing', () => {
   // Nothing to hit, so no hitstop: the frame shown is the swing's.
   matchGolden(holding(SWORD, 136, 10).idle(60).hold('A', 1).idle(4), 'sword-smear');
 });
+
+test('weapon art lives in the second VRAM bank (Game Boy Color), leaving bank 0 for the rest', () => {
+  const S_BANK = 0x08;
+  const emu = holding(PISTOL);
+  const vram = emu.snapshot().vram;  // both banks: 0x2000 bytes each
+  for (let w = PISTOL; w <= SWORD; w++) {
+    if (w) emu.tap('SELECT').idle(2);
+    // The weapon's sprites (OAM 1-2 in front of the body, 5-6 behind: oam.h).
+    const shown = [1, 2, 5, 6].map((i) => emu.readBytes(0xc000 + i * 4, 4)).filter(([y]) => y);
+    assert.ok(shown.length, `weapon ${w} is drawn`);
+    for (const [, , , flags] of shown) assert.ok(flags & S_BANK, `weapon ${w}: its sprites read VRAM bank 1`);
+  }
+  // Bank 1 holds the art from tile 0 (the pistol's first column is drawn).
+  const tile = (bank, t) => emu.snapshot().vram.subarray(bank * 0x2000 + t * 16, bank * 0x2000 + t * 16 + 16);
+  const any = (bytes) => bytes.some((b) => b);
+  assert.ok(Array.from({ length: 8 }, (_, t) => any(tile(1, t))).some(Boolean), 'bank 1 has weapon tiles');
+  assert.ok(vram.length >= 0x4000);
+  // Bank 0's sprite tiles end after the muzzle flash; everything past is free.
+  const used = emu.v('flash_vram') + 4;
+  assert.ok(used <= 128, `bank 0 sprite tiles used: ${used}`);
+});

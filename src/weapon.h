@@ -85,9 +85,9 @@ extern uint8_t smear_frames[16 * 4];
 extern uint8_t draw_vram, draw_blank;
 extern uint8_t *draw_frames;
 
-// Load every weapon's art into sprite VRAM from tile `vram` on (display off);
+// Load every weapon's art into sprite VRAM bank 1 from tile 0 (display off);
 // the first run also sets each weapon's stats from its preset.
-void weapon_init(uint8_t vram) BANKED;
+void weapon_init(void) BANKED;
 // Hold weapon w: save the current one's (tuned) stats, load w's stats and art.
 void weapon_select(uint8_t w) BANKED;
 // The current weapon's name on the window layer at (x, y) (its strings are in

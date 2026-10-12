@@ -53,27 +53,31 @@ static const uint8_t blanks[WEAPON_COUNT] = {
     SPR_SWORD_BLANK_COLUMN,
 };
 
-void weapon_init(uint8_t v) BANKED {
+void weapon_init(void) BANKED {
+    // All the weapons' art lives in the Color's second VRAM bank (their frames
+    // carry S_BANK), so bank 0 keeps its sprite tiles for the player, enemies
+    // and effects.
+    uint8_t v = 0;
     weapon_vram[WEAPON_PISTOL] = v;
-    banked_sprite_data(v, SPR_PISTOL_COLUMN_COUNT * 2, spr_pistol_tiles, BANK(spr_pistol));
+    banked_sprite_data_vbk1(v, SPR_PISTOL_COLUMN_COUNT * 2, spr_pistol_tiles, BANK(spr_pistol));
     v += SPR_PISTOL_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_SHOTGUN] = v;
-    banked_sprite_data(v, SPR_SHOTGUN_COLUMN_COUNT * 2, spr_shotgun_tiles, BANK(spr_shotgun));
+    banked_sprite_data_vbk1(v, SPR_SHOTGUN_COLUMN_COUNT * 2, spr_shotgun_tiles, BANK(spr_shotgun));
     v += SPR_SHOTGUN_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_RIFLE] = v;
-    banked_sprite_data(v, SPR_RIFLE_COLUMN_COUNT * 2, spr_rifle_tiles, BANK(spr_rifle));
+    banked_sprite_data_vbk1(v, SPR_RIFLE_COLUMN_COUNT * 2, spr_rifle_tiles, BANK(spr_rifle));
     v += SPR_RIFLE_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_SNIPER] = v;
-    banked_sprite_data(v, SPR_SNIPER_COLUMN_COUNT * 2, spr_sniper_tiles, BANK(spr_sniper));
+    banked_sprite_data_vbk1(v, SPR_SNIPER_COLUMN_COUNT * 2, spr_sniper_tiles, BANK(spr_sniper));
     v += SPR_SNIPER_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_SWORD] = v;
-    banked_sprite_data(v, SPR_SWORD_COLUMN_COUNT * 2, spr_sword_tiles, BANK(spr_sword));
+    banked_sprite_data_vbk1(v, SPR_SWORD_COLUMN_COUNT * 2, spr_sword_tiles, BANK(spr_sword));
     v += SPR_SWORD_COLUMN_COUNT * 2;
     smear_vram = v;
     smear_blank = SPR_SWORD_SMEAR_BLANK_COLUMN;
-    banked_sprite_data(v, SPR_SWORD_SMEAR_COLUMN_COUNT * 2, spr_sword_smear_tiles, BANK(spr_sword_smear));
+    banked_sprite_data_vbk1(v, SPR_SWORD_SMEAR_COLUMN_COUNT * 2, spr_sword_smear_tiles, BANK(spr_sword_smear));
     banked_memcpy(smear_frames, spr_sword_smear_frames, sizeof(smear_frames), BANK(spr_sword_smear));
-    for (uint8_t i = 1; i < sizeof(smear_frames); i += 2) smear_frames[i] |= SPR_PAL_WEAPON;
+    for (uint8_t i = 1; i < sizeof(smear_frames); i += 2) smear_frames[i] |= SPR_PAL_WEAPON | S_BANK;
     // First run: the presets. Later runs keep what was tuned (like movement).
     if (!stats_ready) {
         stats_ready = 1;
@@ -100,7 +104,7 @@ void weapon_select(uint8_t w) BANKED {
     case WEAPON_SNIPER: banked_memcpy(gun_frames, spr_sniper_frames, sizeof(gun_frames), BANK(spr_sniper)); break;
     default: banked_memcpy(gun_frames, spr_sword_frames, sizeof(gun_frames), BANK(spr_sword)); break;
     }
-    for (uint8_t i = 1; i < sizeof(gun_frames); i += 2) gun_frames[i] |= SPR_PAL_WEAPON;
+    for (uint8_t i = 1; i < sizeof(gun_frames); i += 2) gun_frames[i] |= SPR_PAL_WEAPON | S_BANK;
     // The placement tables are in this bank, so a plain copy reads them.
     memcpy(gun_place, places[w], sizeof(gun_place));
     // The tables' kick is 2 px; scale it to the weapon's (1: just its sign, 3: one more).

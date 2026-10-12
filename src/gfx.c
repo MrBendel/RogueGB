@@ -122,7 +122,12 @@ void gfx_vbl(void) {
         pal_dirty = 0;
     }
     if (vram_ready) {
+        // The queue writes VRAM bank 0; a load into bank 1 (weapon art) may be
+        // what this interrupted, so switch to 0 and back.
+        uint8_t vbk = VBK_REG;
+        VBK_REG = 0;
         vram_queue_write();
+        VBK_REG = vbk;
         copy_count = 0;
         strip_count = 0;
         vram_ready = 0;
@@ -180,6 +185,15 @@ void banked_sprite_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t b
     uint8_t saved = CURRENT_BANK;
     SWITCH_ROM(bank);
     set_sprite_data(first, n, data);
+    SWITCH_ROM(saved);
+}
+
+void banked_sprite_data_vbk1(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank) {
+    uint8_t saved = CURRENT_BANK;
+    SWITCH_ROM(bank);
+    VBK_REG = 1;
+    set_sprite_data(first, n, data);
+    VBK_REG = 0;
     SWITCH_ROM(saved);
 }
 

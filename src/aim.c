@@ -115,7 +115,7 @@ void aim_init(uint8_t v) BANKED {
     banked_memcpy(flash_frames, spr_flash_frames, sizeof(flash_frames), BANK(spr_flash));
     for (uint8_t i = 1; i < sizeof(flash_frames); i += 2) flash_frames[i] |= SPR_PAL_SHOT;
     v += SPR_FLASH_COLUMN_COUNT * 2;
-    weapon_init(v);  // all the weapons' art, after these
+    weapon_init();  // the weapons' art (VRAM bank 1)
 
     aim_target = AIM_NONE;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) aim_score[i] = AIM_NONE;

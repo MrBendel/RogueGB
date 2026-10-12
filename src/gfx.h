@@ -103,6 +103,8 @@ void fade_in(void) BANKED;
 // they live in bank 0, switch to `bank`, copy, and switch back.
 void banked_memcpy(void *dst, const void *src, uint16_t n, uint8_t bank);
 void banked_sprite_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank);
+// The same into the Color's second VRAM bank (sprites whose flags have S_BANK).
+void banked_sprite_data_vbk1(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank);
 void banked_bkg_data(uint8_t first, uint8_t n, const uint8_t *data, uint8_t bank);
 
 #endif
