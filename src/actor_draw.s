@@ -119,7 +119,7 @@ _actors_emit::
     cp a, #39
     jp nc, 9$
 
-    ; b = palette: sprite palette 1 (SPR_PAL_FLASH, inverted) while flashing
+    ; b = 1 while flashing (flash_pal swaps in sprite palette 1, SPR_PAL_FLASH)
     IDX8 _actor_flash
     ld a, (hl)
     or a, a
@@ -149,7 +149,7 @@ _actors_emit::
     inc e
     IDX8 _actor_p0
     ld a, (hl)
-    or a, b
+    call flash_pal          ; flashing: the flash palette instead of the type's
     ld (de), a
     inc e
 
@@ -166,7 +166,7 @@ _actors_emit::
     inc e
     IDX8 _actor_p1
     ld a, (hl)
-    or a, b
+    call flash_pal          ; flashing: the flash palette instead of the type's
     ld (de), a
 
     ld hl, #_oam_next
@@ -179,4 +179,13 @@ _actors_emit::
     dec (hl)
     jp nz, 2$
 9$:
+    ret
+
+; a = sprite flags; if b (flashing), their palette (bits 0-2) becomes 1.
+flash_pal:
+    inc b
+    dec b
+    ret z
+    and a, #0xF8
+    or a, #1
     ret

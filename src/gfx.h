@@ -69,11 +69,26 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 // handler (palette RAM can't be written while the screen draws). Every tile
 // uses background palette 0 for now; sprites use 0, and 1 to flash. ---
 #define PAL_COUNT 8
-#define SPR_PAL_FLASH 1  // the flash palette: colors inverted, for a warning or a hit
+// Background palettes: 0 is the scene's (the room, or the title's text), 1 the
+// window's (HUD and panels: set once in the window's attribute map).
+#define BG_PAL_SCENE 0
+#define BG_PAL_UI 1
+// Sprite palettes, by what uses them (the palette is bits 0-2 of a sprite's flags).
+#define SPR_PAL_PLAYER 0
+#define SPR_PAL_FLASH 1   // colors inverted, for a warning or a hit
+#define SPR_PAL_SLIME 2
+#define SPR_PAL_SHOOTER 3
+#define SPR_PAL_BULLET 4  // enemy bullets
+#define SPR_PAL_SHOT 5    // the player's shots and the muzzle flash
+#define SPR_PAL_WEAPON 6  // held weapons
+#define SPR_PAL_UI 7      // reticle, shadow
 extern uint16_t pal_base_bg[PAL_COUNT * 4], pal_base_obj[PAL_COUNT * 4];
 // Put the base palettes on screen at fade step `step` (0 = as they are,
 // FADE_STEPS = white); uploaded at the next vblank.
 void gfx_set_fade(uint8_t step) BANKED;
+// The palettes for the menus (title, run over) and for play (palettes.c).
+void palettes_menu(void) BANKED;
+void palettes_play(void) BANKED;
 
 // Fade the background and sprite palettes to white / back to normal.
 // Each takes FADE_STEPS * FADE_FRAMES frames.

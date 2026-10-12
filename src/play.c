@@ -177,6 +177,7 @@ static void draw_pause(void) {
 }
 
 void play_enter(void) BANKED {
+    palettes_play();
     room_load_lab();
     player_init(START_X, START_Y);
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement

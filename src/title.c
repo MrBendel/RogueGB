@@ -13,6 +13,7 @@ uint8_t title_timer;
 
 void title_enter(void) BANKED {
     title_timer = 0;
+    palettes_menu();
     bkg_frame(2, 2, 16, 7);
     bkg_text(6, 4, "ROGUE GB");
     bkg_text(5, 6, "RUN.GUN.DIE");

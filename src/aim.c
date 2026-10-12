@@ -108,10 +108,12 @@ void aim_init(uint8_t v) BANKED {
     reticle_vram = v;
     banked_sprite_data(v, SPR_RETICLE_COLUMN_COUNT * 2, spr_reticle_tiles, BANK(spr_reticle));
     banked_memcpy(reticle_frames, spr_reticle_frames, sizeof(reticle_frames), BANK(spr_reticle));
+    for (uint8_t i = 1; i < sizeof(reticle_frames); i += 2) reticle_frames[i] |= SPR_PAL_UI;
     v += SPR_RETICLE_COLUMN_COUNT * 2;
     flash_vram = v;
     banked_sprite_data(v, SPR_FLASH_COLUMN_COUNT * 2, spr_flash_tiles, BANK(spr_flash));
     banked_memcpy(flash_frames, spr_flash_frames, sizeof(flash_frames), BANK(spr_flash));
+    for (uint8_t i = 1; i < sizeof(flash_frames); i += 2) flash_frames[i] |= SPR_PAL_SHOT;
     v += SPR_FLASH_COLUMN_COUNT * 2;
     weapon_init(v);  // all the weapons' art, after these
 

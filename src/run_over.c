@@ -14,6 +14,7 @@ uint8_t run_over_timer;
 
 void run_over_enter(void) BANKED {
     run_over_timer = 0;
+    palettes_menu();
     bkg_frame(2, 3, 16, 9);
     bkg_text(6, 4, "RUN OVER");
     bkg_text(4, 7, "TIME");

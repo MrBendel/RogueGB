@@ -55,11 +55,12 @@ void gfx_init(void) BANKED {
     // The font and frame are in switchable banks (banked_bkg_data: gfx.c, bank 0).
     banked_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles, BANK(font));
     banked_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles, BANK(frame));
-    // Tile attributes (VRAM bank 1: palette, flips, tile bank): all 0, so every
-    // tile is drawn plainly with background palette 0 from tile bank 0.
+    // Tile attributes (VRAM bank 1: palette, flips, tile bank): nothing flipped,
+    // tile bank 0; the background uses the scene's palette, the window the UI's.
+    // The window (HUD, panels) uses the UI palette everywhere.
     VBK_REG = 1;
-    fill_bkg_rect(0, 0, 32, 32, 0);
-    fill_win_rect(0, 0, 32, 32, 0);
+    fill_bkg_rect(0, 0, 32, 32, BG_PAL_SCENE);
+    fill_win_rect(0, 0, 32, 32, BG_PAL_UI);
     VBK_REG = 0;
     for (uint8_t p = 0; p < PAL_COUNT; p++) {
         for (uint8_t i = 0; i < 4; i++) {

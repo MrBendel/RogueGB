@@ -5,6 +5,7 @@
 #include "room.h"
 #include "camera.h"
 #include "state.h"
+#include "gfx.h"
 #include "spr_slime.h"
 #include "spr_peashooter.h"
 #include "spr_pea.h"
@@ -83,9 +84,10 @@ void actor_cache_frame(uint8_t i) {
     const uint8_t *f = type_frames[type] + (actor_frame[i] << 2);
     uint8_t base = type_vram[type];
     actor_t0[i] = base + (f[0] << 1);
-    actor_p0[i] = f[1];
+    uint8_t pal = type == ACTOR_SLIME ? SPR_PAL_SLIME : SPR_PAL_SHOOTER;
+    actor_p0[i] = f[1] | pal;
     actor_t1[i] = base + (f[2] << 1);
-    actor_p1[i] = f[3];
+    actor_p1[i] = f[3] | pal;
 }
 
 // Count a timer down by one AI step; returns the new value (stops at 0).
@@ -235,7 +237,7 @@ static void update_bullets(void) {
     bullet_hit = 0;
     uint8_t anim = (uint8_t)(frame_count >> 3) & 1;
     bullet_draw_tile = bullet_vram + (pea_frames[anim << 2] << 1);
-    bullet_draw_prop = pea_frames[(anim << 2) + 1];
+    bullet_draw_prop = pea_frames[(anim << 2) + 1] | SPR_PAL_BULLET;
     bullet_draw_start = &bullets[bullet_rotation];
     bullets_update();
     if (bullet_hit) player_hurt(1, bullet_hit_x, bullet_hit_y);
@@ -247,7 +249,7 @@ static void update_shots(void) {
     shot_parity = (uint8_t)frame_count & 1;
     uint8_t f = (((uint8_t)frame_count >> 2) & 1) << 2;  // the pellet turns every 4 frames
     shot_draw_tile = shot_vram + (shot_frames[f] << 1);
-    shot_draw_prop = shot_frames[f + 1];
+    shot_draw_prop = shot_frames[f + 1] | SPR_PAL_SHOT;
     shots_update();
 }
 

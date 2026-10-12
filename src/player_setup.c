@@ -86,8 +86,8 @@ void player_init(uint16_t px, uint16_t py) BANKED {
     set_sprite_data(SHADOW_VRAM, 2, shadow_tiles);
     set_sprite_tile(SHADOW_OAM, SHADOW_VRAM);
     set_sprite_tile(SHADOW_OAM + 1, SHADOW_VRAM);
-    set_sprite_prop(SHADOW_OAM, 0);
-    set_sprite_prop(SHADOW_OAM + 1, S_FLIPX);
+    set_sprite_prop(SHADOW_OAM, SPR_PAL_UI);
+    set_sprite_prop(SHADOW_OAM + 1, S_FLIPX | SPR_PAL_UI);
     hide_sprite(SHADOW_OAM);
     hide_sprite(SHADOW_OAM + 1);
 }
