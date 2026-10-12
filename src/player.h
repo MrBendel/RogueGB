@@ -82,18 +82,19 @@ extern const MoveProfile move_profiles[MOVE_PRESET_COUNT];
 // bullets pass underneath.
 #define PLAYER_CLEAR_Z (6 << 8)
 
-// --- health (a minimal version; the damage model proper is issue #10) ---
-#define PLAYER_HP_MAX 6
-extern uint8_t player_hp;
-extern uint16_t player_hits;
-// Take damage from something at room pixel (from_x, from_y): knocked back away
-// from it, then blinking and invulnerable for a moment. Ignored while already
-// invulnerable (blinking, dashing) or falling into a pit.
+// --- getting hurt (the health and shield values: health.h) ---
+// Pits cost this much health (skipping the shield).
+#define PIT_DAMAGE 10
+// Take dmg from something at room pixel (from_x, from_y). If the shield takes it
+// all: a short invulnerability, no knockback. If it reaches health: knocked back
+// away from it, then blinking and invulnerable for a moment. Ignored while
+// already invulnerable (blinking, dashing) or falling into a pit.
 void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y);
 // Can ground-level things (enemies, bullets) hit the player right now?
 uint8_t player_hittable(void);
 
 #include <gb/gb.h>
+#include "health.h"
 void player_init(uint16_t px, uint16_t py) BANKED;  // player_setup.c (banked)
 void player_update(void);
 void player_draw(void);

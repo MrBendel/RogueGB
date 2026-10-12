@@ -48,7 +48,7 @@ const plan = scenario === 'arena' || scenario === 'shoot'
           pokedAt.add(f);
           pokedAt.add(f + 1);
           emu.write8(emu.symbols.addr('debug_cmd'), 1);
-          emu.write8(emu.symbols.addr('player_hp'), 6);
+          emu.write8(emu.symbols.addr('player_hp'), emu.read8(emu.symbols.addr('player_hp_max')));
         }
       }), fight(600))
     : [...Array(80).fill('LEFT'), ...Array(200).fill('DOWN'), ...Array(320).fill('RIGHT')];

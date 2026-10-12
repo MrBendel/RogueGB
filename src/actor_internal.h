@@ -16,6 +16,9 @@
 // Slime: rests, then hops toward the player.
 #define SLIME_REST 30
 #define SLIME_HOP 24
+// Damage to the player (health is HEALTH_START = 60 at first: 6 touches).
+#define TOUCH_DAMAGE 10   // walking into an enemy
+#define BULLET_DAMAGE 8   // a peashooter's pea
 #define SLIME_HP 3
 #define STATE_REST 0
 #define STATE_HOP 1

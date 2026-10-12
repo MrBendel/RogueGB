@@ -18,6 +18,9 @@
 static const uint16_t grey[4] = {C(248, 248, 248), C(168, 168, 168), C(80, 80, 80), C(0, 0, 0)};
 // The UI (HUD, pause panel): parchment and ink.
 static const uint16_t ui[4] = {C(248, 240, 216), C(200, 184, 152), C(112, 96, 80), C(24, 16, 24)};
+// The HUD bars: parchment behind, a highlight, the body, ink.
+static const uint16_t shield_bar[4] = {C(248, 240, 216), C(184, 236, 255), C(48, 128, 232), C(24, 16, 24)};
+static const uint16_t health_bar[4] = {C(248, 240, 216), C(255, 168, 152), C(208, 32, 48), C(24, 16, 24)};
 // The lab: sandy stone floor, its speckle, mid stone, dark mortar and pits.
 static const uint16_t lab[4] = {C(232, 220, 192), C(200, 180, 144), C(128, 108, 88), C(40, 32, 40)};
 // The player's shots and the muzzle flash: a hot yellow pellet.
@@ -42,6 +45,8 @@ void palettes_menu(void) BANKED {
 void palettes_play(void) BANKED {
     set_bg(BG_PAL_SCENE, lab);
     set_bg(BG_PAL_UI, ui);
+    set_bg(BG_PAL_SHIELD, shield_bar);
+    set_bg(BG_PAL_HEALTH, health_bar);
     // From the art (in switchable banks: banked_memcpy switches to them).
     banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_player_palette, 8, BANK(spr_player));
     banked_memcpy(&pal_base_obj[SPR_PAL_SLIME << 2], spr_slime_palette, 8, BANK(spr_slime));

@@ -21,6 +21,8 @@
 #include "aim.h"
 #include "oam.h"
 #include "weapon.h"
+#include "health.h"
+#include "hud.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -41,6 +43,8 @@
 // What else changing a value does.
 #define TUNE_MOVEMENT 1  // makes the movement preset CUSTOM
 #define TUNE_WEAPON 2    // the held weapon's: reload it (its recoil table is scaled)
+#define TUNE_HEALTH 4    // max health: refill to it
+#define TUNE_SHIELD 8    // the shield's: re-equip it (full)
 typedef struct {
     const char *label;
     uint8_t kind;
@@ -76,6 +80,10 @@ static const Tunable tunables[] = {
     {"AIM RANGE", KIND_NUM, TUNE_WEAPON, &wpn.aim_range, 8, 32, 160},
     {"AIM BIAS", KIND_NUM, 0, &aim_bias, 4, 0, 64},
     {"HITSTOP", KIND_FRAMES, 0, &hitstop_frames, 1, 0, 10},
+    {"HEALTH", KIND_NUM, TUNE_HEALTH, &player_hp_max, 10, 10, 250},
+    {"SHIELD", KIND_NUM, TUNE_SHIELD, &shield_cap, 10, 0, 250},
+    {"SH DELAY", KIND_FRAMES, TUNE_SHIELD, &shield_delay, 10, 0, 250},
+    {"SH RATE", KIND_FRAMES, TUNE_SHIELD, &shield_rate, 1, 0, 30},
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
@@ -96,10 +104,11 @@ uint8_t paused;
 uint8_t tune_sel;
 uint8_t tune_top;  // the first tunable shown (the list scrolls)
 uint8_t wave_spawned;
-uint8_t hud_hp;  // HP shown on the HUD, to redraw only on change
 // Debug/test hook: tests set this through emulator memory writes; the next frame
 // runs it and clears it. 1 = stress wave (actors_debug_stress); 2 = spawn an actor
-// of debug_type at (debug_x, debug_y), its slot in debug_slot.
+// of debug_type at (debug_x, debug_y), its slot in debug_slot; 3 = equip the
+// first shield (what the chest will hold); 4 = hurt the player for debug_type
+// damage from (debug_x, debug_y).
 uint8_t debug_cmd;
 uint8_t debug_type;
 uint16_t debug_x, debug_y;
@@ -110,21 +119,6 @@ void run_start(uint16_t seed) BANKED {
     initrand(seed);
     run_seconds = 0;
     run_ticks = 0;
-}
-
-// HP is one digit: draw it directly (win_number divides, which is slow).
-static void draw_hp(void) {
-    set_win_tile_xy(17, 0, FONT_TILES + ('0' - ' ') + player_hp);
-    hud_hp = player_hp;
-}
-
-static void draw_hud(void) {
-    fill_win_rect(0, 0, SCREEN_TW, 2, FONT_TILES);
-    win_text(0, 0, "GUN:");
-    weapon_draw_name(5, 0);
-    win_text(14, 0, "HP:");
-    draw_hp();
-    win_text(0, 1, "SEL:GUN   START:TUNE");
 }
 
 static uint16_t tune_get(const Tunable *t) {
@@ -183,10 +177,11 @@ void play_enter(void) BANKED {
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
     camera_init(player_x + 8, player_y + 8);
     actors_init();
+    hud_init();
     wave_spawned = 0;
     paused = 0;
     tune_sel = tune_top = 0;
-    draw_hud();
+    hud_draw();
     move_win(7, HUD_WY);
     SHOW_WIN;
     SHOW_SPRITES;
@@ -207,11 +202,12 @@ static void set_paused(uint8_t p) {
     paused = p;
     // Sprites would draw over the pause panel, so hide them while paused.
     if (p) {
+        hud_hide();
         draw_pause();
         move_win(7, PAUSE_WY);
         HIDE_SPRITES;
     } else {
-        draw_hud();
+        hud_draw();
         move_win(7, HUD_WY);
         SHOW_SPRITES;
     }
@@ -263,6 +259,8 @@ static void tune_update(void) {
         draw_tune_row(0);
     }
     if (t->flags & TUNE_WEAPON) weapon_select(weapon_cur);
+    if (t->flags & TUNE_HEALTH) player_hp = player_hp_max;
+    if (t->flags & TUNE_SHIELD) health_give_shield(shield_cap, shield_delay, shield_rate);
     draw_tune_row(tune_sel);
 }
 
@@ -279,7 +277,7 @@ void play_update(void) BANKED {
     }
     if (joy_pressed & J_SELECT) {
         weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);
-        weapon_draw_name(5, 0);  // just the name: the whole HUD takes over a frame to draw
+        weapon_draw_name(HUD_GUN_X, 0);  // just the name: the whole HUD takes over a frame to draw
     }
 
     if (++run_ticks == 60) {
@@ -297,6 +295,8 @@ void play_update(void) BANKED {
     if (debug_cmd) {
         if (debug_cmd == 1) actors_debug_stress(player_x, player_y);
         else if (debug_cmd == 2) debug_slot = actor_spawn(debug_type, debug_x, debug_y);
+        else if (debug_cmd == 3) health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
+        else if (debug_cmd == 4) player_hurt(debug_type, debug_x, debug_y);
         debug_cmd = 0;
     }
     player_update();
@@ -307,6 +307,7 @@ void play_update(void) BANKED {
     actors_update(FIRST_ACTOR_OAM);
     aim_update();
     player_draw();
-    if (player_hp != hud_hp) draw_hp();
+    health_update();
+    hud_update();
     if (!player_hp) state_change(STATE_RUN_OVER);
 }

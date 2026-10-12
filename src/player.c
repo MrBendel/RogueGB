@@ -36,6 +36,8 @@ static const int8_t facing_dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 // at the last safe spot and blinks for BLINK_FRAMES.
 #define FALL_FRAMES 32
 #define BLINK_FRAMES 60
+// Invulnerable frames after a hit the shield took all of (no blink, no knockback).
+#define SHIELD_IFRAMES 20
 // While airborne the art holds this walk frame (legs apart).
 #define AIR_FRAME 1
 // Frames a B press is remembered for, so pressing just before landing still jumps.
@@ -97,8 +99,6 @@ uint8_t player_jump_buffer;
 uint8_t player_fall_timer; // frames left in a pit fall (0 = not falling)
 uint8_t player_blink;      // frames left blinking after reappearing
 uint16_t player_falls;     // pits fallen into (each costs 1 HP)
-uint8_t player_hp;
-uint16_t player_hits;      // times damaged
 uint16_t safe_x;           // last spot standing on solid ground, for reappearing
 uint16_t safe_y;
 int16_t safe_z;
@@ -351,11 +351,6 @@ static void update_jump(int8_t dx, int8_t dy) {
     }
 }
 
-static void take_damage(uint8_t dmg) {
-    player_hits++;
-    player_hp = dmg >= player_hp ? 0 : player_hp - dmg;
-    player_blink = BLINK_FRAMES;
-}
 
 uint8_t player_hittable(void) {
     return !player_blink && !player_invuln && !player_fall_timer && player_z < PLAYER_CLEAR_Z;
@@ -363,7 +358,12 @@ uint8_t player_hittable(void) {
 
 void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) {
     if (player_blink || player_invuln || player_fall_timer) return;
-    take_damage(dmg);
+    if (!health_damage(dmg, 0)) {
+        // The shield took it: no knockback, a moment's grace.
+        player_invuln = SHIELD_IFRAMES;
+        return;
+    }
+    player_blink = BLINK_FRAMES;
     // Knocked away from the source (8 directions); straight down if on top of it.
     int16_t dx = (int16_t)(player_x + 8 - from_x);
     int16_t dy = (int16_t)(player_y + 12 - from_y);
@@ -386,7 +386,8 @@ static void update_pit_fall(void) {
     player_y = safe_y;
     player_xs = player_ys = 0;
     player_z = safe_z;
-    take_damage(1);  // also starts the blink
+    health_damage(PIT_DAMAGE, DMG_DIRECT);  // pits skip the shield
+    player_blink = BLINK_FRAMES;
 }
 
 // Is the player against a wall in direction dx (x axis) or dy (y axis)? Yes if

@@ -5,6 +5,7 @@ import { assert, matchGolden, startRun } from './helpers.mjs';
 
 const RAISED_Z = 8 * 256;
 const FALL_FRAMES = 32;
+const PIT_DAMAGE = 10;  // player.h
 
 const x = (emu) => emu.v('player_x', 'u16');
 const y = (emu) => emu.v('player_y', 'u16');
@@ -81,7 +82,7 @@ test('walking into a pit falls in, then reappears on safe ground, blinking', () 
   until(emu, [], (e) => e.v('player_fall_timer') === 0, FALL_FRAMES + 2, 'the fall to finish');
   assert.ok(e2pit(emu) === false, 'reappeared off the pit');
   assert.ok(emu.v('player_blink') > 0, 'blinking');
-  assert.equal(emu.v('player_hp'), hp - 1, 'a fall costs 1 HP');
+  assert.equal(emu.v('player_hp'), hp - PIT_DAMAGE, 'a fall costs PIT_DAMAGE health');
   emu.idle(70);
   assert.equal(emu.v('player_blink'), 0);
   assert.equal(emu.v('player_falls', 'u16'), 1, 'no second fall');
@@ -137,4 +138,17 @@ test('screen: falling into a pit', () => {
   const emu = besideNarrowPit();
   until(emu, 'RIGHT', (e) => e.v('player_fall_timer') > 0, 60, 'falling in');
   matchGolden(emu.idle(10), 'pit-fall');
+});
+
+test('a pit skips the shield: the fall costs health even with a full shield', () => {
+  const emu = besideNarrowPit();
+  emu.write8(emu.symbols.addr('debug_cmd'), 3);  // equip the first shield (play.c)
+  emu.idle(1);
+  const shield = emu.v('shield_hp');
+  assert.ok(shield > 0, 'shielded');
+  const hp = emu.v('player_hp');
+  until(emu, 'RIGHT', (e) => e.v('player_fall_timer') > 0, 60, 'falling in');
+  until(emu, [], (e) => e.v('player_fall_timer') === 0, FALL_FRAMES + 2, 'the fall to finish');
+  assert.equal(emu.v('player_hp'), hp - PIT_DAMAGE);
+  assert.equal(emu.v('shield_hp'), shield, 'the shield untouched');
 });

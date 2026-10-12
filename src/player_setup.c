@@ -77,8 +77,7 @@ void player_init(uint16_t px, uint16_t py) BANKED {
     player_roll_len = player_roll_t = 0;
     player_fall_timer = player_blink = 0;
     player_falls = 0;
-    player_hp = PLAYER_HP_MAX;
-    player_hits = 0;
+    health_start();
     safe_x = px;
     safe_y = py;
     safe_z = 0;

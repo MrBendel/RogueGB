@@ -100,6 +100,27 @@ Next: the shared game-feel effects (#13): screen shake, knockback from shots, im
 - **Deferred for now:** SELECT just cycles weapons. When the wheel is built, the world dims with the *faded* palette (one palette-register write, the same palette the scene fades use; the darkened one costs the same), the wheel is sprites on the second sprite palette at full contrast, and a scanline split keeps the HUD row bright for the weapon's name and stats.
 - Tapping SELECT acts on release, so a tap and the start of a hold can't be confused.
 
+### Health and shields (built)
+
+`src/health.c` and the HUD in `src/hud.c` (issues #10, #11):
+- **Numbers:**
+  - Health starts at 60 points.
+  - Enemies do 10 on touch and 8 per pea; a pit costs 10 and skips the shield.
+  - The first shield (the chest's, once the chest exists): 40 points, recharging a point every 2 frames after 150 frames (2.5 s) without a hit.
+  - Max health, shield capacity, delay and rate are on the pause panel.
+  - Health regen is a hook: `health_regen`, frames per point, 0 for now.
+- **Hits:**
+  - A hit the shield takes all of: 20 invulnerable frames, no knockback, no blink, and the player tinted shield blue for a moment.
+  - A hit that breaks the shield: the overflow spills into health, and the player flashes white and blue.
+  - A hit that reaches health: knockback and the 60-frame blink, as before.
+- **HUD:**
+  - The bottom row on the window: the shield bar over the health bar, then the gun's name.
+  - Bars are 1 px per point in whole 8 px cells, up to 88 px; past that they scale.
+  - The shield row is empty until you have one, and shows a cracked icon while empty.
+  - The health bar pulses at a quarter health or less.
+  - The bar tiles are in VRAM bank 1 (no scene tiles used), each with its own palette.
+  - A bar redraws only when its value changes: a 13-byte copy in vblank.
+
 ### Loot
 
 The Borderlands loop: kill or open → loot fountain → look → compare → equip. Notes on fitting it to a Game Boy (details in [docs/inspiration/borderlands-2.md](docs/inspiration/borderlands-2.md)):

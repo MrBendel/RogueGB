@@ -104,7 +104,7 @@ test('getting hit costs HP, knocks back and blinks', () => {
   const emu = inArena();
   const hp0 = emu.v('player_hp');
   until(emu, [], (e) => e.v('player_hits', 'u16') > 0, 900, 'a hit');
-  assert.equal(emu.v('player_hp'), hp0 - 1);
+  assert.ok(emu.v('player_hp') < hp0, 'health went down');
   assert.ok(emu.v('player_blink') > 0, 'blinking');
   assert.ok(emu.v('player_vx', 'i16') !== 0 || emu.v('player_vy', 'i16') !== 0, 'knocked back');
   // Invulnerable while blinking: no second hit right away.
@@ -139,11 +139,14 @@ test('losing all HP ends the run', () => {
   settle(emu, RUN_OVER, 'run over screen');
 });
 
-test('the HUD shows HP', () => {
+test('the HUD health bar follows health', () => {
   const emu = inArena();
   until(emu, [], (e) => e.v('player_hits', 'u16') > 0, 900, 'a hit');
   emu.idle(2);
-  assert.equal(emu.v('hud_hp'), emu.v('player_hp'));
+  // 60 health is 64 px of bar (whole cells): the fill scales to it.
+  const len = emu.v('hud_hp_len');
+  assert.equal(len, 64);
+  assert.equal(emu.v('hud_hp_px'), Math.floor((emu.v('player_hp') * len) / emu.v('player_hp_max')));
 });
 
 test('hardware sprites stay within 40 and enemies are drawn while on screen', () => {
@@ -247,7 +250,7 @@ test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () 
     const refill = f % 30 === 0;
     if (refill) {
       emu.write8(emu.symbols.addr('debug_cmd'), 1);
-      emu.write8(emu.symbols.addr('player_hp'), 6);
+      emu.write8(emu.symbols.addr('player_hp'), emu.v('player_hp_max'));
     }
     emu.hold(fight(f), 1);
     assert.equal(emu.v('next_state'), emu.v('game_state'), 'still fighting');
