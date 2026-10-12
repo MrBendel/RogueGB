@@ -1142,38 +1142,40 @@ export function buildWeaponDirectionalFrames(weaponTemplate) {
  *   Phase 1 (Slash):    Weapon sweeps through the 45° diagonal corner
  *   Phase 2 (Extension): Weapon thrusts straight ahead with motion-smear wings
  */
-export function getOracleMeleeSwipeStep(weaponFrames, dir, phaseIdx) {
+export function getOracleMeleeSwipeStep(weaponFrames, dir, phaseIdx, charHeight = 16) {
   const p = Math.max(0, Math.min(2, phaseIdx));
+  const yOff = charHeight > 16 ? 5 : 0;
   if (dir === 'down') {
-    if (p === 0) return { grid: weaponFrames.left[0], dx: -13, dy: 1, behind: false };
-    if (p === 1) return { grid: weaponFrames.diag_dl, dx: -11, dy: 10, behind: false };
-    return { grid: weaponFrames.down[1], dx: -2, dy: 14, behind: false };
+    if (p === 0) return { grid: weaponFrames.left[0], dx: -13, dy: 1 + yOff, behind: false };
+    if (p === 1) return { grid: weaponFrames.diag_dl, dx: -11, dy: 10 + yOff, behind: false };
+    return { grid: weaponFrames.down[1], dx: -2, dy: 14 + yOff, behind: false };
   }
   if (dir === 'up') {
-    if (p === 0) return { grid: weaponFrames.right[0], dx: 13, dy: -1, behind: true };
-    if (p === 1) return { grid: weaponFrames.diag_ur, dx: 11, dy: -10, behind: true };
-    return { grid: weaponFrames.up[1], dx: 2, dy: -14, behind: true };
+    if (p === 0) return { grid: weaponFrames.right[0], dx: 13, dy: -1 + yOff, behind: true };
+    if (p === 1) return { grid: weaponFrames.diag_ur, dx: 11, dy: -10 + Math.round(yOff * 0.5), behind: true };
+    return { grid: weaponFrames.up[1], dx: 2, dy: -14 + Math.round(yOff * 0.4), behind: true };
   }
   if (dir === 'right') {
-    if (p === 0) return { grid: weaponFrames.up[0], dx: 1, dy: -13, behind: true };
-    if (p === 1) return { grid: weaponFrames.diag_ur, dx: 11, dy: -10, behind: false };
-    return { grid: weaponFrames.right[1], dx: 14, dy: 2, behind: false };
+    if (p === 0) return { grid: weaponFrames.up[0], dx: 1, dy: -13 + Math.round(yOff * 0.5), behind: true };
+    if (p === 1) return { grid: weaponFrames.diag_ur, dx: 11, dy: -10 + yOff, behind: false };
+    return { grid: weaponFrames.right[1], dx: 14, dy: 2 + yOff, behind: false };
   }
   // left
-  if (p === 0) return { grid: weaponFrames.up[0], dx: -1, dy: -13, behind: true };
-  if (p === 1) return { grid: weaponFrames.diag_ul, dx: -11, dy: -10, behind: false };
-  return { grid: weaponFrames.left[1], dx: -14, dy: 2, behind: false };
+  if (p === 0) return { grid: weaponFrames.up[0], dx: -1, dy: -13 + Math.round(yOff * 0.5), behind: true };
+  if (p === 1) return { grid: weaponFrames.diag_ul, dx: -11, dy: -10 + yOff, behind: false };
+  return { grid: weaponFrames.left[1], dx: -14, dy: 2 + yOff, behind: false };
 }
 
 /**
  * Compute the default weapon overlay offset (dx, dy) and draw order (`behind`)
- * relative to the character's 16x16 top-left for non-melee-swipe states.
+ * relative to the character's 16x16 or 16x24 top-left for non-melee-swipe states.
  */
-export function defaultWeaponAnchor(dir, animKind, frameIdx, weaponCategory = 'small_gun', activeAttack = false) {
+export function defaultWeaponAnchor(dir, animKind, frameIdx, weaponCategory = 'small_gun', activeAttack = false, charHeight = 16) {
   const bob = (animKind === 'idle' && frameIdx === 1) || (animKind === 'run' && frameIdx === 2) ? 1 : 0;
   const jumpDy = animKind === 'jump' ? (frameIdx === 0 ? 1 : -1) : 0;
   const recoil = activeAttack ? (weaponCategory === 'big_gun' ? -2 : weaponCategory === 'small_gun' ? -1 : 2) : 0;
-  const baseDy = bob + jumpDy;
+  const yOff = charHeight > 16 ? 5 : 0;
+  const baseDy = bob + jumpDy + yOff;
 
   if (dir === 'right') {
     const dx = (weaponCategory === 'big_gun' ? 3 : 5) + recoil;
@@ -1209,8 +1211,9 @@ export function generateCharacterRig({
   palette = null,
 }) {
   const baseDown = cloneGrid(down);
-  const baseUp = up ? cloneGrid(up) : synthesizeUpFromDown(baseDown);
-  const baseRight = right ? cloneGrid(right) : synthesizeRightFromDown(baseDown);
+  const H = gridHeight(baseDown);
+  const baseUp = up && gridHeight(up) === H ? cloneGrid(up) : synthesizeUpFromDown(baseDown);
+  const baseRight = right && gridHeight(right) === H ? cloneGrid(right) : synthesizeRightFromDown(baseDown);
   const baseLeft = flipGridX(baseRight);
 
   const runDown = walk_down?.length === 4 ? walk_down.map(cloneGrid) : synthesizeRunFrames(baseDown, 'down');
@@ -1245,6 +1248,7 @@ export function generateCharacterRig({
 
   return {
     name,
+    height: H,
     palette: palette || GBC_PALETTES.gbc_hero_red.colors,
     bases: { down: baseDown, up: baseUp, right: baseRight, left: baseLeft },
     anims: {
@@ -1288,14 +1292,18 @@ const reverseBits = (b) => {
 const flipRows = (bytes) =>
   Array.from({ length: 16 }, (_, r) => bytes.slice((15 - r) * 2, (15 - r) * 2 + 2)).flat();
 
-export function encodeColumn8x16(grid, x0) {
+export function encodeColumn8x16(grid, x0, y0 = 0) {
+  const H = gridHeight(grid);
   const out = [];
-  for (let y = 0; y < 16; y++) {
+  for (let r = 0; r < 16; r++) {
+    const y = y0 + r;
     let lo = 0, hi = 0;
-    for (let x = 0; x < 8; x++) {
-      const c = grid[y * 16 + x0 + x] & 3;
-      lo |= (c & 1) << (7 - x);
-      hi |= (c >> 1) << (7 - x);
+    if (y >= 0 && y < H) {
+      for (let x = 0; x < 8; x++) {
+        const c = grid[y * 16 + x0 + x] & 3;
+        lo |= (c & 1) << (7 - x);
+        hi |= (c >> 1) << (7 - x);
+      }
     }
     out.push(lo, hi);
   }
@@ -1304,6 +1312,7 @@ export function encodeColumn8x16(grid, x0) {
 
 /**
  * Compile a character rig into deduplicated GBDK 8x16 C arrays, header, and CGB palette.
+ * Supports both 16x16 (2 columns/frame) and 16x24 (4 columns/frame: top L/R + bottom L/R).
  */
 export function compileRigToGbdk(rig, cName = 'spr_custom', weaponPalColors = null) {
   const columns = [];
@@ -1325,6 +1334,8 @@ export function compileRigToGbdk(rig, cName = 'spr_custom', weaponPalColors = nu
     return ref;
   };
 
+  const charH = rig.height || gridHeight(rig.bases?.down) || 16;
+  const colsPerFrame = charH > 16 ? 4 : 2;
   const frames = [];
   const anims = {};
   const animNames = Object.keys(rig.anims);
@@ -1332,21 +1343,33 @@ export function compileRigToGbdk(rig, cName = 'spr_custom', weaponPalColors = nu
     const grids = rig.anims[name];
     anims[name] = [frames.length, grids.length];
     for (const g of grids) {
-      frames.push([...addColumn(encodeColumn8x16(g, 0)), ...addColumn(encodeColumn8x16(g, 8))]);
+      if (colsPerFrame === 4) {
+        frames.push([
+          ...addColumn(encodeColumn8x16(g, 0, 0)),
+          ...addColumn(encodeColumn8x16(g, 8, 0)),
+          ...addColumn(encodeColumn8x16(g, 0, 16)),
+          ...addColumn(encodeColumn8x16(g, 8, 16)),
+        ]);
+      } else {
+        frames.push([...addColumn(encodeColumn8x16(g, 0, 0)), ...addColumn(encodeColumn8x16(g, 8, 0))]);
+      }
     }
   }
 
   const NAME = cName.toUpperCase();
-  const romBytes = columns.length * 32 + frames.length * 4 + animNames.length * 2 + 8;
+  const romBytes = columns.length * 32 + frames.length * (colsPerFrame * 2) + animNames.length * 2 + 8;
   const charPal = rig.palette || GBC_PALETTES.gbc_hero_red.colors;
   const weapPal = weaponPalColors || GBC_PALETTES.gbc_steel_cyan.colors;
 
   const header = [
-    `// Generated by RogueGB Sprite Studio (${rig.name}).`,
+    `// Generated by RogueGB Sprite Studio (${rig.name}, 16x${charH}).`,
     `#ifndef GEN_${NAME}_H`,
     `#define GEN_${NAME}_H`,
     '#include <stdint.h>',
     '#include <gb/cgb.h>',
+    `#define ${NAME}_SPRITE_WIDTH 16`,
+    `#define ${NAME}_SPRITE_HEIGHT ${charH}`,
+    `#define ${NAME}_COLS_PER_FRAME ${colsPerFrame}`,
     `#define ${NAME}_COLUMN_COUNT ${columns.length}`,
     `#define ${NAME}_FRAME_COUNT ${frames.length}`,
     `#define ${NAME}_ANIM_COUNT ${animNames.length}`,
@@ -1361,7 +1384,7 @@ export function compileRigToGbdk(rig, cName = 'spr_custom', weaponPalColors = nu
   ].join('\n');
 
   const source = [
-    `// Generated by RogueGB Sprite Studio (${rig.name}).`,
+    `// Generated by RogueGB Sprite Studio (${rig.name}, 16x${charH}).`,
     `#include "${cName}.h"`,
     formatGbcPaletteC(charPal, `${cName}_pal`),
     formatGbcPaletteC(weapPal, `${cName}_weapon_pal`),
@@ -1385,17 +1408,19 @@ export function compileRigToGbdk(rig, cName = 'spr_custom', weaponPalColors = nu
       frames: frames.length,
       anims: animNames.length,
       romBytes,
+      height: charH,
     },
   };
 }
 
 // ---------------------------------------------------------------------------
-// Built-in Character Presets (16x16 4-shade grids + GBC palette IDs)
+// Built-in Character Presets (16x16 and 16x24 4-shade grids + GBC palette IDs)
 export const CHARACTER_PRESETS = {
   adventurer: {
     id: 'adventurer',
-    name: 'Adventurer (Default Hero)',
+    name: 'Adventurer (16x16 Default Hero)',
     mode: '3pose',
+    height: 16,
     palette: GBC_PALETTES.gbc_hero_red.colors,
     down: parseAsciiGrid([
       '....33333333....',
@@ -1452,10 +1477,44 @@ export const CHARACTER_PRESETS = {
       '................',
     ]),
   },
+  gungeon_ranger: {
+    id: 'gungeon_ranger',
+    name: 'Gungeon Ranger (16x24 Tall Hero)',
+    mode: '1pose',
+    height: 24,
+    palette: GBC_PALETTES.gbc_emerald_tunic.colors,
+    down: parseAsciiGrid([
+      '....33333333....',
+      '...3222222223...',
+      '..321111111123..',
+      '..321133331123..',
+      '..333312213333..',
+      '..311133331113..',
+      '..313111111313..',
+      '..313111111313..',
+      '...3111331113...',
+      '....33333333....',
+      '...3223113223...',
+      '..322231132223..',
+      '..312232232213..',
+      '..313223322313..',
+      '..333211112333..',
+      '...3223333223...',
+      '...3222332223...',
+      '....32233223....',
+      '....323..323....',
+      '....323..323....',
+      '....333..333....',
+      '...3323..3233...',
+      '...3333..3333...',
+      '................',
+    ]),
+  },
   knight_guard: {
     id: 'knight_guard',
-    name: 'Armored Guard (Single-Sprite Synth)',
+    name: 'Armored Guard (16x16 Single-Sprite)',
     mode: '1pose',
+    height: 16,
     palette: GBC_PALETTES.gbc_guard_blue.colors,
     down: parseAsciiGrid([
       '.....333333.....',
@@ -1478,8 +1537,9 @@ export const CHARACTER_PRESETS = {
   },
   cyber_monk: {
     id: 'cyber_monk',
-    name: 'Mystic Monk (Single-Sprite Synth)',
+    name: 'Mystic Monk (16x16 Single-Sprite)',
     mode: '1pose',
+    height: 16,
     palette: GBC_PALETTES.gbc_monk_gold.colors,
     down: parseAsciiGrid([
       '.....333333.....',
@@ -1502,8 +1562,9 @@ export const CHARACTER_PRESETS = {
   },
   shadow_nocturne: {
     id: 'shadow_nocturne',
-    name: 'Hooded Rogue (Single-Sprite Synth)',
+    name: 'Hooded Rogue (16x16 Single-Sprite)',
     mode: '1pose',
+    height: 16,
     palette: GBC_PALETTES.gbc_nocturne_purple.colors,
     down: parseAsciiGrid([
       '.....333333.....',

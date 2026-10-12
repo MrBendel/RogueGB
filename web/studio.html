@@ -15,9 +15,22 @@
       <div class="brand">RogueGB <span>sprite studio</span></div>
     </div>
     <div class="row">
+      <button id="st-copy-chat" class="primary" title="Copy compact JSON/ASCII sprite spec to paste into chat">📤 Copy Sprite for Chat</button>
+      <button id="st-toggle-import" title="Paste JSON or ASCII sprite code">📥 Load Sprite Code</button>
       <a href="index.html" class="filebtn" style="text-decoration:none">🎮 Open Playtest</a>
     </div>
   </header>
+
+  <section id="st-code-drawer" class="card hidden" style="margin-bottom:12px">
+    <div class="row space-between">
+      <strong>Paste / Edit Character Sprite Code (JSON or 16-col ASCII rows)</strong>
+      <div class="row small">
+        <button id="st-apply-code" class="primary">✓ Load into Studio</button>
+        <button id="st-close-code">✕ Close</button>
+      </div>
+    </div>
+    <textarea id="st-code-input" rows="8" spellcheck="false" placeholder="Paste Sprite JSON from 'Copy Sprite for Chat' or 16-character ASCII rows (. = 0, 1 = light, 2 = mid, 3 = dark)..."></textarea>
+  </section>
 
   <section id="studio-view" class="studio-grid">
     <div class="studio-col">
@@ -32,7 +45,7 @@
 
         <div class="studio-stage-wrap">
           <canvas id="st-preview" width="64" height="64"></canvas>
-          <div id="st-drive-hint" class="small muted hidden">WASD/Arrows: Run · Z/J: Jump · X/K: Attack/Fire · Shift: Roll</div>
+          <div id="st-drive-hint" class="small muted hidden">WASD/Arrows: Run · Z/J: Jump · X/K: Attack/Fire · Shift: Dodge-Dash</div>
         </div>
 
         <div class="row center" id="st-anim-tabs">
@@ -40,7 +53,7 @@
           <button data-anim="run">Run</button>
           <button data-anim="attack">⚔️ Swipe</button>
           <button data-anim="jump">Jump</button>
-          <button data-anim="roll">Roll</button>
+          <button data-anim="roll">Roll / Dash</button>
           <button data-anim="hurt">Hurt</button>
         </div>
 
@@ -81,7 +94,7 @@
 
       <div class="card">
         <div class="row space-between">
-          <strong>All Generated Sequences (16×16 GBC/DMG Sheet)</strong>
+          <strong id="st-sheet-title">All Generated Sequences (16×16 GBC/DMG Sheet)</strong>
           <span id="st-hw-stats" class="pill ok">0 cols · 0 bytes</span>
         </div>
         <div class="sheet-scroll">
@@ -97,26 +110,37 @@
 
     <div class="studio-col">
       <div class="card">
-        <strong>1. Character Source &amp; Synthesis Mode</strong>
+        <strong>1. Character Source, Size &amp; Synthesis Mode</strong>
         <div class="row small">
           <label style="flex:1">Character Preset:
             <select id="st-preset" style="width:100%"></select>
           </label>
         </div>
+
+        <div class="row space-between small">
+          <span>Canvas Size:</span>
+          <div class="row" id="st-size-tabs">
+            <button data-size="16" class="on" title="Classic 16x16 (2 hardware 8x16 sprites/frame)">16×16 Standard</button>
+            <button data-size="24" title="Tall 16x24 (4 hardware 8x16 columns/frame)">16×24 Tall Hero</button>
+          </div>
+          <label title="When switching between 16x16 and 16x24, stretch proportions or pad/crop rows"><input type="checkbox" id="st-size-stretch" checked> Stretch</label>
+        </div>
+
         <div class="row small">
           <label><input type="radio" name="st-synth-mode" value="1pose"> 1-Sprite Synth (Down → Up/Right/Left + Anims)</label>
         </div>
         <div class="row small">
           <label><input type="radio" name="st-synth-mode" value="3pose" checked> 3-Pose Base (Down + Up + Right → Anims)</label>
         </div>
-        <div class="row small">
-          <label class="filebtn">📂 Import PNG Sprite… <input type="file" id="st-upload-png" accept="image/png,image/*"></label>
-          <select id="st-upload-target" title="Which base pose to import into">
+        <div class="row space-between small">
+          <label class="filebtn">📂 Import Image / PNG… <input type="file" id="st-upload-png" accept="image/png,image/*"></label>
+          <select id="st-upload-target" title="Which base pose to import or Ctrl+V paste into">
             <option value="down">into Down (Front)</option>
             <option value="up">into Up (Back)</option>
             <option value="right">into Right (Side)</option>
           </select>
         </div>
+        <div class="small muted">💡 Tip: Press <strong>Ctrl+V</strong> anywhere on this page to paste a copied sprite or screenshot directly into the selected pose!</div>
       </div>
 
       <div class="card">
@@ -141,26 +165,43 @@
 
       <div class="card">
         <div class="row space-between">
-          <strong>3. 16×16 2bpp Pixel Editor</strong>
+          <strong id="st-editor-title">3. 16×16 2bpp Pixel Editor</strong>
           <select id="st-edit-target" class="small">
             <option value="down">Edit Base: Down</option>
             <option value="up">Edit Base: Up</option>
             <option value="right">Edit Base: Right</option>
-            <option value="weapon">Edit Active Weapon</option>
+            <option value="weapon">Edit Active Weapon (16×16)</option>
           </select>
         </div>
+
         <div class="row center" id="st-palette-bar">
-          <button data-shade="0" title="Shade 0: Transparent">0 Trans</button>
+          <button data-shade="0" title="Shade 0: Transparent (Right-click)">0 Trans</button>
           <button data-shade="1" title="Shade 1: Light">1 Light</button>
           <button data-shade="2" title="Shade 2: Mid">2 Mid</button>
-          <button data-shade="3" class="on" title="Shade 3: Dark">3 Dark</button>
+          <button data-shade="3" class="on" title="Shade 3: Dark / Outline">3 Dark</button>
         </div>
+
+        <div class="row center small" id="st-tool-bar">
+          <button id="st-tool-pencil" class="on" title="Draw pixels (Left-click draw, Right-click erase, Alt-click pick shade)">✏️ Pencil</button>
+          <button id="st-tool-bucket" title="Flood-fill contiguous shade region">🪣 Fill</button>
+          <button id="st-tool-mirror" title="Mirror strokes horizontally across center line">🪞 Mirror X</button>
+          <button id="st-tool-onion" class="on" title="Show Down pose faintly underneath when editing Up or Right">🧅 Onion</button>
+          <button id="st-edit-undo" title="Undo last edit (Ctrl+Z)">↩️ Undo</button>
+        </div>
+
         <div class="editor-wrap">
-          <canvas id="st-editor" width="16" height="16"></canvas>
+          <canvas id="st-editor" width="224" height="224"></canvas>
+        </div>
+
+        <div class="row center small">
+          <button id="st-nudge-left" title="Shift sprite 1px Left">←</button>
+          <button id="st-nudge-up" title="Shift sprite 1px Up">↑</button>
+          <button id="st-nudge-down" title="Shift sprite 1px Down">↓</button>
+          <button id="st-nudge-right" title="Shift sprite 1px Right">→</button>
+          <button id="st-edit-flipx" title="Flip horizontally">⇄ Flip X</button>
+          <button id="st-edit-clear" title="Clear active grid">🗑️ Clear</button>
         </div>
         <div class="row center small">
-          <button id="st-edit-flipx">⇄ Flip X</button>
-          <button id="st-edit-clear">🗑️ Clear</button>
           <button id="st-edit-synth-dirs" title="Synthesize Up and Right from current Down sprite">✨ Auto-Synth Up &amp; Right from Down</button>
         </div>
       </div>

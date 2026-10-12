@@ -237,7 +237,8 @@ pre#build-log { font-size: 11px; white-space: pre-wrap; max-height: 260px; overf
 .frame-strip canvas { width: 48px; height: 48px; image-rendering: pixelated; background: #c4cfa1; border-radius: 3px; }
 
 .editor-wrap { display: flex; justify-content: center; padding: 8px; background: var(--btn); border-radius: 8px; touch-action: none; }
-#st-editor { width: 256px; height: 256px; image-rendering: pixelated; cursor: crosshair; touch-action: none; border: 2px solid var(--line); background: #c4cfa1; }
+#st-editor { width: 224px; height: auto; image-rendering: pixelated; cursor: crosshair; touch-action: none; border: 2px solid var(--line); background: #c4cfa1; border-radius: 3px; }
+#st-code-input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
 
 .sheet-scroll { max-height: 280px; overflow: auto; display: flex; justify-content: center; background: var(--btn); padding: 8px; border-radius: 6px; }
 #st-sheet { image-rendering: pixelated; width: 192px; height: auto; }

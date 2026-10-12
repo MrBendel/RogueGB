@@ -100,9 +100,10 @@ export function renderRigSheetPng(rig, scale = 2) {
   const maxFrames = Math.max(...animEntries.map(([, f]) => f.length));
   const cols = maxFrames;
   const rows = animEntries.length;
-  const cell = 16;
-  const W = cols * cell;
-  const H = rows * cell;
+  const cellW = 16;
+  const cellH = rig.height || (rig.bases?.down?.length === 384 ? 24 : 16);
+  const W = cols * cellW;
+  const H = rows * cellH;
   const rgb = new Uint8Array(W * H * 3);
   const pal = rig.palette || GBC_PALETTES.gbc_hero_red.colors;
   // Fill background with light neutral backdrop
@@ -113,12 +114,12 @@ export function renderRigSheetPng(rig, scale = 2) {
   }
   animEntries.forEach(([, frames], r) => {
     frames.forEach((g, c) => {
-      for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < cellH; y++) {
+        for (let x = 0; x < cellW; x++) {
           const v = g[y * 16 + x];
           if (v === 0) continue;
           const [pr, pg, pb] = pal[v];
-          const di = ((r * 16 + y) * W + (c * 16 + x)) * 3;
+          const di = ((r * cellH + y) * W + (c * cellW + x)) * 3;
           rgb[di] = pr;
           rgb[di + 1] = pg;
           rgb[di + 2] = pb;
