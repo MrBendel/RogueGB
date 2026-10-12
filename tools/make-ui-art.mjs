@@ -1,6 +1,7 @@
 // Draws the small UI sprites the art packs don't have (the aim reticle, the
-// player's shot) from ASCII art, as 16x16 RGBA PNGs in artwork/ui/. Run it after
-// editing a drawing here; tools/assets.mjs converts the PNGs like any other art.
+// player's shot, the muzzle flash) from ASCII art, as 16x16 RGBA PNGs in
+// artwork/ui/. Run it after editing a drawing here; tools/assets.mjs converts the
+// PNGs like any other art.
 //   node tools/make-ui-art.mjs
 //
 // Characters: '.' transparent, 'w' white, 'g' gray, 'k' black. The asset
@@ -96,8 +97,33 @@ const shotB = pad([
   '..kkkk..',
 ]);
 
+// Muzzle flash: a burst centred on (8, 8), cropped to the middle 8 columns like the
+// shot, so its sprite's (4, 8) is the muzzle. A big frame, then a small one.
+const flashA = [
+  '................', '................', '................', '................', '................',
+  '........k.......',
+  '......k.w.k.....',
+  '.......www......',
+  '.....kwwwwwk....',
+  '.......www......',
+  '......k.w.k.....',
+  '........k.......',
+  '................', '................', '................', '................',
+];
+const flashB = [
+  '................', '................', '................', '................', '................',
+  '................', '................',
+  '........k.......',
+  '.......kwk......',
+  '........k.......',
+  '................', '................', '................', '................', '................', '................',
+];
+
 fs.mkdirSync(OUT, { recursive: true });
-const files = { 'reticle (1).png': reticleOut, 'reticle (2).png': reticleIn, 'shot (1).png': shotA, 'shot (2).png': shotB };
+const files = {
+  'reticle (1).png': reticleOut, 'reticle (2).png': reticleIn, 'shot (1).png': shotA, 'shot (2).png': shotB,
+  'flash (1).png': flashA, 'flash (2).png': flashB,
+};
 for (const [name, rows] of Object.entries(files)) {
   fs.writeFileSync(path.join(OUT, name), png(rows));
   console.log(`[ui-art] artwork/ui/${name}`);

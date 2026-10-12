@@ -31,6 +31,9 @@ extern uint8_t aim_dir;                 // direction of the last shot, 0-31 (0 =
 extern uint16_t shots_fired;
 extern uint16_t shots_hit;              // shots that hit an enemy
 extern uint16_t enemies_killed;
+extern uint8_t aim_dir32;               // where the gun points now (0-31)
+extern uint8_t gun_dir16;               // the gun sprite's direction (0-15)
+extern uint8_t aim_facing;              // art direction while shooting (player.c), or 0xFF
 
 // The pool uses the enemy bullet record (actor.h); `alive` counts the frames of
 // flight left (0 = free slot).

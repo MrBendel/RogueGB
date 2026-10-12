@@ -1,5 +1,7 @@
 #include <gb/gb.h>
 #include "player.h"
+#include "oam.h"
+#include "aim.h"
 #include "input.h"
 #include "room.h"
 #include "sprite_slot.h"
@@ -20,9 +22,9 @@
 
 // The player uses hardware sprites 0-1 and VRAM sprite tiles 0-7; the jump
 // shadow uses sprites 2-3 (drawn under the player) and VRAM tiles 8-9.
-#define PLAYER_OAM 0
+#define PLAYER_OAM OAM_PLAYER
 #define PLAYER_VRAM 0
-#define SHADOW_OAM 2
+#define SHADOW_OAM OAM_SHADOW
 #define SHADOW_VRAM 8
 
 // Unit vectors for the 8 facings (clockwise from up), used for a dash with no d-pad input.
@@ -251,6 +253,8 @@ static void update_anim(int8_t dx, int8_t dy) {
         if (player_anim_dir != h && player_anim_dir != v) player_anim_dir = h;
     } else if (h != 0xFF) player_anim_dir = h;
     else if (v != 0xFF) player_anim_dir = v;
+    // Shooting: face the aim instead (aim.c), so walking away while firing backpedals.
+    if (aim_facing != 0xFF) player_anim_dir = aim_facing;
 
     if (!dx && !dy && !player_vx && !player_vy) {
         // Standing still: the first walk frame is the standing pose.

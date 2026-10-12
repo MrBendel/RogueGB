@@ -347,9 +347,9 @@ _aim_select::
     ret
 
 ; ---------------------------------------------------------------------------
-; void aim_draw_reticle(void): hardware sprites 4 and 5 around the target's
+; void aim_draw_reticle(void): hardware sprites 9 and 10 around the target's
 ; 16x16 frame (pulsing every 8 frames), or hidden.
-RETICLE_OAM = 4
+RETICLE_OAM = 9       ; OAM_RETICLE in oam.h
 VIEW_H = 128
 _aim_draw_reticle::
     ld a, (_aim_target)

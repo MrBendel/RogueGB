@@ -10,7 +10,7 @@ the design notes behind it.
 |---|---|
 | View | **Top-down**, at the scale of the Capcom-era (Oracle) Zelda games: 16×16 characters drawn as 2 hardware sprites in 8×16 mode, and 16×16 map blocks. Matches the `artwork/8bitadventure` pack |
 | Rooms | **Mixed sizes.** Most rooms are one screen (10×8 blocks) and slide to the next one, Zelda style. Some are bigger (2×1, 1×2, 2×2 screens) with a camera that follows the player, for arenas and bosses. Room data allows any size from the start |
-| Graphics | **Pre-rendered.** Nothing is drawn or combined pixel by pixel at runtime. Characters get one baked body set per **weapon type** (unarmed, melee, gun), not per weapon, so the 10-sprites-per-line budget stays at 2 sprites per character. Right-facing frames are mirrored for left. All frames live in ROM; VRAM holds only the frames on screen, swapped in when the animation changes (4 tiles = 64 bytes). Specific guns show in the HUD and pickup popup, not in the character's hands. Any combining of layers (body + weapon) happens in the build tools, not in the game. Cheap runtime effects: sprite flips (sprites only; DMG background tiles can't flip, so mirrored background art is pre-rendered by the build), palette changes, sprites stacked by the hardware where the line budget allows |
+| Graphics | **Pre-rendered.** Nothing is drawn or combined pixel by pixel at runtime. Characters' bodies are 2 sprites; right-facing frames are mirrored for left. All frames live in ROM; VRAM holds only the frames on screen, swapped in when the animation changes (4 tiles = 64 bytes). **The held weapon is its own sprite (1-2 sprites) over the body**, pre-drawn in 16 aiming directions by `tools/make-weapon-art.mjs` (see "Weapons" below). Any combining or rotating of art happens in the build tools, not in the game. Cheap runtime effects: sprite flips (sprites only; DMG background tiles can't flip, so mirrored background art is pre-rendered by the build), palette changes, sprites stacked by the hardware where the line budget allows |
 | Movement | Eased 8-way movement with per-axis acceleration, deceleration and reversal. **Default: SNAPPY at 1 px/frame** (5 frames to top speed, 4 to stop, 3 to turn around), chosen in the movement lab with the real player sprite (2 px/frame felt right with a placeholder box, but too fast with the character art). **Each character has a movement profile** (top speed + those three frame counts) from a data table, so heir classes, traits and enemies can move differently |
 | Performance | A frame is 70,224 CPU cycles (65,664 after vblank). VRAM updates are queued and written in vblank; per-frame code avoids 32-bit math and division; the hottest loops are hand-written assembly; enemies think at 30 Hz; the camera streams one strip per frame and moves at most 4 px a frame. Tests guard the budget: walking under half a frame, an arena fight under 48k, full pools (8 enemies + 20 bullets) at most 1% of frames over (#26). `harness/profile.mjs` shows where cycles go |
 | Dynamic content | Only **data** is generated at runtime: floor layouts, room picks and mirroring, spawns, gun stats. It runs during fades, so it has no per-frame budget |
@@ -65,6 +65,29 @@ Jumping makes the top-down world partly 3D, Link's Awakening style:
 - **Over holes:** pits are floor tiles you fall into if you land on them (lose some HP, respawn at the edge). Gaps up to about 2 blocks can be jumped.
 - **Simulated platforms:** some blocks are **raised**. You can jump onto them and walk along them, and dropping off the edge lands you on the floor. Later: moving platforms over pits.
 - Rolling out of a jump gives a burst of distance and a few invulnerability frames, so you can dodge in the air or extend a jump over a wider gap.
+
+### Weapons
+
+How weapons look and how each class feels. Decided: **16 aiming directions** (optimize if the CPU needs it), and **melee is a weapon class you can equip** (unlike Borderlands, where melee is a separate button).
+
+**How they're drawn** (built for the pistol; `src/aim.c`, `tools/make-weapon-art.mjs`):
+- The weapon is a separate sprite over the body. It points where auto-aim points: shots fly in 32 directions, the sprite shows the nearest of 16.
+- The art is one right-facing drawing (a Sprite Studio template) rotated around its grip by the build tool, RotSprite style, for the right half of the circle and mirrored for the left (so the grip stays underneath). The tool also writes, per direction, where the weapon sits, where its muzzle is, which way it kicks, and whether it's drawn behind the body (aiming up).
+- While shooting, the body faces the aim rather than the way it walks, so you can back away from something while firing at it.
+- Each shot kicks the gun back (2 px, then 1 px) and shows a muzzle flash. Shots leave from the muzzle. The weapon is put away while rolling or falling.
+- Sprites: the flash, the weapon (in front of or behind the body), the body, shadow and reticle have fixed slots (`src/oam.h`); 3-5 of the 10 per scanline around the player.
+
+**How each class feels** (the same knobs, different amounts: fire mode, cadence, projectiles, kick, knockback, hitstop, movement while firing):
+
+| Class | Fire mode | Projectiles | Kick and impact | Movement | Signature |
+|---|---|---|---|---|---|
+| Melee | Tap A to swing; a 3-hit combo in rhythm | None: a 24 px arc toward the target for a few frames | Big knockback, 3-frame hitstop on contact | Short lunge, slowed mid-swing | Swats enemy bullets back as your own |
+| Handgun | Tap A fires at once; hold for a slower auto | 1 accurate bullet, medium speed | 1 px kick, small flash | Full speed | Rewards tapping |
+| Shotgun | Slow (~40 frames), visible pump between shots | 5-7 pellets fanned ±22°, short range | Strong knockback, 2 px screen kick, pushes you back 2 px | Full speed | Point-blank power |
+| Minigun | Hold A: ~0.5 s spin-up, then very fast | A bullet every 3 frames, with jitter | 1 px rumble while firing | Half speed while firing | Spin-up and spin-down, a committed stance |
+| Sniper | Hold A to steady (the reticle closes in ~0.6 s), fires at lock; a quick tap fires weak | Instant hit (the line-of-sight check) with a 2-frame tracer, pierces | Big screen kick, hitstop on hit | Slowed while steadying | 2x aim range, a crit on a full lock |
+
+Next steps: a weapon data record with these presets (and a temporary way to switch between them), then the melee swing, then the shared hitstop / screen shake / knockback effects (#13).
 
 ### Weapon loadout
 

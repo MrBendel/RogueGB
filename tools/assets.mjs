@@ -113,6 +113,24 @@ export const ASSETS = [
     dir: 'artwork/ui',
     anims: { pulse: numbered('reticle', 2) },
   },
+  {
+    // Muzzle flash: one 8x16 sprite at the gun's muzzle for a few frames after a shot.
+    name: 'spr_flash',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/ui',
+    crop8: 4,
+    anims: { burst: numbered('flash', 2) },
+  },
+  // Held weapons: 16 aiming directions each, drawn by tools/make-weapon-art.mjs
+  // (which also writes src/weapon_<name>.h, where each direction is placed).
+  {
+    name: 'spr_pistol',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/weapons',
+    anims: { aim: numbered('pistol', 16) },
+  },
 ];
 
 /** "player walk down", 4 -> ["player walk down (1).png", ..., "player walk down (4).png"] */

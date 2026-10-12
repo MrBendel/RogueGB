@@ -6,6 +6,7 @@ import { assert, matchGolden, startRun } from './helpers.mjs';
 const ANIM = { DOWN: 0, UP: 1, RIGHT: 2, LEFT: 3 };
 const S_FLIPX = 0x20;
 
+const PLAYER_OAM = 3;  // oam.h: the body's two sprites
 /** OAM entry i: { y, x, tile, flags } */
 function oam(emu, i) {
   const [y, x, tile, flags] = emu.readBytes(0xfe00 + i * 4, 4);
@@ -21,7 +22,7 @@ const reverseBits = (b) => {
 /** Both columns as drawn, with flips applied, so frames can be compared visually. */
 function drawnColumns(emu) {
   return [0, 1].map((i) => {
-    const o = oam(emu, i);
+    const o = oam(emu, PLAYER_OAM + i);
     const bytes = column(emu, o.tile);
     return o.flags & S_FLIPX ? bytes.map(reverseBits) : bytes;
   });
@@ -45,8 +46,8 @@ test('left-facing frames are the right-facing ones mirrored', () => {
   assert.deepEqual(ll, rr.map(reverseBits));
   assert.deepEqual(lr, rl.map(reverseBits));
   // And it's done with the flip flag, not extra tile data.
-  assert.ok(oam(left, 0).flags & S_FLIPX);
-  assert.ok(oam(left, 1).flags & S_FLIPX);
+  assert.ok(oam(left, PLAYER_OAM).flags & S_FLIPX);
+  assert.ok(oam(left, PLAYER_OAM + 1).flags & S_FLIPX);
 });
 
 test('the walk cycle steps with distance and resets when standing', () => {
@@ -87,10 +88,10 @@ test('the player uses a fixed 8-tile VRAM slot, alternating halves', () => {
   const emu = startRun().idle(2);
   const tiles = new Set();
   let swaps = 0;
-  let last = oam(emu, 0).tile;
+  let last = oam(emu, PLAYER_OAM).tile;
   for (let f = 0; f < 60; f++) {
     emu.hold(f < 30 ? 'RIGHT' : 'LEFT', 1);
-    const t0 = oam(emu, 0).tile, t1 = oam(emu, 1).tile;
+    const t0 = oam(emu, PLAYER_OAM).tile, t1 = oam(emu, PLAYER_OAM + 1).tile;
     tiles.add(t0).add(t1);
     assert.equal(t1, t0 + 2, 'right column follows the left column');
     if (t0 !== last) swaps++;

@@ -2,6 +2,8 @@
 import { test } from 'node:test';
 import { assert, matchGolden, startRun } from './helpers.mjs';
 
+const PLAYER_OAM = 3, SHADOW_OAM = 7;  // oam.h
+
 // Defaults, must match src/player.c.
 const JUMP_VEL = 448, GRAV = 32, DASH_SPEED = 768, DASH_FRAMES = 8, DASH_IFRAMES = 12;
 const DIAG = 181;
@@ -62,7 +64,7 @@ test('you can steer while jumping', () => {
 
 test('the shadow shows only while airborne', () => {
   const emu = startRun().idle(2);
-  const shadowY = () => emu.readBytes(0xfe00 + 2 * 4, 1)[0];
+  const shadowY = () => emu.readBytes(0xfe00 + SHADOW_OAM * 4, 1)[0];
   assert.equal(shadowY(), 0, 'hidden on the ground');
   emu.hold('B', 1).idle(4);
   // Sprite positions reach OAM by DMA at the next vblank, so OAM shows the
@@ -71,7 +73,7 @@ test('the shadow shows only while airborne', () => {
   emu.idle(1);
   assert.ok(shadowY() > 0, 'visible in the air');
   // The body is drawn above its shadow by its height.
-  const bodyY = emu.readBytes(0xfe00, 1)[0];
+  const bodyY = emu.readBytes(0xfe00 + PLAYER_OAM * 4, 1)[0];
   assert.equal(shadowY() - bodyY, z);
   framesToLand(emu);
   emu.idle(1); // OAM lags a frame
@@ -160,7 +162,7 @@ const reverseBits = (b) => {
 function drawnImage(emu) {
   const img = Array.from({ length: 16 }, () => new Array(16).fill(0));
   for (let c = 0; c < 2; c++) {
-    const [, , tile, flags] = emu.readBytes(0xfe00 + c * 4, 4);
+    const [, , tile, flags] = emu.readBytes(0xfe00 + (PLAYER_OAM + c) * 4, 4);
     const bytes = emu.readBytes(0x8000 + tile * 16, 32);
     for (let r = 0; r < 16; r++) {
       const sr = flags & 0x40 ? 15 - r : r;

@@ -5,15 +5,16 @@
 #include <gb/gb.h>
 #include <string.h>
 #include "player.h"
+#include "oam.h"
 #include "spr_player.h"
 #include "sprite_slot.h"
 
 extern SpriteSlot player_slot;
 
 // Must match player.c.
-#define PLAYER_OAM 0
+#define PLAYER_OAM OAM_PLAYER
 #define PLAYER_VRAM 0
-#define SHADOW_OAM 2
+#define SHADOW_OAM OAM_SHADOW
 #define SHADOW_VRAM 8
 #define ANIM_DOWN 0
 

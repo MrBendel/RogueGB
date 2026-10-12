@@ -69,18 +69,46 @@ export function boot(opts = {}) {
   });
 }
 
+const readGoldens = () => (fs.existsSync(GOLDENS) ? JSON.parse(fs.readFileSync(GOLDENS, 'utf8')) : {});
+
+/**
+ * Update one entry of goldens.json. Test files run in parallel processes, so the
+ * read-modify-write holds a lock (a directory, created atomically); without it,
+ * two files updating at once could each write back the other's old entries.
+ */
+function writeGolden(name, hash) {
+  const lock = GOLDENS + '.lock';
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  for (let tries = 0; ; tries++) {
+    try {
+      fs.mkdirSync(lock);
+      break;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      if (tries > 2000) throw new Error(`${lock} has been held for over 10 s; delete it if no tests are running`);
+      Atomics.wait(pause, 0, 0, 5);
+    }
+  }
+  try {
+    const goldens = readGoldens();
+    goldens[name] = hash;
+    fs.writeFileSync(GOLDENS, JSON.stringify(goldens, null, 2) + '\n');
+  } finally {
+    fs.rmdirSync(lock);
+  }
+}
+
 /**
  * Screen regression check. Compares a hash of the current frame against
  * tests/goldens.json. Run with UPDATE_GOLDENS=1 to accept new output.
  * A PNG of the current frame is always written to build/test-output/.
  */
 export function matchGolden(emu, name) {
-  const goldens = fs.existsSync(GOLDENS) ? JSON.parse(fs.readFileSync(GOLDENS, 'utf8')) : {};
+  const goldens = readGoldens();
   const hash = emu.frameHash();
   const png = emu.shot(name);
   if (process.env.UPDATE_GOLDENS || !(name in goldens)) {
-    goldens[name] = hash;
-    fs.writeFileSync(GOLDENS, JSON.stringify(goldens, null, 2) + '\n');
+    writeGolden(name, hash);
     return;
   }
   assert.equal(hash, goldens[name], `screen "${name}" changed; see ${path.relative(ROOT, png)} (UPDATE_GOLDENS=1 to accept)`);

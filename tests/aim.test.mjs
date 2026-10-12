@@ -10,7 +10,7 @@ const SLIME = 1;
 const AIM_NONE = 0xff;
 const DIR_UP = 0, DIR_RIGHT = 2, DIR_DOWN = 4, DIR_LEFT = 6;
 const SHOT_SIZE = 13;  // Bullet record: alive 0, vx 1-2, x 5-6, vy 7-8, y 11-12
-const RETICLE_OAM = 4;
+const RETICLE_OAM = 9;  // oam.h
 
 const addr = (emu, name) => emu.symbols.addr(name);
 const w8 = (emu, name, v, i = 0) => emu.write8(addr(emu, name) + i, v);
@@ -208,4 +208,74 @@ test('screen: shooting at a target', () => {
   spawn(emu, PX + 64, PY);
   rescore(emu);
   matchGolden(emu.hold('A', 15), 'aim-shooting');
+});
+
+// --- The held weapon (the gun sprite over the body) ---
+const OAM_FLASH = 0, OAM_GUN_FRONT = 1, OAM_GUN_BACK = 5;  // oam.h
+const oamEntry = (emu, i) => {
+  const [y, x, tile, prop] = emu.readBytes(0xc000 + i * 4, 4);
+  return { y, x, tile, prop };
+};
+const gunShown = (emu, i) => oamEntry(emu, i).y || oamEntry(emu, i + 1).y;
+const ANIM_RIGHT = 2;
+
+test('the gun points at the target, in the nearest of its 16 directions', () => {
+  // The target from the 32-direction test: step 2 of 32 (22.5 degrees) = 1 of 16.
+  const emu = place(startRun().idle(2), 136, 24, DIR_DOWN).idle(2);
+  spawn(emu, 176, 37);
+  rescore(emu);
+  emu.idle(2);
+  assert.equal(emu.v('aim_dir32'), 2);
+  assert.equal(emu.v('gun_dir16'), 1);
+  assert.ok(gunShown(emu, OAM_GUN_FRONT), 'drawn in front of the body');
+  assert.ok(!gunShown(emu, OAM_GUN_BACK));
+});
+
+test('aiming up, the gun is held behind the body', () => {
+  // A target straight above (open floor in the lab's top row band).
+  const emu = place(startRun().idle(2), 136, 60, DIR_DOWN).idle(2);
+  spawn(emu, 136, 14);
+  rescore(emu);
+  emu.idle(2);
+  assert.equal(emu.v('gun_dir16'), 12, 'up');
+  assert.ok(gunShown(emu, OAM_GUN_BACK), 'drawn behind');
+  assert.ok(!gunShown(emu, OAM_GUN_FRONT));
+});
+
+test('a shot kicks the gun back and flashes at the muzzle, then both settle', () => {
+  const emu = place(startRun().idle(2), PX, PY, DIR_RIGHT).idle(40);
+  const restX = oamEntry(emu, OAM_GUN_FRONT).x;
+  assert.equal(oamEntry(emu, OAM_FLASH).y, 0, 'no flash before firing');
+  emu.hold('A', 1);
+  assert.equal(oamEntry(emu, OAM_GUN_FRONT).x, restX - 2, 'kicked back 2 px');
+  assert.ok(oamEntry(emu, OAM_FLASH).y, 'flash shown');
+  // The shot starts at the muzzle: its hitbox centre (x + 4) at the flash centre (x + 4 - 8 in hardware).
+  const s = shot(emu, 0);
+  assert.equal(s.x + 4 - emu.v('cam_x', 'u16') + 8, oamEntry(emu, OAM_FLASH).x + 4, 'shot leaves from the muzzle');
+  emu.idle(2);
+  assert.equal(oamEntry(emu, OAM_GUN_FRONT).x, restX - 1, 'easing back: 1 px');
+  emu.idle(2);
+  assert.equal(oamEntry(emu, OAM_GUN_FRONT).x, restX, 'at rest');
+  assert.equal(oamEntry(emu, OAM_FLASH).y, 0, 'flash gone');
+});
+
+test('the gun is put away while rolling', () => {
+  const emu = place(startRun().idle(2), PX, PY, DIR_RIGHT).idle(2);
+  assert.ok(gunShown(emu, OAM_GUN_FRONT) || gunShown(emu, OAM_GUN_BACK));
+  emu.hold('B', 1).idle(3).hold('RIGHT+B', 1);
+  assert.ok(emu.v('player_roll_len') > 0, 'rolling');
+  emu.idle(1);
+  assert.ok(!gunShown(emu, OAM_GUN_FRONT) && !gunShown(emu, OAM_GUN_BACK));
+});
+
+test('while shooting, the body faces the target even when walking away', () => {
+  // Target to the right; walk left with A held: the art faces right (backpedalling).
+  const emu = place(startRun().idle(2), 136, 10, DIR_LEFT).idle(2);
+  spawn(emu, 200, 10);
+  rescore(emu);
+  emu.hold('LEFT+A', 10);
+  assert.equal(emu.v('player_anim_dir'), ANIM_RIGHT);
+  // After letting go of A (and a moment), it faces the way it walks again.
+  emu.hold('LEFT', 30);
+  assert.notEqual(emu.v('player_anim_dir'), ANIM_RIGHT);
 });

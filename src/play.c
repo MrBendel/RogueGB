@@ -18,6 +18,7 @@
 #include "camera.h"
 #include "actor.h"
 #include "aim.h"
+#include "oam.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -58,9 +59,8 @@ static const Tunable tunables[] = {
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
-// Hardware sprites 0-3 are the player's (body and shadow), 4-5 the aim reticle
-// (aim.c); actors draw from here.
-#define FIRST_ACTOR_OAM 6
+// Sprites before this are the player's, the held weapon's and the reticle's (oam.h).
+#define FIRST_ACTOR_OAM OAM_FIRST_ACTOR
 // The arena is the screen below the lab (rows 16-22): entering it spawns a wave.
 #define ARENA_TOP (16 * BLOCK_SIZE)
 
