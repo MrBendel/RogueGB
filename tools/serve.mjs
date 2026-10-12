@@ -123,6 +123,7 @@ const server = http.createServer(async (req, res) => {
   const p = decodeURIComponent(url.pathname);
   try {
     if (p === '/') { res.writeHead(302, { location: '/web/' }); return res.end(); }
+    if (p === '/studio' || p === '/studio.html') { res.writeHead(302, { location: '/web/studio.html' }); return res.end(); }
     if (p === '/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
       res.write(`data: ${JSON.stringify(lastBuild)}\n\n`);
@@ -156,11 +157,12 @@ const server = http.createServer(async (req, res) => {
   }
 });
 const json = (res, v) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(v)); };
-const notFound = (res) => { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('not found'); };
+const notFound = (res, msg = 'not found') => { res.writeHead(404, { 'content-type': 'text/plain' }); res.end(msg); };
 
 server.listen(PORT, '127.0.0.1', () => {
   const url = `http://localhost:${PORT}/`;
   console.log(`[serve] playtest page: ${url}`);
+  console.log(`[serve] sprite studio: ${url}web/studio.html`);
   console.log('[serve] editing files in src/ rebuilds and reloads automatically. Ctrl+C to stop.');
   if (argv.includes('--open')) {
     const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
