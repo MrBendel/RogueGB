@@ -37,6 +37,10 @@ extern uint8_t aim_facing;              // art direction while shooting (player.
 extern uint8_t weapon_windup;           // spin-up / steadying progress, frames
 extern uint8_t shot_damage;             // HP a shot in flight takes off
 extern uint16_t crits;                  // critical shots fired
+extern uint8_t swing_t, swing_step;     // melee: frames into the swing, combo step (1-3)
+extern uint16_t melee_hits, deflects;
+extern uint8_t hitstop;                 // frames the game freezes for (play.c)
+extern uint8_t hitstop_frames;          // tunable
 
 // The pool uses the enemy bullet record (actor.h); `alive` counts the frames of
 // flight left (0 = free slot).

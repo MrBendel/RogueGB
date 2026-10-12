@@ -105,12 +105,13 @@ static uint8_t tick(uint8_t t) {
 }
 
 // Enemies only stand on plain floor: walls, pits and raised blocks all stop them.
-static uint8_t enemy_box_free(uint16_t x, uint16_t y) {
+uint8_t enemy_box_free(uint16_t x, uint16_t y) {
     uint16_t l = x + ENEMY_HB_X, r = x + ENEMY_HB_X + ENEMY_HB_W - 1;
     uint16_t t = y + ENEMY_HB_Y, b = y + ENEMY_HB_Y + ENEMY_HB_H - 1;
     return room_block_at(l, t) == BLK_FLOOR && room_block_at(r, t) == BLK_FLOOR &&
            room_block_at(l, b) == BLK_FLOOR && room_block_at(r, b) == BLK_FLOOR;
 }
+
 
 // Where a hop at velocity v (px/frame 8.8) ends, SLIME_HOP frames from pos.
 static uint16_t hop_end(uint16_t pos, int16_t v) {
@@ -128,7 +129,7 @@ static int8_t toward(uint16_t from, uint16_t to) {
 }
 
 // Velocity of `speed` along an 8-way direction; diag is its diagonal component.
-static void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int16_t *vx, int16_t *vy) {
+void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int16_t *vx, int16_t *vy) {
     int16_t s = (sx && sy) ? diag : speed;
     *vx = sx > 0 ? s : sx < 0 ? -s : 0;
     *vy = sy > 0 ? s : sy < 0 ? -s : 0;
@@ -136,8 +137,8 @@ static void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int1
 
 // Diagonal components of the speeds (diag_scale is two multiplies), redone only
 // when the tunable changes.
-static uint16_t slime_diag_for, bullet_diag_for;
-static int16_t slime_diag, bullet_diag;
+static uint16_t slime_diag_for;
+static int16_t slime_diag;
 
 static void update_slime(uint8_t i) {
     if (actor_state[i] == STATE_REST) {
@@ -195,25 +196,6 @@ static void update_slime(uint8_t i) {
     }
 }
 
-static void fire_bullet(uint8_t i, int8_t sx, int8_t sy) {
-    if (bullet_count == BULLET_MAX) return;  // full: don't scan for a free slot
-    Bullet *b = bullets;
-    for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
-        if (b->alive) continue;
-        b->alive = 1;
-        // The bullet's 8x16 sprite, centered on the shooter.
-        b->x = actor_x[i] + 4;
-        b->y = actor_y[i];
-        b->xs = b->ys = 0;
-        int16_t vx, vy;
-        if (bullet_diag_for != bullet_speed) bullet_diag = diag_scale(bullet_diag_for = bullet_speed);
-        set_velocity(sx, sy, bullet_speed, bullet_diag, &vx, &vy);
-        bullet_set_velocity(b, vx, vy);
-        bullets_fired++;
-        bullet_count++;
-        return;
-    }
-}
 
 static void update_shooter(uint8_t i) {
     uint8_t t = actor_timer[i] = tick(actor_timer[i]);
@@ -266,9 +248,12 @@ static void update_shots(void) {
     uint8_t f = (((uint8_t)frame_count >> 2) & 1) << 2;  // the pellet turns every 4 frames
     shot_draw_tile = shot_vram + (shot_frames[f] << 1);
     shot_draw_prop = shot_frames[f + 1];
-    shots_killed = 0;
     shots_update();
-    if (!shots_killed) return;
+}
+
+// Remove enemies brought to 0 HP (by shots or the sword: either sets shots_killed).
+static void reap(void) {
+    shots_killed = 0;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
         actor_type[i] = ACTOR_NONE;
@@ -314,6 +299,7 @@ void actors_update(uint8_t first_oam) {
     oam_next = first_oam;
     if (actor_count) actors_emit();
     if (shot_count) update_shots();
+    if (shots_killed) reap();
     actors_active = actor_count;
     update_bullets();
     uint8_t used = oam_next;

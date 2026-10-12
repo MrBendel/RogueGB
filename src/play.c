@@ -73,6 +73,7 @@ static const Tunable tunables[] = {
     {"WINDUP", KIND_FRAMES, TUNE_WEAPON, &wpn.windup, 2, 2, 90},
     {"AIM RANGE", KIND_NUM, TUNE_WEAPON, &wpn.aim_range, 8, 32, 160},
     {"AIM BIAS", KIND_NUM, 0, &aim_bias, 4, 0, 64},
+    {"HITSTOP", KIND_FRAMES, 0, &hitstop_frames, 1, 0, 10},
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
@@ -270,6 +271,13 @@ void play_update(void) BANKED {
     if (++run_ticks == 60) {
         run_ticks = 0;
         run_seconds++;
+    }
+
+    // Hitstop: a hit that lands freezes everything for a few frames (the sprites
+    // stay where they are), which gives it weight.
+    if (hitstop) {
+        hitstop--;
+        return;
     }
 
     if (debug_cmd) {

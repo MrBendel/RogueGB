@@ -25,9 +25,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_ART = path.join(ROOT, 'artwork', 'weapons');
 
 // Weapons, each drawn pointing right (shades 1-3, '.' transparent). `grip` is the
-// pixel the hand holds; `muzzle` is where shots and the flash come out. The
-// pistol and shotgun are adapted from the Sprite Studio templates (small_pistol,
-// big_shotgun in harness/sprite-gen.mjs); the minigun and sniper are new.
+// pixel the hand holds; `muzzle` is where shots and the flash come out (for the
+// sword, the tip). The pistol and shotgun are adapted from the Sprite Studio
+// templates (small_pistol, big_shotgun in harness/sprite-gen.mjs); the minigun
+// and sniper are new; the sword is a slimmer take on the Volt Sabre
+// (melee_sword), so it keeps its shape at every swing angle.
 const WEAPONS = {
   pistol: {
     right: parseAsciiGrid([
@@ -120,6 +122,29 @@ const WEAPONS = {
     grip: { x: 5.5, y: 10.5 },
     muzzle: { x: 15.5, y: 8.5 },
   },
+  // Sabre: pommel and grip, a crossguard, and a blade with a bright core.
+  sword: {
+    right: parseAsciiGrid([
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '....3...........',
+      '...3233333333...',
+      '3323121111111333',
+      '...3233333333...',
+      '....3...........',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+    ]),
+    grip: { x: 1.5, y: 7.5 },
+    muzzle: { x: 15.5, y: 7.5 },
+  },
 };
 
 // Where the hand is, relative to the player's 16x16 frame, for each aim
@@ -149,14 +174,16 @@ function scale2x(src, w, h) {
   return out;
 }
 
-/** The middle of the drawing's opaque pixels: what it turns around. */
+/** The middle of the drawing's opaque pixels (rounded): what it turns around. */
 function centre(grid) {
   let x0 = 16, x1 = -1, y0 = 16, y1 = -1;
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     if (!grid[y * 16 + x]) continue;
     x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
   }
-  return { x: (x0 + x1 + 1) / 2, y: (y0 + y1 + 1) / 2 };
+  // On a pixel corner, like the frame's (8, 8), so 0, 90, 180 and 270 degrees
+  // reproduce the drawing exactly (a half-pixel centre would resample it).
+  return { x: Math.round((x0 + x1 + 1) / 2), y: Math.round((y0 + y1 + 1) / 2) };
 }
 
 /** The drawing rotated clockwise by `deg` around its centre, placed at (8, 8). */

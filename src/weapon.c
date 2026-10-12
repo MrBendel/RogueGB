@@ -9,10 +9,12 @@
 #include "spr_shotgun.h"
 #include "spr_minigun.h"
 #include "spr_sniper.h"
+#include "spr_sword.h"
 #include "weapon_pistol.h"
 #include "weapon_shotgun.h"
 #include "weapon_minigun.h"
 #include "weapon_sniper.h"
+#include "weapon_sword.h"
 
 uint8_t weapon_cur;
 WeaponStats wpn;
@@ -32,13 +34,17 @@ static const WeaponStats presets[WEAPON_COUNT] = {
     {FIRE_AUTO,     40,  0,  5,  1,  0,  896,  56,  96,  1,  3,   2,    0,   0},  // shotgun: 5 pellets fanned, shoves you back
     {FIRE_SPIN,      3,  0,  1,  0,  1, 1024,  96, 112,  1,  1,   0,   30,   1},  // minigun: spin up, spray, walk slowly
     {FIRE_CHARGE,   30,  0,  1,  0,  0, 1536, 224, 160,  2,  3,   0,   36,   1},  // sniper: steady for a critical, long reach
+    // sword: tap to swing, 3-hit combo (the window: tap), reach 14 px, knockback
+    // 12 px, deflects bullets; speed is unused (its table is the unit vectors)
+    {FIRE_MELEE,     0, 12,  1,  0,  0,  256,  14,  96,  2, 12,   0,    0,   1},
 };
-static const char *const names[WEAPON_COUNT] = {"PISTOL ", "SHOTGUN", "MINIGUN", "SNIPER "};
+static const char *const names[WEAPON_COUNT] = {"PISTOL ", "SHOTGUN", "MINIGUN", "SNIPER ", "SWORD  "};
 static const int8_t (*const places[WEAPON_COUNT])[16] = {
-    weapon_pistol_place, weapon_shotgun_place, weapon_minigun_place, weapon_sniper_place,
+    weapon_pistol_place, weapon_shotgun_place, weapon_minigun_place, weapon_sniper_place, weapon_sword_place,
 };
 static const uint8_t blanks[WEAPON_COUNT] = {
     SPR_PISTOL_BLANK_COLUMN, SPR_SHOTGUN_BLANK_COLUMN, SPR_MINIGUN_BLANK_COLUMN, SPR_SNIPER_BLANK_COLUMN,
+    SPR_SWORD_BLANK_COLUMN,
 };
 
 void weapon_init(uint8_t v) BANKED {
@@ -53,6 +59,9 @@ void weapon_init(uint8_t v) BANKED {
     v += SPR_MINIGUN_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_SNIPER] = v;
     banked_sprite_data(v, SPR_SNIPER_COLUMN_COUNT * 2, spr_sniper_tiles, BANK(spr_sniper));
+    v += SPR_SNIPER_COLUMN_COUNT * 2;
+    weapon_vram[WEAPON_SWORD] = v;
+    banked_sprite_data(v, SPR_SWORD_COLUMN_COUNT * 2, spr_sword_tiles, BANK(spr_sword));
     // First run: the presets. Later runs keep what was tuned (like movement).
     if (!stats_ready) {
         stats_ready = 1;
@@ -73,7 +82,8 @@ void weapon_select(uint8_t w) BANKED {
     case WEAPON_PISTOL: banked_memcpy(gun_frames, spr_pistol_frames, sizeof(gun_frames), BANK(spr_pistol)); break;
     case WEAPON_SHOTGUN: banked_memcpy(gun_frames, spr_shotgun_frames, sizeof(gun_frames), BANK(spr_shotgun)); break;
     case WEAPON_MINIGUN: banked_memcpy(gun_frames, spr_minigun_frames, sizeof(gun_frames), BANK(spr_minigun)); break;
-    default: banked_memcpy(gun_frames, spr_sniper_frames, sizeof(gun_frames), BANK(spr_sniper)); break;
+    case WEAPON_SNIPER: banked_memcpy(gun_frames, spr_sniper_frames, sizeof(gun_frames), BANK(spr_sniper)); break;
+    default: banked_memcpy(gun_frames, spr_sword_frames, sizeof(gun_frames), BANK(spr_sword)); break;
     }
     // The placement tables are in this bank, so a plain copy reads them.
     memcpy(gun_place, places[w], sizeof(gun_place));

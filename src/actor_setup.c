@@ -4,6 +4,7 @@
 #include <gb/gb.h>
 #include <string.h>
 #include "actor_internal.h"
+#include "player.h"
 #include "gfx.h"
 #include "aim.h"
 
@@ -97,5 +98,44 @@ void actors_debug_stress(uint16_t px, uint16_t py) BANKED {
         bl->vx_sign = (b & 1) ? 0 : -1;
         bl->vy = 0;
         bl->vy_sign = 0;
+    }
+}
+
+// --- Rarely-run actor actions, banked to keep bank 0 for the per-frame work ---
+
+// Knock enemy i back by (dx, dy) px: all the way if it lands on plain floor, else
+// half way, else not at all (so it can't be pushed into a wall or a pit).
+void actor_push(uint8_t i, int8_t dx, int8_t dy) BANKED {
+    uint16_t x = actor_x[i] + dx, y = actor_y[i] + dy;
+    if (!enemy_box_free(x, y)) {
+        x = actor_x[i] + (dx >> 1);
+        y = actor_y[i] + (dy >> 1);
+        if (!enemy_box_free(x, y)) return;
+    }
+    actor_x[i] = x;
+    actor_y[i] = y;
+}
+
+// A peashooter's shot (every 1.5 s or so): an enemy bullet from shooter i in
+// 8-way direction (sx, sy). The diagonal speed is a multiply, so it's cached.
+static uint16_t bullet_diag_for;
+static int16_t bullet_diag;
+void fire_bullet(uint8_t i, int8_t sx, int8_t sy) BANKED {
+    if (bullet_count == BULLET_MAX) return;  // full: don't scan for a free slot
+    Bullet *b = bullets;
+    for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
+        if (b->alive) continue;
+        b->alive = 1;
+        // The bullet's 8x16 sprite, centered on the shooter.
+        b->x = actor_x[i] + 4;
+        b->y = actor_y[i];
+        b->xs = b->ys = 0;
+        int16_t vx, vy;
+        if (bullet_diag_for != bullet_speed) bullet_diag = diag_scale(bullet_diag_for = bullet_speed);
+        set_velocity(sx, sy, bullet_speed, bullet_diag, &vx, &vy);
+        bullet_set_velocity(b, vx, vy);
+        bullets_fired++;
+        bullet_count++;
+        return;
     }
 }

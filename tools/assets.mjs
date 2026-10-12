@@ -152,6 +152,13 @@ export const ASSETS = [
     dir: 'artwork/weapons',
     anims: { aim: numbered('sniper', 16) },
   },
+  {
+    name: 'spr_sword',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/weapons',
+    anims: { aim: numbered('sword', 16) },
+  },
 ];
 
 /** "player walk down", 4 -> ["player walk down (1).png", ..., "player walk down (4).png"] */

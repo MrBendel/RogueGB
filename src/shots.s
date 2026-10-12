@@ -499,3 +499,170 @@ _shots_spawn::
     ld a, #0x80
     ld (hl+), a
     ret
+
+; ---------------------------------------------------------------------------
+; void melee_scan(void): which enemies and enemy bullets are inside the sword's
+; hit box this frame (aim.c's swing_hits acts on them; it cost ~15,000 cycles a
+; frame compiled). In: the box's left/top, shifted per kind so the test is on the
+; actor's own coordinates: melee_ex = left - 8, melee_ey = top - 11 (an enemy's
+; hitbox middle is at +8, +11); melee_bx = left - 4, melee_by = top - 8 (a
+; bullet's at +4, +8). Inside: 0 <= x - ex < MELEE_W and 0 <= y - ey < MELEE_H.
+; Out: melee_enemies (a bit per live enemy slot inside), melee_bullets (3 bytes,
+; a bit per live bullet slot inside, slot 0 = bit 0 of the first byte).
+MELEE_W = 28        ; 2 * SWING_HALF_W in aim.c
+MELEE_H = 24        ; 2 * SWING_HALF_H
+BULLET_MAX = 20     ; actor.h
+    .globl _melee_ex, _melee_ey, _melee_bx, _melee_by, _melee_enemies, _melee_bullets
+    .globl _bullets, _bullet_count
+
+    .area _DATA
+_melee_ex::      .ds 2
+_melee_ey::      .ds 2
+_melee_bx::      .ds 2
+_melee_by::      .ds 2
+_melee_enemies:: .ds 1
+_melee_bullets:: .ds 3
+ms_bit:          .ds 1
+ms_left:         .ds 1
+ms_out:          .ds 2
+
+    .area _CODE
+_melee_scan::
+    xor a, a
+    ld (_melee_enemies), a
+    ld (_melee_bullets), a
+    ld (_melee_bullets + 1), a
+    ld (_melee_bullets + 2), a
+    ; ---- enemies ----
+    ld c, #0
+    ld a, #1
+    ld (ms_bit), a
+1$:
+    IDX8 _actor_type
+    ld a, (hl)
+    or a, a
+    jr z, 3$
+    IDX8 _actor_hp
+    ld a, (hl)
+    or a, a
+    jr z, 3$
+    ld a, c
+    add a, a
+    ld b, a
+    ld hl, #_actor_x
+    call add_b
+    ld de, #_melee_ex
+    call ms_inside
+    jr nc, 3$
+    ld hl, #_actor_y
+    call add_b
+    ld de, #_melee_ey
+    call ms_inside_h
+    jr nc, 3$
+    ld a, (ms_bit)
+    ld hl, #_melee_enemies
+    or a, (hl)
+    ld (hl), a
+3$:
+    ld a, (ms_bit)
+    add a, a
+    ld (ms_bit), a
+    inc c
+    ld a, c
+    cp a, #ACTOR_MAX
+    jr nz, 1$
+    ; ---- enemy bullets ----
+    ld a, (_bullet_count)
+    or a, a
+    ret z
+    ld a, #BULLET_MAX
+    ld (ms_left), a
+    ld a, #1
+    ld (ms_bit), a
+    ld hl, #_melee_bullets
+    ld a, l
+    ld (ms_out), a
+    ld a, h
+    ld (ms_out + 1), a
+    ld hl, #_bullets
+5$:
+    ld a, (hl)
+    or a, a
+    jr z, 7$
+    push hl
+    ld de, #5               ; x
+    add hl, de
+    ld de, #_melee_bx
+    call ms_inside
+    jr nc, 6$
+    pop hl
+    push hl
+    ld de, #11              ; y
+    add hl, de
+    ld de, #_melee_by
+    call ms_inside_h
+    jr nc, 6$
+    ld a, (ms_out)
+    ld l, a
+    ld a, (ms_out + 1)
+    ld h, a
+    ld a, (ms_bit)
+    or a, (hl)
+    ld (hl), a
+6$:
+    pop hl
+7$:
+    ld de, #B_SIZE
+    add hl, de
+    ld a, (ms_bit)          ; next bit, and the next byte every 8
+    add a, a
+    jr nz, 8$
+    ld a, (ms_out)
+    inc a
+    ld (ms_out), a
+    jr nz, 9$
+    ld a, (ms_out + 1)
+    inc a
+    ld (ms_out + 1), a
+9$:
+    ld a, #1
+8$:
+    ld (ms_bit), a
+    ld a, (ms_left)
+    dec a
+    ld (ms_left), a
+    jr nz, 5$
+    ret
+
+; carry set if 0 <= (hl) - (de) < MELEE_W (16-bit values), for x; keeps bc, hl
+ms_inside:
+    ld a, #MELEE_W
+    jr ms_test
+; ... and < MELEE_H, for y
+ms_inside_h:
+    ld a, #MELEE_H
+ms_test:
+    push bc
+    push hl
+    ld b, a                 ; b = the limit
+    ld a, (de)
+    ld c, a
+    inc de
+    ld a, (hl+)
+    sub a, c
+    ld c, a                 ; c = low byte of the difference
+    ld a, (de)
+    ld e, a
+    ld a, (hl)
+    sbc a, e
+    jr nz, 1$               ; high byte not 0: outside
+    ld a, c
+    cp a, b                 ; carry if c < limit
+    pop hl
+    pop bc
+    ret
+1$:
+    pop hl
+    pop bc
+    or a, a                 ; a != 0 here: clears carry
+    ret

@@ -45,6 +45,17 @@ uint8_t shot_damage;      // HP the shots in flight take off (shots.s); the last
 uint8_t weapon_windup;    // spin-up or steadying progress, frames (FIRE_SPIN, FIRE_CHARGE)
 uint8_t reticle_tight;    // the reticle closes in (steadying past halfway) (aim_score.s)
 uint16_t crits;           // critical shots fired
+
+// --- melee (FIRE_MELEE): see swing() ---
+uint8_t swing_t;          // frames into the current swing (0 = not swinging)
+uint8_t swing_step;       // combo step: 1 and 2 sweep (opposite ways), 3 thrusts
+uint8_t swing_dir;        // the aim (0-31) when the swing started
+uint8_t swing_hit;        // enemies already hit this swing (a bit per slot)
+uint8_t combo_left;       // frames left to chain the next swing
+uint16_t melee_hits;      // enemies hit by swings
+uint16_t deflects;        // enemy bullets swatted back
+uint8_t hitstop;          // frames the game freezes for (play.c), on a hit that lands
+uint8_t hitstop_frames = 3;  // tunable
 // Graphics: where the tiles went and the frame tables (copied to RAM: the assets
 // are in a switchable bank). Set by aim_init.
 uint8_t shot_vram;
@@ -114,6 +125,9 @@ void aim_init(uint8_t v) BANKED {
     gun_kick = gun_flash = aim_hold = 0;
     weapon_windup = reticle_tight = 0;
     crits = 0;
+    swing_t = swing_step = combo_left = 0;
+    melee_hits = deflects = 0;
+    hitstop = 0;
     aim_facing = 0xFF;
     move_slow = 0;
     // Here, with the display off: it's ~60,000 cycles per weapon.
@@ -336,12 +350,134 @@ static void fire(uint8_t damage) {
     }
 }
 
+extern uint8_t bullet_count;  // enemy bullets alive (actor.c)
+
+// --- Melee ---
+// A swing lasts SWING_FRAMES: a short windup, SWING_ACTIVE frames that hit, then
+// recovery. The sword sprite sweeps through its directions around the aim (the
+// offsets below, in 16ths of a turn); step 2 sweeps the other way; step 3 is a
+// thrust straight at the aim, with a longer lunge and double damage. While the
+// swing is active, a box in front of the player (reach wpn.range) hits each enemy
+// once (knocking it back wpn.kick px) and turns enemy bullets into the player's.
+#define SWING_FRAMES 14
+#define SWING_ACTIVE_FROM 3
+#define SWING_ACTIVE_TO 6    // inclusive
+#define SWING_HALF_W 14      // half the hit box: width ...
+#define SWING_HALF_H 12      // ... and height (enemy hitbox middles inside it are hit)
+static const int8_t sweep[SWING_FRAMES] = {-4, -4, -3, -2, -1, 1, 2, 3, 3, 3, 3, 3, 3, 3};
+int16_t swing_cx, swing_cy;  // the hit box's centre offset from the player's middle
+int8_t swing_kx, swing_ky;   // the knockback, px
+
+// px along direction d (0-31): the sword's table is unit vectors (speed 256),
+// so |u| * px fits 16 bits (no 32-bit multiply).
+static int16_t along(uint8_t d, uint8_t px, uint8_t axis) {
+    int16_t u = axis ? dir_vy[WEAPON_SWORD][d & 31] : dir_vx[WEAPON_SWORD][d & 31];
+    uint16_t m = ((uint16_t)(u < 0 ? -u : u) * px) >> 8;
+    return u < 0 ? -(int16_t)m : (int16_t)m;
+}
+
+static void swing_start(uint8_t step) {
+    uint8_t d = aim_dir32;
+    swing_t = 1;
+    swing_step = step;
+    swing_dir = d;
+    swing_hit = 0;
+    swing_cx = along(d, wpn.range, 0);
+    swing_cy = along(d, wpn.range, 1);
+    swing_kx = (int8_t)along(d, wpn.kick, 0);
+    swing_ky = (int8_t)along(d, wpn.kick, 1);
+    // A lunge toward the aim: 2 px/frame (3 for the thrust), eased off by friction.
+    int16_t lx = dir_vx[WEAPON_SWORD][d], ly = dir_vy[WEAPON_SWORD][d];
+    player_vx += step == 3 ? (lx << 1) + lx : lx << 1;
+    player_vy += step == 3 ? (ly << 1) + ly : ly << 1;
+    aim_hold = HOLD_FRAMES;
+}
+
+// The active frames: enemies and enemy bullets in the box. melee_scan (shots.s)
+// finds them; this acts on the few it finds.
+void melee_scan(void);
+extern uint16_t melee_ex, melee_ey, melee_bx, melee_by;
+extern uint8_t melee_enemies, melee_bullets[3];
+
+static void swing_hits(void) {
+    uint16_t l = player_x + 8 + swing_cx - SWING_HALF_W, t = player_y + 10 + swing_cy - SWING_HALF_H;
+    melee_ex = l - 8;   // an enemy's hitbox middle is at (8, 11)
+    melee_ey = t - 11;
+    melee_bx = l - 4;   // a bullet's at (4, 8)
+    melee_by = t - 8;
+    melee_scan();
+    uint8_t dmg = swing_step == 3 ? wpn.damage << 1 : wpn.damage;
+    uint8_t landed = 0;
+    uint8_t hits = melee_enemies & ~swing_hit;  // each enemy once per swing
+    for (uint8_t i = 0, bit = 1; hits; i++, bit <<= 1) {
+        if (!(hits & bit)) continue;
+        hits &= ~bit;
+        swing_hit |= bit;
+        actor_hp[i] = actor_hp[i] > dmg ? actor_hp[i] - dmg : 0;
+        if (!actor_hp[i]) shots_killed = 1;  // actors_update removes it next frame
+        actor_hurt[i] = 4;
+        actor_push(i, swing_kx, swing_ky);
+        melee_hits++;
+        landed = 1;
+    }
+    // Swat enemy bullets back: each becomes one of the player's shots, flying
+    // along the swing at pistol speed.
+    for (uint8_t i = 0; i < BULLET_MAX; i++) {
+        if (!(melee_bullets[i >> 3] & (1 << (i & 7)))) continue;
+        Bullet *b = &bullets[i];
+        b->alive = 0;
+        bullet_count--;
+        shot_damage = dmg;
+        spawn_n = 1;
+        spawn_dir = swing_dir;
+        spawn_spread = 0;
+        spawn_life = 40;
+        spawn_x = b->x;
+        spawn_y = b->y;
+        spawn_vx = dir_vx[WEAPON_PISTOL];
+        spawn_vy = dir_vy[WEAPON_PISTOL];
+        shots_spawn();
+        deflects++;
+        landed = 1;
+    }
+    if (landed && !hitstop) hitstop = hitstop_frames;
+}
+
+// FIRE_MELEE: a press swings; pressed again before the combo window closes (or
+// during the recovery of a swing), it chains the next step. Returns whether a
+// swing is under way.
+static uint8_t swing(uint8_t pressed, uint8_t able) {
+    if (swing_t) {
+        if (pressed && able && swing_t > SWING_ACTIVE_TO) {
+            swing_start(swing_step == 3 ? 1 : swing_step + 1);
+        } else if (++swing_t > SWING_FRAMES) {
+            swing_t = 0;
+            combo_left = wpn.tap_interval;
+        } else if (swing_t >= SWING_ACTIVE_FROM && swing_t <= SWING_ACTIVE_TO) {
+            swing_hits();
+        }
+    } else if (pressed && able) {
+        swing_start(combo_left && swing_step < 3 ? swing_step + 1 : 1);
+    } else if (combo_left && !--combo_left) {
+        swing_step = 0;
+    }
+    if (swing_t) {
+        // The sword sweeps through its directions around the aim (step 2 the
+        // other way); the thrust points straight at it.
+        int8_t o = swing_step == 3 ? 0 : sweep[swing_t - 1];
+        if (swing_step == 2) o = -o;
+        gun_dir16 = (((swing_dir + 1) >> 1) + o) & 15;
+    }
+    return swing_t != 0;
+}
+
 // How holding and tapping A fire, per mode (weapon.h). Returns whether A counts
 // as "firing" this frame (the body faces the aim; heavy weapons slow you down).
 static uint8_t trigger(void) {
     uint8_t held = joy & J_A, pressed = joy_pressed & J_A;
     uint8_t able = !player_roll_len && !player_fall_timer;
     if (fire_cooldown) fire_cooldown--;
+    if (wpn.mode == FIRE_MELEE) return swing(pressed, able);
     switch (wpn.mode) {
     case FIRE_SEMI:
         // A press fires once the tap interval has passed; holding, the full interval.

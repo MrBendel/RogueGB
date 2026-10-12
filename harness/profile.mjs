@@ -30,7 +30,9 @@ for (let k = 0; k < (weaponArg ? Number(weaponArg.slice(9)) : 0); k++) { step('S
 const scenario = process.argv[2] || 'walk';
 const toArena = () => { step('LEFT', 80); step('DOWN', 200); while (v('player_x') < 148) step('RIGHT'); step('', 10); while (v('player_y') < 256) step('DOWN'); };
 // Strafe left and right, jumping now and then; `shoot` holds A throughout.
-const fight = (n, shoot = false) => Array.from({ length: n }, (_, f) => (f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT') + (shoot ? '+A' : ''));
+// The sword (weapon 4) swings once per press, so it taps A every 8 frames instead.
+const tapping = weaponArg && Number(weaponArg.slice(9)) === 4;
+const fight = (n, shoot = false) => Array.from({ length: n }, (_, f) => (f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT') + (shoot && (!tapping || f % 8 === 0) ? '+A' : ''));
 // Before some frames, poke memory (the stress scenario refills the pools).
 let before = () => {};
 const pokedAt = new Set();

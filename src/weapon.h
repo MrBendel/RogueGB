@@ -1,11 +1,11 @@
 // Weapons: what the player holds and how it fires (see ROADMAP "Weapons").
 //
-// Four classes for now, switched with SELECT: a pistol, a shotgun, a minigun and
-// a sniper rifle (melee comes next). Each is a set of stats (WeaponStats) plus
-// art: 16 aiming directions drawn by tools/make-weapon-art.mjs. All four guns'
-// art is loaded into sprite VRAM at the start of a scene, so switching is
-// instant: it copies the chosen gun's frame and placement tables into the fixed
-// RAM tables the drawing code reads (gun_frames, gun_place).
+// Five classes for now, switched with SELECT: a pistol, a shotgun, a minigun, a
+// sniper rifle and a sword. Each is a set of stats (WeaponStats) plus art: 16
+// aiming directions drawn by tools/make-weapon-art.mjs. Every weapon's art is
+// loaded into sprite VRAM at the start of a scene, so switching is instant: it
+// copies the chosen one's frame and placement tables into the fixed RAM tables
+// the drawing code reads (gun_frames, gun_place).
 //
 // The firing itself (modes, pellets, recoil) is in aim.c.
 #ifndef WEAPON_H
@@ -18,7 +18,8 @@
 #define WEAPON_SHOTGUN 1
 #define WEAPON_MINIGUN 2
 #define WEAPON_SNIPER 3
-#define WEAPON_COUNT 4
+#define WEAPON_SWORD 4
+#define WEAPON_COUNT 5
 
 // How holding and tapping A fire.
 #define FIRE_SEMI 0    // each press fires at once (tap_interval apart); holding fires every fire_interval
@@ -26,6 +27,8 @@
 #define FIRE_SPIN 2    // holding spins up for windup frames, then fires every fire_interval
 #define FIRE_CHARGE 3  // holding steadies for windup frames and fires a critical shot (2x damage);
                        // letting go earlier fires a normal one
+#define FIRE_MELEE 4   // each press swings (aim.c): a 3-hit combo if pressed within tap_interval
+                       // frames of the last swing; range = reach, kick = knockback (px)
 
 typedef struct {
     uint8_t mode;           // FIRE_*

@@ -94,5 +94,8 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED;
 // Move, think, collide with the player, and draw: actors and bullets get hardware
 // sprites from `first_oam` on. Call after the camera has moved for this frame.
 void actors_update(uint8_t first_oam);
+// Knock enemy i back by (dx, dy) px, if it lands on plain floor (else half way,
+// or not at all). Banked (actor_setup.c): it's only on a sword hit.
+void actor_push(uint8_t i, int8_t dx, int8_t dy) BANKED;
 
 #endif

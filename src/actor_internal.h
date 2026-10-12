@@ -57,5 +57,11 @@ extern uint8_t oam_end_last;
 
 // Look up the sprite tiles and flags for an actor's current frame.
 void actor_cache_frame(uint8_t i);
+// Enemies only stand on plain floor: is the hitbox at (x, y) all on it? (actor.c)
+uint8_t enemy_box_free(uint16_t x, uint16_t y);
+// Velocity of `speed` along an 8-way direction; diag is its diagonal component (actor.c).
+void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int16_t *vx, int16_t *vy);
+// A peashooter's shot (actor_setup.c, banked: it's rare).
+void fire_bullet(uint8_t i, int8_t sx, int8_t sy) BANKED;
 
 #endif
