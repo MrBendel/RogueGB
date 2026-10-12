@@ -27,7 +27,7 @@ export const CONFIG = {
   cartType: '0x1B',
   romBanks: 'A', // A = let makebin size the ROM automatically
   ramBanks: 1, // 8 KB SRAM
-  cgb: false, // true => -Wm-yc (GBC-compatible header). DMG/CGB decision pending.
+  cgb: 'only', // Game Boy Color only (-Wm-yC): decided 2026-10; 'compat' => -Wm-yc, false => DMG
   sgb: false,
   cflags: ['-Wa-l', '-Wf--max-allocs-per-node50000'],
 };
@@ -152,7 +152,8 @@ export function build({ clean = false, quiet = false } = {}) {
       `-Wm-yt${CONFIG.cartType}`, `-Wm-yo${CONFIG.romBanks}`, `-Wm-ya${CONFIG.ramBanks}`,
       `-Wm-yn${CONFIG.title}`, '-Wm-yS',
     ];
-    if (CONFIG.cgb) flags.push('-Wm-yc');
+    if (CONFIG.cgb === 'only') flags.push('-Wm-yC');
+    else if (CONFIG.cgb) flags.push('-Wm-yc');
     if (CONFIG.sgb) flags.push('-Wm-ys');
     if (!quiet) console.log(`[build] link ${path.relative(ROOT, out)}`);
     const r = run(lcc, [...flags, '-o', out, ...objs], quiet);

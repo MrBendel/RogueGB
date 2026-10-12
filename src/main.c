@@ -7,6 +7,7 @@
 // Globals are deliberately non-static so the test harness and the playtest
 // page can watch them by name (via build/roguegb.noi).
 #include <gb/gb.h>
+#include <gb/cgb.h>
 #include "state.h"
 #include "input.h"
 #include "gfx.h"
@@ -49,8 +50,10 @@ static void enter_next_state(void) {
 
 void main(void) {
     DISPLAY_OFF;
+    // Game Boy Color only: run the CPU at double speed (twice the work per frame).
+    cpu_fast();
     gfx_init();
-    BGP_REG = OBP0_REG = OBP1_REG = 0x00;  // start faded out; first enter fades in
+    gfx_set_fade(FADE_STEPS);  // start faded out; the first scene fades in
     SPRITES_8x16;  // characters are 16x16 = two 8x16 sprites
     SHOW_BKG;
     SHOW_SPRITES;

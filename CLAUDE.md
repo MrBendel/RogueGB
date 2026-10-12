@@ -21,6 +21,9 @@
 - Keep watchable game state in global, non-static variables.
 - Bank 0 is for hot code; cold code/data goes in `#pragma bank 255` files or `bank: true` assets
   (README, "ROM banks"). The build fails if bank 0 overflows or passes 90%.
+- Game Boy Color only, double speed: a frame is 140,448 CPU cycles (131,328 after vblank,
+  `FRAME_LIMIT` in tests/helpers.mjs). Palettes go through `pal_base_*` and `gfx_set_fade`
+  (uploaded in vblank); the DMG palette registers (BGP/OBP) do nothing on the Color.
 - Frame budget: per-frame code avoids 32-bit math and division; VRAM writes go through the vblank
   queue (`gfx_strip`, `gfx_vram_copy`). Profile with `node harness/profile.mjs walk|arena|shoot|stress`.
 - Never commit build output or the extracted `tools/.gbdk-*` folders to the user's folder.

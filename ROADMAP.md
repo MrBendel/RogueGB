@@ -12,10 +12,10 @@ the design notes behind it.
 | Rooms | **Mixed sizes.** Most rooms are one screen (10×8 blocks) and slide to the next one, Zelda style. Some are bigger (2×1, 1×2, 2×2 screens) with a camera that follows the player, for arenas and bosses. Room data allows any size from the start |
 | Graphics | **Pre-rendered.** Nothing is drawn or combined pixel by pixel at runtime. Characters' bodies are 2 sprites; right-facing frames are mirrored for left. All frames live in ROM; VRAM holds only the frames on screen, swapped in when the animation changes (4 tiles = 64 bytes). **The held weapon is its own sprite (1-2 sprites) over the body**, pre-drawn in 16 aiming directions by `tools/make-weapon-art.mjs` (see "Weapons" below). Any combining or rotating of art happens in the build tools, not in the game. Cheap runtime effects: sprite flips (sprites only; DMG background tiles can't flip, so mirrored background art is pre-rendered by the build), palette changes, sprites stacked by the hardware where the line budget allows |
 | Movement | Eased 8-way movement with per-axis acceleration, deceleration and reversal. **Default: SNAPPY at 1 px/frame** (5 frames to top speed, 4 to stop, 3 to turn around), chosen in the movement lab with the real player sprite (2 px/frame felt right with a placeholder box, but too fast with the character art). **Each character has a movement profile** (top speed + those three frame counts) from a data table, so heir classes, traits and enemies can move differently |
-| Performance | A frame is 70,224 CPU cycles (65,664 after vblank). VRAM updates are queued and written in vblank; per-frame code avoids 32-bit math and division; the hottest loops are hand-written assembly; enemies think at 30 Hz; the camera streams one strip per frame and moves at most 4 px a frame. Tests guard the budget: walking under half a frame, an arena fight under 48k, full pools (8 enemies + 20 bullets) at most 1% of frames over (#26). `harness/profile.mjs` shows where cycles go |
+| Performance | A frame is 140,448 CPU cycles at the Color's double speed (131,328 after vblank; it was 70,224 / 65,664 at normal speed). VRAM updates are queued and written in vblank; per-frame code avoids 32-bit math and division; the hottest loops are hand-written assembly; enemies think at 30 Hz; the camera streams one strip per frame and moves at most 4 px a frame. Tests guard the budget: walking under half a frame, an arena fight under 48k, full pools (8 enemies + 20 bullets) at most 1% of frames over (#26). `harness/profile.mjs` shows where cycles go |
 | Dynamic content | Only **data** is generated at runtime: floor layouts, room picks and mirroring, spawns, gun stats. It runs during fades, so it has no per-frame budget |
 | HUD | One block row (16 px) on the window layer. **Bottom of the screen for M1**, because the hardware does that for free. A top HUD like Zelda's needs a scanline interrupt; it's an optional M6 polish item |
-| Hardware | **DMG first** (4 shades), with GBC color added later in M6. Gameplay can't depend on color, so elements are shown by bullet shape and impact effect |
+| Hardware | **Game Boy Color only** (decided 2026-10, replacing "DMG first"): the ROM header is CGB-only, the CPU runs at double speed, and the Color's extra hardware is ours to use: 8 background + 8 sprite palettes, a second VRAM bank (512 sprite tiles), per-tile palettes and flips for the background, HDMA. The game won't run on an original Game Boy. Color arrives in steps: grey palettes matching the old look first (done), then per-asset palettes from the Sprite Studio, the second VRAM bank, the dimmed weapon wheel, and color for elements, rarity and zones |
 | Health and shields | **Borderlands-style layers.** A shield takes damage first and recharges after a delay without hits. Health only regenerates with a perk (class, trait or Manor). **You start without a shield** and earn the first one from a chest. Falling into a pit skips the shield. Shown as **bars, not hearts**: they grow as max values grow (Rogue Legacy style), and exact numbers are on the pause screen. How the character levels up (in-run XP, the Manor, or both) is decided once the story is outlined (see Open questions) |
 | Loot | **As close to Borderlands as the hardware allows**, so there's always a newer, better gun to find. Procedural guns from a few manufacturers, each with one gimmick (explodes when reloaded, burst fire, semi-auto heavy hitter, always elemental, accuracy that improves while firing, huge magazines). Rarity tiers, elements, chests with a loot fountain, and a stat card that compares a find with what you hold (see "Loot" below) |
 | Order | Get the **combat feel** right in one room before building systems around it |
@@ -114,11 +114,11 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
   - fast fire rate with huge magazines;
   - slow explosive rounds.
 - **Magazines and reloads** come with M3, since several gimmicks hang off the reload. Every button is taken, so reloading is automatic when a magazine empties (open: also reload after a pause in firing?).
-- **Rarity without color (DMG):** the height and sparkle of the light beam over a drop, the frame style of the item card, and a pickup sound. GBC adds the classic colors (M6).
+- **Rarity:** the classic Borderlands colors (Game Boy Color), plus the height and sparkle of the light beam over a drop, the frame style of the item card, and a pickup sound.
 - **Loot fountain:** chests and elite enemies pop items out in arcs, using the same height/shadow system as jumping.
 - **Item card:** standing on an item shows its card in the window: name (with a joke prefix), manufacturer, rarity, and each stat with ▲/▼ against what you're holding. Picking up needs a button: proposal, a tap of SELECT while standing on an item takes it (swapping if the loadout is full); elsewhere SELECT keeps its normal job.
 - **Shields are loot too:** capacity, recharge delay and rate, plus special effects (bursts when broken, damages enemies that touch you, absorbs bullets as ammo, boosts the next shot).
-- **Elements and status:** Fire burns flesh over time, Shock strips shields, Acid eats armor, Slag marks enemies to take more damage. Shown on DMG by palette flicker and a small effect sprite, not color.
+- **Elements and status:** Fire burns flesh over time, Shock strips shields, Acid eats armor, Slag marks enemies to take more damage. Shown by color (each element its own palette) plus a small effect sprite.
 - **Budget:** shotguns and fast guns need a bigger shot pool than today's 6, with CPU budget tests to match.
 
 ### Open questions
@@ -173,7 +173,7 @@ Turn one room into a seeded floor of hand-made rooms.
 - Doors and Zelda-style scrolling between rooms
 - Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges, and a look-ahead (lead) in the direction of travel that eases in and out when the direction changes, with a capped top speed (a plain eased camera lurched on quick turns; a constant-rate slide stopped dead)
 - Enemies outside the camera view are paused or simplified, and their sprites are skipped
-- Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed. Variety from data: rooms mirrored horizontally or vertically (via a block mirror table, since DMG background tiles can't be flipped in hardware), per-room layout variants (pits, platforms, cover), random spawn and decoration picks
+- Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed. Variety from data: rooms mirrored horizontally or vertically (via a block mirror table; on the Color, background tiles can also flip in hardware), per-room layout variants (pits, platforms, cover), random spawn and decoration picks
 - Doors lock until the room is cleared; cleared rooms are remembered for the run
 - Spawn tables per room
 - Room features built on jumping: rooms with pits to cross, raised-platform layouts, moving platforms
@@ -217,7 +217,7 @@ The full Borderlands loot loop (see "Loot" above).
 ### M6 · Sound and color
 - Music and sound-effect driver (proposal: hUGEDriver), title, zone and boss themes
 - A complete sound-effect set
-- GBC palettes (elements, enemy tiers, zones) and a GBC-compatible header
+- Color art pass: palettes for every asset, elements, enemy tiers and zones (the Color-only switch, double speed and the palette system come earlier, see "Hardware")
 - Title screen art, polish pass on transitions and UI
 - Optional: move the HUD to the top of the screen (scanline interrupt switches the window off below it)
 

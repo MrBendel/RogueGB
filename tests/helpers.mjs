@@ -114,6 +114,12 @@ export function matchGolden(emu, name) {
   assert.equal(hash, goldens[name], `screen "${name}" changed; see ${path.relative(ROOT, png)} (UPDATE_GOLDENS=1 to accept)`);
 }
 
+// The CPU budget (Game Boy Color, double speed): a frame is 140,448 CPU cycles,
+// and emu.lastFrameCycles counts from the end of vblank (9,120 of them), so an
+// update that runs past FRAME_LIMIT misses the next frame. See README, Frame budget.
+export const FRAME_CYCLES = 140448;
+export const FRAME_LIMIT = FRAME_CYCLES - 9120;  // 131,328
+
 // Scene IDs, must match src/state.h.
 export const TITLE = 0, PLAY = 1, RUN_OVER = 2;
 

@@ -119,12 +119,12 @@ _actors_emit::
     cp a, #39
     jp nc, 9$
 
-    ; b = palette bit: the flash palette while flashing
+    ; b = palette: sprite palette 1 (SPR_PAL_FLASH, inverted) while flashing
     IDX8 _actor_flash
     ld a, (hl)
     or a, a
     jr z, 3$
-    ld a, #0x10
+    ld a, #1
 3$:
     ld b, a
 

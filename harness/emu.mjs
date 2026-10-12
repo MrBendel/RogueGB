@@ -188,7 +188,8 @@ export class Emu {
    * Reading memory then would show a half-updated frame (e.g. velocity changed
    * but position not yet). So keep running until the CPU is back in vsync().
    * `lastFrameCycles` records how far (in CPU cycles) the update ran past the end
-   * of vblank: a frame is 70224 cycles, so this measures the CPU budget used.
+   * of vblank: a frame is 70224 cycles (140448 on a Game Boy Color at double
+   * speed), so this measures the CPU budget used.
    * Needs the `_vsync` symbol; without it this does nothing.
    */
   _finishGameFrame() {

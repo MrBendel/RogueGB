@@ -1,4 +1,5 @@
 #include <gb/gb.h>
+#include <gb/cgb.h>
 #include <string.h>
 #include <gb/metasprites.h>
 #include "gfx.h"
@@ -24,6 +25,12 @@ typedef struct {
 Copy copies[COPY_MAX];
 uint8_t copy_count;
 void vram_queue_write(void);  // vram_queue.s
+
+// The palettes on screen (gfx_set_fade fills them), and whether the vblank
+// handler should upload them (pal_write, vram_queue.s).
+uint16_t pal_bg[PAL_COUNT * 4], pal_obj[PAL_COUNT * 4];
+volatile uint8_t pal_dirty;
+void pal_write(void);
 
 // Set by gfx_commit(); the vblank handler only touches the queues when set, so it
 // never sees a half-built frame (e.g. when a frame runs long).
@@ -110,6 +117,10 @@ void gfx_flush(void) {
 void gfx_vbl(void) {
     SCX_REG = scroll_x;
     SCY_REG = scroll_y;
+    if (pal_dirty) {
+        pal_write();
+        pal_dirty = 0;
+    }
     if (vram_ready) {
         vram_queue_write();
         copy_count = 0;

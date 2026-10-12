@@ -107,9 +107,9 @@ test('screen: scrolled to the bottom-right corner', () => {
   matchGolden(walkToBottomRight(startRun().idle(2)).idle(90), 'scrolled-corner');
 });
 
-test('CPU budget: no frame of walking, scrolling and jumping uses more than half the frame', () => {
-  // lastFrameCycles = cycles the update ran past the end of vblank (a frame is 70224).
-  // Half a frame keeps room for enemies and bullets (M1).
+test('CPU budget: no frame of walking, scrolling and jumping uses more than a quarter of the frame', () => {
+  // lastFrameCycles = cycles the update ran past the end of vblank (a frame is
+  // 140,448 at the Color's double speed). A quarter keeps room for everything else.
   const BUDGET = 35112;
   const emu = startRun().idle(2);
   let worst = 0;

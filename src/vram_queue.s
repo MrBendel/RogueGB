@@ -160,3 +160,35 @@ _vram_queue_write::
     ld (q_left), a
     jr nz, 21$
     ret
+
+; ---------------------------------------------------------------------------
+; void pal_write(void): all 8 background and 8 sprite palettes (pal_bg, pal_obj
+; in gfx.c, 64 bytes each) into palette RAM, through the auto-incrementing
+; index registers. Vblank only: palette RAM can't be written while drawing.
+    .globl _pal_bg, _pal_obj
+
+BCPS = 0xFF68       ; background palette index (bit 7: auto-increment)
+BCPD = 0xFF69       ; ... data
+OCPS = 0xFF6A       ; sprite palette index
+OCPD = 0xFF6B       ; ... data
+
+_pal_write::
+    ld a, #0x80
+    ld (BCPS), a
+    ld hl, #_pal_bg
+    ld b, #64
+1$:
+    ld a, (hl+)
+    ld (BCPD), a
+    dec b
+    jr nz, 1$
+    ld a, #0x80
+    ld (OCPS), a
+    ld hl, #_pal_obj
+    ld b, #64
+2$:
+    ld a, (hl+)
+    ld (OCPD), a
+    dec b
+    jr nz, 2$
+    ret

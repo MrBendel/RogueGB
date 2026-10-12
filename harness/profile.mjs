@@ -69,6 +69,6 @@ plan.forEach((b, idx) => {
 const sorted = [...frames].sort((a, b) => b.cyc - a.cyc);
 for (const f of sorted.slice(0, 3)) console.log(f.idx, f.b, f.cyc, f.at, '\n    ' + f.top.join('\n    '));
 const med = [...frames].sort((a, b) => a.cyc - b.cyc)[frames.length >> 1];
-const BUDGET = 65664;  // see README, Frame budget
+const BUDGET = 131328;  // a Color frame at double speed (140,448) less vblank: see README, Frame budget
 console.log(`frames over budget (${BUDGET}): ${frames.filter((f) => f.cyc > BUDGET).length} of ${frames.length}`);
 console.log('median frame', med.cyc, '\n    ' + med.top.join('\n    '));

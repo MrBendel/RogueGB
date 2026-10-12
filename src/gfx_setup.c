@@ -1,6 +1,7 @@
 #pragma bank 255
 // Screen setup and fades, banked: called between scenes, never per frame.
 #include <gb/gb.h>
+#include <gb/cgb.h>
 #include <gb/metasprites.h>
 #include "gfx.h"
 #include "state.h"
@@ -11,8 +12,41 @@ extern volatile uint8_t vram_ready;  // gfx.c
 extern uint8_t strip_count, copy_count;
 void gfx_vbl(void);  // gfx.c: the vblank handler, in bank 0
 
-// Normal palette is 0xE4 (shades 3,2,1,0); each step shifts one shade lighter.
-static const uint8_t fade_pal[FADE_STEPS + 1] = {0xE4, 0x90, 0x40, 0x00};
+extern uint16_t pal_bg[PAL_COUNT * 4], pal_obj[PAL_COUNT * 4];  // gfx.c: on screen
+extern volatile uint8_t pal_dirty;
+
+uint16_t pal_base_bg[PAL_COUNT * 4], pal_base_obj[PAL_COUNT * 4];
+
+// The starting palettes: the original Game Boy's four greys (color index i is
+// shade i: white, light, dark, black), and the flash palette inverted. Real
+// colors come per asset (Sprite Studio palettes) in the next steps.
+#define GREY0 RGB(31, 31, 31)
+#define GREY1 RGB(21, 21, 21)
+#define GREY2 RGB(10, 10, 10)
+#define GREY3 RGB(0, 0, 0)
+static const uint16_t grey[4] = {GREY0, GREY1, GREY2, GREY3};
+static const uint16_t inverted[4] = {GREY3, GREY2, GREY1, GREY0};
+
+// How far toward white each fade step goes, in 1/256ths.
+static const uint8_t fade_mix[FADE_STEPS + 1] = {0, 85, 171, 255};
+
+static uint16_t faded(uint16_t c, uint8_t mix) {
+    uint8_t r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
+    if (mix == 255) return RGB(31, 31, 31);
+    r += (uint8_t)(((uint16_t)(31 - r) * mix) >> 8);
+    g += (uint8_t)(((uint16_t)(31 - g) * mix) >> 8);
+    b += (uint8_t)(((uint16_t)(31 - b) * mix) >> 8);
+    return RGB(r, g, b);
+}
+
+void gfx_set_fade(uint8_t step) BANKED {
+    uint8_t mix = fade_mix[step];
+    for (uint8_t i = 0; i < PAL_COUNT * 4; i++) {
+        pal_bg[i] = faded(pal_base_bg[i], mix);
+        pal_obj[i] = faded(pal_base_obj[i], mix);
+    }
+    pal_dirty = 1;
+}
 
 void gfx_init(void) BANKED {
     CRITICAL {
@@ -21,9 +55,18 @@ void gfx_init(void) BANKED {
     // The font and frame are in switchable banks (banked_bkg_data: gfx.c, bank 0).
     banked_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles, BANK(font));
     banked_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles, BANK(frame));
-    BGP_REG = 0xE4;
-    OBP0_REG = 0xE4;
-    OBP1_REG = FLASH_PAL;
+    // Tile attributes (VRAM bank 1: palette, flips, tile bank): all 0, so every
+    // tile is drawn plainly with background palette 0 from tile bank 0.
+    VBK_REG = 1;
+    fill_bkg_rect(0, 0, 32, 32, 0);
+    fill_win_rect(0, 0, 32, 32, 0);
+    VBK_REG = 0;
+    for (uint8_t p = 0; p < PAL_COUNT; p++) {
+        for (uint8_t i = 0; i < 4; i++) {
+            pal_base_bg[(p << 2) + i] = grey[i];
+            pal_base_obj[(p << 2) + i] = p == SPR_PAL_FLASH ? inverted[i] : grey[i];
+        }
+    }
 }
 
 void gfx_clear(void) BANKED {
@@ -37,15 +80,10 @@ void gfx_clear(void) BANKED {
     move_bkg(0, 0);
 }
 
-static void set_fade(uint8_t step) {
-    BGP_REG = OBP0_REG = fade_pal[step];
-    // Sprites drawn with the second palette flash inverted; while fading they fade too.
-    OBP1_REG = step ? fade_pal[step] : FLASH_PAL;
-}
 
 void fade_out(void) BANKED {
     for (uint8_t s = 1; s <= FADE_STEPS; s++) {
-        set_fade(s);
+        gfx_set_fade(s);
         for (uint8_t f = 0; f < FADE_FRAMES; f++) wait_frame();
     }
 }
@@ -53,7 +91,7 @@ void fade_out(void) BANKED {
 void fade_in(void) BANKED {
     for (uint8_t s = FADE_STEPS; s--;) {
         for (uint8_t f = 0; f < FADE_FRAMES; f++) wait_frame();
-        set_fade(s);
+        gfx_set_fade(s);
     }
 }
 

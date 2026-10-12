@@ -1,7 +1,7 @@
 // Actor system and the first enemies: slimes (chasers) and peashooters (shooters).
 // Issues #4 and #9, plus damage basics and jumping over danger (#6).
 import { test } from 'node:test';
-import { assert, matchGolden, startRun, settle, RUN_OVER } from './helpers.mjs';
+import { assert, matchGolden, startRun, settle, RUN_OVER, FRAME_CYCLES, FRAME_LIMIT } from './helpers.mjs';
 
 const SLIME = 1, PEASHOOTER = 2;
 const ACTOR_MAX = 8, BULLET_MAX = 20;
@@ -156,9 +156,6 @@ test('hardware sprites stay within 40 and enemies are drawn while on screen', ()
   }
 });
 
-// A frame is 70224 cycles and vblank (4560) comes before the measured part, so
-// 65664 is the hard limit: above it the game drops a frame. See README, Frame budget.
-const FRAME_LIMIT = 65664;
 const fight = (f) => (f % 45 === 0 ? 'LEFT+B' : f % 90 < 45 ? 'LEFT' : 'RIGHT');
 
 test('CPU budget: a fight in the arena never slows down, with room to spare', () => {
@@ -242,10 +239,8 @@ test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () 
   // Stress: every 30 frames the debug command refills both pools around the
   // player (and HP is topped up so the run goes on). Refill frames spawn a whole
   // wave at once, so they aren't counted. Worst ~70-75k, median ~55k with auto-aim
-  // and the held weapon: at most a rare dropped frame with every slot busy (2%).
-  // This is past M1's target (6+ enemies, 10+ bullets at 60 fps); the frames that
-  // drop are a peashooter re-aiming and firing on top of 20 bullets moving. The
-  // next gains are there (update_shooter, bullets.s), not in the player's code.
+  // and the held weapon. At the Color's double speed that's well inside the frame
+  // (131k): no frame drops even with every slot busy.
   const emu = inArena().hold('DOWN', 24);
   const cycles = [];
   for (let f = 0; f < 600; f++) {
@@ -264,8 +259,8 @@ test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () 
   const median = cycles[cycles.length >> 1], worst = cycles.at(-1);
   const over = cycles.filter((c) => c > FRAME_LIMIT).length;
   assert.ok(median < 57000, `median frame ${median} cycles`);
-  assert.ok(over <= cycles.length * 2 / 100, `${over} of ${cycles.length} frames over the limit (worst ${worst})`);
-  assert.ok(worst < 70224, `worst frame ${worst} cycles: more than a whole frame`);
+  assert.equal(over, 0, `${over} of ${cycles.length} frames over the limit (worst ${worst})`);
+  assert.ok(worst < FRAME_CYCLES, `worst frame ${worst} cycles: more than a whole frame`);
 });
 
 test('screen: the arena wave', () => {

@@ -79,8 +79,10 @@ prefers what you face, and HITSTOP how many frames a landed sword hit freezes th
 To add a scene: add a `STATE_*` ID and its `*_enter`/`*_update` to `state.h`, then add
 it to both switches in `main.c`.
 
-**Frame budget.** A frame is 70,224 CPU cycles. The update starts after vblank (4,560), so
-it has 65,664 before the game drops a frame. VRAM updates (new background rows and
+**Frame budget.** RogueGB is **Game Boy Color only** and runs the CPU at double speed
+(`cpu_fast()` at boot), so a frame is 140,448 CPU cycles; the harness counts from the end of
+vblank (9,120), which leaves 131,328 before the game drops a frame (`FRAME_LIMIT` in
+`tests/helpers.mjs`). VRAM updates (new background rows and
 columns, sprite animation frames) are queued during the frame and written by the vblank
 interrupt (`gfx_strip`, `gfx_vram_copy`), because writing VRAM while the screen is drawing
 waits on every byte. Keep per-frame code cheap:
