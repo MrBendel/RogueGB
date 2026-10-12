@@ -190,6 +190,53 @@ test('CPU budget: fighting with A held (auto-aim and shots) stays within the cap
   assert.ok(worst < 52000, `worst frame used ${worst} cycles past vblank`);
 });
 
+test('sprite flicker never hides an enemy for more than 2 frames, even 8 in a row', () => {
+  // The DMG draws at most 10 sprites per scanline: the 10 lowest OAM entries on
+  // that line (8x16 sprites cover y-16 .. y-1). Eight enemies side by side are 16
+  // sprites on the same lines, so 6 are dropped every frame; actors_update rotates
+  // the draw order so that which ones changes from frame to frame.
+  const emu = startRun().idle(2);
+  const a = (n) => emu.symbols.addr(n);
+  const w16 = (n, v) => emu.writeBytes(a(n), [v & 0xff, v >> 8]);
+  for (let k = 0; k < 8; k++) {
+    // A row across the view, above the player (the camera starts at y 40). The
+    // slimes rest (long timer) so they stay in line; walls under them don't matter.
+    emu.write8(a('debug_type'), SLIME);
+    w16('debug_x', 16 + k * 18);
+    w16('debug_y', 56);
+    emu.write8(a('debug_cmd'), 2);
+    emu.idle(1);
+    emu.write8(a('actor_timer') + emu.v('debug_slot'), 254);
+  }
+  const hidden = new Array(8).fill(0);
+  let worst = 0, drops = 0;
+  for (let f = 0; f < 120; f++) {
+    emu.idle(1);
+    const oam = Array.from({ length: 40 }, (_, i) => ({ y: emu.read8(0xc000 + i * 4), x: emu.read8(0xc000 + i * 4 + 1) }));
+    const drawn = new Set();
+    for (let line = 0; line < 144; line++) {
+      let n = 0;
+      for (let i = 0; i < 40 && n < 10; i++) {
+        const top = oam[i].y - 16;
+        if (oam[i].y && line >= top && line < top + 16) { n++; drawn.add(i); }
+      }
+    }
+    const camX = emu.v('cam_x', 'u16'), camY = emu.v('cam_y', 'u16');
+    for (const e of actors(emu)) {
+      // An enemy counts as seen if either of its two sprites is drawn.
+      const sx = e.x - camX + 8, sy = e.y - camY + 16;
+      const seen = [...drawn].some((i) => oam[i].y === sy && (oam[i].x === sx || oam[i].x === sx + 8));
+      if (!seen) drops++;
+      hidden[e.i] = seen ? 0 : hidden[e.i] + 1;
+      worst = Math.max(worst, hidden[e.i]);
+    }
+  }
+  assert.equal(actors(emu).length, 8);
+  assert.equal(emu.v('cam_y', 'u16'), 40, 'the row is on screen');
+  assert.ok(drops > 0, 'the scanline limit really did drop enemies');
+  assert.ok(worst <= 2, `an enemy stayed invisible for ${worst} frames in a row`);
+});
+
 test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () => {
   // Stress: every 30 frames the debug command refills both pools around the
   // player (and HP is topped up so the run goes on). Refill frames spawn a whole
