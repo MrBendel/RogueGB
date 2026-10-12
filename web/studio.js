@@ -4,7 +4,7 @@ import {
   gridHeight, parseAsciiGrid, gridToAscii, synthesizeUpFromDown, synthesizeRightFromDown,
   generateCharacterRig, compileRigToGbdk, CHARACTER_PRESETS, WEAPON_TEMPLATES,
   buildWeaponDirectionalFrames, defaultWeaponAnchor, getOracleMeleeSwipeStep,
-  GBC_PALETTES, snapColorToGbc, cloneGrid,
+  GBC_PALETTES, snapColorToGbc, rgbToCgb555, cloneGrid,
 } from '../harness/sprite-gen.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -70,7 +70,7 @@ let weaponId = 'melee_sword';
 let attackPose = false;
 let editTarget = 'down';
 let brushShade = 3;
-let editTool = 'pencil'; // 'pencil' | 'bucket'
+let editTool = 'pencil'; // 'pencil' | 'bucket' | 'picker'
 let mirrorX = false;
 let onionSkin = true;
 let previewMode = 'anim'; // 'anim' | 'drive'
@@ -131,9 +131,20 @@ function hexToRgb(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 function syncColorInputs() {
+  const activePal = editTarget === 'weapon' ? weapPalette : charPalette;
+  const cgbHexes = [];
   for (let i = 1; i <= 3; i++) {
     const el = $(`st-col-${i}`);
     if (el && charPalette[i]) el.value = rgbToHex(charPalette[i]);
+    const sw = $(`st-sw-${i}`);
+    if (sw && activePal[i]) sw.style.background = rgbToHex(activePal[i]);
+    if (charPalette[i]) {
+      const c555 = rgbToCgb555(charPalette[i][0], charPalette[i][1], charPalette[i][2]);
+      cgbHexes.push('0x' + c555.toString(16).toUpperCase().padStart(4, '0'));
+    }
+  }
+  if ($('st-cgb-readout') && cgbHexes.length === 3) {
+    $('st-cgb-readout').textContent = `CGB RGB555: ${cgbHexes.join(' · ')}`;
   }
 }
 
@@ -150,6 +161,7 @@ function syncSizeTabsUI() {
   if ($('st-sheet-title')) {
     $('st-sheet-title').textContent = `All Generated Sequences (16×${spriteHeight} GBC/DMG Sheet)`;
   }
+  syncColorInputs();
 }
 
 function drawGrid(ctx, grid, ox = 0, oy = 0, palToUse = charPalette) {
@@ -640,13 +652,36 @@ $('st-mode-anim').onclick = () => {
   $('st-mode-anim').classList.add('on');
   $('st-mode-drive').classList.remove('on');
   $('st-drive-hint').classList.add('hidden');
+  $('st-drive-touch')?.classList.add('hidden');
 };
 $('st-mode-drive').onclick = () => {
   previewMode = 'drive';
   $('st-mode-drive').classList.add('on');
   $('st-mode-anim').classList.remove('on');
   $('st-drive-hint').classList.remove('hidden');
+  $('st-drive-touch')?.classList.remove('hidden');
 };
+
+if ($('st-drive-touch')) {
+  for (const btn of $('st-drive-touch').querySelectorAll('button[data-btn]')) {
+    const bit = BTN[btn.dataset.btn] || 0;
+    const press = (e) => {
+      e.preventDefault();
+      keyMask |= bit;
+      btn.classList.add('on');
+      if (navigator.vibrate) navigator.vibrate(8);
+    };
+    const release = (e) => {
+      e.preventDefault();
+      keyMask &= ~bit;
+      btn.classList.remove('on');
+    };
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+  }
+}
 
 $('st-edit-target').onchange = (e) => {
   editTarget = e.target.value;
@@ -665,21 +700,15 @@ $('st-palette-bar').addEventListener('click', (e) => {
   selectShade(+b.dataset.shade);
 });
 
-// Drawing tool bar (Pencil, Fill Bucket, Mirror X, Onion Skin, Undo)
-if ($('st-tool-pencil')) {
-  $('st-tool-pencil').onclick = () => {
-    editTool = 'pencil';
-    $('st-tool-pencil').classList.add('on');
-    $('st-tool-bucket')?.classList.remove('on');
-  };
+function setEditTool(tool) {
+  editTool = tool;
+  $('st-tool-pencil')?.classList.toggle('on', tool === 'pencil');
+  $('st-tool-bucket')?.classList.toggle('on', tool === 'bucket');
+  $('st-tool-picker')?.classList.toggle('on', tool === 'picker');
 }
-if ($('st-tool-bucket')) {
-  $('st-tool-bucket').onclick = () => {
-    editTool = 'bucket';
-    $('st-tool-bucket').classList.add('on');
-    $('st-tool-pencil')?.classList.remove('on');
-  };
-}
+if ($('st-tool-pencil')) $('st-tool-pencil').onclick = () => setEditTool('pencil');
+if ($('st-tool-bucket')) $('st-tool-bucket').onclick = () => setEditTool('bucket');
+if ($('st-tool-picker')) $('st-tool-picker').onclick = () => setEditTool('picker');
 if ($('st-tool-mirror')) {
   $('st-tool-mirror').onclick = () => {
     mirrorX = !mirrorX;
@@ -708,9 +737,10 @@ function paintAt(e, isStart = false) {
   const y = Math.floor(((e.clientY - r.top) / r.height) * H);
   if (x < 0 || x >= 16 || y < 0 || y >= H) return;
 
-  // Alt-click picks shade under cursor (eyedropper)
-  if (e.altKey) {
+  // Eyedropper tool or Alt-click picks shade under cursor
+  if (editTool === 'picker' || e.altKey) {
     selectShade(g[y * 16 + x] & 3);
+    if (editTool === 'picker') setEditTool('pencil');
     toast(`Picked shade ${brushShade}`);
     painting = false;
     return;
@@ -835,6 +865,36 @@ $('st-upload-png').onchange = (e) => {
   img.src = URL.createObjectURL(f);
   e.target.value = '';
 };
+
+if ($('st-paste-btn')) {
+  $('st-paste-btn').onclick = async () => {
+    try {
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const imgType = item.types.find((t) => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            const img = new Image();
+            img.onload = () => importImageToStudio(img, 'Clipboard Image');
+            img.src = URL.createObjectURL(blob);
+            return;
+          }
+        }
+      }
+      if (navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && (text.trim().startsWith('{') || /^[.0123\s"']+$/m.test(text))) {
+          loadSpriteFromCode(text);
+          return;
+        }
+      }
+      toast('No image found on clipboard — copy an image or use 📂 Import Image');
+    } catch {
+      toast('Use📂 Import Image or press Ctrl+V to paste');
+    }
+  };
+}
 
 // Global Ctrl+V clipboard paste listener (supports pasted images OR sprite JSON/ASCII)
 addEventListener('paste', (e) => {

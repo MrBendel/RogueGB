@@ -46,6 +46,19 @@
         <div class="studio-stage-wrap">
           <canvas id="st-preview" width="64" height="64"></canvas>
           <div id="st-drive-hint" class="small muted hidden">WASD/Arrows: Run · Z/J: Jump · X/K: Attack/Fire · Shift: Dodge-Dash</div>
+          <div id="st-drive-touch" class="drive-touch hidden">
+            <div class="drive-dpad">
+              <button data-btn="LEFT" aria-label="Left">◀</button>
+              <button data-btn="UP" aria-label="Up">▲</button>
+              <button data-btn="DOWN" aria-label="Down">▼</button>
+              <button data-btn="RIGHT" aria-label="Right">▶</button>
+            </div>
+            <div class="drive-acts">
+              <button data-btn="A">⚔️ Atk</button>
+              <button data-btn="B">Jump</button>
+              <button data-btn="SELECT">Dash</button>
+            </div>
+          </div>
         </div>
 
         <div class="row center" id="st-anim-tabs">
@@ -133,18 +146,22 @@
           <label><input type="radio" name="st-synth-mode" value="3pose" checked> 3-Pose Base (Down + Up + Right → Anims)</label>
         </div>
         <div class="row space-between small">
-          <label class="filebtn">📂 Import Image / PNG… <input type="file" id="st-upload-png" accept="image/png,image/*"></label>
-          <select id="st-upload-target" title="Which base pose to import or Ctrl+V paste into">
+          <label class="filebtn">📂 Import Image… <input type="file" id="st-upload-png" accept="image/png,image/*"></label>
+          <button id="st-paste-btn" title="Paste copied image from clipboard (mobile or desktop)">📋 Paste Image</button>
+          <select id="st-upload-target" title="Which base pose to import or paste into">
             <option value="down">into Down (Front)</option>
             <option value="up">into Up (Back)</option>
             <option value="right">into Right (Side)</option>
           </select>
         </div>
-        <div class="small muted">💡 Tip: Press <strong>Ctrl+V</strong> anywhere on this page to paste a copied sprite or screenshot directly into the selected pose!</div>
+        <div class="small muted">💡 Auto-quantizes any image into <strong>3 visible colors + 1 transparent</strong> and snaps to <strong>15-bit GBC RGB555</strong>.</div>
       </div>
 
       <div class="card">
-        <strong>2. Game Boy Color (CGB) 4-Color Palettes</strong>
+        <div class="row space-between">
+          <strong>2. Game Boy / GBC Hardware Palette (2bpp)</strong>
+          <span id="st-cgb-readout" class="small muted">RGB555</span>
+        </div>
         <div class="row space-between small">
           <label style="flex:1">Hero OBJ Pal:
             <select id="st-char-pal" style="width:100%"></select>
@@ -154,11 +171,11 @@
           </label>
         </div>
         <div class="row space-between small">
-          <span>Custom 15-bit GBC Swatches (Hero):</span>
+          <span>15-bit GBC Swatches (3 Colors + 0 Trans):</span>
           <div class="row">
-            <label title="Shade 1: Light / Skin"><input type="color" id="st-col-1" value="#ffd8a0"> 1</label>
-            <label title="Shade 2: Mid / Primary"><input type="color" id="st-col-2" value="#e81800"> 2</label>
-            <label title="Shade 3: Dark / Outline"><input type="color" id="st-col-3" value="#000000"> 3</label>
+            <label title="Shade 1: Light / Skin (snaps to 5-bit RGB555)"><input type="color" id="st-col-1" value="#ffd8a0"> 1</label>
+            <label title="Shade 2: Mid / Primary (snaps to 5-bit RGB555)"><input type="color" id="st-col-2" value="#e81800"> 2</label>
+            <label title="Shade 3: Dark / Outline (snaps to 5-bit RGB555)"><input type="color" id="st-col-3" value="#000000"> 3</label>
           </div>
         </div>
       </div>
@@ -175,15 +192,16 @@
         </div>
 
         <div class="row center" id="st-palette-bar">
-          <button data-shade="0" title="Shade 0: Transparent (Right-click)">0 Trans</button>
-          <button data-shade="1" title="Shade 1: Light">1 Light</button>
-          <button data-shade="2" title="Shade 2: Mid">2 Mid</button>
-          <button data-shade="3" class="on" title="Shade 3: Dark / Outline">3 Dark</button>
+          <button data-shade="0" title="Shade 0: Hardware Transparent"><span class="sw sw-trans"></span>0 Eraser</button>
+          <button data-shade="1" title="Shade 1: Light / Highlight"><span class="sw" id="st-sw-1"></span>1 Light</button>
+          <button data-shade="2" title="Shade 2: Mid / Primary"><span class="sw" id="st-sw-2"></span>2 Mid</button>
+          <button data-shade="3" class="on" title="Shade 3: Dark / Outline"><span class="sw" id="st-sw-3"></span>3 Dark</button>
         </div>
 
         <div class="row center small" id="st-tool-bar">
-          <button id="st-tool-pencil" class="on" title="Draw pixels (Left-click draw, Right-click erase, Alt-click pick shade)">✏️ Pencil</button>
+          <button id="st-tool-pencil" class="on" title="Draw pixels">✏️ Pencil</button>
           <button id="st-tool-bucket" title="Flood-fill contiguous shade region">🪣 Fill</button>
+          <button id="st-tool-picker" title="Tap a pixel to pick its shade (or Alt-click)">💧 Pick</button>
           <button id="st-tool-mirror" title="Mirror strokes horizontally across center line">🪞 Mirror X</button>
           <button id="st-tool-onion" class="on" title="Show Down pose faintly underneath when editing Up or Right">🧅 Onion</button>
           <button id="st-edit-undo" title="Undo last edit (Ctrl+Z)">↩️ Undo</button>
