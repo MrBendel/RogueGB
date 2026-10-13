@@ -13,6 +13,8 @@
 #include <gb/gb.h>
 #include <rand.h>
 #include "waves.h"
+#include "descent.h"
+#include "level.h"
 #include "sfx.h"
 #include "state.h"
 #include "input.h"
@@ -105,6 +107,7 @@ static const Tunable tunables[] = {
 
 // --- watchable state ---
 uint16_t run_seed;
+uint8_t play_mode;
 uint16_t run_seconds;
 uint8_t run_ticks;
 uint8_t paused;
@@ -117,7 +120,8 @@ uint8_t tune_top;  // the first tunable shown (the list scrolls)
 // runs it and clears it. 1 = stress wave (actors_debug_stress); 2 = spawn an actor
 // of debug_type at (debug_x, debug_y), its slot in debug_slot; 3 = equip the
 // first shield (what the chest will hold); 4 = hurt the player for debug_type
-// damage from (debug_x, debug_y).
+// damage from (debug_x, debug_y); 5 = generate a layer from seed debug_x and
+// build its room debug_type into the room map (tests check the generator).
 uint8_t debug_cmd;
 uint8_t debug_type;
 uint16_t debug_x, debug_y;
@@ -181,8 +185,14 @@ static void draw_pause(void) {
 
 void play_enter(void) BANKED {
     palettes_play();
-    room_load_lab();
-    player_init(START_X, START_Y);
+    if (play_mode == MODE_DESCENT) {
+        room_load_tiles();
+        player_init(0, 0);
+        descent_start(run_seed);  // builds the start room and places the player
+    } else {
+        room_load_lab();
+        player_init(START_X, START_Y);
+    }
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
     camera_init(player_x + 8, player_y + 8);
     actors_init();
@@ -320,19 +330,28 @@ void play_update(void) BANKED {
         if (debug_cmd == 1) actors_debug_stress(player_x, player_y);
         else if (debug_cmd == 2) debug_slot = actor_spawn(debug_type, debug_x, debug_y);
         else if (debug_cmd == 3) health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
-        else if (debug_cmd == 4) {
+        else if (debug_cmd == 5) {
+            level_generate(debug_x);
+            level_build_room(debug_type);
+        } else if (debug_cmd == 4) {
             hurt_cause = CAUSE_NONE;
             player_hurt(debug_type, debug_x, debug_y);
         }
         debug_cmd = 0;
     }
     player_update();
-    waves_update();
+    if (play_mode == MODE_DESCENT) {
+        uint8_t door = descent_door();
+        if (door) descent_change_room(door);
+        descent_update();
+    } else {
+        waves_update();
+    }
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     actors_update(FIRST_ACTOR_OAM);
-    chest_update();
+    if (play_mode == MODE_LAB) chest_update();
     aim_update();
     player_draw();
     health_update();

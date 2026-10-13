@@ -1,0 +1,21 @@
+{
+  "theme": "test",
+  "about": "Placeholder chunks for the generator (M2). A chunk is 5x4 blocks (a quarter screen). Legend: . floor, # wall, o pit, = raised, ? maybe wall, : maybe pit, + maybe raised, e enemy slot, * item slot. tags: the room types a chunk may appear in (combat, connector, cache, start, exit, or any). weight: how often it's picked. The room's outer ring becomes wall, and doors and paths between them are carved after, so chunks needn't line up.",
+  "chunks": [
+    { "name": "open", "tags": ["any"], "weight": 3, "rows": [".....", ".....", ".....", "....."] },
+    { "name": "open-slot", "tags": ["combat"], "weight": 3, "rows": [".....", ".....", "..e..", "....."] },
+    { "name": "pillar", "tags": ["combat", "connector"], "weight": 3, "rows": [".....", ".#.?.", ".....", "..e.."] },
+    { "name": "cover", "tags": ["combat"], "weight": 3, "rows": [".e...", ".##..", ".....", "...?."] },
+    { "name": "pits", "tags": ["combat"], "weight": 2, "rows": [".....", ".oo..", ".o:..", "...e."] },
+    { "name": "platform", "tags": ["combat", "cache"], "weight": 2, "rows": [".....", ".==..", ".==e.", "....."] },
+    { "name": "wall-stub", "tags": ["combat", "connector"], "weight": 2, "rows": ["#?...", "#....", "..e..", "....."] },
+    { "name": "scatter", "tags": ["combat"], "weight": 2, "rows": ["?..?.", "..e..", ".?..?", "....."] },
+    { "name": "trench", "tags": ["combat"], "weight": 1, "rows": ["..:..", "..o..", "..o..", "..:.."] },
+    { "name": "nest", "tags": ["combat"], "weight": 1, "rows": ["e...e", ".....", "..#..", "e...."] },
+    { "name": "raised-row", "tags": ["combat", "connector"], "weight": 1, "rows": [".....", "+===+", ".....", ".e..."] },
+    { "name": "hall", "tags": ["connector"], "weight": 2, "rows": [".....", "..?..", ".....", "....."] },
+    { "name": "cache", "tags": ["cache"], "weight": 3, "rows": [".....", ".#*#.", ".....", "....."] },
+    { "name": "cache-pit", "tags": ["cache"], "weight": 1, "rows": [".:.:.", "..*..", ".:.:.", "....."] },
+    { "name": "landing", "tags": ["start", "exit"], "weight": 3, "rows": [".....", ".....", ".....", "....."] }
+  ]
+}

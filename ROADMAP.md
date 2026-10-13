@@ -263,7 +263,7 @@ layout with guarantees, and visual rulesets. Design and numbers:
 - Beacons end each layer: save point, way back up, later landing site
 - The opening as a shortened layer on a fixed seed with fixed landmarks
 - Minimap on the pause screen
-- Built already: the scrolling camera with streaming, lead and clamping (rooms up to 32×32 blocks)
+- Built already: the scrolling camera with streaming, lead and clamping (rooms up to 32×32 blocks); the generator skeleton (chunks in `content/chunks`, layer layout with a guaranteed path, rooms from chunks with carved door paths, doors between rooms, combat rooms that stay cleared). See "Built so far" in level-generation.md
 
 **Done when:** a 4-layer descent of 8–12 rooms per layer generates from a seed, the
 same seed always gives the same descent, the harness checks thousands of seeds are

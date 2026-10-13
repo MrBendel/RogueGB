@@ -137,7 +137,12 @@ export function bootToTitle() {
   return settle(boot(), TITLE, 'title screen');
 }
 
-/** Boot, press START on the title, and wait until gameplay is running. */
+/** Boot, open the test lab from the title (SELECT), and wait until gameplay is running. */
 export function startRun(emu = bootToTitle()) {
+  return settle(emu.tap('SELECT'), PLAY, 'play state');
+}
+
+/** Boot, start a descent from the title (START), and wait until gameplay is running. */
+export function startDescent(emu = bootToTitle()) {
   return settle(emu.tap('START'), PLAY, 'play state');
 }

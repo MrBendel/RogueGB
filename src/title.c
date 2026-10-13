@@ -19,6 +19,7 @@ void title_enter(void) BANKED {
     bkg_text(6, 4, "ROGUE GB");
     bkg_text(5, 6, "RUN.GUN.DIE");
     bkg_text(5, PROMPT_Y, "PRESS START");
+    bkg_text(3, 13, "SELECT: TEST LAB");
     bkg_text(1, 16, "V0.1");
 }
 
@@ -27,7 +28,8 @@ void title_update(void) BANKED {
     if ((title_timer & (BLINK_MASK - 1)) == 0) {
         bkg_text(5, PROMPT_Y, (title_timer & BLINK_MASK) ? "           " : "PRESS START");
     }
-    if (joy_pressed & (J_START | J_A)) {
+    if (joy_pressed & (J_START | J_A | J_SELECT)) {
+        play_mode = joy_pressed & J_SELECT ? MODE_LAB : MODE_DESCENT;
         sfx_play(SFX_START);
         // The frame the player presses START is effectively random, so it
         // seeds the run. Replays press on the same frame and get the same run.

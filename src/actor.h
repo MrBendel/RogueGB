@@ -92,6 +92,7 @@ void actors_debug_stress(uint16_t px, uint16_t py) BANKED;
 // Load enemy graphics into VRAM and clear the pools (call with the display off).
 #include <gb/gb.h>
 void actors_init(void) BANKED;  // actor_setup.c (banked)
+void actors_clear(void) BANKED;  // no enemies, bullets or shots (a room change)
 // Spawn an actor with its frame's top-left at room pixel (x, y). Returns its index, or 0xFF if full.
 uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED;
 // Move, think, collide with the player, and draw: actors and bullets get hardware

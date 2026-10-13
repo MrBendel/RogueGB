@@ -16,6 +16,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildAssets, GEN_DIR } from './assets.mjs';
+import { buildChunks } from './chunks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -124,8 +125,8 @@ export function build({ clean = false, quiet = false } = {}) {
   if (clean) fs.rmSync(path.join(ROOT, 'build', 'obj'), { recursive: true, force: true });
   fs.mkdirSync(objDir, { recursive: true });
 
-  // Generated sources (artwork -> tiles) live in build/gen/ and are never committed.
-  const genSources = buildAssets({ quiet });
+  // Generated sources (artwork -> tiles, room chunks) live in build/gen/ and are never committed.
+  const genSources = [...buildAssets({ quiet }), buildChunks({ quiet })];
   const sources = [...walk(srcDir, ['.c', '.s']), ...genSources];
   if (!sources.length) throw new Error('no sources in src/');
   const newestHeader = Math.max(0, ...walk(srcDir, ['.h', '.inc']).map(mtime), ...walk(GEN_DIR, ['.h']).map(mtime), mtime(fileURLToPath(import.meta.url)));

@@ -78,15 +78,21 @@ static const char lab_layout[LAB_H][LAB_W + 1] = {
 };
 
 
-void room_load_lab(void) BANKED {
+// The test tiles (floor, wall, raised, pit) and the block -> tile table; generated
+// rooms (level.c) use them too until themes come in.
+void room_load_tiles(void) BANKED {
     set_bkg_data(SCENE_TILES, ROOM_TILE_COUNT, room_tiles);
+    for (uint8_t i = 0; i < sizeof(block_tiles); i++) room_tile_lut[i] = block_tiles[i];
+}
+
+void room_load_lab(void) BANKED {
+    room_load_tiles();
     room_w = LAB_W;
     room_h = LAB_H;
     room_px_w = (uint16_t)LAB_W * BLOCK_SIZE;
     room_px_h = (uint16_t)LAB_H * BLOCK_SIZE;
     // Everything outside the room reads as wall, so drawing needs no bounds checks.
     for (uint16_t i = 0; i < sizeof(room_map); i++) room_map[i] = BLK_SOLID;
-    for (uint8_t i = 0; i < sizeof(block_tiles); i++) room_tile_lut[i] = block_tiles[i];
     for (uint8_t by = 0; by < LAB_H; by++)
         for (uint8_t bx = 0; bx < LAB_W; bx++)
         {

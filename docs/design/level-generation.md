@@ -105,6 +105,32 @@ Towns pull forward engine systems that the descent also needs: a dialogue box wi
 portraits, interaction (talk, buy, pick up), trigger zones, mission state, and
 save/load.
 
+## Built so far (2026-10-12)
+
+The skeleton runs in game: START on the title begins a descent, SELECT opens the test lab.
+
+- **Chunks** are JSON in `content/chunks/<theme>.json`, converted at build time by `tools/chunks.mjs`. Each chunk is 4 rows of 5 characters, with tags (room types) and a weight. The legend:
+
+  | Char | Means |
+  |---|---|
+  | `.` | floor |
+  | `#` | wall |
+  | `o` | pit |
+  | `=` | raised block |
+  | `?` `:` `+` | maybe a wall, pit or raised block (else floor) |
+  | `e` | enemy slot |
+  | `*` | item slot |
+- **Layers** (`src/level.c`) lay out a 4×4 grid: a main path from the top row to the exit in the bottom row, then branches up to 8–12 rooms. Room sizes:
+  - combat rooms: 3×2 up to 4×4 chunks;
+  - connectors: 2×2, 4×2 or 2×4;
+  - start, exit and cache rooms: 2×2.
+- **Rooms** are rebuilt from their seed each time they're entered:
+  - chunks are picked by weight for the room's type and flipped at random;
+  - wildcards are resolved, a wall ring is added, and doors are 2-block gaps;
+  - if a wildcard cut doors off from each other, a path is carved through the middle.
+- **The descent** (`src/descent.c`): doors fade to the neighbouring room. Combat rooms spawn enemies at their slots until cleared, and stay cleared. The exit room says EXIT; going down to the next layer comes with beacons.
+- **Tests** check 300 seeds for room counts and connectivity, every room of 40 seeds for walls and door-to-door paths, determinism, and walking between rooms.
+
 ## Open
 
 - Planet count, and whether later planets have more layers.

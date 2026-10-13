@@ -45,6 +45,8 @@ extern uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[BLK_TYPES * 4];  // filled
 // Load the movement-lab room (2x2 screens) and its tiles.
 #include <gb/gb.h>
 void room_load_lab(void) BANKED;  // room_lab.c (banked)
+// Just the tiles and the block -> tile table (generated rooms use the same set).
+void room_load_tiles(void) BANKED;
 
 // Block at a pixel known to be inside the room (no bounds check), for hot loops.
 #define ROOM_BLOCK_IN(x, y) \

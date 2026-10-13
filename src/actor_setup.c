@@ -25,13 +25,20 @@ void actors_init(void) BANKED {
     banked_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles, BANK(spr_pea));
     banked_memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames), BANK(spr_pea));
     aim_init(v + SPR_PEA_COLUMN_COUNT * 2);
+    actors_clear();
+    bullets_fired = 0;
+}
 
+// No enemies, enemy bullets or player shots (a room change).
+void actors_clear(void) BANKED {
     for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;
     for (uint8_t i = 0; i < BULLET_MAX; i++) bullets[i].alive = 0;
+    for (uint8_t i = 0; i < SHOT_MAX; i++) shots[i].alive = 0;
+    shot_count = 0;
     actors_active = bullets_active = 0;
     actor_count = bullet_count = 0;
-    bullets_fired = 0;
     oam_end_last = 0;
+    aim_target = AIM_NONE;
 }
 
 
