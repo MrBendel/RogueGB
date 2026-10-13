@@ -82,6 +82,9 @@ extern uint16_t slime_speed;      // px/frame 8.8 while hopping
 extern uint8_t shooter_interval;  // frames between shots
 extern uint8_t shooter_telegraph; // frames of warning flash before a shot
 extern uint16_t bullet_speed;     // px/frame 8.8
+extern uint8_t slime_rest;        // frames a slime rests between hops
+extern uint8_t enemy_hp_bonus;    // HP added to each enemy spawned
+extern uint8_t shooter_spread;    // peashooters fire 3 peas (the aim and 45 degrees either side)
 
 // Debug/test: fill the enemy pool around room pixel (px, py) and the bullet pool
 // with slow bullets nearby (the M1 stress target: 8 enemies, 20 bullets).

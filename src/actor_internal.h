@@ -13,8 +13,7 @@
 // are loaded from here on, one block per type.
 #define ENEMY_VRAM 16
 
-// Slime: rests, then hops toward the player.
-#define SLIME_REST 30
+// Slime: rests (slime_rest frames), then hops toward the player.
 #define SLIME_HOP 24
 // Damage to the player (health is HEALTH_START = 60 at first: 6 touches).
 #define TOUCH_DAMAGE 10   // walking into an enemy
@@ -66,5 +65,7 @@ uint8_t enemy_box_free(uint16_t x, uint16_t y);
 void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int16_t *vx, int16_t *vy);
 // A peashooter's shot (actor_setup.c, banked: it's rare).
 void fire_bullet(uint8_t i, int8_t sx, int8_t sy) BANKED;
+// A peashooter's shot: one pea toward (sx, sy), or three with shooter_spread.
+void fire_volley(uint8_t i, int8_t sx, int8_t sy) BANKED;
 
 #endif

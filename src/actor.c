@@ -45,9 +45,12 @@ uint8_t sprites_used;
 uint16_t bullets_fired;
 
 uint16_t slime_speed = 192;     // 0.75 px/frame while hopping
-uint8_t shooter_interval = 90;  // 1.5 s between shots
+uint8_t shooter_interval = 80;  // 1.33 s between shots (waves.c sets these per wave)
 uint8_t shooter_telegraph = 24; // flash for 0.4 s first
 uint16_t bullet_speed = 384;    // 1.5 px/frame
+uint8_t slime_rest = 26;
+uint8_t enemy_hp_bonus;
+uint8_t shooter_spread;
 
 // Per-type graphics: converted frame tables and where the tiles went in VRAM.
 // Frame tables are copied to RAM at load: the graphics live in a switchable bank,
@@ -194,7 +197,7 @@ static void update_slime(uint8_t i) {
     }
     if (!(actor_timer[i] = tick(actor_timer[i]))) {
         actor_state[i] = STATE_REST;
-        actor_timer[i] = SLIME_REST;
+        actor_timer[i] = slime_rest;
     }
 }
 
@@ -212,7 +215,7 @@ static void update_shooter(uint8_t i) {
             // Fire, aimed in 8 directions: diagonal when the axes are within 2:1.
             int8_t sx = (ax << 1) > ay ? (dx > 0 ? 1 : -1) : 0;
             int8_t sy = (ay << 1) > ax ? (dy > 0 ? 1 : -1) : 0;
-            fire_bullet(i, sx, sy);
+            fire_volley(i, sx, sy);
             actor_timer[i] = shooter_interval;
         }
     }

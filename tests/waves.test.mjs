@@ -91,3 +91,48 @@ test('the run-over screen names what killed you, with kills and waves', () => {
   settle(emu, RUN_OVER, 'run over');
   matchGolden(emu, 'run-over-killed');
 });
+
+// --- Difficulty ramp (waves.c) ---
+test('each wave toughens the enemies: faster fire and peas, quicker slimes, more HP', () => {
+  const emu = clearWave(wave1());
+  const stats = () => ({
+    interval: emu.v('shooter_interval'), bullet: emu.v('bullet_speed', 'u16'), rest: emu.v('slime_rest'),
+    slime: emu.v('slime_speed', 'u16'), hp: emu.v('enemy_hp_bonus'), spread: emu.v('shooter_spread'),
+  });
+  const seen = [];
+  for (let n = 2; n <= 6; n++) {
+    emu.idle(WAVE_BREAK + 2);
+    seen.push(stats());
+    clearWave(emu);
+  }
+  for (let i = 1; i < seen.length; i++) {
+    assert.ok(seen[i].interval < seen[i - 1].interval, `wave ${i + 2} fires faster`);
+    assert.ok(seen[i].rest < seen[i - 1].rest, `wave ${i + 2}: slimes rest less`);
+    assert.ok(seen[i].bullet >= seen[i - 1].bullet && seen[i].hp >= seen[i - 1].hp);
+  }
+  assert.equal(seen[0].spread, 0, 'wave 2: single peas');
+  assert.equal(seen[1].spread, 1, 'wave 3: spreads');
+  assert.equal(seen.at(-1).hp, 2, 'wave 6: +2 HP');
+});
+
+test('from wave 3 a peashooter fires a 3-way spread', () => {
+  const emu = startRun().idle(2);
+  w8(emu, 'wave_start', 3);
+  teleport(emu, 9 * 16, 19 * 16);
+  assert.equal(emu.v('wave_num'), 3);
+  const before = emu.v('bullets_fired', 'u16');
+  emu.until((e) => e.v('bullets_fired', 'u16') > before, 200, 'a volley');
+  assert.equal((emu.v('bullets_fired', 'u16') - before) % 3, 0, 'peas come in threes');
+  // Enemies spawned with the wave's extra HP.
+  const hps = Array.from({ length: ACTOR_MAX }, (_, i) => [emu.read8(addr(emu, 'actor_type') + i), emu.read8(addr(emu, 'actor_hp') + i)])
+    .filter(([t]) => t);
+  assert.ok(hps.some(([t, hp]) => (t === SLIME && hp === 4) || (t === PEASHOOTER && hp === 5)), `+1 HP at wave 3: ${JSON.stringify(hps)}`);
+});
+
+test('START WAVE on the pause panel begins the run at a later wave', () => {
+  const emu = startRun().idle(2);
+  w8(emu, 'wave_start', 5);
+  teleport(emu, 9 * 16, 17 * 16);
+  assert.equal(emu.v('wave_num'), 5);
+  assert.equal(types(emu).length, ACTOR_MAX);
+});

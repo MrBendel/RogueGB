@@ -15,6 +15,7 @@ extern uint8_t wave_num;       // the wave in progress or last spawned (0: none 
 extern uint8_t waves_cleared;
 extern uint16_t wave_break;    // frames left before the next wave
 extern uint8_t wave_live;      // the current wave isn't cleared yet
+extern uint8_t wave_start;     // the first wave of a run (tunable, for testing later waves)
 
 void waves_init(void) BANKED;    // a new run
 void waves_update(void) BANKED;  // per frame in play

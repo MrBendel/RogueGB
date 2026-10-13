@@ -215,7 +215,17 @@ One room with real movement, shooting, enemies, damage and death.
   - Wave 1 is the same five enemies every run.
   - Clearing a wave shows CLEAR! and starts a 4-second break. The next wave comes only while you're in the arena; the HUD shows WAVE n.
   - Wave n has 4 + n enemies (up to 8), 1 + n/2 of them peashooters, at arena spots at least 56 px from you.
-  - Enemies don't get tougher yet, only more numerous.
+  - **Difficulty ramp** (`waves.c`): each wave also toughens the enemies. Waves 6 and later use the last column. Wave 1 got a little meaner too (80 frames between shots instead of 90, slimes resting 26 instead of 30).
+
+    | Wave | 1 | 2 | 3 | 4 | 5 | 6+ |
+    |---|---|---|---|---|---|---|
+    | Peashooter: frames between shots | 80 | 72 | 64 | 56 | 50 | 44 |
+    | Pea speed (px/frame) | 1.5 | 1.6 | 1.75 | 1.9 | 2.0 | 2.0 |
+    | 3-way spread | | | yes | yes | yes | yes |
+    | Slime: rest between hops (frames) | 26 | 22 | 20 | 18 | 16 | 14 |
+    | Slime hop speed (px/frame) | 0.75 | 0.8 | 0.9 | 0.95 | 1.0 | 1.0 |
+    | Extra enemy HP | 0 | 0 | 1 | 1 | 2 | 2 |
+  - **START WAVE** on the pause panel begins a run at a later wave (for testing).
 - Jump on B: height (`z`), a shadow sprite, a gravity arc, and passing over ground enemies and bullets while airborne
 - Roll out of a jump with a second B tap: a burst toward the d-pad direction, with invulnerability frames
 - Pits and raised blocks in the test room: falling into pits, jumping across gaps, standing on raised blocks
@@ -279,7 +289,7 @@ Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/
 - Persistent campaign objectives, discoveries, and destination unlocks
 - Proposed ship hub for preparing expeditions, collections, and improvements
 - Equipment, materials, and discovery collection/reward systems, with exact rules to be designed
-- Death, rescue, return, and inventory retention rules to be decided; Second Wind remains a candidate
+- Death: corporate reconstruction returns the player to the ship with their loadout, charging a percentage of money. Fee details, items outside the loadout, and voluntary return remain open; Second Wind remains a candidate
 - Save data in SRAM (battery), with versioning and a checksum, covering character and campaign state
 - Gun-part/manufacturer unlocks are candidates to integrate with discovery rewards
 

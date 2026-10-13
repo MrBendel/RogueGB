@@ -53,10 +53,10 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
         actor_count++;
         // Stagger timers by slot so a wave doesn't move in lockstep.
         if (type == ACTOR_SLIME) {
-            actor_hp[i] = SLIME_HP;
-            actor_timer[i] = SLIME_REST + (i << 3);
+            actor_hp[i] = SLIME_HP + enemy_hp_bonus;
+            actor_timer[i] = slime_rest + (i << 3);
         } else {
-            actor_hp[i] = SHOOTER_HP;
+            actor_hp[i] = SHOOTER_HP + enemy_hp_bonus;
             actor_timer[i] = shooter_interval + (i << 4);
         }
         actor_cache_frame(i);
@@ -138,4 +138,18 @@ void fire_bullet(uint8_t i, int8_t sx, int8_t sy) BANKED {
         bullet_count++;
         return;
     }
+}
+
+// The 8 directions, clockwise from up, to turn a shot 45 degrees either way.
+static const int8_t dir_x[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+static const int8_t dir_y[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+
+void fire_volley(uint8_t i, int8_t sx, int8_t sy) BANKED {
+    fire_bullet(i, sx, sy);
+    if (!shooter_spread) return;
+    uint8_t k = 0;
+    while (k < 7 && (dir_x[k] != sx || dir_y[k] != sy)) k++;
+    uint8_t l = (k - 1) & 7, r = (k + 1) & 7;
+    fire_bullet(i, dir_x[l], dir_y[l]);
+    fire_bullet(i, dir_x[r], dir_y[r]);
 }
