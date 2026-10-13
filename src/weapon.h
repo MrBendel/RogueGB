@@ -88,6 +88,10 @@ extern WeaponStats weapon_stats[WEAPON_COUNT];  // each weapon's (tuned) stats
 #define PLACE_BEHIND 6
 extern uint8_t gun_vram, gun_blank;
 extern uint8_t gun_frames[16 * 4];
+extern const uint8_t *gun_tiles;  // the held weapon's art in ROM, in gun_tiles_bank
+extern uint8_t gun_tiles_bank;
+// The held weapon's name (7 characters, space-padded, and a 0) into dst[8].
+void weapon_get_name(char *dst) BANKED;
 extern int8_t gun_place[7][16];
 // The sword's smeared frames (the same placement), shown while a swing can hit.
 extern uint8_t smear_vram, smear_blank;

@@ -189,3 +189,32 @@ test('CPU budget: the HUD redrawing every frame (shield recharging, health regen
   assert.ok(emu.v('shield_hp') >= 30 && emu.v('player_hp') >= 60, 'both bars moved every frame');
   assert.ok(worst < 35112, `worst frame ${worst} cycles (a quarter frame is 35,112)`);
 });
+
+// --- The HUD's layout (hud.c): window map tiles, all in VRAM bank 1 ---
+const WIN = 0x9c00, RIGHT_X = 13;
+const T_LINE = 14, T_SLOT = 16, T_SLOT_ICON = 18, T_GUN = 20, T_DIGIT = 24, T_FONT = 64;
+const winTile = (emu, x, y) => emu.snapshot().vram[WIN - 0x8000 + y * 32 + x];
+const winAttr = (emu, x, y) => emu.snapshot().vram[0x2000 + WIN - 0x8000 + y * 32 + x];
+
+test('HUD: before a shield, its row shows an empty dashed slot', () => {
+  const emu = run().idle(4);
+  assert.equal(winTile(emu, 0, 0), T_SLOT_ICON);
+  assert.equal(winTile(emu, 1, 0), T_SLOT);
+  assert.equal(winTile(emu, 12, 0), T_LINE, 'then just the top line');
+  for (let x = 0; x < 20; x++) assert.ok(winAttr(emu, x, 0) & 0x08, `column ${x}: a bank-1 HUD tile`);
+});
+
+test('HUD: the held weapon as an icon and its rounds in tall digits; a switch shows the name a moment', () => {
+  const emu = run().idle(4);
+  assert.equal(winTile(emu, RIGHT_X + 1, 0), T_GUN);
+  assert.equal(winTile(emu, RIGHT_X + 2, 1), T_GUN + 3);
+  // 12 rounds: "1" and "2", top and bottom halves.
+  assert.equal(winTile(emu, RIGHT_X + 5, 0), T_DIGIT + 2);
+  assert.equal(winTile(emu, RIGHT_X + 6, 1), T_DIGIT + 4 + 1);
+  emu.tap('SELECT').idle(4);
+  const name = Array.from({ length: 7 }, (_, i) => String.fromCharCode(winTile(emu, RIGHT_X + i, 0) - T_FONT + 32)).join('');
+  assert.equal(name, 'SHOTGUN');
+  emu.idle(60);
+  assert.equal(winTile(emu, RIGHT_X + 1, 0), T_GUN, 'then the icon again');
+  assert.equal(winTile(emu, RIGHT_X + 6, 0), T_DIGIT + 5 * 2, '5 shells');
+});

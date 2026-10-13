@@ -23,6 +23,8 @@ WeaponStats wpn;
 WeaponStats weapon_stats[WEAPON_COUNT];
 uint8_t gun_vram, gun_blank;
 uint8_t gun_frames[16 * 4];
+const uint8_t *gun_tiles;  // the held weapon's art in ROM (the HUD's icon copies from it)
+uint8_t gun_tiles_bank;
 int8_t gun_place[7][16];
 uint8_t smear_vram, smear_blank;
 uint8_t smear_frames[16 * 4];
@@ -97,6 +99,10 @@ void weapon_init(void) BANKED {
     weapon_select(weapon_cur);
 }
 
+void weapon_get_name(char *dst) BANKED {
+    memcpy(dst, names[weapon_cur], 8);
+}
+
 void weapon_select(uint8_t w) BANKED {
     weapon_stats[weapon_cur] = wpn;
     weapon_cur = w;
@@ -110,11 +116,31 @@ void weapon_select(uint8_t w) BANKED {
     draw_vram = gun_vram;
     draw_blank = gun_blank;
     switch (w) {
-    case WEAPON_PISTOL: banked_memcpy(gun_frames, spr_pistol_frames, sizeof(gun_frames), BANK(spr_pistol)); break;
-    case WEAPON_SHOTGUN: banked_memcpy(gun_frames, spr_shotgun_frames, sizeof(gun_frames), BANK(spr_shotgun)); break;
-    case WEAPON_RIFLE: banked_memcpy(gun_frames, spr_rifle_frames, sizeof(gun_frames), BANK(spr_rifle)); break;
-    case WEAPON_SNIPER: banked_memcpy(gun_frames, spr_sniper_frames, sizeof(gun_frames), BANK(spr_sniper)); break;
-    default: banked_memcpy(gun_frames, spr_sword_frames, sizeof(gun_frames), BANK(spr_sword)); break;
+    case WEAPON_PISTOL:
+        banked_memcpy(gun_frames, spr_pistol_frames, sizeof(gun_frames), BANK(spr_pistol));
+        gun_tiles = spr_pistol_tiles;
+        gun_tiles_bank = BANK(spr_pistol);
+        break;
+    case WEAPON_SHOTGUN:
+        banked_memcpy(gun_frames, spr_shotgun_frames, sizeof(gun_frames), BANK(spr_shotgun));
+        gun_tiles = spr_shotgun_tiles;
+        gun_tiles_bank = BANK(spr_shotgun);
+        break;
+    case WEAPON_RIFLE:
+        banked_memcpy(gun_frames, spr_rifle_frames, sizeof(gun_frames), BANK(spr_rifle));
+        gun_tiles = spr_rifle_tiles;
+        gun_tiles_bank = BANK(spr_rifle);
+        break;
+    case WEAPON_SNIPER:
+        banked_memcpy(gun_frames, spr_sniper_frames, sizeof(gun_frames), BANK(spr_sniper));
+        gun_tiles = spr_sniper_tiles;
+        gun_tiles_bank = BANK(spr_sniper);
+        break;
+    default:
+        banked_memcpy(gun_frames, spr_sword_frames, sizeof(gun_frames), BANK(spr_sword));
+        gun_tiles = spr_sword_tiles;
+        gun_tiles_bank = BANK(spr_sword);
+        break;
     }
     for (uint8_t i = 1; i < sizeof(gun_frames); i += 2) gun_frames[i] |= SPR_PAL_WEAPON | S_BANK;
     // The placement tables are in this bank, so a plain copy reads them.

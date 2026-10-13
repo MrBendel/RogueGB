@@ -129,9 +129,10 @@ Next: the shared game-feel effects (#13): screen shake, knockback from shots, im
   - A hit that breaks the shield: the overflow spills into health, and the player flashes white and blue.
   - A hit that reaches health: knockback and the 60-frame blink, as before.
 - **HUD:**
-  - The bottom row on the window: the shield bar over the health bar, then the gun's name.
+  - The bottom row on the window: a 1 px ink line along the top, the shield bar (hanging from the line) over the health bar, then the held gun's icon (its right-facing art) and the rounds left in tall 8x16 digits. Switching weapons shows the name there for a second.
+  - Every HUD tile is in VRAM bank 1 (bars, icons, the gun icon, tall digits, a copy of the font with the line), so the HUD uses none of the scene's tiles.
   - Bars are 1 px per point in whole 8 px cells, up to 88 px; past that they scale.
-  - The shield row is empty until you have one, and shows a cracked icon while empty.
+  - Before you have a shield, its row shows a dashed empty slot. With one, a cracked icon shows while it's drained.
   - The health bar pulses at a quarter health or less.
   - The bar tiles are in VRAM bank 1 (no scene tiles used), each with its own palette.
   - A bar redraws only when its value changes: a 13-byte copy in vblank.

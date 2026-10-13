@@ -75,6 +75,7 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 #define BG_PAL_UI 1
 #define BG_PAL_SHIELD 2  // the HUD's shield bar
 #define BG_PAL_HEALTH 3  // the HUD's health bar
+#define BG_PAL_GUN 4     // the HUD's weapon side: its icon (the weapons' gunmetal) and text
 // Sprite palettes, by what uses them (the palette is bits 0-2 of a sprite's flags).
 #define SPR_PAL_PLAYER 0
 #define SPR_PAL_FLASH 1   // colors inverted, for a warning or a hit

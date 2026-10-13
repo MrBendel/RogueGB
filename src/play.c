@@ -304,8 +304,7 @@ void play_update(void) BANKED {
         chord_mask = J_A | J_B;
     } else {
         if ((joy_released & J_SELECT) && !select_chord) {
-            weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);
-            weapon_draw_name(HUD_GUN_X, 0);  // just the name: the whole HUD takes over a frame to draw
+            weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);  // the HUD shows it
         }
         chord_mask &= joy;
     }

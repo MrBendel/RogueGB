@@ -8,8 +8,6 @@
 #include <gb/gb.h>
 #include <stdint.h>
 
-#define HUD_GUN_X 13  // where the weapon's name goes (window row 0)
-
 // --- watchable state (what's drawn) ---
 extern uint8_t hud_shield_px, hud_shield_len;  // fill and outline length, px
 extern uint8_t hud_hp_px, hud_hp_len;
