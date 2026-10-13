@@ -189,7 +189,7 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
 ## Milestones
 
 See [the design work plan](docs/design/design-plan.md) for open campaign/system
-questions and a proposed playable slice spanning M2–M5. Its scope counts are
+questions and a proposed playable slice spanning M2–M6. Its scope counts are
 proposals; it does not mark milestones or features complete.
 
 Each milestone ends in a playable build on the playtest page and a short playtest round.
@@ -247,29 +247,45 @@ One room with real movement, shooting, enemies, damage and death.
 **Done when:** jumping, rolling and auto-aim feel good in playtests, a 60-second fight against both enemy types is fun to replay, holds 60 fps
 with 6+ enemies and 10+ bullets on screen, and is covered by tests and replays.
 
-### M2 · Dungeon (rooms and floors)
-Turn one room into a seeded floor of hand-made rooms.
+### M2 · Generated layers (rooms and depth)
+Expedition levels generated in game from the run's seed: authored chunks, a layer
+layout with guarantees, and visual rulesets. Design and numbers:
+[level-generation.md](docs/design/level-generation.md) (agreed 2026-10-12).
 
-This is the room-generation prototype for planetary expeditions. The three-floor
-target below is a technical test structure, not the final campaign or trip length.
-
-- Room authoring format and converter (proposal: [Tiled](https://www.mapeditor.org/) JSON → banked C data). Rooms can be any multiple of one screen (10×8 blocks)
-- Indoor tileset pipeline: tile deduplication, with flags per block for collision, pit and height
-- ROM banking for room data and tile sets
-- Doors and Zelda-style scrolling between rooms
-- Camera that follows the player in rooms larger than one screen: streaming map columns and rows into the 32×32 background buffer, clamping at room edges, and a look-ahead (lead) in the direction of travel that eases in and out when the direction changes, with a capped top speed (a plain eased camera lurched on quick turns; a constant-rate slide stopped dead)
-- Enemies outside the camera view are paused or simplified, and their sprites are skipped
-- Seeded floor generator: start, combat, special and boss slots, guaranteed to connect, deterministic for a given seed. Variety from data: rooms mirrored horizontally or vertically (via a block mirror table; on the Color, background tiles can also flip in hardware), per-room layout variants (pits, platforms, cover), random spawn and decoration picks
-- Doors lock until the room is cleared; cleared rooms are remembered for the run
-- Spawn tables per room
-- Room features built on jumping: rooms with pits to cross, raised-platform layouts, moving platforms
+- Chunk format (5×4 blocks, wildcards, open edges, flips) and an authoring tool + converter (open: a Sprite Studio tab or Tiled)
+- Layer generator: a seeded room grid with a guaranteed main path to the shaft down, optional branches, fixed landmarks (beacon, relic chamber, guardian arena), room types (entry, combat, connector, cache, beacon, guardian)
+- Room assembly from chunks: 1–2 screen rooms, 2×2 set pieces; wildcards filled from the seed
+- Visual rulesets per theme: autotiling, grouping rules for decorations, tileset and palettes; per-tile palette attributes streamed with the map
+- Doors and transitions between rooms; doors lock until a combat room is cleared; cleared rooms remembered for the trip
+- Spawn tables per room type and depth (replaces the arena's waves, which stay as a test room)
+- Enemies outside the camera view paused or simplified, their sprites skipped
+- Room features built on jumping: pits to cross, raised platforms, moving platforms
+- Beacons end each layer: save point, way back up, later landing site
+- The opening as a shortened layer on a fixed seed with fixed landmarks
 - Minimap on the pause screen
-- Floor exit → next floor; the run-over screen shows the floor reached
+- Built already: the scrolling camera with streaming, lead and clamping (rooms up to 32×32 blocks)
 
-**Done when:** a run is 3 floors of about 8 rooms, the same seed always gives the
-same layout (with a test for it), and moving between rooms has no visible glitches.
+**Done when:** a 4-layer descent of 8–12 rooms per layer generates from a seed, the
+same seed always gives the same descent, the harness checks thousands of seeds are
+completable, and moving between rooms has no visible glitches.
 
-### M3 · Guns and loot
+### M3 · Towns and story systems
+Authored towns on each planet, and the systems they share with the descent.
+
+- Town maps (authored, not generated), interiors, and moving between town and descent
+- NPCs: placement, simple states, talking
+- Dialogue: a text box on the window layer with typewriter text, portraits (Echo, NPCs), A to advance, choices
+- Interaction: talk, buy, pick up, open; resolve the button against firing, jumping, reloading and switching
+- Trigger zones and contextual prompts (the tutorial's hints, Echo's lines)
+- Shops (buy, sell), a currency and its pickups
+- Bars: rumours and leads
+- Missions: taken in town, tracked as campaign state, completed in the descent (the generator can be asked for mission content)
+- Save data in SRAM (battery), with versioning and a checksum
+
+**Done when:** you can walk a small town, talk to two NPCs, buy something, take a
+mission, descend, complete it, come back, and the game saves and resumes.
+
+### M4 · Guns and loot
 The full Borderlands loot loop (see "Loot" above).
 
 - Gun data and seeded generation: manufacturer, rarity, element, part indices → damage, fire rate, spread, projectile count, speed, magazine, reload; a joke name; an icon from part tiles
@@ -281,7 +297,7 @@ The full Borderlands loot loop (see "Loot" above).
 - Gold drops and pickups
 - "Badass" elite variants: ×2 HP, an extra attack, a guaranteed better drop
 
-### M4 · Persistent character and expedition progression
+### M5 · Persistent character and expedition progression
 Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/design/play-loop.md) before implementation.
 
 - Character/class selection at campaign start; develop the same character across expeditions
@@ -290,13 +306,14 @@ Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/
 - Proposed ship hub for preparing expeditions, collections, and improvements
 - Equipment, materials, and discovery collection/reward systems, with exact rules to be designed
 - Death: corporate reconstruction returns the player to the ship with their loadout, charging a percentage of money. Fee details, items outside the loadout, and voluntary return remain open; Second Wind remains a candidate
-- Save data in SRAM (battery), with versioning and a checksum, covering character and campaign state
+- Character and campaign state in the save (the save system itself comes with M3)
 - Gun-part/manufacturer unlocks are candidates to integrate with discovery rewards
 
-### M5 · Planets, campaign, and bosses (content)
+### M6 · Planets, campaign, and bosses (content)
 Working content scope, expanded in [story.md](docs/design/story.md):
 
 - Planet destinations with distinctive environments, enemies, collectibles, and recurring sites; four initial concepts, count not final
+- Each planet's towns: NPCs, shops, bars and missions written for it (the systems come with M3)
 - Repeatable expeditions with persistent landmarks and varied routes/encounters
 - Deeper sites and return incentives tied to discoveries and character capabilities
 - Bosses with readable patterns and special rooms suited to exploration and collecting
@@ -304,14 +321,14 @@ Working content scope, expanded in [story.md](docs/design/story.md):
 - Ancient-network discoveries leading toward a final confrontation over its control; exact gates and ending open
 - Optional harder expeditions after the campaign; the earlier fixed NG+ formula is no longer a requirement
 
-### M6 · Sound and color
+### M7 · Sound and color
 - Music and sound-effect driver (proposal: hUGEDriver), title, zone and boss themes
 - A complete sound-effect set
 - Color art pass: palettes for every asset, elements, enemy tiers and zones (the Color-only switch, double speed and the palette system come earlier, see "Hardware")
 - Title screen art, polish pass on transitions and UI
-- Optional: move the HUD to the top of the screen (scanline interrupt switches the window off below it)
+- (Decided 2026-10-12: the HUD stays at the bottom.)
 
-### M7 · Release
+### M8 · Release
 - Balance pass using recorded playtests
 - Performance and timing checks in Emulicious/SameBoy and on real hardware
 - Stress tests: worst-case sprite and CPU frames
