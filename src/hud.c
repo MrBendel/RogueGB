@@ -31,6 +31,10 @@ uint8_t hud_hp_px, hud_hp_len;
 uint8_t hud_fx;
 uint8_t hud_tick;
 uint8_t hud_rows[2][ROW_LEN];  // what the copies read: must last until vblank
+uint8_t hud_ammo = 0xFF;       // rounds shown (0xFF: none, a weapon without a magazine)
+uint8_t hud_ammo_row[SCREEN_TW - ROW_LEN];
+
+#define CHAR(c) (FONT_TILES + ((c) - ' '))
 
 extern uint16_t pal_bg[PAL_COUNT * 4], pal_obj[PAL_COUNT * 4];  // gfx.c: on screen
 extern volatile uint8_t pal_dirty;
@@ -126,6 +130,7 @@ void hud_draw(void) BANKED {
     VBK_REG = 0;
     weapon_draw_name(HUD_GUN_X, 0);
     hud_shield_px = hud_hp_px = 0xFF;  // redraw both bars
+    hud_ammo = 0xFE;                   // and the ammo count
     hud_update();
 }
 
@@ -157,6 +162,27 @@ void hud_update(void) BANKED {
         hud_hp_len = len;
         build_row(hud_rows[1], T_HEART, px, len);
         gfx_vram_copy(WIN_MAP + 32, hud_rows[1], ROW_LEN, 0);
+    }
+
+    // The held weapon's magazine: "AMMO" and up to 3 digits (no division).
+    uint8_t ammo = wpn.mag ? weapon_ammo[weapon_cur] : 0xFF;
+    if (ammo != hud_ammo) {
+        hud_ammo = ammo;
+        uint8_t *r = hud_ammo_row;
+        for (uint8_t i = 0; i < sizeof(hud_ammo_row); i++) r[i] = CHAR(' ');
+        if (ammo != 0xFF) {
+            r[0] = CHAR('A');
+            r[1] = CHAR('M');
+            r[2] = CHAR('M');
+            r[3] = CHAR('O');
+            uint8_t h = 0, t = 0;
+            while (ammo >= 100) { ammo -= 100; h++; }
+            while (ammo >= 10) { ammo -= 10; t++; }
+            if (h) r[4] = CHAR('0') + h;
+            if (h || t) r[5] = CHAR('0') + t;
+            r[6] = CHAR('0') + ammo;
+        }
+        gfx_vram_copy(WIN_MAP + 32 + ROW_LEN, hud_ammo_row, sizeof(hud_ammo_row), 0);
     }
 
     // Palette effects: the player's colors on a shield hit or break, and the

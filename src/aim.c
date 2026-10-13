@@ -81,6 +81,9 @@ uint8_t aim_facing = 0xFF;  // art direction the body faces while shooting (play
 #define KICK_FRAMES 4    // recoil: 2 px for 2 frames, then 1 px for 2
 #define FLASH_FRAMES 4   // muzzle flash: the big burst for 2 frames, then the small one
 #define HOLD_FRAMES 20   // keep facing the aim for 1/3 s after a shot
+uint8_t reload_vram;      // the reload bar's tiles: 8 left halves, then 8 right halves
+uint16_t reload_fill;     // the bar's fill, px 8.8
+uint16_t reload_step;     // ... added each frame
 uint8_t flash_vram;
 uint8_t flash_frames[SPR_FLASH_FRAME_COUNT * 4];
 
@@ -97,6 +100,56 @@ void shots_spawn(void);
 extern uint8_t spawn_n, spawn_dir, spawn_spread, spawn_life;
 extern uint16_t spawn_x, spawn_y;
 extern int16_t *spawn_vx, *spawn_vy;
+
+// --- Reloading (see weapon.h) ---
+// The bar over the player's head while reloading: 2 sprites (the reticle's: no
+// target is shown while you can't shoot), 14 px inside an ink outline, white
+// filling a grey track, in the top 4 rows of 8x16 sprites. Tiles: for each fill
+// 0-7, a left half then (8 pairs on) a right half; each sprite's lower tile is
+// blank.
+#define RELOAD_BAR_PX 14
+
+static void reload_bar_tiles(uint8_t v) {
+    uint8_t t[32];
+    for (uint8_t i = 0; i < 32; i++) t[i] = 0;
+    for (uint8_t half = 0; half < 2; half++) {
+        for (uint8_t n = 0; n < 8; n++) {
+            // The ink edge and the n px filled from the left (inside the edge).
+            uint8_t ink = half ? 0x01 : 0x80;
+            uint8_t fill = half ? 0xFF ^ (0xFF >> n) : 0x7F ^ (0x7F >> n);
+            uint8_t track = (uint8_t)~(ink | fill);
+            t[0] = t[1] = t[6] = t[7] = 0xFF;  // the top and bottom edges (rows 0, 3)
+            t[2] = t[4] = ink | fill;          // rows 1-2: color 1 = fill, 2 = track, 3 = ink
+            t[3] = t[5] = ink | track;
+            set_sprite_data(v, 2, t);  // from RAM: no bank to switch
+            v += 2;
+        }
+    }
+}
+
+static void reload_start(void) {
+    reload_t = wpn.reload ? wpn.reload : 1;
+    reload_idle = 0;
+    weapon_windup = 0;
+    reload_fill = 0;
+    reload_step = ((uint16_t)RELOAD_BAR_PX << 8) / reload_t;  // once per reload
+    reloads++;
+}
+
+static void draw_reload_bar(void) {
+    uint8_t px = reload_fill >> 8;
+    if (px > RELOAD_BAR_PX) px = RELOAD_BAR_PX;
+    uint8_t l = px > 7 ? 7 : px;
+    // Hardware coordinates: (8, 16) offset; the bar's 4 rows sit 2 px above the head.
+    uint8_t x = (uint8_t)(player_x - cam_x) + 8;
+    uint8_t y = (uint8_t)(player_y - cam_y) - (uint8_t)(player_z >> 8) + 16 - 6;
+    set_sprite_tile(OAM_RETICLE, reload_vram + (l << 1));
+    set_sprite_tile(OAM_RETICLE + 1, reload_vram + 16 + ((px - l) << 1));
+    set_sprite_prop(OAM_RETICLE, SPR_PAL_UI);
+    set_sprite_prop(OAM_RETICLE + 1, SPR_PAL_UI);
+    move_sprite(OAM_RETICLE, x, y);
+    move_sprite(OAM_RETICLE + 1, x + 8, y);
+}
 
 void aim_init(uint8_t v) BANKED {
     // Graphics in switchable banks: the banked_* helpers (gfx.c, bank 0) switch
@@ -115,6 +168,9 @@ void aim_init(uint8_t v) BANKED {
     banked_memcpy(flash_frames, spr_flash_frames, sizeof(flash_frames), BANK(spr_flash));
     for (uint8_t i = 1; i < sizeof(flash_frames); i += 2) flash_frames[i] |= SPR_PAL_SHOT;
     v += SPR_FLASH_COLUMN_COUNT * 2;
+    reload_vram = v;
+    reload_bar_tiles(v);
+    v += 32;
     weapon_init();  // the weapons' art (VRAM bank 1)
 
     aim_target = AIM_NONE;
@@ -343,6 +399,7 @@ static void fire(uint8_t damage) {
     spawn_vx = dir_vx[w];
     spawn_vy = dir_vy[w];
     shots_spawn();
+    if (wpn.mag && !--weapon_ammo[w]) reload_start();  // empty: reload at once
     gun_kick = KICK_FRAMES;
     gun_flash = FLASH_FRAMES;
     aim_hold = HOLD_FRAMES;
@@ -481,6 +538,26 @@ static uint8_t trigger(void) {
     uint8_t held = joy & J_A, pressed = joy_pressed & J_A;
     uint8_t able = !player_roll_len && !player_fall_timer;
     if (fire_cooldown) fire_cooldown--;
+    if (wpn.mag) {
+        if (reload_t) {
+            if (pressed && weapon_ammo[weapon_cur]) {
+                reload_t = 0;  // an idle reload, cut short: fire what's left
+            } else {
+                reload_fill += reload_step;
+                if (!--reload_t) {
+                    weapon_ammo[weapon_cur] = wpn.mag;
+                    burst_left = 0;  // a burst cut off by the reload doesn't resume
+                }
+                reticle_tight = 0;
+                return 0;
+            }
+        }
+        if (held || burst_left) reload_idle = 0;
+        else if (weapon_ammo[weapon_cur] < wpn.mag && ++reload_idle >= RELOAD_IDLE) {
+            reload_start();
+            return 0;
+        }
+    }
     if (wpn.mode == FIRE_MELEE) return swing(pressed, able);
     switch (wpn.mode) {
     case FIRE_SEMI:
@@ -818,7 +895,8 @@ void aim_update(void) BANKED {
     uint8_t firing = trigger();
     move_slow = firing && wpn.slow;
     aim_facing = (firing || aim_hold) ? aim_art_dir[((aim_dir32 + 4) >> 3) & 3] : 0xFF;
-    aim_draw_reticle();
+    if (reload_t) draw_reload_bar();
+    else aim_draw_reticle();
     // The sword shows its smear while a swing can hit (the thrust too). Other
     // weapons keep what weapon_select set.
     if (wpn.mode == FIRE_MELEE) {

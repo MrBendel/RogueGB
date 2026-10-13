@@ -134,7 +134,26 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
   - accuracy improves while firing;
   - fast fire rate with huge magazines;
   - slow explosive rounds.
-- **Magazines and reloads** come with M3, since several gimmicks hang off the reload. Every button is taken, so reloading is automatic when a magazine empties (open: also reload after a pause in firing?).
+- **Magazines and reloads (built, in M1):**
+  - **When it reloads.** Every button is taken, so reloading is automatic, at two moments:
+    - when a magazine empties;
+    - after `RELOAD_IDLE` (60) frames without firing while the magazine isn't full.
+
+    Pressing A during that idle reload cancels it and fires what's left.
+  - **Per weapon.** Each weapon keeps its own magazine, and switching weapons cancels a reload, as in Borderlands.
+  - **On screen.** A bar over the player's head fills during the reload; it uses the reticle's sprites, since there's nothing to aim while you can't shoot. The HUD shows `AMMO n`.
+  - **Base stats** follow typical Borderlands 2 values per gun type (approximate). Magazines are in the usual range; reloads are about 60% as long, because rooms and fights are smaller:
+
+    | Type | Borderlands magazine | Borderlands reload | Ours: magazine | Ours: reload |
+    |---|---|---|---|---|
+    | Pistol | 6-21 (revolvers ~6) | ~1.5-2.5 s | 12 | 66 frames (1.1 s) |
+    | Shotgun | 2-8 shells | ~2.5-3.5 s | 5 (a blast is one shell) | 100 frames (1.7 s) |
+    | Assault rifle | 18-40 | ~2.5-3.5 s | 24 | 105 frames (1.75 s) |
+    | Sniper | 3-8 | ~3-4 s | 4 | 120 frames (2 s) |
+    | SMG (later) | 20-40 | ~2 s | | |
+    | Launcher (later) | 1-6 | ~3-4.5 s | | |
+    | Sword | none | none | 0 (never reloads) | |
+  - **Loot later.** Generated guns roll their magazine and reload around these bases, and several manufacturer gimmicks hang off the reload (explodes or is thrown when reloaded). No reserve ammo for now: magazines are infinite.
 - **Rarity:** the classic Borderlands colors (Game Boy Color), plus the height and sparkle of the light beam over a drop, the frame style of the item card, and a pickup sound.
 - **Loot fountain:** chests and elite enemies pop items out in arcs, using the same height/shadow system as jumping.
 - **Item card:** standing on an item shows its card in the window: name (with a joke prefix), manufacturer, rarity, and each stat with ▲/▼ against what you're holding. Picking up needs a button: proposal, a tap of SELECT while standing on an item takes it (swapping if the loadout is full); elsewhere SELECT keeps its normal job.
@@ -145,7 +164,7 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
 ### Open questions
 
 - **Story and progression.** Map out the story first. It decides how the character grows (in-run levels, the Manor, or both), where shields, chests and special guns show up, and the manufacturer names.
-- **Pickup button** and **reload trigger** (see Loot).
+- **Pickup button** (see Loot); a manual reload too, if a button frees up (reloads are automatic for now).
 
 ## How we work
 
@@ -208,7 +227,7 @@ same layout (with a test for it), and moving between rooms has no visible glitch
 The full Borderlands loot loop (see "Loot" above).
 
 - Gun data and seeded generation: manufacturer, rarity, element, part indices → damage, fire rate, spread, projectile count, speed, magazine, reload; a joke name; an icon from part tiles
-- Magazines and automatic reloads, and the manufacturer gimmicks (including explode-on-reload)
+- Magazine and reload stats rolled per gun (the base magazines and automatic reloads are built), and the manufacturer gimmicks (including explode-on-reload)
 - Chests and elite drops with a loot fountain; rarity beams; pickup and the item card with ▲/▼ stat compare
 - 4-weapon loadout: tap SELECT to cycle, hold SELECT for the weapon wheel (d-pad picks a slot); a full loadout means dropping or swapping a weapon on pickup
 - Shields as loot: capacity, recharge delay and rate, special effects

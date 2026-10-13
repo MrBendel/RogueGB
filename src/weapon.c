@@ -36,13 +36,13 @@ static uint8_t stats_ready;
 // Starting stats (see ROADMAP "Weapons" for the feel each one is going for).
 static const WeaponStats presets[WEAPON_COUNT] = {
     // mode        fire tap pel spr jit speed range aim dmg kick push windup slow
-    {FIRE_SEMI,     14,  6,  1,  0,  0,  768, 112, 112,  1,  2,   0,    0,   0},  // pistol: tap to fire faster
-    {FIRE_AUTO,     40,  0,  5,  1,  0,  896,  56,  96,  1,  3,   2,    0,   0},  // shotgun: 5 pellets fanned, shoves you back
-    {FIRE_RIFLE,     6,  4,  1,  0,  0,  896, 128, 128,  1,  1,   0,   12,   0},  // rifle: tap, burst (then a 12-frame pause) or auto
-    {FIRE_CHARGE,   30,  0,  1,  0,  0, 1536, 224, 160,  2,  3,   0,   36,   1},  // sniper: steady for a critical, long reach
+    {FIRE_SEMI,     14,  6,  1,  0,  0,  768, 112, 112,  1,  2,   0,    0,   0,  12,  66},  // pistol: tap to fire faster
+    {FIRE_AUTO,     40,  0,  5,  1,  0,  896,  56,  96,  1,  3,   2,    0,   0,   5, 100},  // shotgun: 5 pellets fanned, shoves you back
+    {FIRE_RIFLE,     6,  4,  1,  0,  0,  896, 128, 128,  1,  1,   0,   12,   0,  24, 105},  // rifle: tap, burst (then a 12-frame pause) or auto
+    {FIRE_CHARGE,   30,  0,  1,  0,  0, 1536, 224, 160,  2,  3,   0,   36,   1,   4, 120},  // sniper: steady for a critical, long reach
     // sword: tap to swing, 3-hit combo (the window: tap), reach 14 px, knockback
     // 12 px, deflects bullets; speed is unused (its table is the unit vectors)
-    {FIRE_MELEE,     0, 12,  1,  0,  0,  256,  14,  96,  2, 12,   0,    0,   1},
+    {FIRE_MELEE,     0, 12,  1,  0,  0,  256,  14,  96,  2, 12,   0,    0,   1,   0,   0},
 };
 static const char *const names[WEAPON_COUNT] = {"PISTOL ", "SHOTGUN", "RIFLE  ", "SNIPER ", "SWORD  "};
 static const int8_t (*const places[WEAPON_COUNT])[16] = {
@@ -52,6 +52,11 @@ static const uint8_t blanks[WEAPON_COUNT] = {
     SPR_PISTOL_BLANK_COLUMN, SPR_SHOTGUN_BLANK_COLUMN, SPR_RIFLE_BLANK_COLUMN, SPR_SNIPER_BLANK_COLUMN,
     SPR_SWORD_BLANK_COLUMN,
 };
+
+uint8_t weapon_ammo[WEAPON_COUNT];
+uint8_t reload_t;
+uint8_t reload_idle;
+uint16_t reloads;
 
 void weapon_init(void) BANKED {
     // All the weapons' art lives in the Color's second VRAM bank (their frames
@@ -85,6 +90,11 @@ void weapon_init(void) BANKED {
         weapon_cur = WEAPON_PISTOL;
         wpn = weapon_stats[WEAPON_PISTOL];
     }
+    // A new run: every magazine full.
+    for (uint8_t w = 0; w < WEAPON_COUNT; w++) weapon_ammo[w] = weapon_stats[w].mag;
+    if (weapon_cur != WEAPON_COUNT) weapon_ammo[weapon_cur] = wpn.mag;
+    reload_t = reload_idle = 0;
+    reloads = 0;
     weapon_select(weapon_cur);
 }
 
@@ -92,6 +102,9 @@ void weapon_select(uint8_t w) BANKED {
     weapon_stats[weapon_cur] = wpn;
     weapon_cur = w;
     wpn = weapon_stats[w];
+    // Switching cancels a reload; a magazine tuned smaller drops what won't fit.
+    reload_t = reload_idle = 0;
+    if (weapon_ammo[w] > wpn.mag) weapon_ammo[w] = wpn.mag;
     gun_vram = weapon_vram[w];
     gun_blank = blanks[w];
     draw_frames = gun_frames;  // what draw_gun draws (the sword swaps in its smear: aim.c)

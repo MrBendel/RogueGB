@@ -317,3 +317,125 @@ test('weapon art lives in the second VRAM bank (Game Boy Color), leaving bank 0 
   const used = emu.v('flash_vram') + 4;
   assert.ok(used <= 128, `bank 0 sprite tiles used: ${used}`);
 });
+
+
+// --- Magazines and reloads (aim.c, weapon.h) ---
+const MAGS = [12, 5, 24, 4, 0], RELOADS = [66, 100, 105, 120, 0];  // the presets
+const RELOAD_IDLE = 60;
+const WPN_MAG = 15, WPN_RELOAD = 16;  // offsets in WeaponStats
+const RETICLE_OAM = 9;
+const ammo = (emu, w = emu.v('weapon_cur')) => emu.read8(addr(emu, 'weapon_ammo') + w);
+
+test('each weapon starts with a full magazine of its own size and reload time', () => {
+  const emu = holding(PISTOL);
+  for (let w = PISTOL; w <= SWORD; w++) {
+    if (w) emu.tap('SELECT');
+    assert.equal(emu.read8(addr(emu, 'wpn') + WPN_MAG), MAGS[w], `weapon ${w}: magazine`);
+    assert.equal(emu.read8(addr(emu, 'wpn') + WPN_RELOAD), RELOADS[w], `weapon ${w}: reload`);
+    assert.equal(ammo(emu), MAGS[w]);
+  }
+});
+
+test('each shot takes a round; empty, it reloads at once and fires nothing until done', () => {
+  const emu = holding(RIFLE);  // full auto
+  const start = fired(emu);
+  let f = 0;
+  while (!emu.v('reload_t') && f++ < 400) emu.hold('A', 1);
+  assert.equal(fired(emu) - start, MAGS[RIFLE], 'a whole magazine, then the reload');
+  assert.equal(ammo(emu), 0);
+  assert.equal(emu.v('reloads', 'u16'), 1);
+  // Holding A through the reload fires nothing.
+  emu.hold('A', RELOADS[RIFLE] - 2);
+  assert.equal(fired(emu) - start, MAGS[RIFLE]);
+  assert.ok(emu.v('reload_t') > 0, 'still reloading');
+  emu.hold('A', 3);
+  assert.equal(emu.v('reload_t'), 0);
+  assert.ok(ammo(emu) >= MAGS[RIFLE] - 1, 'full again (and firing)');
+});
+
+test('a shotgun blast is one shell (all its pellets)', () => {
+  const emu = holding(SHOTGUN);
+  emu.hold('A', 1).idle(1);
+  assert.equal(ammo(emu), MAGS[SHOTGUN] - 1);
+  assert.equal(fired(emu), 5, '5 pellets');
+});
+
+test('a part-used magazine reloads after a pause in firing; A during that reload fires what is left', () => {
+  const emu = holding(PISTOL);
+  for (let i = 0; i < 3; i++) emu.tap('A').idle(8);  // taps further apart than the tap rate
+  assert.equal(ammo(emu), MAGS[PISTOL] - 3);
+  emu.idle(RELOAD_IDLE - 4 - 9);
+  assert.equal(emu.v('reload_t'), 0, 'not yet');
+  emu.idle(4);
+  assert.ok(emu.v('reload_t') > 0, 'reloading');
+  // Cut short: the rounds left fire at once.
+  const n = fired(emu);
+  emu.tap('A');
+  assert.equal(emu.v('reload_t'), 0);
+  assert.equal(fired(emu), n + 1);
+  // Left alone, it finishes.
+  emu.idle(RELOAD_IDLE + RELOADS[PISTOL] + 2);
+  assert.equal(ammo(emu), MAGS[PISTOL]);
+});
+
+test('switching weapons cancels a reload; each weapon keeps its own magazine', () => {
+  const emu = holding(PISTOL);
+  emu.tap('A').idle(8).tap('A');
+  emu.tap('SELECT').idle(16);  // the shotgun, once the pistol's cooldown is over
+  emu.hold('A', 1).idle(1);
+  assert.equal(ammo(emu, SHOTGUN), MAGS[SHOTGUN] - 1);
+  assert.equal(ammo(emu, PISTOL), MAGS[PISTOL] - 2, 'the pistol kept its count');
+  emu.idle(RELOAD_IDLE);
+  assert.ok(emu.v('reload_t') > 0, 'the shotgun reloading');
+  emu.tap('SELECT');
+  assert.equal(emu.v('reload_t'), 0, 'cancelled by the switch');
+  assert.equal(ammo(emu, SHOTGUN), MAGS[SHOTGUN] - 1, 'and not refilled');
+});
+
+test('the sword has no magazine and never reloads', () => {
+  const emu = holding(SWORD);
+  for (let i = 0; i < 6; i++) emu.tap('A').idle(16);
+  emu.idle(RELOAD_IDLE + 10);
+  assert.equal(emu.v('reloads', 'u16'), 0);
+  assert.equal(emu.v('hud_ammo'), 0xff, 'no ammo count on the HUD');
+});
+
+test('the HUD counts the rounds left', () => {
+  const emu = holding(PISTOL);
+  emu.tap('A').idle(8).tap('A').idle(2);
+  assert.equal(emu.v('hud_ammo'), MAGS[PISTOL] - 2);
+});
+
+test('while reloading, a bar over the head fills up (in place of the reticle)', () => {
+  const emu = holding(SNIPER, 72, 96);
+  // Empty it: 4 shots (tap: each a quick uncharged shot).
+  for (let i = 0; i < MAGS[SNIPER]; i++) emu.hold('A', 2).idle(32);
+  assert.ok(emu.v('reload_t') > 0, 'reloading');
+  const bar = () => {
+    const [y, x, tile] = emu.readBytes(0xc000 + RETICLE_OAM * 4, 3);
+    return { y, x, tile };
+  };
+  const base = emu.v('reload_vram');
+  const fill = () => {
+    const l = (bar().tile - base) >> 1, r = (emu.readBytes(0xc000 + (RETICLE_OAM + 1) * 4 + 2, 1)[0] - base - 16) >> 1;
+    return l + r;
+  };
+  // Over the player's head: the player is at screen y = 96 - cam_y.
+  const sy = 96 - emu.v('cam_y', 'u16');
+  assert.equal(bar().y - 16, sy - 6, 'just above the head');
+  const px = [];
+  while (emu.v('reload_t') > 10) {
+    px.push(fill());
+    emu.idle(10);
+  }
+  assert.ok(px.every((p, i) => !i || p >= px[i - 1]), `fills steadily: ${px.join(',')}`);
+  // (the first sample is ~30 frames in: the last shot's cooldown)
+  assert.ok(px[0] <= 4 && px.at(-1) >= 11, `from nearly empty to full: ${px.join(',')}`);
+});
+
+test('screen: reloading', () => {
+  const emu = holding(PISTOL);
+  emu.tap('A');
+  emu.idle(RELOAD_IDLE + 30);
+  matchGolden(emu, 'reload-bar');
+});

@@ -14,6 +14,7 @@
 extern uint8_t hud_shield_px, hud_shield_len;  // fill and outline length, px
 extern uint8_t hud_hp_px, hud_hp_len;
 extern uint8_t hud_fx;  // palette effects shown (HUD_FX_*)
+extern uint8_t hud_ammo;  // the magazine count shown (0xFF: none)
 #define HUD_FX_SHIELD 1  // the player tinted shield blue (a hit the shield took)
 #define HUD_FX_WHITE 2   // the player flashing white (the shield just broke)
 #define HUD_FX_LOW 4     // the health bar pulsing (low health)

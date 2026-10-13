@@ -77,6 +77,8 @@ static const Tunable tunables[] = {
     {"DAMAGE", KIND_NUM, TUNE_WEAPON, &wpn.damage, 1, 1, 9},
     {"KICK", KIND_NUM, TUNE_WEAPON, &wpn.kick, 1, 1, 3},
     {"WINDUP", KIND_FRAMES, TUNE_WEAPON, &wpn.windup, 2, 2, 90},
+    {"MAG", KIND_NUM, TUNE_WEAPON, &wpn.mag, 1, 0, 99},
+    {"RELOAD", KIND_FRAMES, TUNE_WEAPON, &wpn.reload, 5, 10, 250},
     {"AIM RANGE", KIND_NUM, TUNE_WEAPON, &wpn.aim_range, 8, 32, 160},
     {"AIM BIAS", KIND_NUM, 0, &aim_bias, 4, 0, 64},
     {"HITSTOP", KIND_FRAMES, 0, &hitstop_frames, 1, 0, 10},
