@@ -85,6 +85,7 @@ static const Tunable tunables[] = {
     {"AIM RANGE", KIND_NUM, TUNE_WEAPON, &wpn.aim_range, 8, 32, 160},
     {"AIM BIAS", KIND_NUM, 0, &aim_bias, 4, 0, 64},
     {"HITSTOP", KIND_FRAMES, 0, &hitstop_frames, 1, 0, 10},
+    {"SHAKE", KIND_NUM, 0, &cam_shake_max, 1, 0, 4},
     {"HEALTH", KIND_NUM, TUNE_HEALTH, &player_hp_max, 10, 10, 250},
     {"SHIELD", KIND_NUM, TUNE_SHIELD, &shield_cap, 10, 0, 250},
     {"SH DELAY", KIND_FRAMES, TUNE_SHIELD, &shield_delay, 10, 0, 250},

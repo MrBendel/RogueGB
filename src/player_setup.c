@@ -6,6 +6,7 @@
 #include <string.h>
 #include "player.h"
 #include "gfx.h"
+#include "camera.h"
 #include "oam.h"
 #include "spr_player.h"
 #include "sprite_slot.h"
@@ -91,3 +92,21 @@ void player_init(uint16_t px, uint16_t py) BANKED {
     hide_sprite(SHADOW_OAM + 1);
 }
 
+// (Banked: only on a hit.)
+void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) BANKED {
+    if (player_blink || player_invuln || player_fall_timer) return;
+    if (!health_damage(dmg, 0)) {
+        // The shield took it: no knockback, a moment's grace.
+        player_invuln = SHIELD_IFRAMES;
+        camera_shake(shield_broke ? SHAKE_BIG : SHAKE_SMALL);
+        return;
+    }
+    player_blink = BLINK_FRAMES;
+    camera_shake(SHAKE_BIG);
+    // Knocked away from the source (8 directions); straight down if on top of it.
+    int16_t dx = (int16_t)(player_x + 8 - from_x);
+    int16_t dy = (int16_t)(player_y + 12 - from_y);
+    player_vx = dx > 2 ? KNOCKBACK : dx < -2 ? -KNOCKBACK : 0;
+    player_vy = dy > 2 ? KNOCKBACK : dy < -2 ? -KNOCKBACK : 0;
+    if (!player_vx && !player_vy) player_vy = KNOCKBACK;
+}

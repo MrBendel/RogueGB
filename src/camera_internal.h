@@ -28,6 +28,10 @@ typedef struct {
     int16_t vel;
 } CamLead;
 extern CamLead lead_h, lead_v;
+
+#include <gb/gb.h>
+// Shake what's drawn this frame (camera_setup.c); a lagging axis isn't shaken.
+void camera_apply_shake(uint8_t lag_x, uint8_t lag_y) BANKED;
 // Slide l toward its goal (camera_lead.s); rate is the top speed, 12.4 per frame.
 void cam_slide(CamLead *l, uint16_t rate);
 extern uint8_t lead_frames;             // cam_lead the lead was computed with

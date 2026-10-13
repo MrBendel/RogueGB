@@ -408,6 +408,7 @@ static void fire(uint8_t damage) {
     aim_hold = HOLD_FRAMES;
     fire_cooldown = wpn.fire_interval;
     if (wpn.push) {
+        camera_shake(SHAKE_MEDIUM);  // a heavy shot
         // Shoved back along the aim: the shot's velocity, scaled down.
         player_vx -= dir_vx[w][aim_dir] >> wpn.push;
         player_vy -= dir_vy[w][aim_dir] >> wpn.push;
@@ -504,7 +505,10 @@ static void swing_hits(void) {
         deflects++;
         landed = 1;
     }
-    if (landed && !hitstop) hitstop = hitstop_frames;
+    if (landed && !hitstop) {
+        hitstop = hitstop_frames;
+        camera_shake(SHAKE_SMALL);
+    }
 }
 
 // FIRE_MELEE: a press swings; pressed again before the combo window closes (or
@@ -585,6 +589,7 @@ static uint8_t trigger(void) {
             if (++weapon_windup >= wpn.windup) {
                 fire(wpn.damage << 1);  // a critical
                 crits++;
+                camera_shake(SHAKE_MEDIUM);
                 weapon_windup = 0;
             }
         } else {

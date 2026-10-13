@@ -20,4 +20,15 @@ void camera_init(uint16_t tx, uint16_t ty) BANKED;  // camera_setup.c
 // next vblank.
 void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy);
 
+// Screen shake: the view jitters around the camera for `frames`, the size
+// falling from up to cam_shake_max px (3 by default, tunable; 0 = off) to 1 as
+// it runs out. A stronger shake replaces a weaker one. Only what's drawn moves:
+// the camera itself (and so aiming, streaming) doesn't.
+#define SHAKE_SMALL 4    // an enemy killed, a shield hit, a sword hit
+#define SHAKE_MEDIUM 8   // the shotgun, a sniper critical, a fall into a pit
+#define SHAKE_BIG 14     // hurt, the shield breaking
+extern uint8_t cam_shake;      // frames of shake left
+extern uint8_t cam_shake_max;  // px (tunable)
+void camera_shake(uint8_t frames) BANKED;  // camera_setup.c
+
 #endif

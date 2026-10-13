@@ -10,6 +10,9 @@ uint16_t cam_x;
 uint16_t cam_y;
 uint8_t cam_lead = 16;
 uint16_t cam_lead_rate = 256;  // 1 px/frame
+uint8_t cam_shake;
+uint8_t cam_shake_max = 3;
+int8_t shake_dx, shake_dy;  // this frame's offset (watchable; camera_setup.c sets it)
 
 // Camera position in 12.4 fixed point (1/16 px): smooth enough for easing, and
 // 16 bits cover rooms up to 2048 px, so the camera needs no 32-bit math (a 32-bit
@@ -79,7 +82,10 @@ void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
     // the view and written in the next vblank, so nothing is drawn where it shows.
     uint8_t want_tx = (cam_x >> 3) - 1, want_ty = (cam_y >> 3) - 1;
     int8_t lag_x = (int8_t)(want_tx - drawn_tx), lag_y = (int8_t)(want_ty - drawn_ty);
-    if (!lag_x && !lag_y) return;
+    if (!lag_x && !lag_y) {
+        camera_apply_shake(0, 0);
+        return;
+    }
     if (lag_x > 1 || lag_x < -1 || lag_y > 1 || lag_y < -1) {
         // Jumped more than a tile (a teleport, say): redraw everything. This
         // writes during the frame (flushing as the queue fills), so it's slow,
@@ -87,6 +93,7 @@ void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
         drawn_tx = want_tx;
         drawn_ty = want_ty;
         for (uint8_t i = 0; i < DRAW_ROWS; i++) room_draw_row(want_tx, want_ty + i, DRAW_COLS);
+        cam_shake = 0;
         return;
     }
     // One strip per frame: the column if only x lags, the row if only y lags,
@@ -98,4 +105,5 @@ void camera_update(uint16_t tx, uint16_t ty, int16_t vx, int16_t vy) {
         if (lag_y > 0) room_draw_row(drawn_tx, drawn_ty++ + DRAW_ROWS, DRAW_COLS);
         else room_draw_row(drawn_tx, --drawn_ty, DRAW_COLS);
     }
+    camera_apply_shake(want_tx != drawn_tx, want_ty != drawn_ty);
 }

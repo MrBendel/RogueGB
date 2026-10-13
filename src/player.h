@@ -83,13 +83,18 @@ extern const MoveProfile move_profiles[MOVE_PRESET_COUNT];
 #define PLAYER_CLEAR_Z (6 << 8)
 
 // --- getting hurt (the health and shield values: health.h) ---
+// Knockback speed when hurt (px/frame 8.8); the normal easing slows it down.
+#define KNOCKBACK 640
+#define BLINK_FRAMES 60  // blinking (and invulnerable) after a hit to health or a fall
+// Invulnerable frames after a hit the shield took all of (no blink, no knockback).
+#define SHIELD_IFRAMES 20
 // Pits cost this much health (skipping the shield).
 #define PIT_DAMAGE 10
 // Take dmg from something at room pixel (from_x, from_y). If the shield takes it
 // all: a short invulnerability, no knockback. If it reaches health: knocked back
 // away from it, then blinking and invulnerable for a moment. Ignored while
 // already invulnerable (blinking, dashing) or falling into a pit.
-void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y);
+void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) BANKED;  // player_setup.c
 // Can ground-level things (enemies, bullets) hit the player right now?
 uint8_t player_hittable(void);
 

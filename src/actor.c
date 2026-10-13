@@ -261,6 +261,7 @@ static void reap(void) {
         actor_type[i] = ACTOR_NONE;
         actor_count--;
         enemies_killed++;
+        camera_shake(SHAKE_SMALL);
         aim_score[i] = AIM_NONE;
         if (aim_target == i) aim_target = AIM_NONE;
     }

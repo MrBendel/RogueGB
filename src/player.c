@@ -14,8 +14,6 @@
 #define HB_W PLAYER_HB_W
 #define HB_Y PLAYER_HB_Y
 #define HB_H PLAYER_HB_H
-// Knockback speed when hurt (px/frame 8.8); the normal easing slows it down.
-#define KNOCKBACK 640
 // Brushing a corner by up to this many pixels slides around it instead of stopping.
 #define NUDGE 4
 
@@ -35,9 +33,6 @@ static const int8_t facing_dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 // Falling into a pit: the spin plays over FALL_FRAMES, then the player reappears
 // at the last safe spot and blinks for BLINK_FRAMES.
 #define FALL_FRAMES 32
-#define BLINK_FRAMES 60
-// Invulnerable frames after a hit the shield took all of (no blink, no knockback).
-#define SHIELD_IFRAMES 20
 // While airborne the art holds this walk frame (legs apart).
 #define AIR_FRAME 1
 // Frames a B press is remembered for, so pressing just before landing still jumps.
@@ -356,21 +351,6 @@ uint8_t player_hittable(void) {
     return !player_blink && !player_invuln && !player_fall_timer && player_z < PLAYER_CLEAR_Z;
 }
 
-void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) {
-    if (player_blink || player_invuln || player_fall_timer) return;
-    if (!health_damage(dmg, 0)) {
-        // The shield took it: no knockback, a moment's grace.
-        player_invuln = SHIELD_IFRAMES;
-        return;
-    }
-    player_blink = BLINK_FRAMES;
-    // Knocked away from the source (8 directions); straight down if on top of it.
-    int16_t dx = (int16_t)(player_x + 8 - from_x);
-    int16_t dy = (int16_t)(player_y + 12 - from_y);
-    player_vx = dx > 2 ? KNOCKBACK : dx < -2 ? -KNOCKBACK : 0;
-    player_vy = dy > 2 ? KNOCKBACK : dy < -2 ? -KNOCKBACK : 0;
-    if (!player_vx && !player_vy) player_vy = KNOCKBACK;
-}
 
 static void start_pit_fall(void) {
     player_fall_timer = FALL_FRAMES;
@@ -388,6 +368,7 @@ static void update_pit_fall(void) {
     player_z = safe_z;
     health_damage(PIT_DAMAGE, DMG_DIRECT);  // pits skip the shield
     player_blink = BLINK_FRAMES;
+    camera_shake(SHAKE_MEDIUM);
 }
 
 // Is the player against a wall in direction dx (x axis) or dy (y axis)? Yes if

@@ -177,3 +177,53 @@ test('no tearing: the scroll handler always runs inside vblank across a play ses
     }
   }
 });
+
+// --- Screen shake (camera_setup.c) ---
+const SHAKE_BIG = 14;
+const s8 = (v) => (v > 127 ? v - 256 : v);
+/** Hurt the player for dmg (debug command 4, play.c) from just left of them. */
+function hurtPlayer(emu, dmg) {
+  const a = (n) => emu.symbols.addr(n);
+  emu.write8(a('debug_type'), dmg);
+  const x = emu.v('player_x', 'u16') - 8, y = emu.v('player_y', 'u16') + 12;
+  emu.writeBytes(a('debug_x'), [x & 255, x >> 8]);
+  emu.writeBytes(a('debug_y'), [y & 255, y >> 8]);
+  emu.write8(a('debug_cmd'), 4);
+  return emu.idle(1);
+}
+
+test('getting hurt shakes the screen, a few px, then it settles', () => {
+  const emu = startRun().idle(60);
+  hurtPlayer(emu, 5);
+  assert.ok(emu.v('cam_shake') > 0, 'shaking');
+  const offs = [];
+  for (let f = 0; f < SHAKE_BIG + 4; f++) {
+    emu.idle(1);
+    offs.push([s8(emu.v('shake_dx')), s8(emu.v('shake_dy'))]);
+  }
+  const max = emu.v('cam_shake_max');
+  assert.ok(offs.some(([x, y]) => x || y), 'it moved');
+  assert.ok(offs.every(([x, y]) => Math.abs(x) <= max && Math.abs(y) <= max), `within ${max} px: ${JSON.stringify(offs)}`);
+  assert.deepEqual(offs.at(-1), [0, 0], 'and settled');
+  // The scroll follows the shaken view (sprites draw from cam_x too).
+  assert.equal(emu.v('scroll_x'), emu.v('cam_x', 'u16') & 255);
+});
+
+test('the shake never shows outside the room, and SHAKE 0 turns it off', () => {
+  const emu = startRun().idle(60);  // the start is near the room's top-left corner
+  for (let n = 0; n < 3; n++) {
+    hurtPlayer(emu, 1);
+    for (let f = 0; f < SHAKE_BIG; f++) {
+      emu.idle(1);
+      assert.ok(s8(emu.v('cam_x', 'u16') & 255) >= 0 && emu.v('cam_y', 'u16') < 0x8000, 'not past the top-left');
+    }
+    emu.idle(70);  // the blink's invulnerability
+  }
+  emu.write8(emu.symbols.addr('cam_shake_max'), 0);
+  hurtPlayer(emu, 1);
+  for (let f = 0; f < SHAKE_BIG; f++) {
+    emu.idle(1);
+    assert.equal(emu.v('shake_dx'), 0);
+    assert.equal(emu.v('shake_dy'), 0);
+  }
+});
