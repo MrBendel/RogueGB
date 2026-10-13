@@ -114,7 +114,29 @@ void gfx_flush(void) {
 // Vblank handler, installed by gfx_init (after GBDK's sprite DMA). Scroll first: it must land inside
 // vblank or the screen tears. Then the queued VRAM writes, in assembly so even a
 // full queue (a row, a column and a sprite frame) fits in the rest of vblank.
+uint8_t obj_restore;
+
+// LCD interrupt at the line above the HUD (gfx_sprite_split): wait for that
+// line's horizontal blank, then sprites off for the rest of the screen.
+void gfx_lcd(void) {
+    if (!(LCDC_REG & LCDCF_OBJON)) return;
+    while (STAT_REG & STATF_BUSY) {
+    }
+    LCDC_REG &= ~LCDCF_OBJON;
+    obj_restore = 1;
+}
+
+void gfx_sprites(uint8_t on) {
+    obj_restore = 0;
+    if (on) SHOW_SPRITES;
+    else HIDE_SPRITES;
+}
+
 void gfx_vbl(void) {
+    if (obj_restore) {
+        LCDC_REG |= LCDCF_OBJON;  // back on for the new frame (gfx_lcd turned them off)
+        obj_restore = 0;
+    }
     SCX_REG = scroll_x;
     SCY_REG = scroll_y;
     if (pal_dirty) {

@@ -89,6 +89,15 @@ extern uint16_t pal_base_bg[PAL_COUNT * 4], pal_base_obj[PAL_COUNT * 4];
 // Put the base palettes on screen at fade step `step` (0 = as they are,
 // FADE_STEPS = white); uploaded at the next vblank.
 void gfx_set_fade(uint8_t step) BANKED;
+
+// Sprites stop above the HUD: the window can't cover sprites, so from screen
+// line `line` down they're switched off (an LCD interrupt at the line before,
+// in its last moments), and back on at the next vblank. 0 = no split.
+void gfx_sprite_split(uint8_t line) BANKED;
+// Show or hide all sprites. Use this rather than SHOW_/HIDE_SPRITES while a
+// split is on (the vblank would otherwise turn hidden sprites back on).
+void gfx_sprites(uint8_t on);
+extern uint8_t obj_restore;  // the split turned sprites off this frame
 // The palettes for the menus (title, run over) and for play (palettes.c).
 void palettes_menu(void) BANKED;
 void palettes_play(void) BANKED;

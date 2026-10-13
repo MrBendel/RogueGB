@@ -27,5 +27,6 @@
   "hud-after-pause": "46b48024",
   "reload-bar": "9b645371",
   "chest-ready": "f7648ced",
-  "chest-open": "a02de6a4"
+  "chest-open": "a02de6a4",
+  "hud-sprite-clipped": "c2871ac0"
 }

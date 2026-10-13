@@ -11,6 +11,7 @@
 extern volatile uint8_t vram_ready;  // gfx.c
 extern uint8_t strip_count, copy_count;
 void gfx_vbl(void);  // gfx.c: the vblank handler, in bank 0
+void gfx_lcd(void);  // gfx.c: the sprite split's LCD interrupt, in bank 0
 
 extern uint16_t pal_bg[PAL_COUNT * 4], pal_obj[PAL_COUNT * 4];  // gfx.c: on screen
 extern volatile uint8_t pal_dirty;
@@ -51,7 +52,10 @@ void gfx_set_fade(uint8_t step) BANKED {
 void gfx_init(void) BANKED {
     CRITICAL {
         add_VBL(gfx_vbl);
+        add_LCD(gfx_lcd);  // the sprite split (gfx_sprite_split); off until a scene asks
+        STAT_REG = 0;
     }
+    set_interrupts(IE_REG | LCD_IFLAG);
     // The font and frame are in switchable banks (banked_bkg_data: gfx.c, bank 0).
     banked_bkg_data(FONT_TILES, FONT_TILE_COUNT, font_tiles, BANK(font));
     banked_bkg_data(FRAME_TILES, FRAME_TILE_COUNT, frame_tiles, BANK(frame));
@@ -70,7 +74,18 @@ void gfx_init(void) BANKED {
     }
 }
 
+void gfx_sprite_split(uint8_t line) BANKED {
+    if (line) {
+        LYC_REG = line - 1;
+        STAT_REG = STATF_LYC;
+    } else {
+        STAT_REG = 0;
+        if (obj_restore) gfx_sprites(1);
+    }
+}
+
 void gfx_clear(void) BANKED {
+    gfx_sprite_split(0);
     fill_bkg_rect(0, 0, 32, 32, FONT_TILES);  // tile 0 = space
     hide_sprites_range(0, MAX_HARDWARE_SPRITES);
     HIDE_WIN;

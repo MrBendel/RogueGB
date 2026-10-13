@@ -198,7 +198,8 @@ void play_enter(void) BANKED {
     hud_draw();
     move_win(7, HUD_WY);
     SHOW_WIN;
-    SHOW_SPRITES;
+    gfx_sprites(1);
+    gfx_sprite_split(HUD_WY);  // no sprites over the HUD
     player_draw();
 }
 
@@ -219,11 +220,11 @@ static void set_paused(uint8_t p) {
         hud_hide();
         draw_pause();
         move_win(7, PAUSE_WY);
-        HIDE_SPRITES;
+        gfx_sprites(0);
     } else {
         hud_draw();
         move_win(7, HUD_WY);
-        SHOW_SPRITES;
+        gfx_sprites(1);
     }
 }
 

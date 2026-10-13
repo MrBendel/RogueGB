@@ -218,3 +218,28 @@ test('HUD: the held weapon as an icon and its rounds in tall digits; a switch sh
   assert.equal(winTile(emu, RIGHT_X + 1, 0), T_GUN, 'then the icon again');
   assert.equal(winTile(emu, RIGHT_X + 6, 0), T_DIGIT + 5 * 2, '5 shells');
 });
+
+test('sprites never draw over the HUD (they are switched off from its first line)', () => {
+  const hudRows = (emu) => {
+    const fb = emu.frameBuffer();
+    return Buffer.from(fb.subarray(128 * 160 * 3, 144 * 160 * 3)).toString('hex');
+  };
+  const row = (emu, y) => Buffer.from(emu.frameBuffer().subarray(y * 160 * 3, (y + 1) * 160 * 3)).toString('hex');
+  const emu = run().idle(60);
+  const clean = hudRows(emu), above = row(emu, 124);
+  // A slime half over the HUD: its 16 px from screen line 120 to 135.
+  const x = emu.v('cam_x', 'u16') + 40, y = emu.v('cam_y', 'u16') + 120;
+  w8(emu, 'debug_type', 1);
+  w16(emu, 'debug_x', x);
+  w16(emu, 'debug_y', y);
+  w8(emu, 'debug_cmd', 2);
+  emu.idle(1);
+  const slot = emu.v('debug_slot');
+  assert.ok(slot < 8, 'spawned');
+  emu.write8(emu.symbols.addr('actor_timer') + slot, 254);  // keep it still
+  emu.idle(4);
+  assert.notEqual(row(emu, 124), above, 'it shows just above the HUD ...');
+  // ... and not on it.
+  assert.equal(hudRows(emu), clean);
+  matchGolden(emu, 'hud-sprite-clipped');
+});
