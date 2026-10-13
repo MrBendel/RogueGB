@@ -62,11 +62,45 @@ for (const w of Object.values(weapons)) {
   if (w.smear_right) w.smear_right = new Uint8Array(Object.values(w.smear_right));
 }
 
+// Check if a custom weapon was sent over from the Gemini Asset Forge (forge.html)
+try {
+  const rawForgeWpn = localStorage.getItem('roguegb_custom_weapon');
+  if (rawForgeWpn) {
+    const fw = JSON.parse(rawForgeWpn);
+    if (fw && Array.isArray(fw.states) && fw.states.length >= 1) {
+      const readyRows = fw.states[0]?.rows;
+      const activeRows = fw.states[1]?.rows || readyRows;
+      const diagRows = fw.states[2]?.rows || readyRows;
+      weapons.custom_forge = {
+        id: 'custom_forge',
+        name: `✨ Forged: ${fw.name || 'Gemini Weapon'}`,
+        category: fw.name && /sword|blade|sabre|club|axe|dagger|spear|staff/i.test(fw.name) ? 'melee' : 'small_gun',
+        customPalette: Array.isArray(fw.palette) ? fw.palette : null,
+        right: parseAsciiGrid(readyRows),
+        swing_right: parseAsciiGrid(activeRows),
+        smear_right: parseAsciiGrid(activeRows),
+        fire_right: parseAsciiGrid(activeRows),
+        diag_ur: parseAsciiGrid(diagRows),
+      };
+      const wSel = $('st-weapon');
+      if (wSel) {
+        const opt = document.createElement('option');
+        opt.value = 'custom_forge';
+        opt.textContent = weapons.custom_forge.name;
+        wSel.append(opt);
+      }
+    }
+  }
+} catch {}
+
 let spriteHeight = 16; // 16 or 24
 let synthMode = '3pose';
 let animKind = 'idle';
 let dir = 'down';
-let weaponId = 'melee_sword';
+let weaponId = new URLSearchParams(location.search).get('weapon') === 'custom_forge' && weapons.custom_forge
+  ? 'custom_forge'
+  : 'melee_sword';
+if ($('st-weapon')) $('st-weapon').value = weaponId;
 let attackPose = false;
 let editTarget = 'down';
 let brushShade = 3;
@@ -258,6 +292,10 @@ function loadPreset(id) {
 
 function syncWeaponPaletteFromWeapon() {
   const w = weapons[weaponId];
+  if (w?.customPalette) {
+    weapPalette = w.customPalette.map((c) => (c ? [...c] : null));
+    return;
+  }
   const pKey = w?.palette || 'gbc_volt_blade';
   if (GBC_PALETTES[pKey]) {
     weapPalette = GBC_PALETTES[pKey].colors.map((c) => (c ? [...c] : null));

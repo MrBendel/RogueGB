@@ -158,6 +158,30 @@ const studioOut = path.join(ROOT, 'build', 'studio-standalone.html');
 fs.writeFileSync(studioOut, studioHtml);
 console.log(`[bundle] ${path.relative(ROOT, studioOut)} (${(studioHtml.length / 1024).toFixed(0)} KB)`);
 
+// Also bundle the standalone Gemini Asset Forge page (build/forge-standalone.html)
+let forgeModSrc = read('harness/asset-forge.mjs');
+forgeModSrc = forgeModSrc.replace(/^import \{([\s\S]*?)\} from '\.\/sprite-gen\.mjs';/m, (_m, list) => `const {${list}} = __sprgen;`);
+const forgeMod = moduleToIife(forgeModSrc, '__forge');
+let forgeJs = read('web/forge.js');
+forgeJs = forgeJs.replace(/^import \{([\s\S]*?)\} from '\.\.\/harness\/sprite-gen\.mjs';/m, (_m, list) => `const {${list}} = __sprgen;`);
+forgeJs = forgeJs.replace(/^import \{([\s\S]*?)\} from '\.\.\/harness\/asset-forge\.mjs';/m, (_m, list) => `const {${list}} = __forge;`);
+if (/^import /m.test(forgeJs)) throw new Error('bundle: unhandled import in web/forge.js');
+let forgeBody = read('web/forge.html');
+forgeBody = forgeBody.slice(forgeBody.indexOf('<body>') + 6, forgeBody.indexOf('</body>'));
+forgeBody = forgeBody.replace(/<script type="module" src="forge.js"><\/script>/, '');
+const forgeScript = `<script type="module">\n${sprgen}\n${forgeMod}\n${forgeJs}\n</script>`;
+const forgeHead = [
+  '<meta charset="utf-8">',
+  '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
+  '<meta name="theme-color" content="#161816">',
+  '<title>RogueGB Gemini Asset Forge</title>',
+  '<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">',
+].join('');
+const forgeHtml = `<!doctype html><html lang="en"><head>${forgeHead}</head><body><style>\n${css}\n</style>\n${forgeBody}\n${forgeScript}</body></html>`;
+const forgeOut = path.join(ROOT, 'build', 'forge-standalone.html');
+fs.writeFileSync(forgeOut, forgeHtml);
+console.log(`[bundle] ${path.relative(ROOT, forgeOut)} (${(forgeHtml.length / 1024).toFixed(0)} KB)`);
+
 if (standalone) {
   const { encodePng } = await import('../harness/node.mjs');
   const pal = {

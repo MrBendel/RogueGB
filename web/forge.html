@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161816">
+<title>RogueGB Gemini Asset Forge</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="row">
+      <div class="brand">RogueGB <span>gemini asset forge</span></div>
+    </div>
+    <div class="row">
+      <button id="fg-copy-json" class="primary" title="Copy asset JSON to share in chat">📤 Copy for Chat</button>
+      <button id="fg-toggle-code" title="Paste or inspect raw .123 asset JSON">📥 Load Code</button>
+      <a href="studio.html" class="filebtn" style="text-decoration:none">🎨 Character Studio</a>
+      <a href="index.html" class="filebtn" style="text-decoration:none">🎮 Playtest</a>
+    </div>
+  </header>
+
+  <section id="fg-code-drawer" class="card hidden" style="margin-bottom:12px">
+    <div class="row space-between">
+      <strong>Paste / Inspect Structured 2bpp Asset JSON (`.123` rows + GBC palette)</strong>
+      <div class="row small">
+        <button id="fg-apply-code" class="primary">✓ Load into Forge</button>
+        <button id="fg-close-code">✕ Close</button>
+      </div>
+    </div>
+    <textarea id="fg-code-input" rows="8" spellcheck="false" placeholder="Paste Asset JSON here..."></textarea>
+  </section>
+
+  <section id="forge-view" class="studio-grid">
+    <div class="studio-col">
+      <div class="card">
+        <div class="row space-between">
+          <strong>1. ✨ Gemini Structured 2bpp Pixel Generator</strong>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="small">🔑 Get Gemini API Key ↗</a>
+        </div>
+
+        <div class="row small">
+          <label style="flex:1">Gemini API Key (saved locally in browser):
+            <div class="row" style="margin-top:3px">
+              <input type="password" id="fg-api-key" placeholder="AIzaSy... (stored only in your browser localStorage)" style="flex:1">
+              <button id="fg-key-vis" title="Show/hide API key">👁️</button>
+            </div>
+          </label>
+          <label>Model:
+            <select id="fg-model" style="margin-top:3px">
+              <option value="gemini-2.5-flash" selected>gemini-2.5-flash (Fast)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro (Pro)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row space-between small">
+          <label style="flex:1">Asset Category:
+            <select id="fg-category" style="width:100%">
+              <option value="chest">📦 Chests, Crates &amp; Props</option>
+              <option value="powerup">🧪 Power-Ups, Relics &amp; Pickups</option>
+              <option value="ui">❤️ UI, HUD &amp; Minimap Tiles</option>
+              <option value="weapon">⚔️ Weapons (Melee &amp; Guns)</option>
+              <option value="enemy">👾 Dungeon Enemies &amp; Hazards</option>
+            </select>
+          </label>
+          <label>Hardware Size Constraint:
+            <select id="fg-size">
+              <option value="8x8">8×8 (1 Hardware Tile — UI / Mini)</option>
+              <option value="16x16" selected>16×16 (2×2 Tiles — Standard)</option>
+              <option value="16x24">16×24 (2×3 Tiles — Tall)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="small">
+          <div class="row space-between" style="margin-bottom:4px">
+            <span><strong>Prompt</strong> (Gemini outputs exact `.123` 3-color + transparent matrices):</span>
+            <span class="muted">Tap an idea chip:</span>
+          </div>
+          <div id="fg-chips" class="row" style="margin-bottom:6px; gap:5px"></div>
+          <textarea id="fg-prompt" rows="2" placeholder="Describe the Game Boy asset (e.g. 'Mimic treasure chest that reveals jagged teeth and tongue when opening')..."></textarea>
+        </div>
+
+        <div class="row space-between">
+          <button id="fg-gen-btn" class="primary" style="flex:1">✨ Generate New 2bpp Asset with Gemini</button>
+          <button id="fg-refine-btn" title="Send the current pixel grid to Gemini and ask it to modify/improve it">🪄 Refine Current Grid</button>
+        </div>
+        <div id="fg-status" class="small muted">Strict 2bpp schema: <code>.</code> = Transparent, <code>1</code> = Light, <code>2</code> = Mid, <code>3</code> = Dark Outline · 15-bit GBC RGB555.</div>
+      </div>
+
+      <div class="card">
+        <div class="row space-between">
+          <strong id="fg-asset-title">Live Multi-State Preview</strong>
+          <span id="fg-hw-stats" class="pill ok">16×16 · 3 states</span>
+        </div>
+
+        <div class="studio-stage-wrap">
+          <canvas id="fg-preview" width="48" height="48"></canvas>
+          <div class="row small">
+            <label><input type="checkbox" id="fg-anim-play" checked> ▶ Loop States</label>
+            <label><input type="checkbox" id="fg-dark-bg"> 🌑 Dark Dungeon Floor</label>
+          </div>
+        </div>
+
+        <div class="row space-between small">
+          <span class="muted">Asset States (tap a state to edit its pixels):</span>
+          <div class="row">
+            <button id="fg-state-dup" title="Duplicate active state as a new animation frame">＋ Clone State</button>
+            <button id="fg-state-del" title="Delete active state">－ Delete</button>
+          </div>
+        </div>
+        <div id="fg-state-strip" class="frame-strip"></div>
+
+        <div class="row">
+          <button id="fg-dl-sheet">⤓ Sheet (.png)</button>
+          <button id="fg-dl-c">⤓ GBDK (.h + .c)</button>
+          <button id="fg-copy-c">📋 Copy C Code</button>
+          <button id="fg-send-studio" class="primary hidden" title="Equip and test this weapon on your hero in Sprite Studio!">⚔️ Test Weapon in Studio</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row space-between">
+          <strong>📚 Project Asset Library (Starter + Saved Gemini Assets)</strong>
+          <button id="fg-save-lib" class="small primary">💾 Save Current to Library</button>
+        </div>
+        <div id="fg-library" class="frame-strip" style="justify-content:flex-start"></div>
+      </div>
+    </div>
+
+    <div class="studio-col">
+      <div class="card">
+        <div class="row space-between">
+          <strong>2. 15-bit Game Boy Color (CGB) Palette</strong>
+          <span id="fg-cgb-readout" class="small muted">CGB RGB555</span>
+        </div>
+        <div class="row small">
+          <label style="flex:1">Preset GBC/DMG Palette:
+            <select id="fg-pal-preset" style="width:100%"></select>
+          </label>
+        </div>
+        <div class="row space-between small">
+          <span>3 Visible Colors + 0 Trans:</span>
+          <div class="row">
+            <label title="Shade 1: Light / Highlight"><input type="color" id="fg-col-1" value="#ffe878"> 1</label>
+            <label title="Shade 2: Mid / Primary"><input type="color" id="fg-col-2" value="#d87818"> 2</label>
+            <label title="Shade 3: Dark / Outline"><input type="color" id="fg-col-3" value="#181008"> 3</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row space-between">
+          <strong id="fg-editor-title">3. 16×16 2bpp Pixel Editor</strong>
+          <input type="text" id="fg-state-name" value="closed" title="Active state name" style="width:96px; font-size:12px">
+        </div>
+
+        <div class="row center" id="fg-palette-bar">
+          <button data-shade="0" title="Shade 0: Hardware Transparent"><span class="sw sw-trans"></span>0 Eraser</button>
+          <button data-shade="1" title="Shade 1: Light / Highlight"><span class="sw" id="fg-sw-1"></span>1 Light</button>
+          <button data-shade="2" title="Shade 2: Mid / Primary"><span class="sw" id="fg-sw-2"></span>2 Mid</button>
+          <button data-shade="3" class="on" title="Shade 3: Dark / Outline"><span class="sw" id="fg-sw-3"></span>3 Dark</button>
+        </div>
+
+        <div class="row center small" id="fg-tool-bar">
+          <button id="fg-tool-pencil" class="on">✏️ Pencil</button>
+          <button id="fg-tool-bucket">🪣 Fill</button>
+          <button id="fg-tool-picker">💧 Pick</button>
+          <button id="fg-tool-mirror">🪞 Mirror X</button>
+          <button id="fg-tool-onion" class="on" title="Show previous state faintly underneath">🧅 Onion</button>
+          <button id="fg-edit-undo" title="Undo (Ctrl+Z)">↩️ Undo</button>
+        </div>
+
+        <div class="editor-wrap">
+          <canvas id="fg-editor" width="224" height="224"></canvas>
+        </div>
+
+        <div class="row center small">
+          <button id="fg-nudge-left" title="Shift 1px Left">←</button>
+          <button id="fg-nudge-up" title="Shift 1px Up">↑</button>
+          <button id="fg-nudge-down" title="Shift 1px Down">↓</button>
+          <button id="fg-nudge-right" title="Shift 1px Right">→</button>
+          <button id="fg-edit-flipx" title="Flip horizontally">⇄ Flip X</button>
+          <button id="fg-edit-outline" title="Reinforce outer silhouette with Shade 3 dark outline">🖤 Outline</button>
+          <button id="fg-edit-clear" title="Clear active state">🗑️ Clear</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script type="module" src="forge.js"></script>
+</body>
+</html>

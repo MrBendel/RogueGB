@@ -237,8 +237,10 @@ pre#build-log { font-size: 11px; white-space: pre-wrap; max-height: 260px; overf
 .frame-strip canvas { width: 48px; height: 48px; image-rendering: pixelated; background: #c4cfa1; border-radius: 3px; }
 
 .editor-wrap { display: flex; justify-content: center; padding: 8px; background: var(--btn); border-radius: 8px; touch-action: none; user-select: none; -webkit-user-select: none; }
-#st-editor { width: min(260px, 78vw); height: auto; image-rendering: pixelated; cursor: crosshair; touch-action: none; border: 2px solid var(--line); background: #c4cfa1; border-radius: 3px; }
-#st-code-input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
+#st-editor, #fg-editor { width: min(260px, 78vw); height: auto; image-rendering: pixelated; cursor: crosshair; touch-action: none; border: 2px solid var(--line); background: #c4cfa1; border-radius: 3px; }
+#fg-preview { width: 176px; height: 176px; image-rendering: pixelated; image-rendering: crisp-edges; border-radius: 4px; background: #c4cfa1; }
+#st-code-input, #fg-code-input, #fg-prompt { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
+#fg-api-key { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
 .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.45); vertical-align: -1px; margin-right: 4px; }
 .sw-trans { background: repeating-conic-gradient(#d8dfd0 0% 25%, #9aa690 0% 50%) 50% / 6px 6px; }
 .drive-touch { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; padding-top: 4px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
