@@ -1,4 +1,4 @@
-# RogueGB roadmap
+# Skavengar roadmap
 
 A top-down space exploration shooter for the Game Boy Color: develop one persistent
 character through a campaign of repeatable expeditions, gun loot, and discoveries
@@ -188,6 +188,10 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
 
 ## Milestones
 
+See [the design work plan](docs/design/design-plan.md) for open campaign/system
+questions and a proposed playable slice spanning M2–M5. Its scope counts are
+proposals; it does not mark milestones or features complete.
+
 Each milestone ends in a playable build on the playtest page and a short playtest round.
 "Done when" lists the requirements for closing the milestone.
 
@@ -206,6 +210,12 @@ One room with real movement, shooting, enemies, damage and death.
 - Two enemy archetypes: a **chaser** (slime) and a **shooter** (peashooter, with a telegraph before it fires)
 - Damage model: health plus a shield layer (empty until you find a shield), hit flash, knockback, invulnerability frames, enemy bullets. A chest in the test arena holds the first shield
 - HUD row along the bottom on the window layer: shield and health bars that grow with max values, space for the gun icon (M3) and ability meter (M4). Death → run over with the cause of death and kills
+  - Built: the HUD (see "Health and shields"); the run-over screen names what killed you (a slime, a peashooter, a pea, a pit; "RUN ENDED" if ended from the pause panel) with time, kills and waves cleared.
+- **Waves** (`src/waves.c`, built):
+  - Wave 1 is the same five enemies every run.
+  - Clearing a wave shows CLEAR! and starts a 4-second break. The next wave comes only while you're in the arena; the HUD shows WAVE n.
+  - Wave n has 4 + n enemies (up to 8), 1 + n/2 of them peashooters, at arena spots at least 56 px from you.
+  - Enemies don't get tougher yet, only more numerous.
 - Jump on B: height (`z`), a shadow sprite, a gravity arc, and passing over ground enemies and bullets while airborne
 - Roll out of a jump with a second B tap: a burst toward the d-pad direction, with invulnerability frames
 - Pits and raised blocks in the test room: falling into pits, jumping across gaps, standing on raised blocks

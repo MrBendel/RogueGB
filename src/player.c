@@ -366,6 +366,7 @@ static void update_pit_fall(void) {
     player_y = safe_y;
     player_xs = player_ys = 0;
     player_z = safe_z;
+    hurt_cause = CAUSE_PIT;
     health_damage(PIT_DAMAGE, DMG_DIRECT);  // pits skip the shield
     player_blink = BLINK_FRAMES;
     camera_shake(SHAKE_MEDIUM);

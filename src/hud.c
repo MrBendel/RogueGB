@@ -56,7 +56,8 @@ uint8_t hud_fx;
 uint8_t hud_tick;
 uint8_t hud_ammo = 0xFF;       // rounds shown (0xFF: none, a weapon without a magazine)
 uint8_t hud_gun = 0xFF;        // the weapon whose icon is loaded
-uint8_t hud_name_t;            // frames left showing the weapon's name
+uint8_t hud_name_t;            // frames left showing hud_text (a weapon's name, a message)
+char hud_text[8];
 uint8_t hud_rows[2][ROW_LEN];  // what the copies read: must last until vblank
 uint8_t hud_right[2][RIGHT_LEN];
 
@@ -214,9 +215,7 @@ static void build_right(void) {
         bot[i] = T_BLANK;
     }
     if (hud_name_t) {
-        char n[8];
-        weapon_get_name(n);
-        for (uint8_t i = 0; i < RIGHT_LEN && n[i]; i++) top[i] = T_FONT + (n[i] - ' ');
+        for (uint8_t i = 0; i < RIGHT_LEN && hud_text[i]; i++) top[i] = T_FONT + (hud_text[i] - ' ');
         return;
     }
     top[1] = T_GUN;
@@ -252,6 +251,14 @@ void hud_draw(void) BANKED {
     hud_ammo = 0xFE;
     hud_gun = 0xFF;
     hud_update();  // (hud_gun 0xFF: the icon loads without showing the name)
+}
+
+void hud_say(const char *s) BANKED {
+    uint8_t i = 0;
+    for (; i < 7 && s[i]; i++) hud_text[i] = s[i];
+    for (; i < 8; i++) hud_text[i] = i < 7 ? ' ' : 0;
+    hud_name_t = NAME_FRAMES;
+    hud_ammo = 0xFE;  // the weapon side redraws at the next update
 }
 
 void hud_hide(void) BANKED {
@@ -303,7 +310,10 @@ weapon:;
     // The weapon side: a new weapon loads its icon and shows its name a while.
     uint8_t right = 0;
     if (weapon_cur != hud_gun) {
-        if (hud_gun != 0xFF) hud_name_t = NAME_FRAMES;
+        if (hud_gun != 0xFF) {
+            weapon_get_name(hud_text);
+            hud_name_t = NAME_FRAMES;
+        }
         hud_gun = weapon_cur;
         load_gun_icon();
         right = 1;

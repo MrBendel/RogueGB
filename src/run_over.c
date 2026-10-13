@@ -2,10 +2,21 @@
 // Run-over screen: stats for the run that just ended. START returns to the title.
 // This is where meta-progression (spending gold, picking an heir) will hook in.
 #include <gb/gb.h>
+#include "waves.h"
 #include "state.h"
 #include "input.h"
 #include "gfx.h"
 #include "run.h"
+#include "health.h"
+
+extern uint16_t enemies_killed;  // aim.c
+
+static const char *const causes[] = {"", "A SLIME", "A PEASHOOTER", "A PEA", "A PIT"};
+static uint8_t len(const char *s) {
+    uint8_t n = 0;
+    while (s[n]) n++;
+    return n;
+}
 
 // Ignore input briefly so a held or mashed button doesn't skip the screen.
 #define INPUT_DELAY 30
@@ -15,13 +26,24 @@ uint8_t run_over_timer;
 void run_over_enter(void) BANKED {
     run_over_timer = 0;
     palettes_menu();
-    bkg_frame(2, 3, 16, 9);
-    bkg_text(6, 4, "RUN OVER");
-    bkg_text(4, 7, "TIME");
-    bkg_number(11, 7, run_seconds / 60, 2, 1);
-    bkg_text(13, 7, ":");
-    bkg_number(14, 7, run_seconds % 60, 2, 1);
-    bkg_text(5, 14, "PRESS START");
+    bkg_frame(2, 2, 16, 12);
+    bkg_text(6, 3, "RUN OVER");
+    if (death_cause) {
+        const char *c = causes[death_cause];
+        bkg_text(5, 5, "KILLED BY");
+        bkg_text((SCREEN_TW - len(c)) >> 1, 6, c);
+    } else {
+        bkg_text(5, 5, "RUN ENDED");
+    }
+    bkg_text(4, 8, "TIME");
+    bkg_number(11, 8, run_seconds / 60, 2, 1);
+    bkg_text(13, 8, ":");
+    bkg_number(14, 8, run_seconds % 60, 2, 1);
+    bkg_text(4, 9, "KILLS");
+    bkg_number(12, 9, enemies_killed, 4, 0);
+    bkg_text(4, 10, "WAVES");
+    bkg_number(12, 10, waves_cleared, 4, 0);
+    bkg_text(5, 15, "PRESS START");
 }
 
 void run_over_update(void) BANKED {

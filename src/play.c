@@ -12,6 +12,7 @@
 //   SELECT paused end the run
 #include <gb/gb.h>
 #include <rand.h>
+#include "waves.h"
 #include "sfx.h"
 #include "state.h"
 #include "input.h"
@@ -96,8 +97,6 @@ static const Tunable tunables[] = {
 
 // Sprites before this are the player's, the held weapon's and the reticle's (oam.h).
 #define FIRST_ACTOR_OAM OAM_FIRST_ACTOR
-// The arena is the screen below the lab (rows 16-22): entering it spawns a wave.
-#define ARENA_TOP (16 * BLOCK_SIZE)
 
 // Player start: on the ledge in the top-left screen.
 #define START_X 72
@@ -113,7 +112,6 @@ uint8_t chord_mask;    // A/B kept from the game: while SELECT is down, then unt
 uint16_t chord_throws; // SELECT+A presses (the grenade/mine to come; watchable)
 uint8_t tune_sel;
 uint8_t tune_top;  // the first tunable shown (the list scrolls)
-uint8_t wave_spawned;
 // Debug/test hook: tests set this through emulator memory writes; the next frame
 // runs it and clears it. 1 = stress wave (actors_debug_stress); 2 = spawn an actor
 // of debug_type at (debug_x, debug_y), its slot in debug_slot; 3 = equip the
@@ -190,7 +188,7 @@ void play_enter(void) BANKED {
     hud_init();
     chest_init();
     sfx_watch_reset();
-    wave_spawned = 0;
+    waves_init();
     paused = 0;
     select_chord = chord_mask = 0;
     chord_throws = 0;
@@ -201,16 +199,6 @@ void play_enter(void) BANKED {
     gfx_sprites(1);
     gfx_sprite_split(HUD_WY);  // no sprites over the HUD
     player_draw();
-}
-
-// First wave: two peashooters in the top corners, three slimes below.
-static void spawn_wave(void) {
-    wave_spawned = 1;
-    actor_spawn(ACTOR_PEASHOOTER, 2 * BLOCK_SIZE, 17 * BLOCK_SIZE);
-    actor_spawn(ACTOR_PEASHOOTER, 17 * BLOCK_SIZE, 17 * BLOCK_SIZE);
-    actor_spawn(ACTOR_SLIME, 4 * BLOCK_SIZE, 20 * BLOCK_SIZE);
-    actor_spawn(ACTOR_SLIME, 15 * BLOCK_SIZE, 20 * BLOCK_SIZE);
-    actor_spawn(ACTOR_SLIME, 9 * BLOCK_SIZE, 22 * BLOCK_SIZE);
 }
 
 static void set_paused(uint8_t p) {
@@ -331,11 +319,14 @@ void play_update(void) BANKED {
         if (debug_cmd == 1) actors_debug_stress(player_x, player_y);
         else if (debug_cmd == 2) debug_slot = actor_spawn(debug_type, debug_x, debug_y);
         else if (debug_cmd == 3) health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
-        else if (debug_cmd == 4) player_hurt(debug_type, debug_x, debug_y);
+        else if (debug_cmd == 4) {
+            hurt_cause = CAUSE_NONE;
+            player_hurt(debug_type, debug_x, debug_y);
+        }
         debug_cmd = 0;
     }
     player_update();
-    if (!wave_spawned && player_y >= ARENA_TOP) spawn_wave();
+    waves_update();
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);

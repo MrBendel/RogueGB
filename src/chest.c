@@ -5,6 +5,7 @@
 // brass); the shield uses the weapons' gunmetal. Both have their own hardware
 // sprites (OAM_PROP: 2 for the chest, 2 for the shield).
 #include <gb/gb.h>
+#include "waves.h"
 #include "chest.h"
 #include "room.h"
 #include "camera.h"
@@ -16,7 +17,6 @@
 #include "spr_chest.h"
 #include "spr_shield_item.h"
 
-extern uint8_t wave_spawned;  // play.c
 
 // Sprite tiles (bank 0): above the effects' tiles, below 128 (from 128 on, sprite
 // tiles share VRAM with background tiles 128-255).
@@ -84,7 +84,7 @@ void chest_update(void) BANKED {
     chest_tick++;
     switch (chest_state) {
     case CHEST_LOCKED:
-        if (wave_spawned && !actors_active) chest_state = CHEST_READY;
+        if (waves_cleared) chest_state = CHEST_READY;
         break;
     case CHEST_READY:
         if (near(CHEST_X + 8, CHEST_Y + 8, OPEN_REACH)) {

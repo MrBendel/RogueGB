@@ -240,7 +240,10 @@ static void update_bullets(void) {
     bullet_draw_prop = pea_frames[(anim << 2) + 1] | SPR_PAL_BULLET;
     bullet_draw_start = &bullets[bullet_rotation];
     bullets_update();
-    if (bullet_hit) player_hurt(BULLET_DAMAGE, bullet_hit_x, bullet_hit_y);
+    if (bullet_hit) {
+        hurt_cause = CAUSE_PEA;
+        player_hurt(BULLET_DAMAGE, bullet_hit_x, bullet_hit_y);
+    }
 }
 
 // The player's shots (shots.s): set up its inputs, then remove enemies a shot
@@ -292,6 +295,7 @@ void actors_update(uint8_t first_oam) {
             // Touching an enemy hurts (unless you're jumping over it).
             if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
+                hurt_cause = actor_type[i];  // CAUSE_SLIME, CAUSE_PEASHOOTER
                 player_hurt(TOUCH_DAMAGE, actor_x[i] + 8, actor_y[i] + 11);
                 hittable = 0;
             }

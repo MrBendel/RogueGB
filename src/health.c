@@ -18,6 +18,7 @@ uint8_t regen_tick;
 uint16_t player_hits;
 uint16_t shield_hits;
 uint8_t shield_flash, shield_broke;
+uint8_t hurt_cause, death_cause;
 
 void health_start(void) BANKED {
     if (!player_hp_max) player_hp_max = HEALTH_START;  // later runs keep a tuned max
@@ -29,6 +30,7 @@ void health_start(void) BANKED {
     shield_flash = shield_broke = 0;
     regen_tick = 0;
     player_hits = shield_hits = 0;
+    hurt_cause = death_cause = CAUSE_NONE;
 }
 
 void health_give_shield(uint8_t cap, uint8_t delay, uint8_t rate) BANKED {
@@ -57,7 +59,12 @@ uint8_t health_damage(uint8_t dmg, uint8_t flags) BANKED {
         }
     }
     player_hits++;
-    player_hp = dmg >= player_hp ? 0 : player_hp - dmg;
+    if (dmg >= player_hp) {
+        player_hp = 0;
+        death_cause = hurt_cause;
+    } else {
+        player_hp -= dmg;
+    }
     return 1;
 }
 

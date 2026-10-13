@@ -21,5 +21,7 @@ void hud_init(void) BANKED;   // the HUD's tiles (once per play scene)
 void hud_draw(void) BANKED;   // the whole HUD (scene start, after the pause panel)
 void hud_hide(void) BANKED;   // before the pause panel takes the window
 void hud_update(void) BANKED; // per frame: redraw a bar when its value changed
+// Show up to 7 characters (s in RAM) where the weapon's name shows, for a second.
+void hud_say(const char *s) BANKED;
 
 #endif

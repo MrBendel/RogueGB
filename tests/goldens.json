@@ -2,7 +2,7 @@
   "title": "98e3c43d",
   "start-room": "4fd45eb5",
   "paused": "ba6b05b5",
-  "run-over": "cb695647",
+  "run-over": "85200e05",
   "lab-moved": "1f1cd41c",
   "tuning": "3cdde830",
   "player-down": "4fd45eb5",
@@ -28,5 +28,6 @@
   "reload-bar": "9b645371",
   "chest-ready": "f7648ced",
   "chest-open": "a02de6a4",
-  "hud-sprite-clipped": "c2871ac0"
+  "hud-sprite-clipped": "c2871ac0",
+  "run-over-killed": "972c4f65"
 }

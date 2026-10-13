@@ -15,6 +15,16 @@
 #define SHIELD_START_DELAY 150  // frames without a hit before it recharges
 #define SHIELD_START_RATE 2     // frames per point recharged (0 counts as 1)
 
+// What hurt the player (set by whoever calls player_hurt / health_damage just
+// before): the first two match the actor types (actor.h), so a touch passes its type.
+#define CAUSE_NONE 0
+#define CAUSE_SLIME 1
+#define CAUSE_PEASHOOTER 2
+#define CAUSE_PEA 3
+#define CAUSE_PIT 4
+extern uint8_t hurt_cause;   // the hit being dealt
+extern uint8_t death_cause;  // the hit that ended the run (CAUSE_NONE: the run was ended from the pause panel)
+
 // health_damage flags
 #define DMG_DIRECT 1  // skips the shield (falling into a pit)
 
