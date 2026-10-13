@@ -156,7 +156,7 @@ static int16_t step_axis(int16_t v, int16_t t) {
 // while the player is lower than their top.
 static uint8_t blocked(uint16_t x, uint16_t y) {
     uint8_t t = room_block_at(x, y);
-    return t == BLK_SOLID || (t == BLK_RAISED && player_z < RAISED_Z);
+    return t == BLK_SOLID || t == BLK_PROP || (t == BLK_RAISED && player_z < RAISED_Z);
 }
 
 // Does the hitbox fit with the sprite's top-left at pixel (x, y)?

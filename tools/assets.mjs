@@ -122,6 +122,22 @@ export const ASSETS = [
     crop8: 4,
     anims: { burst: numbered('flash', 2) },
   },
+  // Placeholder props, drawn by tools/make-ui-art.mjs: the arena's chest (closed,
+  // open) and the shield in it (chest.c).
+  {
+    name: 'spr_chest',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/ui',
+    anims: { chest: numbered('chest', 2) },
+  },
+  {
+    name: 'spr_shield_item',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/ui',
+    anims: { item: numbered('shield', 1) },
+  },
   // Held weapons: 16 aiming directions each, drawn by tools/make-weapon-art.mjs
   // (which also writes src/weapon_<name>.h, where each direction is placed).
   {

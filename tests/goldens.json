@@ -25,5 +25,7 @@
   "hud-shield-broken-low": "93c9eb17",
   "hud-grown": "406a9887",
   "hud-after-pause": "59163e3c",
-  "reload-bar": "2025befd"
+  "reload-bar": "2025befd",
+  "chest-ready": "fbd2822f",
+  "chest-open": "ac9be866"
 }

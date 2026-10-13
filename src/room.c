@@ -10,7 +10,7 @@ uint8_t room_h;
 uint16_t room_px_w;
 uint16_t room_px_h;
 uint8_t __at(ROOM_MAP_ADDR) room_map[ROOM_MAX_W * ROOM_MAX_H];
-uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[16];
+uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[BLK_TYPES * 4];
 
 // Parameters for the fill routines in room_fill.s.
 uint8_t *fill_dst;

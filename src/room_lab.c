@@ -31,14 +31,16 @@ static const uint8_t room_tiles[] = {
 #define ROOM_TILE_COUNT 10
 
 // Background tile for each block type (BLK_*) and quadrant (TL, TR, BL, BR).
-static const uint8_t block_tiles[16] = {
+static const uint8_t block_tiles[BLK_TYPES * 4] = {
     TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_FLOOR
     TILE_WALL, TILE_WALL, TILE_WALL, TILE_WALL,              // BLK_SOLID
     TILE_PIT, TILE_PIT + 1, TILE_PIT + 2, TILE_PIT + 3,      // BLK_PIT
     TILE_RAISED, TILE_RAISED + 1, TILE_RAISED + 2, TILE_RAISED + 3,  // BLK_RAISED
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_PROP (the prop is a sprite)
 };
 
-// The movement lab: 2x2 screens. # wall, o pit, = raised block.
+// The movement lab: 2x2 screens. # wall, o pit, = raised block, c the chest
+// (chest.h: CHEST_BX, CHEST_BY).
 // - Top-left screen: the original lab's pillars (the movement tests rely on them);
 //   the ledge below the start position at row 7 is where the old bottom wall was.
 // - Top-right: a 2-block pit (columns 16-17) that needs a jump plus a dash.
@@ -70,7 +72,7 @@ static const char lab_layout[LAB_H][LAB_W + 1] = {
     "#...#..........#...#",
     "#..................#",
     "#........##........#",
-    "#..................#",
+    "#................c.#",
     "#..................#",
     "####################",
 };
@@ -84,12 +86,12 @@ void room_load_lab(void) BANKED {
     room_px_h = (uint16_t)LAB_H * BLOCK_SIZE;
     // Everything outside the room reads as wall, so drawing needs no bounds checks.
     for (uint16_t i = 0; i < sizeof(room_map); i++) room_map[i] = BLK_SOLID;
-    for (uint8_t i = 0; i < 16; i++) room_tile_lut[i] = block_tiles[i];
+    for (uint8_t i = 0; i < sizeof(block_tiles); i++) room_tile_lut[i] = block_tiles[i];
     for (uint8_t by = 0; by < LAB_H; by++)
         for (uint8_t bx = 0; bx < LAB_W; bx++)
         {
             char c = lab_layout[by][bx];
-            room_map[((uint16_t)by << 5) | bx] = c == '#' ? BLK_SOLID : c == 'o' ? BLK_PIT : c == '=' ? BLK_RAISED : BLK_FLOOR;
+            room_map[((uint16_t)by << 5) | bx] = c == '#' ? BLK_SOLID : c == 'o' ? BLK_PIT : c == '=' ? BLK_RAISED : c == 'c' ? BLK_PROP : BLK_FLOOR;
         }
 }
 

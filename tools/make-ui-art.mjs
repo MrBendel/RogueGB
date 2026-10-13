@@ -1,5 +1,5 @@
 // Draws the small UI sprites the art packs don't have (the aim reticle, the
-// player's shot, the muzzle flash) from ASCII art, as 16x16 RGBA PNGs in
+// player's shot, the muzzle flash, placeholder chest and shield) from ASCII art, as 16x16 RGBA PNGs in
 // artwork/ui/. Run it after editing a drawing here; tools/assets.mjs converts the
 // PNGs like any other art.
 //   node tools/make-ui-art.mjs
@@ -119,10 +119,69 @@ const flashB = [
   '................', '................', '................', '................', '................', '................',
 ];
 
+// Placeholder props until real art: the arena's chest (closed, open) and the
+// shield it holds. The chest is drawn with the enemy pea's palette (w = peach
+// trim, g = orange wood, k = black), the shield with the weapons' gunmetal.
+const chestClosed = [
+  '................',
+  '................',
+  '..kkkkkkkkkkkk..',
+  '.kggggggggggggk.',
+  '.kgwggggggggwgk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kkkkkkkkkkkkkk.',
+  '.kgwggwkkwggwgk.',
+  '.kgwggwkkwggwgk.',
+  '.kgwgggwwgggwgk.',
+  '.kgwggggggggwgk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kgwggggggggwgk.',
+  '.kkkkkkkkkkkkkk.',
+  '................',
+  '................',
+];
+const chestOpen = [
+  '..kkkkkkkkkkkk..',
+  '.kgwggggggggwgk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kkkkkkkkkkkkkk.',
+  '.kkkkkwkkkkkkkk.',
+  '.kkwkkkkkkwkkkk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kgwgggkkgggwgk.',
+  '.kgwgggwwgggwgk.',
+  '.kgwggggggggwgk.',
+  '.kgwggggggggwgk.',
+  '.kwwwwwwwwwwwwk.',
+  '.kgwggggggggwgk.',
+  '.kkkkkkkkkkkkkk.',
+  '................',
+  '................',
+];
+const shieldItem = [
+  '................',
+  '................',
+  '...kkkkkkkkkk...',
+  '..kwwwwwwwwggk..',
+  '..kwgggggggggk..',
+  '..kwggwwwwgggk..',
+  '..kwggwkkwgggk..',
+  '..kwggwkkwgggk..',
+  '..kwggwwwwgggk..',
+  '...kwgggggggk...',
+  '...kwgggggggk...',
+  '....kwgggggk....',
+  '.....kwgggk.....',
+  '......kggk......',
+  '.......kk.......',
+  '................',
+];
+
 fs.mkdirSync(OUT, { recursive: true });
 const files = {
   'reticle (1).png': reticleOut, 'reticle (2).png': reticleIn, 'shot (1).png': shotA, 'shot (2).png': shotB,
   'flash (1).png': flashA, 'flash (2).png': flashB,
+  'chest (1).png': chestClosed, 'chest (2).png': chestOpen, 'shield (1).png': shieldItem,
 };
 for (const [name, rows] of Object.entries(files)) {
   fs.writeFileSync(path.join(OUT, name), png(rows));

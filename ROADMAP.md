@@ -1,22 +1,31 @@
 # RogueGB roadmap
 
-A top-down roguelite shooter for the Game Boy: Rogue Legacy's run and heir structure
-with Borderlands-style guns. See [docs/inspiration/](docs/inspiration/README.md) for
-the design notes behind it.
+A top-down space exploration shooter for the Game Boy Color: develop one persistent
+character through a campaign of repeatable expeditions, gun loot, and discoveries
+from a lost civilization. A megacorporation led by the concealed **CEO** seeks
+galactic control. See [docs/design/](docs/design/README.md) for the story, play loop,
+and decision log; [docs/inspiration/](docs/inspiration/README.md) holds historical
+reference notes.
+
+Campaign direction changed on 2026-10-12: the heir/Manor loop is superseded.
+Story details marked as proposals in the design notes remain provisional. The
+milestones below describe planned work; campaign systems are not implied to exist
+in the combat prototype. Local milestone revisions have not updated GitHub issues.
 
 ## Decisions so far
 
 | Topic | Decision |
 |---|---|
+| Campaign | Choose a character/class at the start and develop that same character. Explore, collect, and repeat within a progressive space campaign. Planets and a ship hub are the working structure; see [play loop](docs/design/play-loop.md) |
 | View | **Top-down**, at the scale of the Capcom-era (Oracle) Zelda games: 16×16 characters drawn as 2 hardware sprites in 8×16 mode, and 16×16 map blocks. Matches the `artwork/8bitadventure` pack |
 | Rooms | **Mixed sizes.** Most rooms are one screen (10×8 blocks) and slide to the next one, Zelda style. Some are bigger (2×1, 1×2, 2×2 screens) with a camera that follows the player, for arenas and bosses. Room data allows any size from the start |
 | Graphics | **Pre-rendered.** Nothing is drawn or combined pixel by pixel at runtime. Characters' bodies are 2 sprites; right-facing frames are mirrored for left. All frames live in ROM; VRAM holds only the frames on screen, swapped in when the animation changes (4 tiles = 64 bytes). **The held weapon is its own sprite (1-2 sprites) over the body**, pre-drawn in 16 aiming directions by `tools/make-weapon-art.mjs` (see "Weapons" below). Any combining or rotating of art happens in the build tools, not in the game. Cheap runtime effects: sprite flips (sprites only; DMG background tiles can't flip, so mirrored background art is pre-rendered by the build), palette changes, sprites stacked by the hardware where the line budget allows |
-| Movement | Eased 8-way movement with per-axis acceleration, deceleration and reversal. **Default: SNAPPY at 1 px/frame** (5 frames to top speed, 4 to stop, 3 to turn around), chosen in the movement lab with the real player sprite (2 px/frame felt right with a placeholder box, but too fast with the character art). **Each character has a movement profile** (top speed + those three frame counts) from a data table, so heir classes, traits and enemies can move differently |
+| Movement | Eased 8-way movement with per-axis acceleration, deceleration and reversal. **Default: SNAPPY at 1 px/frame** (5 frames to top speed, 4 to stop, 3 to turn around), chosen in the movement lab with the real player sprite (2 px/frame felt right with a placeholder box, but too fast with the character art). **Each character has a movement profile** (top speed + those three frame counts) from a data table, so character classes, upgrades and enemies can move differently |
 | Performance | A frame is 140,448 CPU cycles at the Color's double speed (131,328 after vblank; it was 70,224 / 65,664 at normal speed). VRAM updates are queued and written in vblank; per-frame code avoids 32-bit math and division; the hottest loops are hand-written assembly; enemies think at 30 Hz; the camera streams one strip per frame and moves at most 4 px a frame. Tests guard the budget: walking under half a frame, an arena fight under 48k, full pools (8 enemies + 20 bullets) at most 1% of frames over (#26). `harness/profile.mjs` shows where cycles go |
 | Dynamic content | Only **data** is generated at runtime: floor layouts, room picks and mirroring, spawns, gun stats. It runs during fades, so it has no per-frame budget |
 | HUD | One block row (16 px) on the window layer. **Bottom of the screen for M1**, because the hardware does that for free. A top HUD like Zelda's needs a scanline interrupt; it's an optional M6 polish item |
 | Hardware | **Game Boy Color only** (decided 2026-10, replacing "DMG first"): the ROM header is CGB-only, the CPU runs at double speed, and the Color's extra hardware is ours to use: 8 background + 8 sprite palettes, a second VRAM bank (512 sprite tiles), per-tile palettes and flips for the background, HDMA. The game won't run on an original Game Boy. Color arrives in steps: grey palettes matching the old look first (done), per-asset palettes (done: each sprite keeps its art's colors, `src/palettes.c` picks the room, HUD and tool-drawn art), the second VRAM bank (done: all weapon art, so bank 0's sprite tiles end at 52 of 256), then the dimmed weapon wheel, and color for elements, rarity and zones |
-| Health and shields | **Borderlands-style layers.** A shield takes damage first and recharges after a delay without hits. Health only regenerates with a perk (class, trait or Manor). **You start without a shield** and earn the first one from a chest. Falling into a pit skips the shield. Shown as **bars, not hearts**: they grow as max values grow (Rogue Legacy style), and exact numbers are on the pause screen. How the character levels up (in-run XP, the Manor, or both) is decided once the story is outlined (see Open questions) |
+| Health and shields | **Borderlands-style layers.** A shield takes damage first and recharges after a delay without hits. Health regeneration can come from character or equipment upgrades. **You start without a shield** and earn the first one from a chest. Falling into a pit skips the shield. Shown as **bars, not hearts**: they grow as max values grow, and exact numbers are on the pause screen. Persistent character growth is agreed; XP and upgrade rules remain open |
 | Loot | **As close to Borderlands as the hardware allows**, so there's always a newer, better gun to find. Procedural guns from a few manufacturers, each with one gimmick (explodes when reloaded, burst fire, semi-auto heavy hitter, always elemental, accuracy that improves while firing, huge magazines). Rarity tiers, elements, chests with a loot fountain, and a stat card that compares a find with what you hold (see "Loot" below) |
 | Order | Get the **combat feel** right in one room before building systems around it |
 | Tracking | This file has the overall plan. GitHub milestones match the sections below. Issues are filed only for the next one or two milestones |
@@ -106,7 +115,13 @@ Next: the shared game-feel effects (#13): screen shake, knockback from shots, im
 - **Numbers:**
   - Health starts at 60 points.
   - Enemies do 10 on touch and 8 per pea; a pit costs 10 and skips the shield.
-  - The first shield (the chest's, once the chest exists): 40 points, recharging a point every 2 frames after 150 frames (2.5 s) without a hit.
+  - The first shield: 40 points, recharging a point every 2 frames after 150 frames (2.5 s) without a hit.
+- **The chest** (`src/chest.c`):
+  - It sits in the arena's bottom-right and stays locked until the wave is cleared; then it glows gold.
+  - Walking into it opens it: the shield pops out and lands in front.
+  - Walking over the shield equips it, and the bar fills from empty, so you see it arrive.
+  - The chest and shield art are placeholders, drawn in `tools/make-ui-art.mjs` (`artwork/ui/chest (1-2).png`, `shield (1).png`).
+  - The chest's block is `BLK_PROP`: solid to the player and drawn as floor, with the chest as a sprite over it (the background can't change palette per block while it streams).
   - Max health, shield capacity, delay and rate are on the pause panel.
   - Health regen is a hook: `health_regen`, frames per point, 0 for now.
 - **Hits:**
@@ -159,12 +174,12 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
 
 ### Open questions
 
-- **Story and progression.** Map out the story first. It decides how the character grows (in-run levels, the Manor, or both), where shields, chests and special guns show up, and the manufacturer names.
+- **Campaign details.** Develop the [story](docs/design/story.md) and [play loop](docs/design/play-loop.md): first expedition, death/return rules, persistent character leveling, collection rewards, and manufacturer identities. The CEO and ancient-network premise are established directions; names and detailed plot beats remain proposals.
 - **Pickup button** (see Loot); a manual reload too, if a button frees up (reloads are automatic for now).
 
 ## How we work
 
-- **Plan:** this file holds the decisions and the milestone outline. When a design decision changes, update it here in the same commit as the code.
+- **Plan:** this file holds technical decisions and the milestone outline. [docs/design/](docs/design/README.md) holds campaign and story decisions, with a dated decision log. Keep the relevant documents aligned when a decision changes; distinguish proposals from agreed requirements.
 - **Tasks:** [GitHub milestones](https://github.com/MrBendel/RogueGB/milestones) match the sections below, and each concrete task is an [issue](https://github.com/MrBendel/RogueGB/issues) with acceptance criteria. Issues are filed for the current and next milestone only; later ones get issues when we reach them.
 - **Doing an issue:** branch, implement, add or update tests (`node tools/test.mjs`), and reference the issue in the commit (`Fixes #N`).
 - **Verifying on a phone:** every push to `main` runs the GitHub Actions workflow (`.github/workflows/pages.yml`). It builds the ROM, runs the tests and deploys the playtest page to **https://mrbendel.github.io/RogueGB/**. The Claude-hosted playtest page (see CLAUDE.md) is the other option, and it collects bug reports.
@@ -203,6 +218,9 @@ with 6+ enemies and 10+ bullets on screen, and is covered by tests and replays.
 ### M2 · Dungeon (rooms and floors)
 Turn one room into a seeded floor of hand-made rooms.
 
+This is the room-generation prototype for planetary expeditions. The three-floor
+target below is a technical test structure, not the final campaign or trip length.
+
 - Room authoring format and converter (proposal: [Tiled](https://www.mapeditor.org/) JSON → banked C data). Rooms can be any multiple of one screen (10×8 blocks)
 - Indoor tileset pipeline: tile deduplication, with flags per block for collision, pit and height
 - ROM banking for room data and tile sets
@@ -231,24 +249,28 @@ The full Borderlands loot loop (see "Loot" above).
 - Gold drops and pickups
 - "Badass" elite variants: ×2 HP, an extra attack, a guaranteed better drop
 
-### M4 · Heirs and legacy (meta-progression)
-- Heir selection: pick 1 of 3 (class + 0–2 traits) after the title screen
-- 4–5 classes as stat multipliers plus one ability on A+B, with a cooldown or charge meter shown in the HUD
-- Each class has its own **movement profile** (for example a fast, slippery Runner and a heavy Grenadier that ramps up slowly); traits can modify it
-- Traits that are cheap on Game Boy: palette tricks, flipped screen, hidden HP, size changes
-- Second Wind: at 0 HP, a short last stand where a kill revives you
-- Manor upgrade tree (about 20 nodes), where every purchase raises all costs
-- Gold tax when starting a new run
-- Save data in SRAM (battery), with versioning and a checksum
-- Unlocks: gun parts and manufacturers found during runs
+### M4 · Persistent character and expedition progression
+Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/design/play-loop.md) before implementation.
 
-### M5 · Zones and bosses (content)
-- 4 zones, each with its own tileset, enemy roster (3–4 families with 3 tiers each) and special rooms
-- One boss per zone that shows a single attack pattern clearly, with a weak-point hitbox
-- Special rooms: shop, shrine (risk/reward), gamble, shooting gallery, gun stand
-- Final area that opens once all zone bosses are dead
-- Darkness effect for the last zone
-- New Game+: all enemies one tier higher, +50% loot
+- Character/class selection at campaign start; develop the same character across expeditions
+- Class abilities on A+B and distinct movement profiles; roster size, skill growth, and leveling remain open
+- Persistent campaign objectives, discoveries, and destination unlocks
+- Proposed ship hub for preparing expeditions, collections, and improvements
+- Equipment, materials, and discovery collection/reward systems, with exact rules to be designed
+- Death, rescue, return, and inventory retention rules to be decided; Second Wind remains a candidate
+- Save data in SRAM (battery), with versioning and a checksum, covering character and campaign state
+- Gun-part/manufacturer unlocks are candidates to integrate with discovery rewards
+
+### M5 · Planets, campaign, and bosses (content)
+Working content scope, expanded in [story.md](docs/design/story.md):
+
+- Planet destinations with distinctive environments, enemies, collectibles, and recurring sites; four initial concepts, count not final
+- Repeatable expeditions with persistent landmarks and varied routes/encounters
+- Deeper sites and return incentives tied to discoveries and character capabilities
+- Bosses with readable patterns and special rooms suited to exploration and collecting
+- Corporate encounters and recurring CEO communications that advance the conflict
+- Ancient-network discoveries leading toward a final confrontation over its control; exact gates and ending open
+- Optional harder expeditions after the campaign; the earlier fixed NG+ formula is no longer a requirement
 
 ### M6 · Sound and color
 - Music and sound-effect driver (proposal: hUGEDriver), title, zone and boss themes

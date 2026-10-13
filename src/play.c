@@ -25,6 +25,7 @@
 #include "weapon.h"
 #include "health.h"
 #include "hud.h"
+#include "chest.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -185,6 +186,7 @@ void play_enter(void) BANKED {
     camera_init(player_x + 8, player_y + 8);
     actors_init();
     hud_init();
+    chest_init();
     wave_spawned = 0;
     paused = 0;
     select_chord = chord_mask = 0;
@@ -335,6 +337,7 @@ void play_update(void) BANKED {
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     actors_update(FIRST_ACTOR_OAM);
+    chest_update();
     aim_update();
     player_draw();
     health_update();

@@ -24,6 +24,9 @@
 #define BLK_PIT 2     // hole: walkable, but standing over it (on the floor) makes you fall
 #define BLK_RAISED 3  // platform RAISED_PX high: a wall from the floor, ground once you're on it
 #define RAISED_PX 8
+#define BLK_PROP 4    // under a prop (the chest): solid to the player, drawn as floor;
+                      // shots, bullets and line of sight pass (they test SOLID/RAISED)
+#define BLK_TYPES 5
 
 extern uint8_t room_w;  // size in blocks
 extern uint8_t room_h;
@@ -37,7 +40,7 @@ extern uint16_t room_px_h;
 // fill loops can index it with one byte.
 #define ROOM_TILE_LUT_ADDR 0xD400
 extern uint8_t __at(ROOM_MAP_ADDR) room_map[ROOM_MAX_W * ROOM_MAX_H];  // row-major, stride ROOM_MAX_W
-extern uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[16];  // filled by the room loader
+extern uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[BLK_TYPES * 4];  // filled by the room loader
 
 // Load the movement-lab room (2x2 screens) and its tiles.
 #include <gb/gb.h>
