@@ -68,7 +68,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const category = argVal('--category', 'chest');
   const sizeStr = argVal('--size', ASSET_CATEGORIES[category]?.defaultSize || '16x16');
   const prompt = argVal('--prompt', '');
-  const model = argVal('--model', 'gemini-2.5-flash');
+  const model = argVal('--model', 'auto');
   const apiKey = argVal('--key', process.env.GEMINI_API_KEY || '');
 
   let asset;
@@ -76,7 +76,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     asset = STARTER_ASSETS.find((a) => a.id === starterId) || STARTER_ASSETS[0];
   } else {
     const { width, height } = parseSizeSpec(sizeStr);
-    console.log(`[forge-cli] Requesting ${width}x${height} ${category} from ${model}...`);
+    console.log(`[forge-cli] Requesting ${width}x${height} ${category} from Gemini (${model})...`);
     asset = await generateAssetWithGemini({
       apiKey,
       model,

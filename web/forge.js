@@ -3,7 +3,7 @@ import { GBC_PALETTES, snapColorToGbc, rgbToCgb555 } from '../harness/sprite-gen
 import {
   ASSET_CATEGORIES, parseSizeSpec, parseAssetRows, gridToAssetRows, cloneAssetGrid,
   flipAssetX, shiftAssetGrid, floodFillAssetGrid, outlineAssetGrid, STARTER_ASSETS,
-  generateAssetWithGemini, compileAssetToGbdk,
+  listGeminiModels, generateAssetWithGemini, compileAssetToGbdk,
 } from '../harness/asset-forge.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -397,13 +397,69 @@ function stepForgePreview() {
   drawAssetGrid(prevCtx, st.grid, W, H, ox, oy, activeAsset.palette);
 }
 
-// API Key setup
+// API Key setup & live model auto-discovery
 const apiKeyInput = $('fg-api-key');
+let modelRefreshTimer = null;
+
+async function refreshAvailableModels(silent = false) {
+  const apiKey = apiKeyInput?.value?.trim() || '';
+  const modelSel = $('fg-model');
+  if (!apiKey || !modelSel) {
+    if (!silent) toast('Paste your Gemini API Key first to query available models.');
+    return;
+  }
+  try {
+    const { models, bestFlash, bestPro } = await listGeminiModels(apiKey);
+    if (!models.length) return;
+    const prevVal = modelSel.value;
+    modelSel.innerHTML = '';
+
+    const optAuto = document.createElement('option');
+    optAuto.value = 'auto';
+    optAuto.textContent = `✨ Auto (${bestFlash})`;
+    modelSel.append(optAuto);
+
+    const optAutoPro = document.createElement('option');
+    optAutoPro.value = 'auto-pro';
+    optAutoPro.textContent = `🧠 Auto Pro (${bestPro})`;
+    modelSel.append(optAutoPro);
+
+    for (const m of models) {
+      const o = document.createElement('option');
+      o.value = m.id;
+      o.textContent = m.id;
+      modelSel.append(o);
+    }
+
+    if ([...modelSel.options].some((o) => o.value === prevVal)) {
+      modelSel.value = prevVal;
+    } else {
+      modelSel.value = 'auto';
+    }
+    if (!silent) {
+      toast(`Detected ${models.length} active Gemini models (best: ${bestFlash})`);
+    }
+  } catch (err) {
+    if (!silent) toast(err.message);
+  }
+}
+
 if (apiKeyInput) {
   apiKeyInput.value = localStorage.getItem(LS_KEY_API) || '';
+  if (apiKeyInput.value.trim().length > 15) {
+    refreshAvailableModels(true);
+  }
   apiKeyInput.oninput = () => {
-    try { localStorage.setItem(LS_KEY_API, apiKeyInput.value.trim()); } catch {}
+    const val = apiKeyInput.value.trim();
+    try { localStorage.setItem(LS_KEY_API, val); } catch {}
+    clearTimeout(modelRefreshTimer);
+    if (val.length > 15) {
+      modelRefreshTimer = setTimeout(() => refreshAvailableModels(true), 600);
+    }
   };
+}
+if ($('fg-refresh-models')) {
+  $('fg-refresh-models').onclick = () => refreshAvailableModels(false);
 }
 if ($('fg-key-vis') && apiKeyInput) {
   $('fg-key-vis').onclick = () => {
@@ -424,7 +480,7 @@ if ($('fg-category')) {
 // Gemini Generate & Refine buttons
 async function runGeminiForge(refineExisting = false) {
   const apiKey = $('fg-api-key')?.value?.trim() || '';
-  const model = $('fg-model')?.value || 'gemini-2.5-flash';
+  const model = $('fg-model')?.value || 'auto';
   const category = $('fg-category')?.value || 'chest';
   const { width, height } = parseSizeSpec($('fg-size')?.value || '16x16');
   const prompt = $('fg-prompt')?.value?.trim() || '';
@@ -441,8 +497,9 @@ async function runGeminiForge(refineExisting = false) {
   try {
     if (genBtn) genBtn.disabled = true;
     if (refBtn) refBtn.disabled = true;
+    const modelLabel = model === 'auto' ? 'best available Gemini Flash model' : model;
     if (statusEl) {
-      statusEl.textContent = `⏳ Asking ${model} to synthesize ${width}×${height} 2bpp pixel matrices + GBC RGB555 palette...`;
+      statusEl.textContent = `⏳ Asking ${modelLabel} to synthesize ${width}×${height} 2bpp pixel matrices + GBC RGB555 palette...`;
     }
     const generated = await generateAssetWithGemini({
       apiKey,
@@ -461,10 +518,11 @@ async function runGeminiForge(refineExisting = false) {
     ];
     saveLibraryToStorage(customLibrary);
     renderLibrary();
+    const usedTag = generated.usedModel ? ` via ${generated.usedModel}` : '';
     if (statusEl) {
-      statusEl.textContent = `✓ Generated "${generated.name}" (${width}×${height}, ${generated.states.length} states, 15-bit GBC palette)!`;
+      statusEl.textContent = `✓ Generated "${generated.name}" (${width}×${height}, ${generated.states.length} states, 15-bit GBC palette)${usedTag}!`;
     }
-    toast(`✨ Gemini generated "${generated.name}" (${width}×${height})!`);
+    toast(`✨ Gemini generated "${generated.name}" (${width}×${height})${usedTag}!`);
   } catch (err) {
     if (statusEl) statusEl.textContent = `⚠️ ${err.message}`;
     toast(err.message);

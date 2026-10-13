@@ -668,12 +668,78 @@ function normalizeRowsArray(rawRows, width, height) {
 }
 
 /**
+ * Query the Gemini API `/v1beta/models` endpoint to discover active models
+ * that support `generateContent` for the user's API key, ranked with newest
+ * Flash/Pro models first.
+ */
+export async function listGeminiModels(apiKey) {
+  if (!apiKey || !String(apiKey).trim()) {
+    throw new Error('Missing Gemini API key.');
+  }
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(apiKey.trim())}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const j = await res.json();
+      if (j?.error?.message) detail = j.error.message;
+    } catch {}
+    throw new Error(`Failed to list Gemini models: ${detail}`);
+  }
+  const data = await res.json();
+  const rawModels = Array.isArray(data?.models) ? data.models : [];
+
+  const candidates = [];
+  for (const m of rawModels) {
+    const methods = Array.isArray(m.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
+    if (!methods.includes('generateContent')) continue;
+    const id = String(m.name || '').replace(/^models\//, '');
+    if (!id.startsWith('gemini-')) continue;
+    // Skip specialized non-text/JSON-schema endpoints
+    if (/embedding|aqa|imagen|veo|tts|audio|live|vision|robotics|computer-use|learnlm|thinking-exp|image-generation/i.test(id)) {
+      continue;
+    }
+    const verMatch = id.match(/^gemini-(\d+(?:\.\d+)?)/);
+    const ver = verMatch ? parseFloat(verMatch[1]) : (id.includes('-latest') ? 3.5 : 1.0);
+    // Deprioritize retired 1.x / 2.0 / 2.5 models if 3.x+ or -latest exist
+    const isFlash = id.includes('flash') && !id.includes('8b') && !id.includes('lite');
+    const isPro = id.includes('pro');
+    const isLatestAlias = id === 'gemini-flash-latest' || id === 'gemini-pro-latest';
+    const isDated = /-\d{2}-\d{2}$|-\d{3}$|-00\d$/.test(id);
+    const score =
+      ver * 100 +
+      (isLatestAlias ? 40 : 0) +
+      (isFlash ? 25 : isPro ? 15 : 0) -
+      (isDated ? 10 : 0);
+    candidates.push({
+      id,
+      displayName: m.displayName || id,
+      ver,
+      isFlash,
+      isPro,
+      score,
+    });
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  const flashModels = candidates.filter((c) => c.isFlash);
+  const proModels = candidates.filter((c) => c.isPro);
+  return {
+    models: candidates,
+    bestFlash: flashModels[0]?.id || candidates[0]?.id || 'gemini-flash-latest',
+    bestPro: proModels[0]?.id || candidates[0]?.id || 'gemini-pro-latest',
+  };
+}
+
+/**
  * Call the Gemini API (`generateContent`) with a strict JSON schema to generate
  * or refine a multi-state 2bpp Game Boy asset + 15-bit GBC RGB555 palette.
+ * Supports `model: 'auto'` (or `'auto-pro'`) and automatically falls back to live
+ * discovered models from `/v1beta/models` if a requested model ID is deprecated/unavailable.
  */
 export async function generateAssetWithGemini({
   apiKey,
-  model = 'gemini-2.5-flash',
+  model = 'auto',
   category = 'chest',
   width = 16,
   height = 16,
@@ -749,7 +815,6 @@ export async function generateAssetWithGemini({
     },
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
   const body = {
     systemInstruction: { parts: [{ text: systemText }] },
     contents: [{ role: 'user', parts: [{ text: userLines.join('\n') }] }],
@@ -760,26 +825,96 @@ export async function generateAssetWithGemini({
     },
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
+  // Build ordered list of candidate models to try
+  const modelsToTry = [];
+  const cleanReqModel = String(model || 'auto').trim().replace(/^models\//, '');
+  const wantPro = cleanReqModel === 'auto-pro' || cleanReqModel.includes('pro');
+
+  if (cleanReqModel === 'auto' || cleanReqModel === 'auto-pro') {
+    try {
+      const discovered = await listGeminiModels(apiKey);
+      const primary = wantPro ? discovered.bestPro : discovered.bestFlash;
+      if (primary) modelsToTry.push(primary);
+      for (const m of discovered.models) {
+        if (!modelsToTry.includes(m.id)) modelsToTry.push(m.id);
+        if (modelsToTry.length >= 4) break;
+      }
+    } catch {
+      // Fallback aliases if listing fails
+    }
+  } else {
+    modelsToTry.push(cleanReqModel);
+  }
+
+  for (const fallback of [
+    wantPro ? 'gemini-pro-latest' : 'gemini-flash-latest',
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
+    'gemini-flash-latest',
+  ]) {
+    if (!modelsToTry.includes(fallback)) modelsToTry.push(fallback);
+  }
+
+  let data = null;
+  let usedModel = modelsToTry[0];
+  let lastError = null;
+  let triedLiveDiscovery = cleanReqModel === 'auto' || cleanReqModel === 'auto-pro';
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const candidateModel = modelsToTry[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidateModel)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      data = await res.json();
+      usedModel = candidateModel;
+      break;
+    }
+
     let errDetail = `${res.status} ${res.statusText}`;
     try {
       const errJson = await res.json();
       if (errJson?.error?.message) errDetail = errJson.error.message;
     } catch {}
-    throw new Error(`Gemini API error: ${errDetail}`);
+    lastError = new Error(`Gemini API error (${candidateModel}): ${errDetail}`);
+
+    const isModelUnavailable =
+      res.status === 404 ||
+      res.status === 400 ||
+      /not found|no longer available|not supported|deprecated|retired|invalid argument/i.test(errDetail);
+
+    if (!isModelUnavailable) {
+      throw lastError;
+    }
+
+    // If the user picked a specific model that is unavailable, query live `/v1beta/models` once
+    if (!triedLiveDiscovery) {
+      triedLiveDiscovery = true;
+      try {
+        const discovered = await listGeminiModels(apiKey);
+        const dynamicList = discovered.models.map((m) => m.id).filter((id) => !modelsToTry.includes(id));
+        modelsToTry.splice(i + 1, 0, ...dynamicList.slice(0, 4));
+      } catch {}
+    }
   }
 
-  const data = await res.json();
+  if (!data) {
+    throw lastError || new Error('Gemini API request failed across all candidate models.');
+  }
+
   const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!rawText) {
     throw new Error('Gemini returned an empty response — try rephrasing your prompt.');
   }
-  const parsed = JSON.parse(rawText);
+  const cleanedJson = String(rawText)
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const parsed = JSON.parse(cleanedJson);
 
   const defPal = GBC_PALETTES.gbc_monk_gold.colors;
   const palette = [
@@ -814,6 +949,7 @@ export async function generateAssetWithGemini({
     height,
     palette,
     states,
+    usedModel,
   };
 }
 
