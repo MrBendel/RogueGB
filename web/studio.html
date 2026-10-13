@@ -34,16 +34,23 @@
     </div>
 
     <div class="row space-between small">
-      <div class="row">
-        <span><strong>Step 1 — Crop Aspect Ratio:</strong></span>
-        <div class="row" id="st-crop-ratio-tabs">
-          <button data-size="16" class="on" title="1:1 Square crop for 16x16 Standard Sprite">1:1 Square (16×16)</button>
-          <button data-size="24" title="2:3 Vertical rectangle crop for 16x24 Tall Hero">2:3 Tall (16×24)</button>
+      <div class="row" style="flex-wrap:wrap">
+        <span><strong>Step 1 — Target Canvas Size (8px increments):</strong></span>
+        <div class="row" id="st-crop-ratio-tabs" style="flex-wrap:wrap; gap:4px">
+          <button data-w="8" data-h="8" title="8x8 UI Icon / Bullet (1 tile)">8×8</button>
+          <button data-w="16" data-h="16" class="on" title="16x16 Standard Sprite (2x2 tiles)">16×16</button>
+          <button data-w="16" data-h="24" title="16x24 Tall Hero (2x3 tiles)">16×24</button>
+          <button data-w="24" data-h="24" title="24x24 Medium Sprite (3x3 tiles)">24×24</button>
+          <button data-w="32" data-h="32" title="32x32 Boss / Large (4x4 tiles)">32×32</button>
+          <button data-w="48" data-h="48" title="48x48 Titan (6x6 tiles)">48×48</button>
+          <button data-w="64" data-h="64" title="64x64 Giant / Title (8x8 tiles)">64×64</button>
         </div>
       </div>
       <div class="row">
-        <button id="st-crop-autosnap" title="Automatically snap the 1:1 or 2:3 crop box around the character">🎯 Auto-Fit Subject</button>
-        <button id="st-crop-reset" title="Reset crop box to maximum 1:1 or 2:3 frame">⛶ Full Frame</button>
+        <label>W: <select id="st-conv-w" style="padding:2px 4px"></select></label>
+        <label>H: <select id="st-conv-h" style="padding:2px 4px"></select></label>
+        <button id="st-crop-autosnap" title="Automatically snap crop box around the character">🎯 Auto-Fit</button>
+        <button id="st-crop-reset" title="Reset crop box to full frame">⛶ Full Frame</button>
       </div>
     </div>
 
@@ -99,9 +106,10 @@
       </label>
     </div>
 
-    <div class="row space-between small">
-      <label><input type="checkbox" id="st-conv-outline"> Add Crisp Dark Outline (Shade 3)</label>
-      <label><input type="checkbox" id="st-conv-usepal" checked> Extract 15-bit GBC Palette</label>
+    <div class="row space-between small" style="flex-wrap:wrap">
+      <label><input type="checkbox" id="st-conv-dither"> 🏁 2bpp Floyd-Steinberg Dither (Game Boy Camera)</label>
+      <label><input type="checkbox" id="st-conv-outline"> 🔲 Add Crisp Dark Outline (Shade 3)</label>
+      <label><input type="checkbox" id="st-conv-usepal" checked> 🎨 Extract 15-bit GBC Palette</label>
     </div>
   </section>
 
@@ -215,12 +223,31 @@
         </div>
 
         <div class="row space-between small">
-          <span>Canvas Size:</span>
-          <div class="row" id="st-size-tabs">
-            <button data-size="16" class="on" title="Classic 16x16 (2 hardware 8x16 sprites/frame)">16×16 Standard</button>
-            <button data-size="24" title="Tall 16x24 (4 hardware 8x16 columns/frame)">16×24 Tall Hero</button>
+          <span>Canvas Size (8px–64px):</span>
+          <div class="row" id="st-size-tabs" style="flex-wrap:wrap; gap:4px">
+            <button data-w="8" data-h="8" title="8x8 Icon / Bullet">8×8</button>
+            <button data-w="16" data-h="16" class="on" title="16x16 Standard">16×16</button>
+            <button data-w="16" data-h="24" title="16x24 Tall Hero">16×24</button>
+            <button data-w="24" data-h="24" title="24x24 Medium">24×24</button>
+            <button data-w="32" data-h="32" title="32x32 Boss">32×32</button>
+            <button data-w="48" data-h="48" title="48x48 Titan">48×48</button>
+            <button data-w="64" data-h="64" title="64x64 Giant">64×64</button>
           </div>
-          <label title="When switching between 16x16 and 16x24, stretch proportions or pad/crop rows"><input type="checkbox" id="st-size-stretch" checked> Stretch</label>
+        </div>
+
+        <div class="row space-between small">
+          <div class="row">
+            <label>Width:
+              <select id="st-size-w"></select>
+            </label>
+            <label>Height:
+              <select id="st-size-h"></select>
+            </label>
+          </div>
+          <div class="row">
+            <label title="When changing canvas size, stretch existing pixels or pad/crop"><input type="checkbox" id="st-size-stretch" checked> Stretch</label>
+            <span id="st-tile-badge" class="pill ok">2×2 Tiles</span>
+          </div>
         </div>
 
         <div class="row small">
@@ -230,7 +257,7 @@
           <label><input type="radio" name="st-synth-mode" value="3pose" checked> 3-Pose Base (Down + Up + Right → Anims)</label>
         </div>
         <div class="row space-between small">
-          <label class="filebtn">📂 Import Image… <input type="file" id="st-upload-png" accept="image/png,image/*"></label>
+          <label class="filebtn primary">🖼️ Auto-Convert Image… <input type="file" id="st-upload-png" accept="image/png,image/*"></label>
           <button id="st-paste-btn" title="Paste copied image from clipboard (mobile or desktop)">📋 Paste Image</button>
           <select id="st-upload-target" title="Which base pose to import or paste into">
             <option value="down">into Down (Front)</option>
@@ -238,7 +265,7 @@
             <option value="right">into Right (Side)</option>
           </select>
         </div>
-        <div class="small muted">💡 Auto-quantizes any image into <strong>3 visible colors + 1 transparent</strong> and snaps to <strong>15-bit GBC RGB555</strong>.</div>
+        <div class="small muted">💡 <strong>Auto-quantizes any image</strong> into 3 visible colors + 1 transparent, snapping to 15-bit GBC RGB555.</div>
       </div>
 
       <div class="card">
@@ -266,7 +293,7 @@
 
       <div class="card">
         <div class="row space-between">
-          <strong id="st-editor-title">3. 16×16 2bpp Pixel Editor</strong>
+          <strong id="st-editor-title">3. 16×16 2bpp Pixel Editor (2×2 Tiles)</strong>
           <select id="st-edit-target" class="small">
             <option value="down">Edit Base: Down</option>
             <option value="up">Edit Base: Up</option>
@@ -282,11 +309,12 @@
           <button data-shade="3" class="on" title="Shade 3: Dark / Outline"><span class="sw" id="st-sw-3"></span>3 Dark</button>
         </div>
 
-        <div class="row center small" id="st-tool-bar">
-          <button id="st-tool-pencil" class="on" title="Draw pixels">✏️ Pencil</button>
+        <div class="row center small" id="st-tool-bar" style="flex-wrap:wrap">
+          <button id="st-tool-pencil" class="on" title="Draw pixels. Tapping an already filled pixel erases it!">✏️ Pencil (Tap Erases)</button>
           <button id="st-tool-bucket" title="Flood-fill contiguous shade region">🪣 Fill</button>
           <button id="st-tool-picker" title="Tap a pixel to pick its shade (or Alt-click)">💧 Pick</button>
           <button id="st-tool-mirror" title="Mirror strokes horizontally across center line">🪞 Mirror X</button>
+          <button id="st-tool-grid" class="on" title="Show 8x8 hardware tile boundaries & pixel grid">▦ Grid</button>
           <button id="st-tool-onion" class="on" title="Show Down pose faintly underneath when editing Up or Right">🧅 Onion</button>
           <button id="st-edit-undo" title="Undo last edit (Ctrl+Z)">↩️ Undo</button>
         </div>
@@ -294,6 +322,7 @@
         <div class="editor-wrap">
           <canvas id="st-editor" width="224" height="224"></canvas>
         </div>
+        <div class="small muted" style="text-align:center; margin-top:-4px">💡 <strong>Tap an already filled pixel to erase it</strong> · Drag paints or erases based on first tap</div>
 
         <div class="row center small">
           <button id="st-nudge-left" title="Shift sprite 1px Left">←</button>
