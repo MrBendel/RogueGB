@@ -321,7 +321,6 @@ test('weapon art lives in the second VRAM bank (Game Boy Color), leaving bank 0 
 
 // --- Magazines and reloads (aim.c, weapon.h) ---
 const MAGS = [12, 5, 24, 4, 0], RELOADS = [66, 100, 105, 120, 0];  // the presets
-const RELOAD_IDLE = 60;
 const WPN_MAG = 15, WPN_RELOAD = 16;  // offsets in WeaponStats
 const RETICLE_OAM = 9;
 const ammo = (emu, w = emu.v('weapon_cur')) => emu.read8(addr(emu, 'weapon_ammo') + w);
@@ -360,22 +359,56 @@ test('a shotgun blast is one shell (all its pellets)', () => {
   assert.equal(fired(emu), 5, '5 pellets');
 });
 
-test('a part-used magazine reloads after a pause in firing; A during that reload fires what is left', () => {
+test('no reload on its own: a part-used magazine stays as it is', () => {
   const emu = holding(PISTOL);
-  for (let i = 0; i < 3; i++) emu.tap('A').idle(8);  // taps further apart than the tap rate
+  for (let i = 0; i < 3; i++) emu.tap('A').idle(8);
+  emu.idle(300);
   assert.equal(ammo(emu), MAGS[PISTOL] - 3);
-  emu.idle(RELOAD_IDLE - 4 - 9);
-  assert.equal(emu.v('reload_t'), 0, 'not yet');
-  emu.idle(4);
+  assert.equal(emu.v('reloads', 'u16'), 0);
+});
+
+/** SELECT+B: hold SELECT, press B, let both go. */
+function reloadChord(emu) {
+  return emu.hold('SELECT', 2).hold('SELECT+B', 2).idle(1);
+}
+
+test('SELECT+B reloads (and neither jumps nor switches weapons)', () => {
+  const emu = holding(PISTOL);
+  for (let i = 0; i < 3; i++) emu.tap('A').idle(8);
+  const jumps = emu.v('player_jumps', 'u16');
+  reloadChord(emu);
+  assert.equal(emu.v('reloads', 'u16'), 1);
   assert.ok(emu.v('reload_t') > 0, 'reloading');
-  // Cut short: the rounds left fire at once.
+  assert.equal(emu.v('player_jumps', 'u16'), jumps, 'no jump');
+  assert.equal(emu.v('weapon_cur'), PISTOL, 'no switch');
+  // It can't be cut short: A does nothing until it's done.
   const n = fired(emu);
-  emu.tap('A');
-  assert.equal(emu.v('reload_t'), 0);
-  assert.equal(fired(emu), n + 1);
-  // Left alone, it finishes.
-  emu.idle(RELOAD_IDLE + RELOADS[PISTOL] + 2);
+  emu.tap('A').idle(8);
+  assert.equal(fired(emu), n);
+  emu.idle(RELOADS[PISTOL]);
   assert.equal(ammo(emu), MAGS[PISTOL]);
+  // With a full magazine, SELECT+B does nothing.
+  reloadChord(emu);
+  assert.equal(emu.v('reloads', 'u16'), 1);
+});
+
+test('SELECT+A is kept for a grenade or mine: it fires nothing and switches nothing', () => {
+  const emu = holding(PISTOL);
+  const n = fired(emu);
+  emu.hold('SELECT', 2).hold('SELECT+A', 3).hold('A', 3).idle(2);
+  assert.equal(fired(emu), n, 'A held past the chord still does not fire');
+  assert.equal(emu.v('weapon_cur'), PISTOL);
+  assert.equal(emu.v('chord_throws', 'u16'), 1);
+  emu.tap('A');
+  assert.equal(fired(emu), n + 1, 'a fresh press fires');
+});
+
+test('a SELECT tap switches weapons when it is let go', () => {
+  const emu = holding(PISTOL);
+  emu.hold('SELECT', 10);
+  assert.equal(emu.v('weapon_cur'), PISTOL, 'not while held');
+  emu.idle(1);
+  assert.equal(emu.v('weapon_cur'), SHOTGUN);
 });
 
 test('switching weapons cancels a reload; each weapon keeps its own magazine', () => {
@@ -385,7 +418,7 @@ test('switching weapons cancels a reload; each weapon keeps its own magazine', (
   emu.hold('A', 1).idle(1);
   assert.equal(ammo(emu, SHOTGUN), MAGS[SHOTGUN] - 1);
   assert.equal(ammo(emu, PISTOL), MAGS[PISTOL] - 2, 'the pistol kept its count');
-  emu.idle(RELOAD_IDLE);
+  reloadChord(emu);
   assert.ok(emu.v('reload_t') > 0, 'the shotgun reloading');
   emu.tap('SELECT');
   assert.equal(emu.v('reload_t'), 0, 'cancelled by the switch');
@@ -395,7 +428,7 @@ test('switching weapons cancels a reload; each weapon keeps its own magazine', (
 test('the sword has no magazine and never reloads', () => {
   const emu = holding(SWORD);
   for (let i = 0; i < 6; i++) emu.tap('A').idle(16);
-  emu.idle(RELOAD_IDLE + 10);
+  reloadChord(emu);
   assert.equal(emu.v('reloads', 'u16'), 0);
   assert.equal(emu.v('hud_ammo'), 0xff, 'no ammo count on the HUD');
 });
@@ -435,7 +468,7 @@ test('while reloading, a bar over the head fills up (in place of the reticle)', 
 
 test('screen: reloading', () => {
   const emu = holding(PISTOL);
-  emu.tap('A');
-  emu.idle(RELOAD_IDLE + 30);
+  emu.tap('A').idle(8);
+  reloadChord(emu).idle(25);
   matchGolden(emu, 'reload-bar');
 });

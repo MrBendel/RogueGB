@@ -49,15 +49,14 @@ typedef struct {
     uint8_t reload;         // frames to reload
 } WeaponStats;
 
-// Reloading (aim.c): automatic when the magazine empties, and after RELOAD_IDLE
-// frames without firing while it isn't full (there's no button left for it).
-// Pressing A during that idle reload cancels it and fires what's left. Each
-// weapon keeps its own magazine; switching weapons cancels a reload.
-#define RELOAD_IDLE 60
+// Reloading (aim.c): automatic when the magazine empties, or SELECT+B any time
+// it isn't full (play.c). A reload can't be cut short except by switching
+// weapons, which cancels it. Each weapon keeps its own magazine.
 extern uint8_t weapon_ammo[];  // rounds left in each weapon's magazine
 extern uint8_t reload_t;       // frames of the current reload left (0 = not reloading)
-extern uint8_t reload_idle;    // frames since A was last held
 extern uint16_t reloads;       // reloads started (watchable)
+// Start a reload if the held weapon has a magazine that isn't full (SELECT+B).
+void aim_reload(void) BANKED;
 
 // The assault rifle's trigger (FIRE_RIFLE). A setting: for now on the pause
 // panel; later on an options screen off the title.

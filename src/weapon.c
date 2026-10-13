@@ -55,7 +55,6 @@ static const uint8_t blanks[WEAPON_COUNT] = {
 
 uint8_t weapon_ammo[WEAPON_COUNT];
 uint8_t reload_t;
-uint8_t reload_idle;
 uint16_t reloads;
 
 void weapon_init(void) BANKED {
@@ -93,7 +92,7 @@ void weapon_init(void) BANKED {
     // A new run: every magazine full.
     for (uint8_t w = 0; w < WEAPON_COUNT; w++) weapon_ammo[w] = weapon_stats[w].mag;
     if (weapon_cur != WEAPON_COUNT) weapon_ammo[weapon_cur] = wpn.mag;
-    reload_t = reload_idle = 0;
+    reload_t = 0;
     reloads = 0;
     weapon_select(weapon_cur);
 }
@@ -103,7 +102,7 @@ void weapon_select(uint8_t w) BANKED {
     weapon_cur = w;
     wpn = weapon_stats[w];
     // Switching cancels a reload; a magazine tuned smaller drops what won't fit.
-    reload_t = reload_idle = 0;
+    reload_t = 0;
     if (weapon_ammo[w] > wpn.mag) weapon_ammo[w] = wpn.mag;
     gun_vram = weapon_vram[w];
     gun_blank = blanks[w];

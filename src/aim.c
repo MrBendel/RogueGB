@@ -129,11 +129,14 @@ static void reload_bar_tiles(uint8_t v) {
 
 static void reload_start(void) {
     reload_t = wpn.reload ? wpn.reload : 1;
-    reload_idle = 0;
     weapon_windup = 0;
     reload_fill = 0;
     reload_step = ((uint16_t)RELOAD_BAR_PX << 8) / reload_t;  // once per reload
     reloads++;
+}
+
+void aim_reload(void) BANKED {
+    if (wpn.mag && !reload_t && weapon_ammo[weapon_cur] < wpn.mag) reload_start();
 }
 
 static void draw_reload_bar(void) {
@@ -538,25 +541,14 @@ static uint8_t trigger(void) {
     uint8_t held = joy & J_A, pressed = joy_pressed & J_A;
     uint8_t able = !player_roll_len && !player_fall_timer;
     if (fire_cooldown) fire_cooldown--;
-    if (wpn.mag) {
-        if (reload_t) {
-            if (pressed && weapon_ammo[weapon_cur]) {
-                reload_t = 0;  // an idle reload, cut short: fire what's left
-            } else {
-                reload_fill += reload_step;
-                if (!--reload_t) {
-                    weapon_ammo[weapon_cur] = wpn.mag;
-                    burst_left = 0;  // a burst cut off by the reload doesn't resume
-                }
-                reticle_tight = 0;
-                return 0;
-            }
+    if (reload_t) {
+        reload_fill += reload_step;
+        if (!--reload_t) {
+            weapon_ammo[weapon_cur] = wpn.mag;
+            burst_left = 0;  // a burst cut off by the reload doesn't resume
         }
-        if (held || burst_left) reload_idle = 0;
-        else if (weapon_ammo[weapon_cur] < wpn.mag && ++reload_idle >= RELOAD_IDLE) {
-            reload_start();
-            return 0;
-        }
+        reticle_tight = 0;
+        return 0;
     }
     if (wpn.mode == FIRE_MELEE) return swing(pressed, able);
     switch (wpn.mode) {

@@ -29,7 +29,7 @@ the design notes behind it.
 | A | Fire the active weapon. **Auto-aim** picks the target (see below), so you can move freely, including backing away, while shooting |
 | B | **Jump.** A second tap in mid-air **rolls** out of the jump toward the d-pad direction (or the facing direction) |
 | A + B | **Class ability** (M4), when it's charged. When it isn't, the buttons do their normal jobs |
-| SELECT | **Tap:** cycle to the next weapon in the loadout. **Hold:** open the weapon wheel |
+| SELECT | **A modifier, and the loadout.** **Tap** (acts on release): cycle to the next weapon. **Hold:** open the loadout menu / weapon wheel (later). **SELECT+B:** reload (built). **SELECT+A:** throw a grenade or drop a mine (reserved: the chord is caught and does nothing yet). While SELECT is down, A and B never reach the gun or the jump |
 | START | Pause, map (M2) |
 
 **A + B has to mean pressing them together, not "B while A is held".** Players hold A to keep firing, so
@@ -135,11 +135,7 @@ The Borderlands loop: kill or open → loot fountain → look → compare → eq
   - fast fire rate with huge magazines;
   - slow explosive rounds.
 - **Magazines and reloads (built, in M1):**
-  - **When it reloads.** Every button is taken, so reloading is automatic, at two moments:
-    - when a magazine empties;
-    - after `RELOAD_IDLE` (60) frames without firing while the magazine isn't full.
-
-    Pressing A during that idle reload cancels it and fires what's left.
+  - **When it reloads.** Automatically when a magazine empties, or with **SELECT+B** any time it isn't full. There's no idle reload (tried and dropped): a part-used magazine stays as it is until you reload it. A reload can't be cut short, except by switching weapons.
   - **Per weapon.** Each weapon keeps its own magazine, and switching weapons cancels a reload, as in Borderlands.
   - **On screen.** A bar over the player's head fills during the reload; it uses the reticle's sprites, since there's nothing to aim while you can't shoot. The HUD shows `AMMO n`.
   - **Base stats** follow typical Borderlands 2 values per gun type (approximate). Magazines are in the usual range; reloads are about 60% as long, because rooms and fights are smaller:

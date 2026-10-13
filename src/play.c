@@ -3,7 +3,9 @@
 // a placeholder player, and movement presets to compare.
 //   A (hold)      fire at the auto-aim target (aim.c)
 //   B             jump; B again in mid-air dashes
-//   SELECT        switch weapon (weapon.c)
+//   SELECT (tap)  switch weapon (weapon.c), on release; the loadout menu later
+//   SELECT+B      reload (aim.c)
+//   SELECT+A      reserved: a grenade or a mine (later)
 //   START         pause; the pause panel picks the movement preset and tunes
 //                 movement, camera and the held weapon (UP/DOWN pick a value,
 //                 LEFT/RIGHT change it)
@@ -103,6 +105,9 @@ uint16_t run_seed;
 uint16_t run_seconds;
 uint8_t run_ticks;
 uint8_t paused;
+uint8_t select_chord;  // SELECT is down and was used with A or B (no switch on release)
+uint8_t chord_mask;    // A/B kept from the game: while SELECT is down, then until let go
+uint16_t chord_throws; // SELECT+A presses (the grenade/mine to come; watchable)
 uint8_t tune_sel;
 uint8_t tune_top;  // the first tunable shown (the list scrolls)
 uint8_t wave_spawned;
@@ -182,6 +187,8 @@ void play_enter(void) BANKED {
     hud_init();
     wave_spawned = 0;
     paused = 0;
+    select_chord = chord_mask = 0;
+    chord_throws = 0;
     tune_sel = tune_top = 0;
     hud_draw();
     move_win(7, HUD_WY);
@@ -277,10 +284,31 @@ void play_update(void) BANKED {
         set_paused(1);
         return;
     }
-    if (joy_pressed & J_SELECT) {
-        weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);
-        weapon_draw_name(HUD_GUN_X, 0);  // just the name: the whole HUD takes over a frame to draw
+    // SELECT is a modifier: with B it reloads, with A (later) it throws a
+    // grenade or drops a mine; a tap on its own switches weapons, on release so
+    // a chord never switches too. While it's down, A and B don't reach the
+    // player or the gun; a button still held when SELECT is let go stays out
+    // until it's let go too (no jump or shot from the end of a chord).
+    if (joy & J_SELECT) {
+        if (joy_pressed & J_SELECT) select_chord = 0;
+        if (joy_pressed & J_B) {
+            aim_reload();
+            select_chord = 1;
+        }
+        if (joy_pressed & J_A) {
+            chord_throws++;
+            select_chord = 1;
+        }
+        chord_mask = J_A | J_B;
+    } else {
+        if ((joy_released & J_SELECT) && !select_chord) {
+            weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);
+            weapon_draw_name(HUD_GUN_X, 0);  // just the name: the whole HUD takes over a frame to draw
+        }
+        chord_mask &= joy;
     }
+    joy &= ~chord_mask;
+    joy_pressed &= ~chord_mask;
 
     if (++run_ticks == 60) {
         run_ticks = 0;
