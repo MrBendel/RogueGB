@@ -229,6 +229,7 @@ const liveMask = () => held.key | held.touch | held.pad;
 let audioCtx = null;
 let audioOn = false;
 let audioNext = 0;
+const AUDIO_GAIN = 1 / 48;  // a raw sample of 48 plays at full scale
 function toggleAudio() {
   audioOn = !audioOn;
   if (audioOn && !audioCtx) audioCtx = new AudioContext();
@@ -243,9 +244,11 @@ function pumpAudio() {
   const buf = audioCtx.createBuffer(2, frames, rate);
   const L = buf.getChannelData(0);
   const R = buf.getChannelData(1);
+  // The emulator's samples are small (about -60..60 with all four channels at
+  // full volume), not full-scale 16-bit, so scale them up (and clip).
   for (let i = 0; i < frames; i++) {
-    L[i] = samples[i * channels] / 32768;
-    R[i] = samples[i * channels + (channels > 1 ? 1 : 0)] / 32768;
+    L[i] = Math.max(-1, Math.min(1, samples[i * channels] * AUDIO_GAIN));
+    R[i] = Math.max(-1, Math.min(1, samples[i * channels + (channels > 1 ? 1 : 0)] * AUDIO_GAIN));
   }
   const src = audioCtx.createBufferSource();
   src.buffer = buf;
