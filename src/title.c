@@ -1,6 +1,7 @@
 #pragma bank 255
 // Title screen: logo, blinking "PRESS START". START (or A) begins a run.
 #include <gb/gb.h>
+#include "sfx.h"
 #include "state.h"
 #include "input.h"
 #include "gfx.h"
@@ -27,6 +28,7 @@ void title_update(void) BANKED {
         bkg_text(5, PROMPT_Y, (title_timer & BLINK_MASK) ? "           " : "PRESS START");
     }
     if (joy_pressed & (J_START | J_A)) {
+        sfx_play(SFX_START);
         // The frame the player presses START is effectively random, so it
         // seeds the run. Replays press on the same frame and get the same run.
         run_start(((uint16_t)DIV_REG << 8) ^ frame_count);

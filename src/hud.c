@@ -48,6 +48,9 @@
 #define T_FONT 64       // 64: the font (ASCII 32-95) with the top line, for names
 
 uint8_t hud_shield_px, hud_shield_len, hud_shield_icon;
+// The values the bars were last built from: when none changed (most frames),
+// the bars aren't recomputed (one of them divides). 0xFF forces a rebuild.
+uint8_t hud_raw_shield, hud_raw_cap = 0xFF, hud_raw_hp, hud_raw_max = 0xFF;
 uint8_t hud_hp_px, hud_hp_len;
 uint8_t hud_fx;
 uint8_t hud_tick;
@@ -226,15 +229,15 @@ static void build_right(void) {
     while (ammo >= 100) { ammo -= 100; h++; }
     while (ammo >= 10) { ammo -= 10; tens++; }
     if (h) {
-        top[4] = T_DIGIT + h * 2;
-        bot[4] = T_DIGIT + h * 2 + 1;
+        top[4] = T_DIGIT + (h << 1);
+        bot[4] = T_DIGIT + (h << 1) + 1;
     }
     if (h || tens) {
-        top[5] = T_DIGIT + tens * 2;
-        bot[5] = T_DIGIT + tens * 2 + 1;
+        top[5] = T_DIGIT + (tens << 1);
+        bot[5] = T_DIGIT + (tens << 1) + 1;
     }
-    top[6] = T_DIGIT + ammo * 2;
-    bot[6] = T_DIGIT + ammo * 2 + 1;
+    top[6] = T_DIGIT + (ammo << 1);
+    bot[6] = T_DIGIT + (ammo << 1) + 1;
 }
 
 void hud_draw(void) BANKED {
@@ -245,6 +248,7 @@ void hud_draw(void) BANKED {
     fill_win_rect(RIGHT_X, 0, RIGHT_LEN, 2, BG_PAL_GUN | ATTR_BANK1);
     VBK_REG = 0;
     hud_shield_px = hud_hp_px = 0xFF;  // redraw everything
+    hud_raw_cap = hud_raw_max = 0xFF;
     hud_ammo = 0xFE;
     hud_gun = 0xFF;
     hud_update();  // (hud_gun 0xFF: the icon loads without showing the name)
@@ -262,8 +266,12 @@ static const uint16_t white_tint[3] = {RGB8(255, 255, 255), RGB8(255, 255, 255),
 
 void hud_update(void) BANKED {
     // The shield's row: an empty dashed slot until there's a shield.
-    uint8_t len = shield_cap ? bar_len(shield_cap) : 0;
-    uint8_t px = len ? bar_fill(shield_hp, shield_cap, len) : 0;
+    uint8_t len, px;
+    if (shield_hp == hud_raw_shield && shield_cap == hud_raw_cap) goto health;
+    hud_raw_shield = shield_hp;
+    hud_raw_cap = shield_cap;
+    len = shield_cap ? bar_len(shield_cap) : 0;
+    px = len ? bar_fill(shield_hp, shield_cap, len) : 0;
     uint8_t icon = !shield_cap ? T_SLOT_ICON : shield_hp ? T_SHIELD : T_BROKEN;
     if (px != hud_shield_px || len != hud_shield_len || icon != hud_shield_icon) {
         hud_shield_px = px;
@@ -278,6 +286,10 @@ void hud_update(void) BANKED {
         }
         gfx_vram_copy(WIN_MAP, r, ROW_LEN, 0);
     }
+health:
+    if (player_hp == hud_raw_hp && player_hp_max == hud_raw_max) goto weapon;
+    hud_raw_hp = player_hp;
+    hud_raw_max = player_hp_max;
     len = bar_len(player_hp_max);
     px = bar_fill(player_hp, player_hp_max, len);
     if (px != hud_hp_px || len != hud_hp_len) {
@@ -287,6 +299,7 @@ void hud_update(void) BANKED {
         gfx_vram_copy(WIN_MAP + 32, hud_rows[1], ROW_LEN, 0);
     }
 
+weapon:;
     // The weapon side: a new weapon loads its icon and shows its name a while.
     uint8_t right = 0;
     if (weapon_cur != hud_gun) {

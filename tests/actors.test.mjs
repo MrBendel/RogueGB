@@ -165,8 +165,8 @@ test('CPU budget: a fight in the arena never slows down, with room to spare', ()
   // The hot loops are in assembly (actor_draw.s, bullets.s, room_fill.s) and
   // enemies think at 30 Hz. The real wave peaks around 47-50k (auto-aim and the
   // held weapon cost ~2.5k a frame, more when scoring lands on the same frame as
-  // a peashooter firing), plus the chest and the HUD (~1k). The frame is 131k at
-  // the Color's double speed: the cap is a tripwire for regressions.
+  // a peashooter firing), plus the chest and the HUD (~1k) and sound effects (~1.5k a frame, a few hundred more per sound started).
+  // The frame is 131k at the Color's double speed: the cap is a tripwire for regressions.
   const emu = inArena();
   let worst = 0;
   for (let f = 0; f < 600; f++) {
@@ -174,7 +174,7 @@ test('CPU budget: a fight in the arena never slows down, with room to spare', ()
     worst = Math.max(worst, emu.lastFrameCycles);
     if (emu.v('next_state') === RUN_OVER) break;
   }
-  assert.ok(worst < 56000, `worst frame used ${worst} cycles past vblank`);
+  assert.ok(worst < 61000, `worst frame used ${worst} cycles past vblank`);
 });
 
 test('CPU budget: fighting with A held (auto-aim and shots) stays within the cap', () => {
@@ -189,7 +189,7 @@ test('CPU budget: fighting with A held (auto-aim and shots) stays within the cap
     if (emu.v('next_state') === RUN_OVER) break;
   }
   assert.ok(emu.v('shots_hit', 'u16') > 0, 'the shots land');
-  assert.ok(worst < 59000, `worst frame used ${worst} cycles past vblank`);
+  assert.ok(worst < 65000, `worst frame used ${worst} cycles past vblank`);  // + sound
 });
 
 test('sprite flicker never hides an enemy for more than 2 frames, even 8 in a row', () => {
@@ -262,7 +262,7 @@ test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () 
   cycles.sort((x, y) => x - y);
   const median = cycles[cycles.length >> 1], worst = cycles.at(-1);
   const over = cycles.filter((c) => c > FRAME_LIMIT).length;
-  assert.ok(median < 57000, `median frame ${median} cycles`);
+  assert.ok(median < 60000, `median frame ${median} cycles`);  // incl. sound and HUD
   assert.equal(over, 0, `${over} of ${cycles.length} frames over the limit (worst ${worst})`);
   assert.ok(worst < FRAME_CYCLES, `worst frame ${worst} cycles: more than a whole frame`);
 });

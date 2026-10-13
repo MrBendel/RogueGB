@@ -176,7 +176,7 @@ test('CPU budget: an arena fight with each weapon, A held, stays within the fram
       if (emu.v('next_state') !== emu.v('game_state')) break;
     }
     assert.ok(emu.v('shots_hit', 'u16') + emu.v('melee_hits', 'u16') > 0, `${names[w]}: the hits land`);
-    assert.ok(worst < 62000, `${names[w]}: worst frame ${worst} cycles past vblank`);
+    assert.ok(worst < 66000, `${names[w]}: worst frame ${worst} cycles past vblank`);  // under half the frame, with sound
   }
 });
 

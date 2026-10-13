@@ -3,7 +3,8 @@
 //   node harness/profile.mjs walk    walk the lab: left column, bottom row
 //   node harness/profile.mjs arena   fight in the arena
 //   node harness/profile.mjs shoot   the same fight, holding A (auto-aim, the player's shots);
-//                                    add --weapon=N to fire weapon N (1 shotgun, 2 rifle, 3 sniper, 4 sword)
+//                                    add --weapon=N to fire weapon N (1 shotgun, 2 rifle, 3 sniper, 4 sword),
+//                                    --top=N to list N functions per frame
 //   node harness/profile.mjs stress  arena with the pools kept full (8 enemies, 20 bullets)
 // Functions without an exported symbol (static C functions, asm local labels) are
 // counted under the nearest symbol before them.
@@ -28,6 +29,8 @@ step('', 30); step('START'); step('', 42);
 const weaponArg = process.argv.find((a) => a.startsWith('--weapon='));
 for (let k = 0; k < (weaponArg ? Number(weaponArg.slice(9)) : 0); k++) { step('SELECT'); step(''); }
 const scenario = process.argv[2] || 'walk';
+// --top=N: how many functions to list per frame (7 by default).
+const topN = Number((process.argv.find((a) => a.startsWith('--top=')) || '--top=7').slice(6));
 const toArena = () => { step('LEFT', 80); step('DOWN', 200); while (v('player_x') < 148) step('RIGHT'); step('', 10); while (v('player_y') < 256) step('DOWN'); };
 // Strafe left and right, jumping now and then; `shoot` holds A throughout.
 // The sword (weapon 4) swings once per press, so it taps A every 8 frames instead.
@@ -63,7 +66,7 @@ plan.forEach((b, idx) => {
   // Frames where the scenario poked memory (e.g. a debug refill spawning a whole
   // wave) aren't representative, so they're left out of the ranking.
   if (pokedAt.has(idx)) { emu.frame++; emu._snap = null; return; }
-  frames.push({ idx, b, cyc, at: `x ${v('player_x')} y ${v('player_y')} fall ${emu.read8(emu.symbols.addr('player_fall_timer'))} state ${emu.read8(emu.symbols.addr('game_state'))}`, top: [...h.entries()].sort((a, b2) => b2[1] - a[1]).slice(0, 7).map(([k, c]) => `${k}:${c}`) });
+  frames.push({ idx, b, cyc, at: `x ${v('player_x')} y ${v('player_y')} fall ${emu.read8(emu.symbols.addr('player_fall_timer'))} state ${emu.read8(emu.symbols.addr('game_state'))}`, top: [...h.entries()].sort((a, b2) => b2[1] - a[1]).slice(0, topN).map(([k, c]) => `${k}:${c}`) });
   emu.frame++; emu._snap = null;
 });
 const sorted = [...frames].sort((a, b) => b.cyc - a.cyc);

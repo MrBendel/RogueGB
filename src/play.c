@@ -12,6 +12,7 @@
 //   SELECT paused end the run
 #include <gb/gb.h>
 #include <rand.h>
+#include "sfx.h"
 #include "state.h"
 #include "input.h"
 #include "gfx.h"
@@ -188,6 +189,7 @@ void play_enter(void) BANKED {
     actors_init();
     hud_init();
     chest_init();
+    sfx_watch_reset();
     wave_spawned = 0;
     paused = 0;
     select_chord = chord_mask = 0;
@@ -342,5 +344,9 @@ void play_update(void) BANKED {
     player_draw();
     health_update();
     hud_update();
-    if (!player_hp) state_change(STATE_RUN_OVER);
+    sfx_watch();
+    if (!player_hp) {
+        sfx_play(SFX_DEATH);
+        state_change(STATE_RUN_OVER);
+    }
 }

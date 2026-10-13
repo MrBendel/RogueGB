@@ -8,6 +8,7 @@
 // page can watch them by name (via build/roguegb.noi).
 #include <gb/gb.h>
 #include <gb/cgb.h>
+#include "sfx.h"
 #include "state.h"
 #include "input.h"
 #include "gfx.h"
@@ -25,6 +26,7 @@ void state_change(uint8_t state) {
 
 void wait_frame(void) {
     gfx_commit();  // hand this frame's queued VRAM updates to the next vblank
+    sfx_update();  // step any sound that has more than one note
     frame_count++;
     vsync();
 }
@@ -52,6 +54,7 @@ void main(void) {
     DISPLAY_OFF;
     // Game Boy Color only: run the CPU at double speed (twice the work per frame).
     cpu_fast();
+    sfx_init();
     gfx_init();
     gfx_set_fade(FADE_STEPS);  // start faded out; the first scene fades in
     SPRITES_8x16;  // characters are 16x16 = two 8x16 sprites

@@ -210,6 +210,17 @@ One room with real movement, shooting, enemies, damage and death.
 - Roll out of a jump with a second B tap: a burst toward the d-pad direction, with invulnerability frames
 - Pits and raised blocks in the test room: falling into pits, jumping across gaps, standing on raised blocks
 - Game feel: hitstop, decaying screen shake, white hit flash via the second sprite palette, muzzle flash and impact puffs, eased knockback, input buffering for jump and roll, placeholder sound effects
+  - Built:
+    - hitstop, the hit flash, the muzzle flash, jump and roll buffering;
+    - screen shake (`camera_shake`): up to 3 px, the SHAKE row on the pause panel, 0 = off;
+    - placeholder sound effects (`src/sfx.c`), listed below.
+  - Sound: register-level sounds on channels 1, 2 and 4, each with a priority; channel 3 is left for music. One observer a frame (`sfx_watch`) plays them from the game's counters, so the hot code makes no calls. The sounds:
+    - each gun's shot, a sniper critical, the sword's swish;
+    - hits, kills and deflects;
+    - hurt, the shield's hit, break and recharge chime;
+    - reload click and clack, the chest's arpeggio and the pickup;
+    - jump, dash, a peashooter firing, death, and the title's start.
+  - Not yet: impact puffs, knockback from bullets, an enemy death effect.
 - Input: detect A+B pressed together within a few frames (the ability hook does nothing until M4), with tests for each order of presses
 - Tuning values exposed as globals, so they can be adjusted live from the Watch panel
 
