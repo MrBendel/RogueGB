@@ -77,6 +77,7 @@ void player_init(uint16_t px, uint16_t py) BANKED {
     player_air = player_dashed = player_dash_timer = player_invuln = player_jump_buffer = 0;
     player_roll_len = player_roll_t = 0;
     player_fall_timer = player_blink = 0;
+    pit_shaft = shaft_taken = 0;  // pits hurt (the descent's exit map turns them into a shaft)
     player_falls = 0;
     health_start();
     safe_x = px;

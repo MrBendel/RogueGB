@@ -359,9 +359,17 @@ static void start_pit_fall(void) {
     player_falls++;
 }
 
-// Falling into a pit: no control; at the end, reappear at the last safe spot.
+uint8_t pit_shaft;    // pits here are a shaft down (descent.c): no harm, no respawn
+uint8_t shaft_taken;  // ... and the player just went down one
+
+// Falling into a pit: no control; at the end, reappear at the last safe spot
+// (or, down a shaft, leave it to the descent).
 static void update_pit_fall(void) {
     if (--player_fall_timer) return;
+    if (pit_shaft) {
+        shaft_taken = 1;
+        return;
+    }
     player_x = safe_x;
     player_y = safe_y;
     player_xs = player_ys = 0;

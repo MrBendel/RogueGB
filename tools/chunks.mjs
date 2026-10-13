@@ -4,8 +4,8 @@
 //   node tools/chunks.mjs
 //
 // A chunk is CHUNK_W x CHUNK_H blocks (a quarter screen), written as rows of
-// characters (the legend is LEGEND below). Each has tags (the room types it may
-// appear in) and a weight (how often it's picked among those that fit).
+// characters (the legend is LEGEND below). Each has tags (the roles it can fill
+// in a map) and a weight (how often it's picked among those that fit).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,8 +28,9 @@ export const LEGEND = {
   '*': 8, // item slot (floor)
 };
 const CELL_NAMES = ['FLOOR', 'WALL', 'PIT', 'RAISED', 'MAYBE_WALL', 'MAYBE_PIT', 'MAYBE_RAISED', 'ENEMY', 'ITEM'];
-export const TAGS = { combat: 1, connector: 2, cache: 4, start: 8, exit: 16 };
-const ANY = 31;
+// The roles a chunk can fill in a map (docs/design/level-generation.md).
+export const TAGS = { open: 1, rock: 2, camp: 4, cache: 8, start: 16, exit: 32 };
+const ANY = 63;
 
 /** Read and check every chunk file; returns { chunks, themes }. Throws with the file and chunk on errors. */
 export function loadChunks() {

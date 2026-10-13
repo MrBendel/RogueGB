@@ -1,22 +1,27 @@
 #pragma bank 255
-// Generated expedition layers: see level.h. Banked: runs when a layer starts
-// and when a room is entered, never per frame.
+// Generated areas: see level.h. Banked: runs when an area starts and when a map
+// is entered, never per frame.
 #include <gb/gb.h>
 #include "level.h"
 #include "room.h"
 #include "gfx.h"
 #include "chunks.h"
 
-uint8_t layer_type[LAYER_CELLS];
-uint8_t layer_doors[LAYER_CELLS];
-uint8_t layer_cw[LAYER_CELLS], layer_ch[LAYER_CELLS];
-uint8_t layer_cleared[LAYER_CELLS];
-uint16_t layer_seed[LAYER_CELLS];
-uint8_t layer_start, layer_exit, layer_rooms;
-uint8_t level_room;
-uint8_t level_slots, level_items;
-uint16_t level_slot_x[LEVEL_SLOTS], level_slot_y[LEVEL_SLOTS];
-uint16_t level_item_x[LEVEL_ITEMS], level_item_y[LEVEL_ITEMS];
+uint8_t area_type[AREA_CELLS];
+uint8_t area_links[AREA_CELLS];
+uint8_t area_cw[AREA_CELLS], area_ch[AREA_CELLS];
+uint8_t area_camps_cleared[AREA_CELLS];
+uint16_t area_seed[AREA_CELLS];
+uint8_t area_start, area_exit, area_maps;
+uint8_t level_map;
+uint8_t level_open[4];
+uint8_t level_camps;
+uint16_t camp_x[LEVEL_CAMPS], camp_y[LEVEL_CAMPS];
+uint8_t camp_slots[LEVEL_CAMPS];
+uint16_t camp_slot_x[LEVEL_CAMPS][CAMP_SLOTS], camp_slot_y[LEVEL_CAMPS][CAMP_SLOTS];
+uint8_t level_chests;
+uint16_t chest_x[LEVEL_CHESTS], chest_y[LEVEL_CHESTS];
+uint8_t chest_camp[LEVEL_CHESTS];
 uint8_t level_carved;
 
 // The generator's own random numbers (xorshift), so layouts depend only on the
@@ -32,7 +37,7 @@ static uint8_t rnd(void) {
     return (uint8_t)x ^ (uint8_t)(x >> 8);
 }
 
-// 0..n-1 (0 if n is 0), without a division: draw under the next power of two.
+// 0..n-1 (0 if n is 0 or 1), without a division: draw under the next power of two.
 static uint8_t below(uint8_t n) {
     uint8_t m = 1, r;
     if (n < 2) return 0;
@@ -41,110 +46,99 @@ static uint8_t below(uint8_t n) {
     return r;
 }
 
-// --- Layer layout ---
+// --- Area layout ---
 
 static const int8_t step_x[4] = {0, 1, 0, -1};  // N, E, S, W
 static const int8_t step_y[4] = {-1, 0, 1, 0};
-static const uint8_t door_bit[4] = {DOOR_N, DOOR_E, DOOR_S, DOOR_W};
-static const uint8_t door_opposite[4] = {DOOR_S, DOOR_W, DOOR_N, DOOR_E};
+static const uint8_t edge_bit[4] = {EDGE_N, EDGE_E, EDGE_S, EDGE_W};
+
+// The neighbouring slot through side d, or 0xFF off the grid.
+static uint8_t neighbour(uint8_t i, uint8_t d) {
+    int8_t x = (int8_t)(i % AREA_W) + step_x[d], y = (int8_t)(i / AREA_W) + step_y[d];
+    if (x < 0 || x >= AREA_W || y < 0 || y >= AREA_H) return 0xFF;
+    return (uint8_t)y * AREA_W + (uint8_t)x;
+}
 
 static void link(uint8_t a, uint8_t d) {
-    layer_doors[a] |= door_bit[d];
-    layer_doors[(uint8_t)(a + step_x[d] + step_y[d] * LAYER_W)] |= door_opposite[d];
+    area_links[a] |= edge_bit[d];
+    area_links[neighbour(a, d)] |= edge_bit[(d + 2) & 3];
 }
 
-// Room sizes in chunks (w, h) for combat rooms: 1.5-2 screens mostly, a big
-// 2x2-screen room now and then.
-static const uint8_t combat_w[6] = {3, 4, 2, 3, 4, 4};
-static const uint8_t combat_h[6] = {2, 2, 3, 3, 3, 4};
-
-static void size_room(uint8_t i) {
-    uint8_t t = layer_type[i], w = 2, h = 2;
-    if (t == ROOM_COMBAT) {
-        uint8_t k = below(6);
-        w = combat_w[k];
-        h = combat_h[k];
-    } else if (t == ROOM_CONNECTOR) {
-        uint8_t k = below(3);  // a square, or long and thin
-        if (k == 1) w = 4;
-        else if (k == 2) h = 4;
-    }
-    layer_cw[i] = w;
-    layer_ch[i] = h;
-}
-
-// A branch room off `from` through side d, if that slot is free (not off the exit).
-static void add_branch(uint8_t from, uint8_t d) {
-    if (!layer_type[from] || from == layer_exit) return;
-    int8_t bx = (int8_t)(from % LAYER_W) + step_x[d], by = (int8_t)(from / LAYER_W) + step_y[d];
-    if (bx < 0 || bx >= LAYER_W || by < 0 || by >= LAYER_H) return;
-    uint8_t to = (uint8_t)by * LAYER_W + (uint8_t)bx;
-    if (layer_type[to]) return;
-    layer_type[to] = below(2) ? ROOM_CACHE : ROOM_COMBAT;
-    link(from, d);
-    layer_rooms++;
-}
+// Field map sizes in chunks (w, h): 3x2 to 3x4 screens.
+static const uint8_t field_w[5] = {6, 6, 4, 6, 5};
+static const uint8_t field_h[5] = {4, 6, 6, 8, 6};
 
 void level_generate(uint16_t seed) BANKED {
     level_rng = seed ? seed : 0xACE1;
-    for (uint8_t i = 0; i < LAYER_CELLS; i++) {
-        layer_type[i] = ROOM_NONE;
-        layer_doors[i] = 0;
-        layer_cleared[i] = 0;
-        layer_cw[i] = layer_ch[i] = 0;
+    for (uint8_t i = 0; i < AREA_CELLS; i++) {
+        area_type[i] = MAP_NONE;
+        area_links[i] = 0;
+        area_camps_cleared[i] = 0;
+        area_cw[i] = area_ch[i] = 0;
     }
-    // The main path: start in the top row, wander left and right, step down,
-    // and leave from the bottom row. At most 10 rooms long.
-    uint8_t x = below(LAYER_W), y = 0, cell = x, len = 1, dir = below(2) ? 1 : 3;
-    layer_start = cell;
-    layer_type[cell] = ROOM_COMBAT;
-    while (1) {
-        uint8_t go_down = below(3) == 0 || len >= 9;
-        int8_t nx = (int8_t)x + step_x[dir];
-        if (!go_down && (nx < 0 || nx >= LAYER_W || layer_type[(uint8_t)(cell + step_x[dir])])) {
-            dir ^= 2;  // turn around: E <-> W
-            nx = (int8_t)x + step_x[dir];
-            if (nx < 0 || nx >= LAYER_W || layer_type[(uint8_t)(cell + step_x[dir])]) go_down = 1;
+    // Grow from the start: link a new map onto a random existing one until
+    // there are 6-9. Every map is reachable from the start.
+    uint8_t target = 6 + below(4);
+    area_start = below(AREA_CELLS);
+    area_type[area_start] = MAP_FIELD;
+    area_maps = 1;
+    for (uint16_t tries = 0; tries < 400 && area_maps < target; tries++) {
+        uint8_t from = below(AREA_CELLS), d = below(4);
+        if (!area_type[from]) continue;
+        uint8_t to = neighbour(from, d);
+        if (to == 0xFF || area_type[to]) continue;
+        area_type[to] = MAP_FIELD;
+        link(from, d);
+        area_maps++;
+    }
+    // A link or two between maps that touch but aren't linked: loops.
+    uint8_t loops = 1 + below(2);
+    for (uint8_t tries = 0; tries < 40 && loops; tries++) {
+        uint8_t from = below(AREA_CELLS), d = below(4);
+        if (!area_type[from] || (area_links[from] & edge_bit[d])) continue;
+        uint8_t to = neighbour(from, d);
+        if (to == 0xFF || !area_type[to]) continue;
+        link(from, d);
+        loops--;
+    }
+    // The way onward: the map farthest from the start (breadth first).
+    uint8_t dist[AREA_CELLS], queue[AREA_CELLS], head = 0, tail = 0;
+    for (uint8_t i = 0; i < AREA_CELLS; i++) dist[i] = 0xFF;
+    dist[area_start] = 0;
+    queue[tail++] = area_start;
+    area_exit = area_start;
+    while (head != tail) {
+        uint8_t i = queue[head++];
+        if (dist[i] > dist[area_exit]) area_exit = i;
+        for (uint8_t d = 0; d < 4; d++) {
+            if (!(area_links[i] & edge_bit[d])) continue;
+            uint8_t j = neighbour(i, d);
+            if (dist[j] != 0xFF) continue;
+            dist[j] = dist[i] + 1;
+            queue[tail++] = j;
         }
-        if (go_down) {
-            if (y == LAYER_H - 1) break;
-            link(cell, 2);
-            y++;
-            cell += LAYER_W;
-            dir = below(2) ? 1 : 3;
+    }
+    area_type[area_start] = MAP_START;
+    area_type[area_exit] = MAP_EXIT;
+    for (uint8_t i = 0; i < AREA_CELLS; i++) {
+        if (!area_type[i]) continue;
+        if (area_type[i] == MAP_FIELD) {
+            uint8_t k = below(5);
+            area_cw[i] = field_w[k];
+            area_ch[i] = field_h[k];
         } else {
-            link(cell, dir);
-            x = (uint8_t)nx;
-            cell = y * LAYER_W + x;
+            area_cw[i] = area_ch[i] = 4;
         }
-        layer_type[cell] = below(4) ? ROOM_COMBAT : ROOM_CONNECTOR;
-        len++;
-    }
-    layer_exit = cell;
-    layer_type[layer_start] = ROOM_START;
-    layer_type[layer_exit] = ROOM_EXIT;
-    layer_rooms = len;
-    // Branches: off any room but the exit, until there are 8-12 rooms.
-    uint8_t target = 8 + below(5);
-    // Random tries first; then, so a short path still makes 8, every room and
-    // side in turn from a random starting point.
-    for (uint8_t tries = 0; tries < 60 && layer_rooms < target; tries++) add_branch(below(LAYER_CELLS), below(4));
-    uint8_t from = below(LAYER_CELLS);
-    for (uint8_t k = 0; k < LAYER_CELLS * 4 && layer_rooms < 8; k++) add_branch((from + (k >> 2)) & (LAYER_CELLS - 1), k & 3);
-    for (uint8_t i = 0; i < LAYER_CELLS; i++) {
-        if (!layer_type[i]) continue;
-        size_room(i);
-        layer_seed[i] = ((uint16_t)rnd() << 8) | rnd() | 1;
+        area_seed[i] = ((uint16_t)rnd() << 8) | rnd() | 1;
     }
 }
 
-// --- Building a room ---
+// --- Building a map ---
 
-static const uint8_t type_tag[6] = {0, TAG_START, TAG_COMBAT, TAG_CONNECTOR, TAG_CACHE, TAG_EXIT};
 uint8_t chunk_tag_ram[CHUNK_COUNT], chunk_weight_ram[CHUNK_COUNT];
 uint8_t chunk_tables_loaded;
 
-// A chunk for this tag, by weight.
+// A chunk for this role tag, by weight.
 static uint8_t pick_chunk(uint8_t tag) {
     uint8_t total = 0;
     for (uint8_t k = 0; k < CHUNK_COUNT; k++)
@@ -161,19 +155,16 @@ static uint8_t pick_chunk(uint8_t tag) {
 #define MAP(x, y) room_map[((uint16_t)(y) << 5) | (x)]
 #define VISITED 0x80
 
-static uint8_t walkable(uint8_t b) {
-    return b == BLK_FLOOR;
-}
-
 // Mark every floor block reachable from (x, y) with VISITED: a breadth-first
-// fill through a queue of map indices (each block is visited once). The room's
-// outer ring is wall except at doors, and outside the room the map is wall, so
-// the fill can't leave it; indices off the top are skipped.
-#define ROOM_CELLS_MAX (4 * CHUNK_W * 4 * CHUNK_H)
-uint16_t fill_queue[ROOM_CELLS_MAX];
+// fill through a ring of map indices (each block is visited once; the frontier
+// of a fill on a map up to 30x32 blocks stays far under 256). The map's edges
+// are wall except at openings, and outside the map is wall, so the fill can't
+// leave it; indices off the top are skipped.
+uint16_t fill_queue[256];
 
 static void flood(uint8_t x, uint8_t y) {
-    uint16_t k = ((uint16_t)y << 5) | x, head = 0, tail = 0;
+    uint16_t k = ((uint16_t)y << 5) | x;
+    uint8_t head = 0, tail = 0;  // wrap around the ring
     if (room_map[k] != BLK_FLOOR) return;
     room_map[k] |= VISITED;
     fill_queue[tail++] = k;
@@ -207,27 +198,102 @@ static void carve(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
     MAP(x1, y1) = BLK_FLOOR;
 }
 
-void level_build_room(uint8_t i) BANKED {
-    if (!layer_type[i]) return;  // no room in that slot
+// Each chunk cell's role in the map being built.
+#define ROLE_OPEN 0
+#define ROLE_ROCK 1
+#define ROLE_CAMP 2
+#define ROLE_CACHE 3
+#define ROLE_MARK 4  // start or exit: the map's middle
+uint8_t roles[8 * 8];  // [cy * 8 + cx]
+
+static const uint8_t role_tag[5] = {TAG_OPEN, TAG_ROCK, TAG_CAMP, TAG_CACHE, TAG_START};
+
+// Points every build must connect: openings, camps, chests, the middle (blocks).
+#define MUST_MAX 12
+uint8_t must_x[MUST_MAX], must_y[MUST_MAX], musts;
+
+static void must(uint8_t x, uint8_t y) {
+    if (musts < MUST_MAX) {
+        must_x[musts] = x;
+        must_y[musts++] = y;
+    }
+}
+
+// Lay out the chunk roles: a rock cluster or two, camps (fields only), maybe a
+// cache along an edge, and the start/exit mark in the middle.
+static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
+    for (uint8_t k = 0; k < sizeof(roles); k++) roles[k] = ROLE_OPEN;
+    if (area_type[i] != MAP_FIELD) {
+        roles[(ch >> 1) * 8 + (cw >> 1)] = ROLE_MARK;
+        return;
+    }
+    // Rock: 1-2 clusters of 2-4 cells, wandering from a random interior cell.
+    uint8_t clusters = 1 + below(2);
+    while (clusters--) {
+        uint8_t x = 1 + below(cw - 2), y = 1 + below(ch - 2), n = 2 + below(3);
+        while (n--) {
+            roles[y * 8 + x] = ROLE_ROCK;
+            uint8_t d = below(4);
+            int8_t nx = (int8_t)x + step_x[d], ny = (int8_t)y + step_y[d];
+            if (nx >= 1 && nx < cw - 1 && ny >= 1 && ny < ch - 1) x = (uint8_t)nx, y = (uint8_t)ny;
+        }
+    }
+    // Camps: 1-2, on open cells, at least 3 cells apart.
+    uint8_t want = 1 + below(2), placed = 0, px = 0xFF, py = 0xFF;
+    for (uint8_t tries = 0; tries < 20 && placed < want; tries++) {
+        uint8_t x = below(cw), y = below(ch);
+        if (roles[y * 8 + x] != ROLE_OPEN) continue;
+        if (px != 0xFF && (uint8_t)(x - px + 2) < 5 && (uint8_t)(y - py + 2) < 5) continue;
+        roles[y * 8 + x] = ROLE_CAMP;
+        px = x;
+        py = y;
+        placed++;
+    }
+    // A cache in about a third of fields, along the top or bottom edge.
+    if (below(3) == 0) {
+        for (uint8_t tries = 0; tries < 10; tries++) {
+            uint8_t x = below(cw), y = below(2) ? 0 : ch - 1;
+            if (roles[y * 8 + x] != ROLE_OPEN) continue;
+            roles[y * 8 + x] = ROLE_CACHE;
+            break;
+        }
+    }
+}
+
+void level_build_map(uint8_t i) BANKED {
+    if (!area_type[i]) return;  // no map in that slot
     if (!chunk_tables_loaded) {
         banked_memcpy(chunk_tag_ram, chunk_tags, CHUNK_COUNT, BANK(chunks));
         banked_memcpy(chunk_weight_ram, chunk_weight, CHUNK_COUNT, BANK(chunks));
         chunk_tables_loaded = 1;
     }
-    level_rng = layer_seed[i];
-    uint8_t w = layer_cw[i] * CHUNK_W, h = layer_ch[i] * CHUNK_H, tag = type_tag[layer_type[i]];
+    level_rng = area_seed[i];
+    uint8_t cw = area_cw[i], ch = area_ch[i];
+    uint8_t w = cw * CHUNK_W, h = ch * CHUNK_H;
     room_w = w;
     room_h = h;
     room_px_w = (uint16_t)w * BLOCK_SIZE;
     room_px_h = (uint16_t)h * BLOCK_SIZE;
     for (uint16_t k = 0; k < sizeof(room_map); k++) room_map[k] = BLK_SOLID;
-    level_slots = level_items = 0;
+    level_camps = level_chests = 0;
+    musts = 0;
+    plan_roles(i, cw, ch);
 
-    // Chunks, each picked by weight for the room's type and flipped at random.
+    // Chunks for each cell's role, picked by weight and flipped at random.
     uint8_t cells[CHUNK_CELLS];
-    for (uint8_t cy = 0; cy < layer_ch[i]; cy++) {
-        for (uint8_t cx = 0; cx < layer_cw[i]; cx++) {
+    for (uint8_t cy = 0; cy < ch; cy++) {
+        for (uint8_t cx = 0; cx < cw; cx++) {
+            uint8_t role = roles[cy * 8 + cx];
+            uint8_t tag = role == ROLE_MARK && area_type[i] == MAP_EXIT ? TAG_EXIT : role_tag[role];
             uint8_t k = pick_chunk(tag), flip = rnd();
+            uint8_t camp = 0xFF;
+            if (role == ROLE_CAMP && level_camps < LEVEL_CAMPS) {
+                camp = level_camps++;
+                camp_slots[camp] = 0;
+                camp_x[camp] = (uint16_t)cx * (CHUNK_W * BLOCK_SIZE) + (CHUNK_W * BLOCK_SIZE / 2);
+                camp_y[camp] = (uint16_t)cy * (CHUNK_H * BLOCK_SIZE) + (CHUNK_H * BLOCK_SIZE / 2);
+                must(cx * CHUNK_W + 2, cy * CHUNK_H + 2);
+            }
             banked_memcpy(cells, chunk_cells + (uint16_t)k * CHUNK_CELLS, CHUNK_CELLS, BANK(chunks));
             for (uint8_t r = 0; r < CHUNK_H; r++) {
                 uint8_t sr = flip & 2 ? CHUNK_H - 1 - r : r;
@@ -243,15 +309,18 @@ void level_build_room(uint8_t i) BANKED {
                     case CELL_MAYBE_PIT: if (rnd() & 1) b = BLK_PIT; break;
                     case CELL_MAYBE_RAISED: if (rnd() & 1) b = BLK_RAISED; break;
                     case CELL_ENEMY:
-                        if (level_slots < LEVEL_SLOTS) {
-                            level_slot_x[level_slots] = (uint16_t)x * BLOCK_SIZE;
-                            level_slot_y[level_slots++] = (uint16_t)y * BLOCK_SIZE;
+                        if (camp != 0xFF && camp_slots[camp] < CAMP_SLOTS) {
+                            uint8_t s = camp_slots[camp]++;
+                            camp_slot_x[camp][s] = (uint16_t)x * BLOCK_SIZE;
+                            camp_slot_y[camp][s] = (uint16_t)y * BLOCK_SIZE;
                         }
                         break;
                     case CELL_ITEM:
-                        if (level_items < LEVEL_ITEMS) {
-                            level_item_x[level_items] = (uint16_t)x * BLOCK_SIZE;
-                            level_item_y[level_items++] = (uint16_t)y * BLOCK_SIZE;
+                        if (level_chests < LEVEL_CHESTS && (camp != 0xFF || role == ROLE_CACHE)) {
+                            chest_x[level_chests] = (uint16_t)x * BLOCK_SIZE;
+                            chest_y[level_chests] = (uint16_t)y * BLOCK_SIZE;
+                            chest_camp[level_chests++] = camp;
+                            must(x, y);
                         }
                         break;
                     }
@@ -260,37 +329,43 @@ void level_build_room(uint8_t i) BANKED {
             }
         }
     }
-    // The outer ring is wall; doors are 2-block gaps in the middle of a side,
-    // with the 2 blocks inside them clear.
+    // Edges are wall, except an opening (OPENING_W wide, 3 deep) onto each
+    // linked map, somewhere along that side.
     for (uint8_t x = 0; x < w; x++) MAP(x, 0) = MAP(x, h - 1) = BLK_SOLID;
     for (uint8_t y = 0; y < h; y++) MAP(0, y) = MAP(w - 1, y) = BLK_SOLID;
-    uint8_t mx = (w >> 1) - 1, my = (h >> 1) - 1, d = layer_doors[i];
-    // The inner end of each door (where paths join), per side N, E, S, W.
-    uint8_t in_x[4] = {mx, w - 3, mx, 2}, in_y[4] = {2, my, h - 3, my};
+    uint8_t links = area_links[i];
     for (uint8_t s = 0; s < 4; s++) {
-        if (!(d & door_bit[s])) continue;
-        for (uint8_t k = 0; k < 3; k++) {  // the gap and two blocks in, 2 wide
-            if (s == 0) MAP(mx, k) = MAP(mx + 1, k) = BLK_FLOOR;
-            else if (s == 2) MAP(mx, h - 1 - k) = MAP(mx + 1, h - 1 - k) = BLK_FLOOR;
-            else if (s == 1) MAP(w - 1 - k, my) = MAP(w - 1 - k, my + 1) = BLK_FLOOR;
-            else MAP(k, my) = MAP(k, my + 1) = BLK_FLOOR;
+        level_open[s] = 0xFF;
+        if (!(links & edge_bit[s])) continue;
+        uint8_t len = s & 1 ? h : w;  // E and W run down the side
+        uint8_t at = 3 + below(len - 6 - OPENING_W + 1);
+        level_open[s] = at;
+        for (uint8_t a = 0; a < OPENING_W; a++) {
+            for (uint8_t d = 0; d < 3; d++) {
+                if (s == 0) MAP(at + a, d) = BLK_FLOOR;
+                else if (s == 2) MAP(at + a, h - 1 - d) = BLK_FLOOR;
+                else if (s == 1) MAP(w - 1 - d, at + a) = BLK_FLOOR;
+                else MAP(d, at + a) = BLK_FLOOR;
+            }
         }
+        uint8_t mid = at + (OPENING_W >> 1);
+        if (s == 0) must(mid, 2);
+        else if (s == 2) must(mid, h - 3);
+        else if (s == 1) must(w - 3, mid);
+        else must(2, mid);
     }
-    // Every door must reach every other: flood from the first; if any door
-    // isn't reached, carve each door's path to the room's middle.
+    must(w >> 1, h >> 1);  // the middle (the start or exit mark)
+    // Everything that must connect does: fill from the first point; carve from
+    // any point the fill didn't reach back to the first.
     level_carved = 0;
-    uint8_t first = 0xFF;
-    for (uint8_t s = 0; s < 4; s++) if (d & door_bit[s]) { first = s; break; }
-    if (first != 0xFF) {
-        flood(in_x[first], in_y[first]);
-        uint8_t ok = 1;
-        for (uint8_t s = 0; s < 4; s++)
-            if ((d & door_bit[s]) && !(MAP(in_x[s], in_y[s]) & VISITED)) ok = 0;
-        unvisit();
-        if (!ok) {
-            level_carved = 1;
-            for (uint8_t s = 0; s < 4; s++)
-                if (d & door_bit[s]) carve(in_x[s], in_y[s], mx, my);
-        }
+    MAP(must_x[0], must_y[0]) = BLK_FLOOR;
+    flood(must_x[0], must_y[0]);
+    uint8_t missed[MUST_MAX];
+    for (uint8_t k = 1; k < musts; k++) missed[k] = !(MAP(must_x[k], must_y[k]) & VISITED);
+    unvisit();
+    for (uint8_t k = 1; k < musts; k++) {
+        if (!missed[k]) continue;
+        level_carved = 1;
+        carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
 }

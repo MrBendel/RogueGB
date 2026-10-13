@@ -1,14 +1,19 @@
 # Level generation, depth, and towns
 
-Status: agreed direction (2026-10-12) with working numbers. See [decisions](decisions.md).
-Numbers below are starting targets to tune in playtests, not fixed rules.
+Status: agreed direction (2026-10-12, revised 2026-10-13) with working numbers. See
+[decisions](decisions.md). Numbers below are starting targets to tune in playtests.
 
 ## Agreed direction
 
-- **Expedition levels are generated in game** from the run's seed, so each trip is
-  different. The same seed always gives the same level (replays, bug reports, tests).
-- **Rooms are built from authored chunks**, not generated freely. Designers make
-  small room pieces with wildcards; the generator picks, flips, and combines them.
+- **Expeditions are explored, not cleared room by room.** An **area** is a handful
+  of linked **maps**; each map is open ground you roam freely, and its edges open
+  onto neighbouring maps. (Revised 2026-10-13: replaces a room grid with doors.)
+- **Progression is loot-driven, like Borderlands:** guns are the real level-up
+  mechanic. Play is roaming, looting chests, and killing enemies.
+- **Areas are generated in game** from the run's seed, so each trip is different.
+  The same seed always gives the same area (replays, bug reports, tests).
+- **Maps are built from authored chunks** with wildcards; the generator picks,
+  flips, and combines them.
 - **Rulesets decide how visuals group together.** The generator places logical
   blocks; a visual ruleset per theme picks the tiles, palettes, and decorations.
 - **Towns are authored**, not generated: fixed, familiar places on each planet with
@@ -16,35 +21,36 @@ Numbers below are starting targets to tune in playtests, not fixed rules.
 
 ## Three layers of generation
 
-### 1. Layer layout: which rooms, and how they connect
+### 1. Area layout: which maps, and how they link
 
-A small grid of rooms with a guaranteed main path from the landing (or the shaft
-from above) to the way down, plus optional branches.
-
-- **Guarantees:** the objective is reachable, a way back exists, and the room-type
-  mix fits the depth. Every seed is checked by the test harness, so no unwinnable
-  layouts ship.
+- An area is **6–9 maps** on a small grid, grown outward from the start so every map
+  is reachable, plus **one or two extra links** so there are loops and alternate
+  routes, not just dead ends.
+- **The way onward** (deeper, or out) is in the map farthest from the start.
+- **Guarantees:** every map, opening, camp, and cache is reachable; the harness
+  checks thousands of seeds.
 - **Landmarks** are fixed pieces the generator must place: the relic chamber, an
   Echo relay, a guardian arena, a beacon. Story beats survive randomness this way.
-- **Room types** (from the design plan's vocabulary): entry, combat, connector,
-  cache, event, rest/beacon, challenge, guardian, core. Build only what the first
-  expedition needs.
-- Missions taken in town can request content from the generator ("recover X from
-  layer 2", "clear the corporate site").
+- Missions taken in town can request content ("recover X from the second area",
+  "clear the corporate site").
 
-### 2. Room shape: authored chunks
+### 2. Map shape: chunks and points of interest
 
-- A **chunk is a quarter screen: 5×4 blocks** (80×64 px). Rooms are assembled from
-  chunks on a grid.
-- Chunks contain **wildcards**: "maybe a wall", "an obstacle cluster from this set",
-  "an enemy slot", "a pit or a bridge", "a decoration slot". The generator fills them.
-- Chunks can be flipped horizontally and vertically to multiply variety.
-- Each chunk declares which edges are open, so neighbours join cleanly and exits line up.
+- A **chunk is a quarter screen: 5×4 blocks** (80×64 px). Maps are grids of chunks.
+- Chunk wildcards ("maybe a wall", "an enemy slot", "a pit or a bridge") are filled
+  by the generator; chunks flip horizontally and vertically for variety.
+- Each chunk cell of a map gets a **role**:
+  - **open ground** (most of it);
+  - **rock**: a cluster of solid chunks that gives the map a natural shape;
+  - **camp**: enemies around a chest;
+  - **cache**: a hidden chest, off the main routes.
+- **Edges** are cliffs and walls, except **openings** (4 blocks wide, anywhere along
+  the edge) onto linked maps.
 
 ### 3. Visuals: rulesets
 
 The generator only places logical blocks (floor, wall, pit, raised, decoration
-slots). A **theme** (per planet or depth layer) supplies:
+slots). A **theme** (per planet or depth) supplies:
 
 - **Autotiling:** a block's tile depends on its neighbours (corners, edges, ends).
 - **Grouping rules,** for example:
@@ -56,40 +62,39 @@ slots). A **theme** (per planet or depth layer) supplies:
 - **The tileset and palettes,** so the same layout looks like a different place.
 
 Rules are data, authored in a tool and converted to ROM tables like sprites are.
-Engine work needed: rooms use one background palette today; grouping by palette
+Engine work needed: maps use one background palette today; grouping by palette
 needs per-tile palette attributes streamed with the map.
 
-## Room size
+## Map size
 
-The playfield is one screen: 10×8 blocks (160×128 px).
+The playfield is one screen: 10×8 blocks (160×128 px). The engine handles maps up
+to 32×32 blocks with a scrolling camera.
 
-| Room type | Size | Purpose |
+| Map | Size | Notes |
 |---|---|---|
-| Connector / corridor | 1 screen (2×2 chunks), often long and thin | Pacing, a trap, a single enemy |
-| Standard combat | 1.5–2 screens (3×2 to 4×2 chunks) | The main fights |
-| Set piece | 2×2 screens (4×4 chunks) | Guardian arenas, relic chambers, landmarks |
+| Start, way onward | 2×2 screens (4×4 chunks) | Arrival and departure |
+| Field | 3×2 to 3×4 screens (6×4 to 6×8 chunks) | Open ground, 1–2 camps, sometimes a cache |
 
-Why cap rooms around two screens:
+## Enemies and camps
 
-- Ranged enemies must be on screen to be fair; the view is small.
-- Eight enemies at once is the sprite and CPU budget; it fills one or two screens.
-- A room should be readable in a glance or two.
+- Enemies live in **camps**. A camp **wakes up as the player approaches** (about a
+  screen away), Borderlands-style, rather than spawning when a map is entered.
+- Eight enemies at once is the sprite and CPU budget: a camp is 3–5 enemies, and
+  only nearby camps are active.
+- A cleared camp stays cleared for the expedition; an uncleared one resets when the
+  player leaves the map.
+- Camps guard chests. Chests and drops hold the loot that drives progression.
 
 ## Depth
 
-The descent goes toward each planet's center in **layers**.
+The descent goes toward each planet's center through **areas**.
 
-| | Rooms | Time | Contents |
-|---|---|---|---|
-| One layer | 8–12 | 6–10 min | Main path to the shaft down, 1–2 optional branches, a cache, a beacon, a landmark |
-| Full descent | 4 layers | 30–40 min | Surface, two middle layers, the core with its guardian |
-| Repeat trip | 1–2 layers | 10–20 min | Start deeper at an unlocked beacon |
-
-- Combat rooms take about 30–60 seconds; connectors and caches 10–20.
-- A **beacon** ends each layer: a save and bail-out point, and a landing site for
+- An area takes roughly 8–15 minutes to explore fully. Rushing through is faster.
+- A **beacon** ends each area: a save and bail-out point, and a landing site for
   later trips (see "unlocked landing depths" in the play loop).
-- **The opening** is a shortened layer (6–8 rooms) on a fixed seed with fixed
-  landmarks: it plays like a hand-made tutorial through the same pipeline.
+- **The opening** is a short area on a fixed seed with fixed landmarks: it plays
+  like a hand-made tutorial through the same pipeline.
+- How many areas make a full descent: open.
 
 ## Towns
 
@@ -105,11 +110,26 @@ Towns pull forward engine systems that the descent also needs: a dialogue box wi
 portraits, interaction (talk, buy, pick up), trigger zones, mission state, and
 save/load.
 
-## Built so far (2026-10-12)
+## Open
 
-The skeleton runs in game: START on the title begins a descent, SELECT opens the test lab.
+- Whether characters level at all (XP and skills alongside gear, or gear only).
+- Planet count; how many areas make a descent.
+- Map transitions: a fade (now) or a scroll.
+- The chunk authoring tool: a tab in the Sprite Studio (decided: our tool) with a
+  layout preview.
+- Town size and structure (one screen hub, several connected screens, interiors).
+- Currency, prices, and what shops and bars actually offer.
+- Mission types and how many can be active.
+- Whether area layouts persist between trips (landmarks persist; routes remix).
 
-- **Chunks** are JSON in `content/chunks/<theme>.json`, converted at build time by `tools/chunks.mjs`. Each chunk is 4 rows of 5 characters, with tags (room types) and a weight. The legend:
+## Built so far (2026-10-13)
+
+The skeleton runs in game: START on the title begins a descent, SELECT opens the
+test lab.
+
+- **Chunks** are JSON in `content/chunks/<theme>.json`, converted at build time by
+  `tools/chunks.mjs`. Each chunk is 4 rows of 5 characters, with role tags (`open`,
+  `rock`, `camp`, `cache`, `start`, `exit`) and a weight:
 
   | Char | Means |
   |---|---|
@@ -118,26 +138,26 @@ The skeleton runs in game: START on the title begins a descent, SELECT opens the
   | `o` | pit |
   | `=` | raised block |
   | `?` `:` `+` | maybe a wall, pit or raised block (else floor) |
-  | `e` | enemy slot |
-  | `*` | item slot |
-- **Layers** (`src/level.c`) lay out a 4×4 grid: a main path from the top row to the exit in the bottom row, then branches up to 8–12 rooms. Room sizes:
-  - combat rooms: 3×2 up to 4×4 chunks;
-  - connectors: 2×2, 4×2 or 2×4;
-  - start, exit and cache rooms: 2×2.
-- **Rooms** are rebuilt from their seed each time they're entered:
-  - chunks are picked by weight for the room's type and flipped at random;
-  - wildcards are resolved, a wall ring is added, and doors are 2-block gaps;
-  - if a wildcard cut doors off from each other, a path is carved through the middle.
-- **The descent** (`src/descent.c`): doors fade to the neighbouring room. Combat rooms spawn enemies at their slots until cleared, and stay cleared. The exit room says EXIT; going down to the next layer comes with beacons.
-- **Tests** check 300 seeds for room counts and connectivity, every room of 40 seeds for walls and door-to-door paths, determinism, and walking between rooms.
+  | `e` | enemy slot (in a camp chunk) |
+  | `*` | a chest (in a camp or cache chunk) |
+- **Areas** (`src/level.c`) are 6–9 maps on a 4×3 grid, grown from the start with one
+  or two extra links for loops; the exit is the map farthest from the start.
+- **Maps** are rebuilt from their seed each time they're entered. Sizes:
+  - start and exit: 4×4 chunks;
+  - fields: 6×4 to 6×8 chunks.
 
-## Open
-
-- Planet count, and whether later planets have more layers.
-- Exact rooms per layer and room-type mix (from playtests).
-- The authoring tool for chunks, rulesets, and towns: a tab in the Sprite Studio, or
-  Tiled with a converter.
-- Town size and structure (one screen hub, several connected screens, interiors).
-- Currency, prices, and what shops and bars actually offer.
-- Mission types and how many can be active.
-- Whether layer layouts persist between trips (landmarks persist; routes remix).
+  The build:
+  - each chunk cell gets a role: open ground, 1–2 rock clusters, 1–2 camps (fields), sometimes a cache along an edge;
+  - chunks are picked by weight for that role and flipped at random;
+  - edges are wall except a 4-block opening per link, anywhere along the side;
+  - openings, camps, chests and the middle are guaranteed connected (a path is carved if a wildcard cut one off).
+- **The descent** (`src/descent.c`):
+  - walking out through an opening fades to the linked map;
+  - camps wake when the player comes within about a screen, and stay cleared once beaten;
+  - the exit map has a 2×2 shaft in its middle: dropping in leads to a new area, one deeper, with no fall damage;
+  - camp size grows with depth.
+- **Not yet:** chests aren't drawn or opened (they come with loot), there's no minimap, and everything uses the lab's placeholder tiles.
+- **Tests** check:
+  - 300 seeds for map counts, links, reachability and the farthest exit;
+  - every map of 40 seeds for edges, openings and connectivity;
+  - determinism, walking between maps, camps waking and staying cleared, and the shaft.

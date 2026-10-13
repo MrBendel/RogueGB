@@ -1,97 +1,124 @@
-// Generated layers (level.c) and the descent (descent.c), M2.
+// Generated areas (level.c) and the descent (descent.c), M2: open maps linked at
+// their edges, camps that wake as you approach, and a shaft down to the next area.
 import { test } from 'node:test';
 import { assert, matchGolden, startRun, startDescent, bootToTitle } from './helpers.mjs';
 
-const W = 4, CELLS = 16;
-const START = 1, COMBAT = 2, EXIT = 5;
+const W = 4, CELLS = 12;
+const MAP_START = 1, MAP_FIELD = 2, MAP_EXIT = 3;
 const STEP = { 1: -W, 2: 1, 4: W, 8: -1 };
 const OPP = { 1: 4, 2: 8, 4: 1, 8: 2 };
+const SIDE = { 1: 0, 2: 1, 4: 2, 8: 3 };  // edge bit -> index into level_open
+const OPENING_W = 4;
 const BLK_FLOOR = 0;
+const CAMP_ASLEEP = 0, CAMP_AWAKE = 1, CAMP_CLEARED = 2;
 
 const addr = (emu, n) => emu.symbols.addr(n);
-const arr = (emu, n, len = CELLS) => Array.from(emu.readBytes(addr(emu, n), len));
+const bytes = (emu, n, len = CELLS) => Array.from(emu.readBytes(addr(emu, n), len));
+const words = (emu, n, len) => Array.from({ length: len }, (_, i) => emu.read16(addr(emu, n) + i * 2));
 const w8 = (emu, n, v) => emu.write8(addr(emu, n), v);
 const w16 = (emu, n, v) => emu.writeBytes(addr(emu, n), [v & 255, v >> 8]);
 
-/** Generate a layer from seed and build room i (debug command 5). */
-function generate(emu, seed, room = 0) {
+/** Generate an area from seed and build map i (debug command 5); the area's layout. */
+function generate(emu, seed, map = 0) {
   w16(emu, 'debug_x', seed);
-  w8(emu, 'debug_type', room);
+  w8(emu, 'debug_type', map);
   w8(emu, 'debug_cmd', 5);
   emu.idle(1);
   return {
-    type: arr(emu, 'layer_type'), doors: arr(emu, 'layer_doors'), cw: arr(emu, 'layer_cw'), ch: arr(emu, 'layer_ch'),
-    start: emu.v('layer_start'), exit: emu.v('layer_exit'), rooms: emu.v('layer_rooms'),
+    type: bytes(emu, 'area_type'), links: bytes(emu, 'area_links'), cw: bytes(emu, 'area_cw'), ch: bytes(emu, 'area_ch'),
+    start: emu.v('area_start'), exit: emu.v('area_exit'), maps: emu.v('area_maps'),
   };
 }
-/** The room map: its size and a block lookup. */
-function roomMap(emu) {
+/** The built map: size, block lookup, openings, camps, chests (block coordinates). */
+function built(emu) {
   const w = emu.v('room_w'), h = emu.v('room_h');
   const raw = emu.readBytes(0xd000, 1024);
-  return { w, h, at: (x, y) => raw[(y << 5) | x] };
+  const camps = emu.v('level_camps'), chests = emu.v('level_chests');
+  const cx = words(emu, 'camp_x', 2), cy = words(emu, 'camp_y', 2);
+  const hx = words(emu, 'chest_x', 3), hy = words(emu, 'chest_y', 3);
+  return {
+    w, h, at: (x, y) => raw[(y << 5) | x], open: bytes(emu, 'level_open', 4),
+    camps: Array.from({ length: camps }, (_, c) => [cx[c] >> 4, cy[c] >> 4]),
+    chests: Array.from({ length: chests }, (_, c) => [hx[c] >> 4, hy[c] >> 4]),
+  };
+}
+/** Breadth-first distances over the links from map s. */
+function distances(L, s) {
+  const d = new Map([[s, 0]]), q = [s];
+  while (q.length) {
+    const i = q.shift();
+    for (const e of [1, 2, 4, 8]) {
+      if (L.links[i] & e && !d.has(i + STEP[e])) {
+        d.set(i + STEP[e], d.get(i) + 1);
+        q.push(i + STEP[e]);
+      }
+    }
+  }
+  return d;
 }
 
-test('every layer: 8-12 rooms, start on top, exit at the bottom, all rooms connected', () => {
+test('every area: 6-9 linked maps, all reachable, the way onward farthest from the start', () => {
   const emu = startRun().idle(2);
   for (let n = 1; n <= 300; n++) {
     const seed = (n * 7919) & 0xffff;
     const L = generate(emu, seed);
-    const rooms = L.type.map((t, i) => (t ? i : -1)).filter((i) => i >= 0);
-    assert.ok(rooms.length >= 8 && rooms.length <= 12, `seed ${seed}: ${rooms.length} rooms`);
-    assert.equal(rooms.length, L.rooms);
-    assert.equal(L.type[L.start], START);
-    assert.equal(L.type[L.exit], EXIT);
-    assert.ok(L.start < W, 'start in the top row');
-    assert.ok(L.exit >= CELLS - W, 'exit in the bottom row');
-    for (const i of rooms) {
-      for (const d of [1, 2, 4, 8]) {
-        if (!(L.doors[i] & d)) continue;
-        const j = i + STEP[d];
-        assert.ok(j >= 0 && j < CELLS && L.type[j], `seed ${seed}: room ${i} door ${d} leads nowhere`);
-        assert.ok(L.doors[j] & OPP[d], `seed ${seed}: room ${j} lacks the door back`);
+    const maps = L.type.map((t, i) => (t ? i : -1)).filter((i) => i >= 0);
+    assert.ok(maps.length >= 6 && maps.length <= 9, `seed ${seed}: ${maps.length} maps`);
+    assert.equal(maps.length, L.maps);
+    assert.equal(L.type[L.start], MAP_START);
+    assert.equal(L.type[L.exit], MAP_EXIT);
+    for (const i of maps) {
+      for (const e of [1, 2, 4, 8]) {
+        if (!(L.links[i] & e)) continue;
+        const j = i + STEP[e];
+        const offGrid = j < 0 || j >= CELLS || (e === 2 && i % W === W - 1) || (e === 8 && i % W === 0);
+        assert.ok(!offGrid && L.type[j], `seed ${seed}: map ${i} links ${e} to nothing`);
+        assert.ok(L.links[j] & OPP[e], `seed ${seed}: map ${j} lacks the link back`);
       }
     }
-    const seen = new Set([L.start]), queue = [L.start];
-    while (queue.length) {
-      const i = queue.shift();
-      for (const d of [1, 2, 4, 8]) {
-        if (L.doors[i] & d && !seen.has(i + STEP[d])) {
-          seen.add(i + STEP[d]);
-          queue.push(i + STEP[d]);
-        }
-      }
-    }
-    assert.equal(seen.size, rooms.length, `seed ${seed}: unreachable rooms`);
+    const d = distances(L, L.start);
+    assert.equal(d.size, maps.length, `seed ${seed}: unreachable maps`);
+    assert.equal(d.get(L.exit), Math.max(...d.values()), `seed ${seed}: the exit isn't the farthest map`);
   }
 });
 
-test('every room: its size in chunks, a wall ring, and doors that reach each other', () => {
+test('every map: open edges only at its openings, and openings, camps and chests all connected', () => {
   const emu = startRun().idle(2);
-  let carved = 0, built = 0;
+  let carved = 0, mapsBuilt = 0, camps = 0, chests = 0;
   for (let n = 1; n <= 40; n++) {
     const seed = (n * 104729) & 0xffff;
     const L = generate(emu, seed);
     for (let i = 0; i < CELLS; i++) {
       if (!L.type[i]) continue;
       generate(emu, seed, i);
-      built++;
+      mapsBuilt++;
       carved += emu.v('level_carved');
-      const m = roomMap(emu);
+      const m = built(emu);
       assert.equal(m.w, L.cw[i] * 5);
       assert.equal(m.h, L.ch[i] * 4);
-      const mx = (m.w >> 1) - 1, my = (m.h >> 1) - 1;
-      const inner = { 1: [mx, 2], 2: [m.w - 3, my], 4: [mx, m.h - 3], 8: [2, my] };
-      const doors = [1, 2, 4, 8].filter((d) => L.doors[i] & d);
-      for (let y = 0; y < m.h; y++) {
-        for (let x = 0; x < m.w; x++) {
-          if (!(x === 0 || y === 0 || x === m.w - 1 || y === m.h - 1)) continue;
-          const side = y === 0 ? 1 : y === m.h - 1 ? 4 : x === 0 ? 8 : 2;
-          const inGap = (side === 1 || side === 4) ? (x === mx || x === mx + 1) : (y === my || y === my + 1);
-          if (!(inGap && L.doors[i] & side)) assert.notEqual(m.at(x, y), BLK_FLOOR, `seed ${seed} room ${i}: hole in the wall at ${x},${y}`);
-        }
+      // Edges: wall, except an opening OPENING_W wide on each linked side.
+      const gap = (side, k) => m.open[side] !== 255 && k >= m.open[side] && k < m.open[side] + OPENING_W;
+      for (let x = 0; x < m.w; x++) {
+        if (!gap(0, x)) assert.notEqual(m.at(x, 0), BLK_FLOOR, `seed ${seed} map ${i}: hole in the top edge at ${x}`);
+        if (!gap(2, x)) assert.notEqual(m.at(x, m.h - 1), BLK_FLOOR, `seed ${seed} map ${i}: hole in the bottom edge at ${x}`);
       }
-      if (doors.length < 2) continue;
-      const [sx, sy] = inner[doors[0]];
+      for (let y = 0; y < m.h; y++) {
+        if (!gap(3, y)) assert.notEqual(m.at(0, y), BLK_FLOOR, `seed ${seed} map ${i}: hole in the left edge at ${y}`);
+        if (!gap(1, y)) assert.notEqual(m.at(m.w - 1, y), BLK_FLOOR, `seed ${seed} map ${i}: hole in the right edge at ${y}`);
+      }
+      for (const e of [1, 2, 4, 8]) assert.equal(m.open[SIDE[e]] !== 255, !!(L.links[i] & e), `seed ${seed} map ${i}: opening ${e}`);
+      camps += m.camps.length;
+      chests += m.chests.length;
+      if (L.type[i] !== MAP_FIELD) assert.equal(m.camps.length, 0, 'camps only in fields');
+      // Everything that must connect, over floor.
+      const points = [];
+      for (const [s, o] of m.open.entries()) {
+        if (o === 255) continue;
+        const mid = o + (OPENING_W >> 1);
+        points.push([[mid, 2], [m.w - 3, mid], [mid, m.h - 3], [2, mid]][s]);
+      }
+      points.push(...m.camps, ...m.chests, [m.w >> 1, m.h >> 1]);
+      const [sx, sy] = points[0];
       const seen = new Set([`${sx},${sy}`]), q = [[sx, sy]];
       while (q.length) {
         const [x, y] = q.pop();
@@ -102,15 +129,17 @@ test('every room: its size in chunks, a wall ring, and doors that reach each oth
           q.push([nx, ny]);
         }
       }
-      for (const d of doors.slice(1)) assert.ok(seen.has(inner[d].join(',')), `seed ${seed} room ${i}: door ${d} cut off`);
+      for (const [x, y] of points.slice(1)) assert.ok(seen.has(`${x},${y}`), `seed ${seed} map ${i}: ${x},${y} cut off`);
     }
   }
-  assert.ok(carved < built / 2, `paths had to be carved in ${carved} of ${built} rooms`);
+  assert.ok(camps > mapsBuilt / 2, `camps: ${camps} in ${mapsBuilt} maps`);
+  assert.ok(chests > 0, 'chests');
+  assert.ok(carved < mapsBuilt / 2, `paths had to be carved in ${carved} of ${mapsBuilt} maps`);
 });
 
-test('the same seed gives the same layer and rooms', () => {
+test('the same seed gives the same area and maps', () => {
   const emu = startRun().idle(2);
-  const rooms = (seed) => {
+  const area = (seed) => {
     const out = [generate(emu, seed)];
     for (let i = 0; i < CELLS; i++) {
       if (!out[0].type[i]) continue;
@@ -119,66 +148,106 @@ test('the same seed gives the same layer and rooms', () => {
     }
     return out;
   };
-  const a = rooms(4242);
-  rooms(999);
-  assert.deepEqual(rooms(4242), a);
+  const a = area(4242);
+  area(999);
+  assert.deepEqual(area(4242), a);
 });
 
 // --- Playing a descent ---
 
-/** Walk out of the current room through door d (from just inside it). */
-function leaveBy(emu, d) {
+/** Walk out of the current map through its opening on side e. */
+function leaveBy(emu, e) {
   const w = emu.v('room_w'), h = emu.v('room_h');
-  const mx = ((w >> 1) - 1) * 16, my = ((h >> 1) - 1) * 16;
-  const at = { 1: [mx + 8, 2 * 16 - 8], 4: [mx + 8, h * 16 - 3 * 16 + 4], 8: [2 * 16, my + 4], 2: [w * 16 - 3 * 16, my + 4] }[d];
+  const o = (bytes(emu, 'level_open', 4)[SIDE[e]] + 1) * 16;
+  const at = { 1: [o, 2 * 16 - 8], 4: [o, h * 16 - 3 * 16 + 4], 8: [2 * 16, o - 4], 2: [w * 16 - 3 * 16, o - 4] }[e];
   w16(emu, 'player_x', at[0]);
   w16(emu, 'player_y', at[1]);
-  const dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[d];
-  const before = emu.v('rooms_entered', 'u16');
-  for (let f = 0; f < 120 && emu.v('rooms_entered', 'u16') === before; f++) emu.hold(dir, 1);
+  const dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e];
+  const before = emu.v('maps_entered', 'u16');
+  for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) emu.hold(dir, 1);
+  assert.notEqual(emu.v('maps_entered', 'u16'), before, `left by ${e}`);
   return emu.idle(30);
 }
+/** Walk map to map (following links) to map `goal`. */
+function walkTo(emu, goal) {
+  const L = { links: bytes(emu, 'area_links') };
+  for (let guard = 0; guard < 12 && emu.v('level_map') !== goal; guard++) {
+    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // a quiet walk
+    const d = distances(L, goal);
+    const here = emu.v('level_map');
+    const e = [1, 2, 4, 8].find((x) => L.links[here] & x && d.get(here + STEP[x]) === d.get(here) - 1);
+    leaveBy(emu, e);
+  }
+  assert.equal(emu.v('level_map'), goal);
+}
 
-test('START on the title begins a descent in the start room of a generated layer', () => {
+test('START on the title begins a descent in the start map of a generated area', () => {
   const emu = startDescent();
   assert.equal(emu.v('play_mode'), 1);
-  assert.equal(emu.v('level_room'), emu.v('layer_start'));
-  assert.equal(emu.v('actors_active'), 0, 'the start room is quiet');
+  assert.equal(emu.v('level_map'), emu.v('area_start'));
+  assert.equal(emu.v('actors_active'), 0, 'the start map is quiet');
   matchGolden(emu.idle(4), 'descent-start');
 });
 
-test('walking through a door moves to the next room, arriving at its matching door', () => {
+test('walking out through an opening moves to the linked map, and back', () => {
   const emu = startDescent();
-  const start = emu.v('level_room');
-  const doors = emu.read8(addr(emu, 'layer_doors') + start);
-  const d = [1, 2, 4, 8].find((x) => doors & x);
-  leaveBy(emu, d);
-  assert.equal(emu.v('level_room'), start + STEP[d], 'in the neighbouring room');
-  assert.equal(emu.v('rooms_entered', 'u16'), 2);
-  leaveBy(emu, OPP[d]);
-  assert.equal(emu.v('level_room'), start, 'and back');
+  const start = emu.v('level_map');
+  const links = emu.read8(addr(emu, 'area_links') + start);
+  const e = [1, 2, 4, 8].find((x) => links & x);
+  leaveBy(emu, e);
+  assert.equal(emu.v('level_map'), start + STEP[e], 'in the linked map');
+  leaveBy(emu, OPP[e]);
+  assert.equal(emu.v('level_map'), start, 'and back');
 });
 
-test('a combat room spawns enemies until cleared, and stays cleared', () => {
-  // Try a few runs until the start room has a combat room beside it.
-  for (let wait = 0; wait < 40; wait += 7) {
+test('a camp wakes as you approach, and once cleared it stays cleared', () => {
+  for (let wait = 0; wait < 60; wait += 7) {
     const emu = startDescent(bootToTitle().idle(wait));
-    const start = emu.v('level_room');
-    const types = arr(emu, 'layer_type'), doors = arr(emu, 'layer_doors');
-    const d = [1, 2, 4, 8].find((x) => doors[start] & x && types[start + STEP[x]] === COMBAT);
-    if (!d) continue;
-    leaveBy(emu, d);
-    assert.ok(emu.v('actors_active') > 0, 'enemies');
-    matchGolden(emu, 'descent-combat');
-    assert.equal(emu.v('room_live'), 1);
-    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
-    w8(emu, 'actor_count', 0);
+    const start = emu.v('level_map');
+    const links = emu.read8(addr(emu, 'area_links') + start);
+    const e = [1, 2, 4, 8].find((x) => links & x);
+    leaveBy(emu, e);
+    if (!emu.v('level_camps')) continue;
+    // Arriving can be near a camp already; clear the field first, then walk up to camp 0.
+    const cx = words(emu, 'camp_x', 1)[0], cy = words(emu, 'camp_y', 1)[0];
+    w16(emu, 'player_x', cx - 8 - 64);
+    w16(emu, 'player_y', cy - 12);
     emu.idle(3);
-    assert.equal(emu.read8(addr(emu, 'layer_cleared') + emu.v('level_room')), 1);
-    leaveBy(emu, OPP[d]);
-    leaveBy(emu, d);
+    assert.equal(emu.v('camp_state'), CAMP_AWAKE, 'awake once you are near');
+    assert.ok(emu.v('actors_active') > 0, 'its enemies');
+    matchGolden(emu.idle(40), 'descent-camp');  // once the camera has caught up
+    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+    emu.idle(3);
+    assert.equal(emu.v('camp_state'), CAMP_CLEARED);
+    // Leave and come back: still cleared, nobody there.
+    leaveBy(emu, OPP[e]);
+    leaveBy(emu, e);
+    assert.equal(emu.v('camp_state'), CAMP_CLEARED);
+    w16(emu, 'player_x', cx - 8 - 64);
+    w16(emu, 'player_y', cy - 12);
+    emu.idle(3);
+    // (camps are at least 3 chunks apart, farther than a camp wakes from)
     assert.equal(emu.v('actors_active'), 0, 'no respawn');
     return;
   }
-  assert.fail('no start room with a combat room beside it');
+  assert.fail('no camp found beside the start map');
+});
+
+test('the exit map has a shaft: dropping in leads to a new area, one deeper', () => {
+  const emu = startDescent();
+  const firstLinks = bytes(emu, 'area_links');
+  walkTo(emu, emu.v('area_exit'));
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // nothing in the way
+  // Beside the shaft (2x2 pit blocks in the middle), then into it.
+  const w = emu.v('room_w'), h = emu.v('room_h');
+  const sx = ((w >> 1) - 1) * 16, sy = ((h >> 1) - 1) * 16;
+  w16(emu, 'player_x', sx - 24);
+  w16(emu, 'player_y', sy);
+  const hp = emu.v('player_hp');
+  for (let f = 0; f < 200 && emu.v('layer_depth') === 1; f++) emu.hold('RIGHT', 1);
+  emu.idle(40);
+  assert.equal(emu.v('layer_depth'), 2, 'one deeper');
+  assert.equal(emu.v('level_map'), emu.v('area_start'), 'at the start of the new area');
+  assert.equal(emu.v('player_hp'), hp, 'no fall damage');
+  assert.notDeepEqual(bytes(emu, 'area_links'), firstLinks, 'a different area');
 });

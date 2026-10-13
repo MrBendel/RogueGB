@@ -120,8 +120,8 @@ uint8_t tune_top;  // the first tunable shown (the list scrolls)
 // runs it and clears it. 1 = stress wave (actors_debug_stress); 2 = spawn an actor
 // of debug_type at (debug_x, debug_y), its slot in debug_slot; 3 = equip the
 // first shield (what the chest will hold); 4 = hurt the player for debug_type
-// damage from (debug_x, debug_y); 5 = generate a layer from seed debug_x and
-// build its room debug_type into the room map (tests check the generator).
+// damage from (debug_x, debug_y); 5 = generate an area from seed debug_x and
+// build its map debug_type into the room map (tests check the generator).
 uint8_t debug_cmd;
 uint8_t debug_type;
 uint16_t debug_x, debug_y;
@@ -332,7 +332,7 @@ void play_update(void) BANKED {
         else if (debug_cmd == 3) health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
         else if (debug_cmd == 5) {
             level_generate(debug_x);
-            level_build_room(debug_type);
+            level_build_map(debug_type);
         } else if (debug_cmd == 4) {
             hurt_cause = CAUSE_NONE;
             player_hurt(debug_type, debug_x, debug_y);

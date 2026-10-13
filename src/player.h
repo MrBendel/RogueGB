@@ -88,7 +88,9 @@ extern const MoveProfile move_profiles[MOVE_PRESET_COUNT];
 #define BLINK_FRAMES 60  // blinking (and invulnerable) after a hit to health or a fall
 // Invulnerable frames after a hit the shield took all of (no blink, no knockback).
 #define SHIELD_IFRAMES 20
-// Pits cost this much health (skipping the shield).
+// Pits cost this much health (skipping the shield), unless pit_shaft is set:
+// then a pit is a way down, and the fall sets shaft_taken (descent.c).
+extern uint8_t pit_shaft, shaft_taken;
 #define PIT_DAMAGE 10
 // Take dmg from something at room pixel (from_x, from_y). If the shield takes it
 // all: a short invulnerability, no knockback. If it reaches health: knocked back
