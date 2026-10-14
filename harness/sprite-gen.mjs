@@ -1307,10 +1307,10 @@ export const WEAPON_TEMPLATES = {
       '................',
     ]),
   },
-  battle_axe: {
-    id: 'battle_axe',
+  heavy_cleaver: {
+    id: 'heavy_cleaver',
     category: 'melee',
-    name: '⚔️ Melee: Battle Axe (Artwork Arsenal)',
+    name: '⚔️ Melee: Heavy Cleaver (Wayfarer Axe)',
     palette: 'gbc_hero_red',
     paletteId: 'gbc_hero_red',
     right: parseAsciiGrid([
@@ -1332,10 +1332,10 @@ export const WEAPON_TEMPLATES = {
       '.3.3.3.3.3......',
     ]),
   },
-  laser_carbine: {
-    id: 'laser_carbine',
+  pulsar_carbine: {
+    id: 'pulsar_carbine',
     category: 'small_gun',
-    name: '🔫 Gun: Laser Carbine (Artwork Arsenal)',
+    name: '🔫 Gun: Pulsar Carbine (Energy Rifle)',
     palette: 'gbc_volt_blade',
     paletteId: 'gbc_volt_blade',
     right: parseAsciiGrid([
@@ -1357,10 +1357,10 @@ export const WEAPON_TEMPLATES = {
       '...3.33.33.33...',
     ]),
   },
-  plasma_staff: {
-    id: 'plasma_staff',
+  arcane_focus: {
+    id: 'arcane_focus',
     category: 'small_gun',
-    name: '✨ Wand: Plasma Scepter (Artwork Arsenal)',
+    name: '✨ Wand: Arcane Focus (Plasma Scepter)',
     palette: 'gbc_monk_gold',
     paletteId: 'gbc_monk_gold',
     right: parseAsciiGrid([
@@ -1934,9 +1934,9 @@ export const CHARACTER_PRESETS = {
       '................',
     ]),
   },
-  gungeon_marine: {
-    id: 'gungeon_marine',
-    name: 'Gungeon Marine (16x24 Hero Preset)',
+  wayfarer_ironclad: {
+    id: 'wayfarer_ironclad',
+    name: 'Ironclad (Vanguard Bulwark 16x24)',
     mode: '1pose',
     height: 24,
     palette: GBC_PALETTES.gbc_guard_blue.colors,
@@ -1967,9 +1967,9 @@ export const CHARACTER_PRESETS = {
       '....31....31....',
     ]),
   },
-  borderlands_soldier: {
-    id: 'borderlands_soldier',
-    name: 'Borderlands Soldier (16x24 Commando)',
+  wayfarer_ballistician: {
+    id: 'wayfarer_ballistician',
+    name: 'Ballistician (Heavy Ordnance 16x24)',
     mode: '1pose',
     height: 24,
     palette: GBC_PALETTES.gbc_hero_red.colors,
@@ -2000,9 +2000,9 @@ export const CHARACTER_PRESETS = {
       '3333333..3333333',
     ]),
   },
-  borderlands_siren: {
-    id: 'borderlands_siren',
-    name: 'Borderlands Siren (16x24 Mystic)',
+  wayfarer_volt_weaver: {
+    id: 'wayfarer_volt_weaver',
+    name: 'Volt-Weaver (Static Mystic 16x24)',
     mode: '1pose',
     height: 24,
     palette: GBC_PALETTES.gbc_volt_blade.colors,
@@ -2033,9 +2033,9 @@ export const CHARACTER_PRESETS = {
       '13333331.1333333',
     ]),
   },
-  borderlands_hunter: {
-    id: 'borderlands_hunter',
-    name: 'Borderlands Hunter (16x24 Marksman)',
+  wayfarer_ghost_stalker: {
+    id: 'wayfarer_ghost_stalker',
+    name: 'Ghost-Stalker (Outland Scout 16x24)',
     mode: '1pose',
     height: 24,
     palette: GBC_PALETTES.gbc_monk_gold.colors,
