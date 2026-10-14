@@ -33,6 +33,7 @@
 #include "boss.h"
 #include "enemy_trial.h"
 #include "gunship.h"
+#include "warden.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -208,7 +209,10 @@ void play_enter(void) BANKED {
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS) chest_init();
     else if (play_mode == MODE_ENEMY) enemy_trial_start();
-    else boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW : play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP : BOSS_WARDEN);
+    else {
+        if (play_mode == MODE_BOSS) play_actor_oam = FIRST_ACTOR_OAM + 8;
+        boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW : play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP : BOSS_WARDEN);
+    }
     sfx_watch_reset();
     waves_init();
     paused = 0;
@@ -365,8 +369,8 @@ void play_update(void) BANKED {
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
-    // Gunship body/hazards own ten entries ahead of projectiles, so a crowded
-    // shot pool cannot make a damaging beam disappear.
+    // Boss hazards reserve entries ahead of projectiles so crowded shot pools
+    // cannot hide damaging beams or floor claims.
     actors_update(play_actor_oam);
     if (play_mode == MODE_LAB) chest_update();
     aim_update();
@@ -376,6 +380,7 @@ void play_update(void) BANKED {
     if (boss_kind != BOSS_NONE) {
         boss_status();
         if (boss_kind == BOSS_GUNSHIP) gunship_draw();
+        else if (boss_kind == BOSS_WARDEN) warden_draw();
     }
     sfx_watch();
     if (!player_hp) {

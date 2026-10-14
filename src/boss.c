@@ -10,6 +10,7 @@
 #include "gfx.h"
 #include "camera.h"
 #include "gunship.h"
+#include "warden.h"
 
 // Trials replace chest graphics (the chest is not initialized here). Remain below
 // tile 128, where sprite tiles would overlap the background's signed tile area.
@@ -71,6 +72,7 @@ static void art(uint8_t i, uint8_t frame, uint8_t pal) {
 
 static void guard(uint8_t on) {
     actor_guard[boss_slot] = on;
+    if (boss_kind == BOSS_WARDEN) art(boss_slot, on ? 0 : 1, on ? SPR_PAL_WEAPON : SPR_PAL_SHOT);
     if (on) {
         aim_score[boss_slot] = AIM_NONE;
         if (aim_target == boss_slot) aim_target = AIM_NONE;
@@ -114,6 +116,7 @@ void boss_start(uint8_t kind) BANKED {
     enemy_hp_bonus = shooter_spread = 0;
     bullet_speed = 256; slime_speed = 160; slime_rest = 40;
     load_art();
+    if (kind == BOSS_WARDEN) warden_start();
     boss_hp_max = kind == BOSS_CLAIMJAW ? 18 : 48;
     boss_slot = machine(72, 32, boss_hp_max, kind == BOSS_CLAIMJAW ? 2 : 0);
     boss_hp = boss_hp_max;
@@ -148,6 +151,11 @@ static void fan(void) {
     fire_bullet(boss_slot, dx8[(d + 7) & 7], dy8[(d + 7) & 7]);
     fire_bullet(boss_slot, dx8[d], dy8[d]);
     fire_bullet(boss_slot, dx8[(d + 1) & 7], dy8[(d + 1) & 7]);
+    boss_attacks++;
+}
+
+static void ring(void) {
+    for (uint8_t d=0; d<8; d++) fire_bullet(boss_slot, dx8[d], dy8[d]);
     boss_attacks++;
 }
 
@@ -189,8 +197,9 @@ void boss_update(void) BANKED {
         return;
     }
     if (boss_kind == BOSS_GUNSHIP) { gunship_update(); return; }
+    if (boss_kind == BOSS_WARDEN) warden_update();
     actor_flash[boss_slot] = boss_state == BOSS_WARN && (boss_timer & 4);
-    if (boss_kind == BOSS_WARDEN) art(boss_slot, actor_guard[boss_slot] ? 0 : 1, SPR_PAL_SHOOTER);
+    if (boss_kind == BOSS_WARDEN) art(boss_slot, actor_guard[boss_slot] ? 0 : 1, actor_guard[boss_slot] ? SPR_PAL_WEAPON : SPR_PAL_SHOT);
     if (boss_state == BOSS_RELAYS) {
         boss_relays = 0;
         for (uint8_t n = 0; n < 2; n++) {
@@ -233,14 +242,19 @@ void boss_update(void) BANKED {
         }
         break;
     case BOSS_WARN:
+        if (boss_kind == BOSS_WARDEN) {
+            uint8_t target = (boss_cycles & 1) ? 104 : 40;
+            if (actor_x[boss_slot] < target) actor_x[boss_slot] += 2;
+            else if (actor_x[boss_slot] > target) actor_x[boss_slot] -= 2;
+        }
         if (!boss_timer) {
             if (boss_kind == BOSS_CLAIMJAW) {
                 boss_state = BOSS_CHARGE;
                 boss_timer = 44;
                 boss_attacks++;
             } else {
-                fan();
-                recover(boss_phase ? 60 : 90);
+                if (boss_cycles & 1) fan(); else ring();
+                recover(boss_phase ? 54 : 72);
             }
         }
         break;
@@ -282,7 +296,7 @@ void boss_status(void) BANKED {
     else if (boss_state == BOSS_LASER) s = "CORE OPEN - FIRE!";
     else if (boss_state == BOSS_RELAYS) s = boss_relays == 2 ? "BREAK 2 RELAYS    " : "BREAK 1 RELAY     ";
     else if (boss_state == BOSS_WARN) {
-        if (boss_kind == BOSS_WARDEN) s = "FAN INCOMING      ";
+        if (boss_kind == BOSS_WARDEN) s = (boss_cycles & 1) ? "LOCKED FAN - MOVE" : "RING - FIND A GAP";
         else s = boss_dx > 0 ? "CHARGE RIGHT      " : boss_dx < 0 ? "CHARGE LEFT       " :
                  boss_dy > 0 ? "CHARGE DOWN       " : "CHARGE UP         ";
     } else if (boss_state == BOSS_CHARGE) s = "DODGE!            ";
@@ -290,7 +304,7 @@ void boss_status(void) BANKED {
     else if (boss_state == BOSS_WON) s = "CLEAR! SALVAGE +1  ";
     else if (boss_kind == BOSS_GUNSHIP) s = "CORE OPEN - FIRE!";
     else if (boss_kind == BOSS_CLAIMJAW) s = "VENT OPEN - FIRE! ";
-    else if (boss_phase && boss_kind == BOSS_WARDEN) s = "CORE OPEN / ADDS  ";
+    else if (boss_kind == BOSS_WARDEN) s = "CORE OPEN - FIRE!";
     uint8_t *row = gfx_strip(1, 1, 0, 18);
     uint8_t n = 0;
     for (; n < 18 && s[n]; n++) row[n] = FONT_TILES + s[n] - ' ';

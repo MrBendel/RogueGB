@@ -224,3 +224,66 @@ test('boss: Warden transition tolerates full actor and bullet pools while firing
   assert.ok(worst < FRAME_LIMIT, `stress frame ${worst}/${FRAME_LIMIT}`);
   console.log(`boss stress: worst=${worst}/${FRAME_LIMIT}`);
 });
+
+
+test('boss: Warden defeats stationary held fire with ordinary resources', () => {
+  for (const pos of [null,[24,24],[120,24],[24,96],[120,96]]) {
+  const e=trial(2);
+  if(pos){w16(e,'player_x',pos[0]);w16(e,'player_y',pos[1]);}
+  let frames=0;
+  for (; frames<6000 && e.v('player_hp') && e.v('boss_state')!==WON; frames++) e.hold('A');
+  assert.notEqual(e.v('boss_state'),WON,'standing still must not win');
+  assert.equal(e.v('player_hp'),0,'locked floor claims punish camping');
+  console.log(`Warden camping ${pos??"start"} defeated after ${frames} frames`);
+  }
+});
+
+test('boss: Warden floor claim locks, warns, freezes on pause and can be escaped', () => {
+  const e=trial(2);
+  e.until(x=>x.v('warden_zone_state')===1);
+  const x=e.v('warden_zone_x'),y=e.v('warden_zone_y');
+  e.idle(2).shot('warden-floor-warning');
+  assert.equal(e.v('shield_hp'),40,'outline is harmless');
+  e.tap('START');
+  const timer=e.v('warden_zone_timer');
+  e.idle(60);
+  assert.equal(e.v('warden_zone_timer'),timer);
+  e.tap('START');
+  e.hold('RIGHT',25);
+  assert.equal(e.v('warden_zone_x'),x);
+  assert.equal(e.v('warden_zone_y'),y);
+  e.idle().until(e=>e.v('warden_zone_state')===2);
+  e.idle(2).shot('warden-floor-live');
+  assert.equal(e.v('shield_hp'),40,'leaving the locked square avoids the strike');
+  w16(e,'player_x',x+8);w16(e,'player_y',y+8);
+  e.idle(1);
+  assert.ok(e.v('shield_hp')<40,'striped active floor hurts inside its bounds');
+});
+
+test('boss: Warden changes firing position and alternates fan and ring', () => {
+  const e=trial(2);
+  removeRelay(e,1);removeRelay(e,2);
+  const positions=[];
+  for(let cycle=0;cycle<2;cycle++) {
+    for(let n=0;n<200&&e.v('boss_state')!==WARN;n++){keepAlive(e);e.idle();}
+    assert.equal(e.v('boss_state'),WARN);
+    for(let n=0;n<60&&e.v('boss_state')===WARN;n++){keepAlive(e);e.idle();}
+    positions.push(e.read16(at(e,'actor_x')));
+    assert.equal(e.v('boss_state'),RECOVER);
+    assert.equal(r8(e,'actor_guard',0),0);
+    assert.ok(e.v('bullets_active') >= (cycle?8:3));
+    e.shot(cycle?'warden-ring':'warden-fan');
+  }
+  assert.deepEqual(positions,[104,40]);
+});
+
+
+test('boss: Warden floor claim remains visible with a full player shot pool',()=>{
+  const e=trial(2);
+  e.until(x=>x.v('warden_zone_state')===2);
+  for(let n=0;n<16;n++) e.writeBytes(at(e,'shots')+n*13,[40,0,0,0,0,24,0,0,0,0,0,24,0]);
+  w8(e,'shot_count',16);
+  e.idle(2);
+  assert.equal(e.v('shot_count'),16);
+  for(let i=15;i<23;i++) assert.ok(e.read8(at(e,'shadow_OAM')+i*4),'every hazard segment has reserved OAM');
+});

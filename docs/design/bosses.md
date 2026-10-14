@@ -74,10 +74,23 @@ healing, making target priority easy to see at this scale.
 |---|---|---|
 | Relays | Protected 48-HP body; two 5-HP relays fire slow cardinal shots every 100 frames with warnings | Reposition to select and destroy each relay |
 | First opening | Clear hostile bullets; expose core for 100 frames | Recognize protection is gone and attack |
-| Fan | Lock direction during 42-frame warning, fire three shots at 1 px/frame | Move through gaps, circle, or jump |
-| Recovery | 90-frame damage window | Attack or reload |
+| Reposition / burst | Close grey armor, lock a cardinal direction, move between x=104 and x=40 during a 42-frame warning; alternate three-shot fans and eight-shot rings | Read the header; leave the locked fan lane or use gaps in the ring |
+| Recovery | Orange exposed core for 72 frames (54 below half health) | Attack or reload while watching floor claims |
 | Half health | At 24 HP, one 60-frame reinforcement warning and clear old bullets | Prepare for more targets |
-| Pressure | Up to two slimes spawn away from player and wait briefly; later recoveries shorten to 60 frames | Prioritize adds or pressure the core |
+| Pressure | Up to two slimes spawn away from player and wait briefly; later recoveries shorten to 54 frames | Prioritize adds or pressure the core |
+
+Throughout the fight, a security field claims a locked 32-by-32 square centered
+on the player's position. An empty outline warns for 48 frames; diagonal stripes
+then mark dangerous floor for 60 frames, dealing 24 damage using normal shield,
+jump and invulnerability rules. A 30-frame clear interval precedes the next mark.
+Below half health, warning drops to 36 frames and the field lasts 72. The mark
+never tracks once placed. Leave the outline before it fills; jumping can cross
+the active field, but does not remove it. Eight reserved OAM entries keep the
+field visible when the shot pool is full.
+
+Previously, holding A at spawn won in 2,284 frames. Updated tests require that
+strategy to lose at spawn and all four corners, while real movement and starter
+pistol fire can still win without health or damage overrides. HP remains 48.
 
 Custom 16×16 machine sprites distinguish core and relays; the core has closed/open
 drawings. All bullets are jumpable. Reinforcements happen once and respect the
@@ -103,13 +116,14 @@ rather than loot luck.
 
 ## Implementation and evidence
 
-`src/boss.c` owns arenas, compact art, state machines, and status text. Scripted
+`src/boss.c` owns arenas, compact art, state machines, and status text.
+`src/warden.c` owns the locked floor field and its reserved sprites. Scripted
 actors reuse the normal actor/hitbox/OAM pools. `actor_guard` is checked by shots,
 melee damage, and auto-aim. Normal enemies retain their existing AI. Bosses are
 standalone trials, not yet encounters inside the generated descent.
 
-Art takes 16 sprite tiles at 96–111 in VRAM bank 0, replacing chest art only in
-trials. Pool limits remain 8 actors, 20 enemy bullets, and 16 player shots. Dynamic
+Machine art takes 16 sprite tiles at 96–111 in VRAM bank 0, replacing chest art only in
+trials. Warden floor claims use tiles 112-127. Pool limits remain 8 actors, 20 enemy bullets, and 16 player shots. Dynamic
 encounter text is queued for vblank; encounter logic lives in switchable ROM.
 
 `tests/boss.test.mjs` checks selection, locked charges, successful sidestepping,
@@ -118,19 +132,22 @@ destruction, one-time reinforcements, pause, death/restart, reward uniqueness,
 finite pools, and cleanup of both logical actors and drawn sprites.
 
 A patrol bot defeats both using only movement and starter-pistol fire with normal
-health and shield, without healing or damage injection. One observed run finished
+health and shield, without healing or damage injection. Before the territory-control redesign, one observed run finished
 Claimjaw in 1,142 frames (about 19 seconds) at 60 HP, and Warden in 2,302 frames
 (about 38 seconds) at 47 HP. This demonstrates a viable route, not final balance
 or first-time player comprehension. Another test exercises a full actor/bullet pool
 during the reinforcement transition while firing a shotgun.
 
-Validation on 2026-10-13: all 190 tests pass, including submenu navigation, back
-navigation, enemy selection, clear state, and clean re-entry. Peak measured update costs were
-42,316 cycles for Claimjaw, 57,992 for Warden, and 73,488 for the full-pool stress
-test, against the 131,328-cycle update budget in CGB double-speed mode. The stress
-case uses about 56% of that budget. Emulator CPU measurements are regression
-evidence, not cycle-accurate hardware certification.
-Verify timing in a second emulator and on hardware before release.
+Validation on 2026-10-14: all 212 tests pass. Holding fire without movement
+loses in 404-488 frames at spawn and four corner positions. Tests also verify
+locked warning positions, harmless warnings, active field damage, pause,
+alternating firing positions/patterns, and visible fields with sixteen live shots.
+Peak update costs: 42,612 cycles for Claimjaw, 93,456 for Warden, and 94,220
+for full-pool stress, against the 131,328-cycle CGB update budget (72% at stress).
+Warning and active-field screenshots were reviewed. The generated descent-combat
+screenshot baseline was refreshed after visually checking its changed seeded
+layout; campaign mechanics were not changed. Emulator measurements do not replace
+human balance testing or validation on hardware.
 
 ## Next after playing
 
