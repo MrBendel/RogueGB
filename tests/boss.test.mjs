@@ -172,7 +172,7 @@ test('boss: actual pistol fire completes both trials within bounded pools and fr
     let worst = 0, maxActors = 0, maxBullets = 0;
     const waypoints = [[120,96], [120,24], [24,24], [24,96]];
     let waypoint = 0;
-    // Real inputs only: a simple circling route, starter pistol, normal health
+    // Real inputs only: a circling route with reactive jumps for Warden, starter pistol, normal health
     // and shield. No damage/HP injection in this end-to-end completion check.
     for (let f = 0; f < 4000 && e.v('boss_state') !== WON; f++) {
       const [x,y] = waypoints[waypoint];
@@ -181,6 +181,15 @@ test('boss: actual pistol fire completes both trials within bounded pools and fr
       const buttons = ['A'];
       if (Math.abs(dx) >= 4) buttons.push(dx > 0 ? 'RIGHT' : 'LEFT');
       if (Math.abs(dy) >= 4) buttons.push(dy > 0 ? 'DOWN' : 'UP');
+      if (kind===2 && !e.v('player_air')) {
+        const px=e.v('player_x','u16'), py=e.v('player_y','u16');
+        for(let b=0;b<20;b++) {
+          const base=at(e,'bullets')+b*13;
+          if(e.read8(base) && Math.abs(e.read16(base+5)-px)<20 && Math.abs(e.read16(base+11)-py)<20) {
+            buttons.push('B'); break;
+          }
+        }
+      }
       e.hold(buttons, 1);
       assert.ok(e.v('player_hp') > 0, `trial ${kind}: patrol survived with ordinary resources`);
       worst = Math.max(worst, e.lastFrameCycles);
@@ -260,7 +269,7 @@ test('boss: Warden floor claim locks, warns, freezes on pause and can be escaped
   assert.ok(e.v('shield_hp')<40,'striped active floor hurts inside its bounds');
 });
 
-test('boss: Warden changes firing position and alternates fan and ring', () => {
+test('boss: Warden changes firing position and alternates shotgun and ring', () => {
   const e=trial(2);
   removeRelay(e,1);removeRelay(e,2);
   const positions=[];
@@ -271,8 +280,8 @@ test('boss: Warden changes firing position and alternates fan and ring', () => {
     positions.push(e.read16(at(e,'actor_x')));
     assert.equal(e.v('boss_state'),RECOVER);
     assert.equal(r8(e,'actor_guard',0),0);
-    assert.ok(e.v('bullets_active') >= (cycle?8:3));
-    e.shot(cycle?'warden-ring':'warden-fan');
+    assert.ok(e.v('bullets_active') >= (cycle?8:7));
+    e.shot(cycle?'warden-ring':'warden-shotgun');
   }
   assert.deepEqual(positions,[104,40]);
 });
@@ -286,4 +295,47 @@ test('boss: Warden floor claim remains visible with a full player shot pool',()=
   e.idle(2);
   assert.equal(e.v('shot_count'),16);
   for(let i=15;i<23;i++) assert.ok(e.read8(at(e,'shadow_OAM')+i*4),'every hazard segment has reserved OAM');
+});
+
+
+test('boss: Warden shotgun has seven distinct pellets and timed double/triple blasts',()=>{
+  for(const phase of [0,1]) {
+    const e=trial(2);
+    removeRelay(e,1);removeRelay(e,2);
+    w8(e,'boss_phase',phase);
+    w16(e,'player_x',72);w16(e,'player_y',96);
+    e.until(x=>x.v('boss_state')===WARN);
+    const fired=e.v('bullets_fired','u16');
+    e.until(x=>x.v('boss_state')===RECOVER);
+    assert.equal(e.v('bullets_fired','u16')-fired,7);
+    const side=[];
+    for(let n=0;n<20;n++) {
+      const b=at(e,'bullets')+13*n;
+      if(!e.read8(b))continue;
+      assert.equal(e.read16(b+7),384,'forward speed is 1.5 px/frame');
+      const vx=e.read16(b+1);side.push(vx>32767?vx-65536:vx);
+      assert.equal(e.read8(b+3),vx>32767?255:0,'negative velocities have correct sign bytes');
+    }
+    assert.deepEqual(side,[-224,-144,-72,0,72,144,224]);
+    w16(e,'player_x',24); // sidestep the locked downward cone
+    e.tap('START');const paused=e.v('warden_burst_timer');
+    e.idle(50);assert.equal(e.v('warden_burst_timer'),paused);
+    e.tap('START');
+    e.until(x=>x.v('warden_burst_left')===0,70);
+    assert.equal(e.v('bullets_fired','u16')-fired,phase?20:14,'third blast respects the 20-pellet live pool');
+    assert.ok(e.v('bullet_count')<=20);
+    e.idle(8).shot(phase?'warden-triple-shotgun':'warden-double-shotgun');
+  }
+});
+
+test('boss: enemy shotgun pellets get sprite priority over a full player shot pool',()=>{
+  const e=trial(2);
+  removeRelay(e,1);removeRelay(e,2);
+  e.until(x=>x.v('boss_state')===WARN).until(x=>x.v('boss_state')===RECOVER);
+  for(let n=0;n<16;n++)e.writeBytes(at(e,'shots')+13*n,[40,0,0,0,0,24,0,0,0,0,0,24,0]);
+  w8(e,'shot_count',16);
+  e.idle(3);
+  const tile=e.v('bullet_draw_tile');let drawn=0;
+  for(let i=23;i<40;i++)if(e.read8(at(e,'shadow_OAM')+i*4)&&e.read8(at(e,'shadow_OAM')+i*4+2)===tile)drawn++;
+  assert.equal(drawn,7,'all first-blast pellets remain visible while the player fires');
 });

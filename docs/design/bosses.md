@@ -74,10 +74,20 @@ healing, making target priority easy to see at this scale.
 |---|---|---|
 | Relays | Protected 48-HP body; two 5-HP relays fire slow cardinal shots every 100 frames with warnings | Reposition to select and destroy each relay |
 | First opening | Clear hostile bullets; expose core for 100 frames | Recognize protection is gone and attack |
-| Reposition / burst | Close grey armor, lock a cardinal direction, move between x=104 and x=40 during a 42-frame warning; alternate three-shot fans and eight-shot rings | Read the header; leave the locked fan lane or use gaps in the ring |
+| Reposition / burst | Close grey armor, lock a cardinal direction, move between x=104 and x=40 during a 42-frame warning; alternate seven-pellet shotgun cones and eight-shot rings | Read the header; leave the locked shotgun cone or use gaps in the ring |
 | Recovery | Orange exposed core for 72 frames (54 below half health) | Attack or reload while watching floor claims |
 | Half health | At 24 HP, one 60-frame reinforcement warning and clear old bullets | Prepare for more targets |
 | Pressure | Up to two slimes spawn away from player and wait briefly; later recoveries shorten to 54 frames | Prioritize adds or pressure the core |
+
+Each attack is a two-blast burst, with 18 frames between blasts. Below half
+health it becomes three blasts. Shotgun pellets travel forward at 1.5 px/frame
+with seven distinct lateral velocities across the cone; follow-ups keep the
+original aim rather than tracking a dodge. Ring attacks repeat on the same cadence.
+The core is orange and vulnerable throughout the burst and recovery. Jumping
+across pellets is useful while moving toward a firing position. The shared live
+bullet pool stays capped at 20, so a crowded third blast may emit fewer pellets.
+Enemy bullets get sprite priority over player shots in this trial; existing
+rotation shares the remaining OAM when more enemy pellets are alive than fit.
 
 Throughout the fight, a security field claims a locked 32-by-32 square centered
 on the player's position. An empty outline warns for 48 frames; diagonal stripes
@@ -131,20 +141,20 @@ walls, protected targeting, actual shot collisions, melee protection, relay
 destruction, one-time reinforcements, pause, death/restart, reward uniqueness,
 finite pools, and cleanup of both logical actors and drawn sprites.
 
-A patrol bot defeats both using only movement and starter-pistol fire with normal
+A patrol bot defeats both using movement, reactive jumps, and starter-pistol fire with normal
 health and shield, without healing or damage injection. Before the territory-control redesign, one observed run finished
 Claimjaw in 1,142 frames (about 19 seconds) at 60 HP, and Warden in 2,302 frames
 (about 38 seconds) at 47 HP. This demonstrates a viable route, not final balance
 or first-time player comprehension. Another test exercises a full actor/bullet pool
 during the reinforcement transition while firing a shotgun.
 
-Validation on 2026-10-14: all 212 tests pass. Holding fire without movement
-loses in 404-488 frames at spawn and four corner positions. Tests also verify
+Validation on 2026-10-14: all 214 tests pass. Holding fire without movement
+loses in 398-488 frames at spawn and four corner positions. Tests also verify
 locked warning positions, harmless warnings, active field damage, pause,
 alternating firing positions/patterns, and visible fields with sixteen live shots.
-Peak update costs: 42,612 cycles for Claimjaw, 93,456 for Warden, and 94,220
-for full-pool stress, against the 131,328-cycle CGB update budget (72% at stress).
-Warning and active-field screenshots were reviewed. The generated descent-combat
+Peak update costs: 44,108 cycles for Claimjaw, 111,404 for Warden, and 94,320
+for full-pool stress, against the 131,328-cycle CGB update budget (85% at the measured Warden peak).
+Shotgun spread, warning and active-field screenshots were reviewed. The generated descent-combat
 screenshot baseline was refreshed after visually checking its changed seeded
 layout; campaign mechanics were not changed. Emulator measurements do not replace
 human balance testing or validation on hardware.

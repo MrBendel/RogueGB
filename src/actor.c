@@ -312,10 +312,19 @@ void actors_update(uint8_t first_oam) {
     // they move (shots.s, bullets.s).
     oam_next = first_oam;
     if (actor_count) actors_emit();
-    if (shot_count) update_shots();
-    if (shots_killed) reap();
-    actors_active = actor_count;
-    update_bullets();
+    // Warden reserves slots 15-22 for floor fields. Prioritize its enemy
+    // volleys over player projectiles. Keep the ordinary path to one branch.
+    if (first_oam == 23) {
+        update_bullets();
+        if (shot_count) update_shots();
+        if (shots_killed) reap();
+        actors_active = actor_count;
+    } else {
+        if (shot_count) update_shots();
+        if (shots_killed) reap();
+        actors_active = actor_count;
+        update_bullets();
+    }
     uint8_t used = oam_next;
     sprites_used = used;
     // Hide whatever was drawn last frame beyond this frame's sprites.

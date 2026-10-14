@@ -19,6 +19,7 @@ uint8_t boss_kind, boss_slot, boss_state, boss_timer, boss_phase;
 uint8_t boss_hp, boss_hp_max, boss_relays, boss_reward;
 uint16_t boss_attacks, boss_cycles;
 int8_t boss_dx, boss_dy;
+uint8_t warden_burst_left, warden_burst_timer, warden_shotgun;
 static uint8_t relay_slots[2], relay_clock;
 static uint8_t shown_hp, shown_state, shown_relays, shown_phase;
 static const int8_t dx8[8] = {0,1,1,1,0,-1,-1,-1};
@@ -112,6 +113,7 @@ void boss_start(uint8_t kind) BANKED {
     boss_kind = kind;
     boss_phase = boss_reward = 0;
     boss_attacks = boss_cycles = 0;
+    warden_burst_left = warden_burst_timer = 0;
     boss_dx = 0; boss_dy = 1;
     enemy_hp_bonus = shooter_spread = 0;
     bullet_speed = 256; slime_speed = 160; slime_rest = 40;
@@ -146,11 +148,21 @@ static void lock_direction(uint8_t i) {
     boss_dy = ax > ay ? 0 : (dy < 0 ? -1 : 1);
 }
 
-static void fan(void) {
-    uint8_t d = boss_dx > 0 ? 2 : boss_dx < 0 ? 6 : boss_dy > 0 ? 4 : 0;
-    fire_bullet(boss_slot, dx8[(d + 7) & 7], dy8[(d + 7) & 7]);
-    fire_bullet(boss_slot, dx8[d], dy8[d]);
-    fire_bullet(boss_slot, dx8[(d + 1) & 7], dy8[(d + 1) & 7]);
+// Seven distinct trajectories across a cone, not duplicated cardinal shots.
+static void shotgun(void) {
+    static const int16_t spread[7] = {-224,-144,-72,0,72,144,224};
+    uint8_t pellet=0;
+    for (uint8_t k=0;k<BULLET_MAX && pellet<7;k++) {
+        Bullet *b=&bullets[k];
+        if (b->alive) continue;
+        int16_t side=spread[pellet++];
+        int16_t vx=boss_dx ? (boss_dx>0?384:-384) : side;
+        int16_t vy=boss_dy ? (boss_dy>0?384:-384) : side;
+        b->alive=1; b->xs=b->ys=0;
+        b->x=actor_x[boss_slot]+4; b->y=actor_y[boss_slot];
+        bullet_set_velocity(b,vx,vy);
+        bullet_count++; bullets_fired++;
+    }
     boss_attacks++;
 }
 
@@ -185,6 +197,7 @@ void boss_update(void) BANKED {
     if (!boss_kind || boss_state == BOSS_WON) return;
     boss_hp = actor_type[boss_slot] ? actor_hp[boss_slot] : 0;
     if (!boss_hp) {
+        warden_burst_left = warden_burst_timer = 0;
         boss_state = BOSS_WON;
         boss_reward = 1; // one trial salvage token; no campaign inventory yet
         if (actor_type[boss_slot]) enemies_killed++; // melee killed it after the last reap
@@ -225,6 +238,7 @@ void boss_update(void) BANKED {
     }
     if (boss_kind == BOSS_WARDEN && !boss_phase && boss_hp <= boss_hp_max / 2) {
         boss_phase = 1;
+        warden_burst_left = warden_burst_timer = 0;
         boss_state = BOSS_REINFORCE;
         boss_timer = 60;
         clear_bullets();
@@ -234,6 +248,10 @@ void boss_update(void) BANKED {
     if (boss_timer) boss_timer--;
     switch (boss_state) {
     case BOSS_RECOVER:
+        if (boss_kind == BOSS_WARDEN && warden_burst_left && !--warden_burst_timer) {
+            if (warden_shotgun) shotgun(); else ring();
+            warden_burst_left--; warden_burst_timer=18;
+        }
         if (!boss_timer) {
             lock_direction(boss_slot);
             boss_state = BOSS_WARN;
@@ -253,7 +271,10 @@ void boss_update(void) BANKED {
                 boss_timer = 44;
                 boss_attacks++;
             } else {
-                if (boss_cycles & 1) fan(); else ring();
+                warden_shotgun=boss_cycles & 1;
+                if (warden_shotgun) shotgun(); else ring();
+                warden_burst_left=boss_phase?2:1;
+                warden_burst_timer=18;
                 recover(boss_phase ? 54 : 72);
             }
         }
@@ -296,7 +317,7 @@ void boss_status(void) BANKED {
     else if (boss_state == BOSS_LASER) s = "CORE OPEN - FIRE!";
     else if (boss_state == BOSS_RELAYS) s = boss_relays == 2 ? "BREAK 2 RELAYS    " : "BREAK 1 RELAY     ";
     else if (boss_state == BOSS_WARN) {
-        if (boss_kind == BOSS_WARDEN) s = (boss_cycles & 1) ? "LOCKED FAN - MOVE" : "RING - FIND A GAP";
+        if (boss_kind == BOSS_WARDEN) s = (boss_cycles & 1) ? "SHOTGUN - MOVE!" : "RINGS - FIND A GAP";
         else s = boss_dx > 0 ? "CHARGE RIGHT      " : boss_dx < 0 ? "CHARGE LEFT       " :
                  boss_dy > 0 ? "CHARGE DOWN       " : "CHARGE UP         ";
     } else if (boss_state == BOSS_CHARGE) s = "DODGE!            ";

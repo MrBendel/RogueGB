@@ -312,7 +312,7 @@ Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/
 ### M6 · Planets, campaign, and bosses (content)
 Early validation: standalone title-screen trials are built for Claimjaw (locked
 charge/recovery) and Relay Warden (locked floor claims, repositioning, alternating
-fan/ring attacks, relays, and one-time reinforcements).
+shotgun/ring bursts, relays, and one-time reinforcements).
 The title's DOWN playtest submenu groups minibosses, bosses, individual enemy
 trials (Slime/Peashooter), a mixed enemy group, and the movement lab.
 Enemy trials also prototype Spore Husks, Ragebound, Contractors, and Bastion
