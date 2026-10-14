@@ -51,8 +51,24 @@ test('the game runs across banks: banked scenes call bank-0 code every frame', (
   // asset loading (gfx_init, actors_init, room_load_lab).
   const emu = startRun().idle(2).hold('LEFT', 80).hold('DOWN+B', 200).hold('RIGHT', 200);
   assert.equal(emu.v('game_state'), 1, 'still playing');
-  // The bank variable GBDK keeps in sync with the hardware register.
-  assert.equal(emu.read8(syms.get('__current_bank')), bankOf('play_update'), 'the play scene\'s bank is switched in');
+  // At vsync, banked calls have returned and restored the caller's bank. Once
+  // autobanking places play_update elsewhere, its bank need not remain active.
+  // Observe the function entry itself, bounded to a few frames of instructions.
+  const entry = syms.get('_play_update') & 0xffff;
+  let entered = false;
+  for (let cycles = 0; cycles < 300000;) {
+    const r = emu.gb.registers(), pc = r.pc;
+    r.free();
+    if (pc === entry) {
+      emu._snap = null;
+      if (emu.read8(syms.get('__current_bank')) === bankOf('play_update')) {
+        entered = true;
+        break;
+      }
+    }
+    cycles += emu.gb.clock();
+  }
+  assert.ok(entered, 'entered play_update with its ROM bank selected');
 });
 
 test('banked code never switches banks itself (it would swap its own code out)', () => {

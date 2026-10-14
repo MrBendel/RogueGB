@@ -11,7 +11,12 @@ extern uint8_t run_ticks;     // frames into the current second
 // What START on the title begins: a generated descent, or (SELECT) the test lab.
 #define MODE_LAB 0
 #define MODE_DESCENT 1
+#define MODE_MINIBOSS 2
+#define MODE_BOSS 3
+#define MODE_ENEMY 4
+#define MODE_GUNSHIP 5
 extern uint8_t play_mode;
+extern uint8_t enemy_trial_kind;
 
 #include <gb/gb.h>
 void run_start(uint16_t seed) BANKED;  // in play.c (banked)

@@ -1,5 +1,11 @@
 # Inspiration references
 
+These are historical reference notes, not the current campaign specification.
+See [the design notes](../design/README.md) for the persistent-character space
+campaign. The heir/Manor loop and default loss of guns on death below are
+superseded; old control and hardware suggestions also defer to
+[the roadmap](../../ROADMAP.md).
+
 Design notes on the two games RogueGB borrows from. They are our own summaries,
 written for design decisions. They aren't copies of the source FAQs, whose authors
 don't allow reproduction, so follow the links for the full guides.

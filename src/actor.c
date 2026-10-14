@@ -28,6 +28,8 @@ uint8_t actor_try[ACTOR_MAX];  // slimes: which landing spot the next hop tries
 uint8_t actor_hurt[ACTOR_MAX];  // think steps left flashing after a hit (set by shots.s)
 uint8_t actor_frame[ACTOR_MAX];
 uint8_t actor_flash[ACTOR_MAX];
+uint8_t actor_scripted[ACTOR_MAX];
+uint8_t actor_guard[ACTOR_MAX];
 // Sprite data for the current frame (tile and flags per column), cached when the
 // frame changes so drawing just copies bytes. Read by actor_draw.s.
 uint8_t actor_t0[ACTOR_MAX];
@@ -285,9 +287,11 @@ void actors_update(uint8_t first_oam) {
             uint8_t type = actor_type[i];
             if (type == ACTOR_NONE) continue;
             uint8_t frame = actor_frame[i];
-            if (type == ACTOR_SLIME) update_slime(i);
-            else update_shooter(i);
-            if (actor_frame[i] != frame) actor_cache_frame(i);
+            if (!actor_scripted[i]) {
+                if (type == ACTOR_SLIME) update_slime(i);
+                else update_shooter(i);
+                if (actor_frame[i] != frame) actor_cache_frame(i);
+            }
             // Hit by a shot: flash for a few think steps.
             if (actor_hurt[i]) {
                 actor_hurt[i]--;
@@ -298,7 +302,7 @@ void actors_update(uint8_t first_oam) {
             // Touching an enemy hurts (unless you're jumping over it).
             if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
-                hurt_cause = actor_type[i];  // CAUSE_SLIME, CAUSE_PEASHOOTER
+                hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : actor_type[i];
                 player_hurt(TOUCH_DAMAGE, actor_x[i] + 8, actor_y[i] + 11);
                 hittable = 0;
             }

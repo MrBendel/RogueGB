@@ -11,7 +11,8 @@
 
 extern uint16_t enemies_killed;  // aim.c
 
-static const char *const causes[] = {"", "A SLIME", "A PEASHOOTER", "A PEA", "A PIT"};
+static const char *const causes[] = {"", "A SLIME", "A PEASHOOTER", "A PEA", "A PIT",
+    "A SPORE HUSK", "A RAGEBOUND", "A CONTRACTOR", "A BASTION", "A SCRAP HOUND", "THE COLLECTOR"};
 static uint8_t len(const char *s) {
     uint8_t n = 0;
     while (s[n]) n++;

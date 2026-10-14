@@ -477,6 +477,7 @@ static void swing_hits(void) {
     for (uint8_t i = 0, bit = 1; hits; i++, bit <<= 1) {
         if (!(hits & bit)) continue;
         hits &= ~bit;
+        if (actor_guard[i]) continue;
         swing_hit |= bit;
         actor_hp[i] = actor_hp[i] > dmg ? actor_hp[i] - dmg : 0;
         if (!actor_hp[i]) shots_killed = 1;  // actors_update removes it next frame

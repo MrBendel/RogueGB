@@ -30,6 +30,9 @@
 #include "health.h"
 #include "hud.h"
 #include "chest.h"
+#include "boss.h"
+#include "enemy_trial.h"
+#include "gunship.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -108,6 +111,7 @@ static const Tunable tunables[] = {
 // --- watchable state ---
 uint16_t run_seed;
 uint8_t play_mode;
+uint8_t play_actor_oam;
 uint16_t run_seconds;
 uint8_t run_ticks;
 uint8_t paused;
@@ -184,11 +188,15 @@ static void draw_pause(void) {
 }
 
 void play_enter(void) BANKED {
+    play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
     palettes_play();
     if (play_mode == MODE_DESCENT) {
         room_load_tiles();
         player_init(0, 0);
         descent_start(run_seed);  // builds the start room and places the player
+    } else if (play_mode >= MODE_MINIBOSS) {
+        boss_room();
+        player_init(72, 96);
     } else {
         room_load_lab();
         player_init(START_X, START_Y);
@@ -197,7 +205,10 @@ void play_enter(void) BANKED {
     camera_init(player_x + 8, player_y + 8);
     actors_init();
     hud_init();
-    chest_init();
+    boss_kind = BOSS_NONE;
+    if (play_mode < MODE_MINIBOSS) chest_init();
+    else if (play_mode == MODE_ENEMY) enemy_trial_start();
+    else boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW : play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP : BOSS_WARDEN);
     sfx_watch_reset();
     waves_init();
     paused = 0;
@@ -344,18 +355,28 @@ void play_update(void) BANKED {
         uint8_t door = descent_door();
         if (door) descent_change_room(door);
         descent_update();
+    } else if (play_mode == MODE_ENEMY) {
+        enemy_trial_update();
+    } else if (play_mode >= MODE_MINIBOSS) {
+        boss_update();
     } else {
         waves_update();
     }
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
-    actors_update(FIRST_ACTOR_OAM);
+    // Gunship body/hazards own ten entries ahead of projectiles, so a crowded
+    // shot pool cannot make a damaging beam disappear.
+    actors_update(play_actor_oam);
     if (play_mode == MODE_LAB) chest_update();
     aim_update();
     player_draw();
     health_update();
     hud_update();
+    if (boss_kind != BOSS_NONE) {
+        boss_status();
+        if (boss_kind == BOSS_GUNSHIP) gunship_draw();
+    }
     sfx_watch();
     if (!player_hp) {
         sfx_play(SFX_DEATH);

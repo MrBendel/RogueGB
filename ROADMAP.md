@@ -310,6 +310,19 @@ Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/
 - Gun-part/manufacturer unlocks are candidates to integrate with discovery rewards
 
 ### M6 · Planets, campaign, and bosses (content)
+Early validation: standalone title-screen trials are built for Claimjaw (locked
+charge/recovery) and Relay Warden (relays, fan shots, one-time reinforcements).
+The title's DOWN playtest submenu groups minibosses, bosses, individual enemy
+trials (Slime/Peashooter), a mixed enemy group, and the movement lab.
+Enemy trials also prototype Spore Husks, Ragebound, Contractors, and Bastion
+Drones, plus a combined encounter; see [enemy families](docs/design/enemies.md).
+Scrap Hounds add a separate pack trial with warned diagonal pounces.
+The Collector gunship trial validates a 32×32 body, marked floor strikes, a
+warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).
+These families are not yet part of procedural campaign spawn tables.
+See [boss design notes](docs/design/bosses.md). Campaign integration and rewards
+remain open; these trials do not complete the content milestone.
+
 Working content scope, expanded in [story.md](docs/design/story.md):
 
 - Planet destinations with distinctive environments, enemies, collectibles, and recurring sites; four initial concepts, count not final

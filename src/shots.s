@@ -18,6 +18,7 @@
     .globl _shots, _shot_count, _shots_hit, _shots_killed, _shot_parity, _shot_damage
     .globl _shot_draw_tile, _shot_draw_prop
     .globl _actor_type, _actor_hp, _actor_x, _actor_y, _actor_hurt
+    .globl _actor_guard
     .globl _cam_x, _cam_y, _oam_next, _shadow_OAM
 
 SHOT_MAX = 16       ; must match aim.h
@@ -97,6 +98,10 @@ _shots_update::
     ld a, (hl)
     or a, a
     jr z, 2$
+    IDX8 _actor_guard
+    ld a, (hl)
+    or a, a
+    jr nz, 2$
     ld a, c
     add a, a
     ld b, a                 ; b = byte offset of a 16-bit element
