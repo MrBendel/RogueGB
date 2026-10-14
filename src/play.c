@@ -189,6 +189,9 @@ void play_enter(void) BANKED {
         room_load_tiles();
         player_init(0, 0);
         descent_start(run_seed);  // builds the start room and places the player
+    } else if (play_mode == MODE_YARD) {
+        room_load_yard();
+        player_init(5 * BLOCK_SIZE, 4 * BLOCK_SIZE);
     } else {
         room_load_lab();
         player_init(START_X, START_Y);
@@ -344,7 +347,7 @@ void play_update(void) BANKED {
         uint8_t door = descent_door();
         if (door) descent_change_room(door);
         descent_update();
-    } else {
+    } else if (play_mode == MODE_LAB) {
         waves_update();
     }
     // The camera only follows the player, so it moves first; then actors and

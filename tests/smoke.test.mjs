@@ -13,8 +13,8 @@ test('boots to the title screen and runs one loop per frame', () => {
   assert.ok(fc >= 59 && fc <= 61, `frame_count advanced ${fc} in 60 frames`);
 });
 
-test('title waits for START (or SELECT for the test lab)', () => {
-  const emu = bootToTitle().hold('RIGHT+B+UP', 60).idle(5);
+test('title waits for START (or SELECT for the test lab, B for the ice yard)', () => {
+  const emu = bootToTitle().hold('RIGHT+UP', 60).idle(5);  // (A, B and SELECT each start something)
   assert.equal(emu.v('game_state'), TITLE);
 });
 

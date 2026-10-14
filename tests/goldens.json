@@ -1,5 +1,5 @@
 {
-  "title": "22f1b7d4",
+  "title": "6e1ea8b8",
   "start-room": "a33ac8a7",
   "paused": "ba6b05b5",
   "run-over": "85200e05",
@@ -30,7 +30,10 @@
   "chest-open": "4cc370b6",
   "hud-sprite-clipped": "2e698cd2",
   "run-over-killed": "972c4f65",
-  "descent-start": "5b5ffa8b",
+  "descent-start": "22f85505",
   "descent-combat": "dcceaea5",
-  "descent-camp": "0a704859"
+  "descent-camp": "9839e0ba",
+  "yard-start": "2d30b92a",
+  "yard-catwalk": "1c6e2f5c",
+  "yard-behind-roof": "7eff3db3"
 }
