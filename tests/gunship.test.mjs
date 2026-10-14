@@ -104,6 +104,12 @@ test('gunship: normal movement and starter pistol can win within hardware budget
     const keys=['A'];
     if(Math.abs(dx)>=4) keys.push(dx>0?'RIGHT':'LEFT');
     if(Math.abs(dy)>=4) keys.push(dy>0?'DOWN':'UP');
+    // React to the beam and ship instead of relying on one lucky phase timing
+    // for a fixed patrol. These are normal movement/attack/jump inputs only.
+    const px=e.v('player_x','u16'),py=e.v('player_y','u16');
+    const nearBeam=e.v('boss_state')===8 && py>=40 && Math.abs(px+8-e.v('gunship_laser_x'))<18;
+    const nearCore=Math.abs(px-(e.v('gunship_x')+8))<20 && Math.abs(py-(e.v('gunship_y')+16))<20;
+    if(!e.v('player_air') && (nearBeam || nearCore)) keys.push('B');
     e.hold(keys,1);
     worst=Math.max(worst,e.lastFrameCycles);
     peakSprites=Math.max(peakSprites,e.v('sprites_used'));
@@ -134,4 +140,60 @@ test('gunship: all laser segments remain visible with a full player-shot pool',(
   assert.ok(e.v('sprites_used')<=40);
   assert.ok(e.lastFrameCycles<FRAME_LIMIT);
   e.shot('gunship-crowded-laser');
+});
+
+test('gunship: warning and first laser frame stay attached through both health phases',()=>{
+  const e=trial();
+  put16(e,'player_x',24); put16(e,'player_y',24);
+  const oam=at(e,'shadow_OAM');
+  for(const phase of [0,1]) {
+    if(phase) put(e,'actor_hp',20);
+    e.until(x=>x.v('boss_state')===7,450);
+    const duration=phase?48:60;
+    let alignedFrames=0;
+    while(e.v('boss_state')===7) {
+      const x=e.v('gunship_x');
+      assert.equal(e.v('gunship_laser_x'),x+16);
+      if(x!==16) {
+        assert.equal(e.v('boss_timer'),duration,'repositioning does not consume the warning');
+        for(let i=15;i<25;i++) assert.ok(!e.read8(oam+i*4) || e.read8(oam+i*4+2)!==116,'no detached preview beam');
+      } else alignedFrames++;
+      for(let i=15;i<25;i++) if(e.read8(oam+i*4) && e.read8(oam+i*4+2)===116)
+        assert.equal(e.read8(oam+i*4+1),e.read8(oam+25*4+1)+4,'beam stays centered under core');
+      put(e,'player_hp',60); put(e,'shield_hp',40); e.idle();
+    }
+    assert.equal(alignedFrames,duration);
+    assert.equal(e.v('boss_state'),8);
+    assert.equal(e.v('gunship_x'),16);
+    assert.equal(e.v('gunship_laser_x'),32);
+    assert.equal(e.read8(oam+21*4+1),e.read8(oam+25*4+1)+4,'first active segment is attached');
+    e.idle().until(x=>x.v('boss_state')===0,120);
+    if(!phase) e.until(x=>x.v('boss_state')===6,150);
+  }
+});
+
+test('gunship: grey armor opens into a gold core, freezes on pause, and closes for bombing',()=>{
+  const e=trial();
+  put16(e,'player_x',24); put16(e,'player_y',24);
+  assert.equal(read(e,'actor_t0'),112);
+  assert.equal(read(e,'actor_p0'),6,'closed armor uses grey weapon palette');
+  e.until(x=>x.v('boss_state')===8,300);
+  assert.equal(read(e,'actor_guard'),0,'damage opens with the visible hatch');
+  assert.equal(read(e,'actor_t0'),122,'half-open hatch starts the opening animation');
+  assert.equal(read(e,'actor_p0'),5,'exposed core uses gold palette');
+  e.idle(2).shot('gunship-opening-hatch');
+  const t=e.v('gunship_core_opening');
+  e.tap('START').idle(30);
+  assert.equal(e.v('gunship_core_opening'),t);
+  e.tap('START').idle(13);
+  assert.equal(read(e,'actor_t0'),106,'hatch retracts fully');
+  assert.equal(read(e,'actor_guard'),0);
+  e.idle(2).shot('gunship-open-gold-core');
+  e.until(x=>x.v('boss_state')===0,120);
+  assert.equal(read(e,'actor_t0'),106,'core stays open during cooldown');
+  e.until(x=>x.v('boss_state')===6,150);
+  assert.equal(read(e,'actor_guard'),1);
+  assert.equal(read(e,'actor_t0'),112);
+  assert.equal(read(e,'actor_p0'),6);
+  assert.equal(e.v('gunship_core_opening'),0);
 });

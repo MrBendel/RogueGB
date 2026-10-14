@@ -11,6 +11,7 @@
 #define SHIP_TILES 96
 uint8_t gunship_x, gunship_y, gunship_bomb_x, gunship_bomb_y;
 uint8_t gunship_bomb_timer, gunship_bomb_live, gunship_laser_x;
+uint8_t gunship_core_opening;
 int8_t gunship_dir;
 static uint8_t draw_oam;
 
@@ -33,16 +34,20 @@ static uint8_t pixel(uint8_t x, uint8_t y) {
 
 static void load_art(void) {
     uint8_t data[32];
-    for (uint8_t s = 0; s < 13; s++) {
+    for (uint8_t s = 0; s < 15; s++) {
         for (uint8_t y = 0; y < 16; y++) {
             uint8_t lo=0, hi=0;
             for (uint8_t x = 0; x < 8; x++) {
                 uint8_t c;
                 if (s < 8) c = pixel((s & 3)*8+x, (s >> 2)*16+y);
-                else if (s < 10) {
-                    uint8_t xx=(s-8)*8+8+x, yy=y+16;
+                else if (s < 10 || s >= 13) {
+                    uint8_t xx=(s>=13?s-13:s-8)*8+8+x, yy=y+16;
                     c=pixel(xx,yy);
-                    if (xx>=12 && xx<=19 && yy>=19 && yy<=26) c=yy&1 ? 3 : 2;
+                    if (xx>=12 && xx<=19 && yy>=19 && yy<=26) {
+                        // Closed slats, then panels retract to reveal a narrow
+                        // glowing gap before the fully exposed core appears.
+                        c=s>=13 && xx>=14 && xx<=17 ? 1 : yy&1 ? 3 : 2;
+                    }
                 } else if (s == 10) c=(x>=2 && x<=5) ? 1 : (x==1 || x==6) ? 3 : 0;
                 else if (s == 11) c=(y==0 || y==15 || x==0 || x==7 || y==7) ? 3 : 0;
                 else c=((x+y)&2) ? 1 : 3;
@@ -56,13 +61,16 @@ static void load_art(void) {
 
 static void guard(uint8_t on) {
     actor_guard[boss_slot]=on;
+    gunship_core_opening=on?0:12;
     if(on) { aim_score[boss_slot]=AIM_NONE; if(aim_target==boss_slot) aim_target=AIM_NONE; }
 }
 static void core(void) {
+    // One world-space origin for the body, warning and damaging beam.
+    gunship_laser_x=gunship_x+16;
     actor_x[boss_slot]=gunship_x+8; actor_y[boss_slot]=gunship_y+16;
-    actor_t0[boss_slot]=actor_guard[boss_slot] ? 112 : 106;
-    actor_t1[boss_slot]=actor_guard[boss_slot] ? 114 : 108;
-    actor_p0[boss_slot]=actor_p1[boss_slot]=SPR_PAL_SHOOTER;
+    actor_t0[boss_slot]=actor_guard[boss_slot] ? 112 : gunship_core_opening ? 122 : 106;
+    actor_t1[boss_slot]=actor_guard[boss_slot] ? 114 : gunship_core_opening ? 124 : 108;
+    actor_p0[boss_slot]=actor_p1[boss_slot]=actor_guard[boss_slot] ? SPR_PAL_WEAPON : SPR_PAL_SHOT;
 }
 void gunship_start(void) BANKED {
     boss_kind=BOSS_GUNSHIP; boss_phase=boss_reward=boss_relays=0;
@@ -98,8 +106,10 @@ void gunship_update(void) BANKED {
         if (gunship_bomb_live && overlaps(player_x+PLAYER_HB_X,PLAYER_HB_W,gunship_bomb_x,16) &&
             overlaps(player_y+PLAYER_HB_Y,PLAYER_HB_H,gunship_bomb_y,16)) hurt(12,gunship_bomb_x+8,gunship_bomb_y+8);
     }
-    if (boss_timer) boss_timer--;
-    actor_flash[boss_slot]=boss_state==BOSS_LASER_WARN && (boss_timer&4);
+    // Give the full warning duration only after reaching the firing position.
+    if (boss_timer && (boss_state!=BOSS_LASER_WARN || gunship_x==16)) boss_timer--;
+    if (gunship_core_opening) gunship_core_opening--;
+    actor_flash[boss_slot]=0;
     if (boss_state==BOSS_CRUISE) {
         if (gunship_x>=112) gunship_dir=-1;
         if (gunship_x<=16) gunship_dir=1;
@@ -110,15 +120,14 @@ void gunship_update(void) BANKED {
             gunship_bomb_timer=36; gunship_bomb_live=0; boss_attacks++;
         }
         if (!boss_timer) {
-            gunship_laser_x=32;
             boss_state=BOSS_LASER_WARN; boss_timer=boss_phase?48:60;
         }
     } else if (boss_state==BOSS_LASER_WARN) {
         if (gunship_x>16) gunship_x=gunship_x>18?gunship_x-2:16;
         if (!boss_timer) { boss_state=BOSS_LASER; boss_timer=96; guard(0); boss_attacks++; }
     } else if (boss_state==BOSS_LASER) {
-        gunship_laser_x++;
-        gunship_x=gunship_laser_x-16;
+        gunship_x++;
+        gunship_laser_x=gunship_x+16;
         if (overlaps(player_x+PLAYER_HB_X,PLAYER_HB_W,gunship_laser_x-3,6) &&
             overlaps(player_y+PLAYER_HB_Y,PLAYER_HB_H,48,64)) hurt(10,gunship_laser_x,player_y+8);
         if (!boss_timer) { boss_state=BOSS_RECOVER; boss_timer=120; boss_cycles++; }
@@ -131,7 +140,7 @@ void gunship_update(void) BANKED {
 static void sprite(uint8_t x,uint8_t y,uint8_t tile,uint8_t pal) {
     if(draw_oam>=25) return;
     uint8_t i=draw_oam++;
-    shadow_OAM[i].x=x+8; shadow_OAM[i].y=y+16;
+    shadow_OAM[i].x=x+8-cam_x; shadow_OAM[i].y=y+16-cam_y;
     shadow_OAM[i].tile=tile; shadow_OAM[i].prop=pal;
 }
 void gunship_draw(void) BANKED {
@@ -150,7 +159,7 @@ void gunship_draw(void) BANKED {
         sprite(gunship_bomb_x,gunship_bomb_y,tile,SPR_PAL_BULLET);
         sprite(gunship_bomb_x+8,gunship_bomb_y,tile,SPR_PAL_BULLET);
     }
-    if(boss_state==BOSS_LASER || (boss_state==BOSS_LASER_WARN && (boss_timer&8))) {
+    if(boss_state==BOSS_LASER || (boss_state==BOSS_LASER_WARN && gunship_x==16 && (boss_timer&8))) {
         for(uint8_t y=48;y<112;y+=16)
             sprite(gunship_laser_x-4,y,116,boss_state==BOSS_LASER?SPR_PAL_BULLET:SPR_PAL_UI);
     }

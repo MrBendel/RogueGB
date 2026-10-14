@@ -277,9 +277,9 @@ void boss_status(void) BANKED {
     if (boss_state == shown_state && boss_relays == shown_relays && boss_phase == shown_phase) return;
     shown_state = boss_state; shown_relays = boss_relays; shown_phase = boss_phase;
     const char *s = "CORE OPEN         ";
-    if (boss_state == BOSS_CRUISE) s = "BOMBS: KEEP MOVING";
-    else if (boss_state == BOSS_LASER_WARN) s = "LASER SWEEPS RIGHT";
-    else if (boss_state == BOSS_LASER) s = "DODGE / CORE OPEN";
+    if (boss_state == BOSS_CRUISE) s = "ARMORED / BOMBS";
+    else if (boss_state == BOSS_LASER_WARN) s = "ARMORED: LASER >>>";
+    else if (boss_state == BOSS_LASER) s = "CORE OPEN - FIRE!";
     else if (boss_state == BOSS_RELAYS) s = boss_relays == 2 ? "BREAK 2 RELAYS    " : "BREAK 1 RELAY     ";
     else if (boss_state == BOSS_WARN) {
         if (boss_kind == BOSS_WARDEN) s = "FAN INCOMING      ";
@@ -288,6 +288,7 @@ void boss_status(void) BANKED {
     } else if (boss_state == BOSS_CHARGE) s = "DODGE!            ";
     else if (boss_state == BOSS_REINFORCE) s = "BACKUP INCOMING   ";
     else if (boss_state == BOSS_WON) s = "CLEAR! SALVAGE +1  ";
+    else if (boss_kind == BOSS_GUNSHIP) s = "CORE OPEN - FIRE!";
     else if (boss_kind == BOSS_CLAIMJAW) s = "VENT OPEN - FIRE! ";
     else if (boss_phase && boss_kind == BOSS_WARDEN) s = "CORE OPEN / ADDS  ";
     uint8_t *row = gfx_strip(1, 1, 0, 18);
