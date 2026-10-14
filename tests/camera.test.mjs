@@ -228,3 +228,35 @@ test('the shake never shows outside the room, and SHAKE 0 turns it off', () => {
     assert.equal(emu.v('shake_dy'), 0);
   }
 });
+
+// --- Per-tile attributes streamed with the map (room.c, vram_queue.s) ---
+test('scrolling streams each tile\'s attributes (palette) along with it, from the visual blocks', () => {
+  const emu = startRun().idle(30);
+  const a = (n) => emu.symbols.addr(n);
+  // Floor (visual block 0) in palette 5, everything else as loaded: attributes are no longer uniform.
+  for (let q = 0; q < 4; q++) emu.write8(a('room_attr_lut') + q, 5);
+  emu.write8(a('room_attr_uniform'), 0);
+  // What's drawn already keeps its attributes; only cells streamed in from now on
+  // (outside the drawn area: 23x19 tiles from drawn_tx/ty) get the new ones.
+  const tx0 = emu.v('drawn_tx', 'i8'), ty0 = emu.v('drawn_ty', 'i8');  // -1: a tile left of the room
+  const streamed = (tx, ty) => tx >= tx0 + 23 || ty >= ty0 + 19;
+  // Walk right and down across the lab so new columns and rows stream in.
+  emu.hold('RIGHT', 120).hold('DOWN', 90).idle(10);
+  const vram = emu.snapshot().vram;
+  const camx = emu.v('cam_x', 'u16'), camy = emu.v('cam_y', 'u16');
+  const map = emu.readBytes(0xd400, 1024);
+  let checked = 0;
+  // The view's cells: tile from the visual block, attribute from the attribute LUT.
+  for (let ty = (camy >> 3) + 1; ty < (camy >> 3) + 16; ty++) {
+    for (let tx = (camx >> 3) + 1; tx < (camx >> 3) + 19; tx++) {
+      const blk = map[((ty >> 1) << 5) | (tx >> 1)];
+      const cell = ((ty & 31) << 5) | (tx & 31);
+      const attr = vram[0x2000 + 0x1800 + cell];
+      if (blk === 0 && streamed(tx, ty)) {
+        assert.equal(attr & 7, 5, `floor at ${tx},${ty}: palette 5`);
+        checked++;
+      }
+    }
+  }
+  assert.ok(checked > 30, `checked ${checked} streamed floor cells`);
+});

@@ -32,7 +32,7 @@ function generate(emu, seed, map = 0) {
 /** The built map: size, block lookup, openings, camps, chests (block coordinates). */
 function built(emu) {
   const w = emu.v('room_w'), h = emu.v('room_h');
-  const raw = emu.readBytes(0xd000, 1024);
+  const raw = emu.readBytes(0xd400, 1024);
   const camps = emu.v('level_camps'), chests = emu.v('level_chests');
   const cx = words(emu, 'camp_x', 2), cy = words(emu, 'camp_y', 2);
   const hx = words(emu, 'chest_x', 3), hy = words(emu, 'chest_y', 3);
@@ -144,7 +144,7 @@ test('the same seed gives the same area and maps', () => {
     for (let i = 0; i < CELLS; i++) {
       if (!out[0].type[i]) continue;
       generate(emu, seed, i);
-      out.push(Array.from(emu.readBytes(0xd000, 1024)));
+      out.push(Array.from(emu.readBytes(0xd400, 1024)));
     }
     return out;
   };
@@ -238,7 +238,9 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
     if (!emu.v('level_camps')) continue;
     // Arriving can be near a camp already; clear the field first, then walk up to camp 0.
     const cx = words(emu, 'camp_x', 1)[0], cy = words(emu, 'camp_y', 1)[0];
-    w16(emu, 'player_x', cx - 8 - 64);
+    // Step up from the side with more room (never into an opening at the edge).
+    const nearX = cx < emu.v('room_w') * 8 ? cx - 8 + 64 : cx - 8 - 64;
+    w16(emu, 'player_x', nearX);
     w16(emu, 'player_y', cy - 12);
     emu.idle(3);
     assert.equal(emu.v('camp_state'), CAMP_AWAKE, 'awake once you are near');
@@ -251,7 +253,7 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
     leaveBy(emu, OPP[e]);
     leaveBy(emu, e);
     assert.equal(emu.v('camp_state'), CAMP_CLEARED);
-    w16(emu, 'player_x', cx - 8 - 64);
+    w16(emu, 'player_x', nearX);
     w16(emu, 'player_y', cy - 12);
     emu.idle(3);
     // (camps are at least 3 chunks apart, farther than a camp wakes from)

@@ -240,6 +240,7 @@ static void build_right(void) {
 }
 
 void hud_draw(void) BANKED {
+    palettes_window_hud();
     // Palette and VRAM bank in the attribute map: every HUD tile is in bank 1.
     VBK_REG = 1;
     fill_win_rect(0, 0, ROW_LEN, 1, BG_PAL_SHIELD | ATTR_BANK1);
@@ -262,6 +263,7 @@ void hud_say(const char *s) BANKED {
 }
 
 void hud_hide(void) BANKED {
+    palettes_window_ui();
     VBK_REG = 1;
     fill_win_rect(0, 0, SCREEN_TW, 2, BG_PAL_UI);
     VBK_REG = 0;

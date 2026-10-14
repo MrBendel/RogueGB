@@ -33,6 +33,9 @@ extern uint8_t scroll_y;
 // x, y: background map tile coordinates (wrapped to 0-31). vertical: column if 1.
 // Returns the buffer to fill with `len` tiles (flushing first if the queue is full).
 uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len);
+// The same, with tile attributes too: fill len attributes at the returned
+// pointer + STRIP_MAX_LEN (written to VRAM bank 1 at the same cells).
+uint8_t *gfx_strip_attr(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len);
 // Byte copies into VRAM (tile data). `src` must stay valid until the next vblank.
 // `bank` is the ROM bank holding src (BANK(asset)), or 0 for bank 0 or RAM: the
 // vblank handler switches it in for the copy and back afterwards.
@@ -69,13 +72,17 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 // handler (palette RAM can't be written while the screen draws). Every tile
 // uses background palette 0 for now; sprites use 0, and 1 to flash. ---
 #define PAL_COUNT 8
-// Background palettes: 0 is the scene's (the room, or the title's text), 1 the
-// window's (HUD and panels: set once in the window's attribute map).
+// Background palettes: 0-5 belong to the scene (a theme's materials, or the
+// menus' text), 6-7 to the window. In play the HUD has both: 6 for the shield
+// bar, the gun icon and text, 7 for the health bar; the pause panel borrows 6
+// for its parchment while it's open (palettes_window_ui / palettes_window_hud).
+// The menus use 6 for the same parchment.
 #define BG_PAL_SCENE 0
-#define BG_PAL_UI 1
-#define BG_PAL_SHIELD 2  // the HUD's shield bar
-#define BG_PAL_HEALTH 3  // the HUD's health bar
-#define BG_PAL_GUN 4     // the HUD's weapon side: its icon (the weapons' gunmetal) and text
+#define BG_SCENE_PALS 6
+#define BG_PAL_UI 6
+#define BG_PAL_SHIELD 6  // the HUD's shield bar ...
+#define BG_PAL_GUN 6     // ... the weapon side (icon and text) ...
+#define BG_PAL_HEALTH 7  // ... and the health bar
 // Sprite palettes, by what uses them (the palette is bits 0-2 of a sprite's flags).
 #define SPR_PAL_PLAYER 0
 #define SPR_PAL_FLASH 1   // colors inverted, for a warning or a hit
@@ -101,6 +108,9 @@ extern uint8_t obj_restore;  // the split turned sprites off this frame
 // The palettes for the menus (title, run over) and for play (palettes.c).
 void palettes_menu(void) BANKED;
 void palettes_play(void) BANKED;
+// Palette 6 for the pause panel's parchment, or back to the HUD's.
+void palettes_window_ui(void) BANKED;
+void palettes_window_hud(void) BANKED;
 
 // Fade the background and sprite palettes to white / back to normal.
 // Each takes FADE_STEPS * FADE_FRAMES frames.

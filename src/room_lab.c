@@ -78,11 +78,29 @@ static const char lab_layout[LAB_H][LAB_W + 1] = {
 };
 
 
-// The test tiles (floor, wall, raised, pit) and the block -> tile table; generated
-// rooms (level.c) use them too until themes come in.
+// The test tiles (floor, wall, raised, pit) and the visual block tables:
+// visual block v is block type v, drawn with the scene's palette from VRAM bank
+// 0. Generated maps (level.c) use them too until themes come in.
 void room_load_tiles(void) BANKED {
     set_bkg_data(SCENE_TILES, ROOM_TILE_COUNT, room_tiles);
-    for (uint8_t i = 0; i < sizeof(block_tiles); i++) room_tile_lut[i] = block_tiles[i];
+    for (uint16_t i = 0; i < VIS_BLOCKS * 4; i++) {
+        room_tile_lut[i] = i < sizeof(block_tiles) ? block_tiles[i] : TILE_FLOOR;
+        room_attr_lut[i] = BG_PAL_SCENE;
+    }
+    // One set of attributes for every tile: write them across the attribute map
+    // now (the display is off), and scrolling needn't stream any.
+    room_attr_uniform = 1;
+    for (uint16_t i = 1; i < VIS_BLOCKS * 4; i++)
+        if (room_attr_lut[i] != room_attr_lut[0]) room_attr_uniform = 0;
+    if (room_attr_uniform) {
+        VBK_REG = 1;
+        fill_bkg_rect(0, 0, 32, 32, room_attr_lut[0]);
+        VBK_REG = 0;
+    }
+}
+
+void room_vis_from_map(void) BANKED {
+    for (uint16_t i = 0; i < ROOM_MAX_W * ROOM_MAX_H; i++) room_vis[i] = room_map[i];
 }
 
 void room_load_lab(void) BANKED {
@@ -99,5 +117,6 @@ void room_load_lab(void) BANKED {
             char c = lab_layout[by][bx];
             room_map[((uint16_t)by << 5) | bx] = c == '#' ? BLK_SOLID : c == 'o' ? BLK_PIT : c == '=' ? BLK_RAISED : c == 'c' ? BLK_PROP : BLK_FLOOR;
         }
+    room_vis_from_map();
 }
 

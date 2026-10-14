@@ -20,7 +20,7 @@ B_SIZE = 13         ; sizeof(Bullet): alive 0, vx 1-2, vx_sign 3, xs 4, x 5-6,
                     ;                 vy 7-8, vy_sign 9, ys 10, y 11-12
 BLK_SOLID = 1       ; must match room.h
 BLK_RAISED = 3
-MAP_HI = 0xD0       ; room map at 0xD000, rows of 32 blocks
+MAP_HI = 0xD4       ; room map at 0xD400 (room.h ROOM_MAP_ADDR), rows of 32 blocks
 
     .area _DATA
 left:       .ds 1   ; slots left to visit
@@ -134,7 +134,7 @@ _bullets_update::
     srl a
     srl a
     ld h, a
-    ; hl = 0xD000 | row << 5 | column
+    ; hl = 0xD400 | row << 5 | column
     swap a
     add a, a
     and a, #0xE0

@@ -70,7 +70,10 @@ static void place_player(uint8_t side) {
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
     level_build_map(map);
-    if (area_type[map] == MAP_EXIT) dig_shaft();
+    if (area_type[map] == MAP_EXIT) {
+        dig_shaft();
+        room_vis_from_map();
+    }
     pit_shaft = area_type[map] == MAP_EXIT;
     shaft_taken = 0;
     place_player(side);

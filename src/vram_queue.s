@@ -8,19 +8,26 @@
 ; Data layout, matching gfx.c:
 ;   copies[]: dst (2 bytes), src (2), len (1), bank (1)    -> 6 bytes each
 ;             (bank: the ROM bank holding src, 0 for bank 0 or RAM)
-;   strips[]: x, y, vertical, len, tiles[STRIP_MAX_LEN=23] -> 27 bytes each
+;   strips[]: x, y, vertical, len, attr, tiles[23], attrs[23] -> 51 bytes each
+;             (STRIP_MAX_LEN = 23; attr: 1 if attrs[] is filled)
 ; x and y are background map tile coordinates (0-31); the map is at 0x9800.
 
     .module vram_queue
     .globl _copies, _copy_count, _strips, _strip_count, __current_bank
 
-STRIP_SIZE = 27     ; 4 + STRIP_MAX_LEN (gfx.h)
+STRIP_LEN = 23      ; STRIP_MAX_LEN (gfx.h)
+STRIP_SIZE = 51     ; 5 + 2 * STRIP_LEN
+VBK = 0x4F          ; VRAM bank (ldh)
 
     .area _DATA
 q_left:   .ds 1     ; entries left
 q_next:   .ds 2     ; address of the next entry
 s_len:    .ds 1
 s_rowlo:  .ds 1     ; low byte of the map row's address, (y & 7) << 5
+s_x:      .ds 1
+s_hi:     .ds 1     ; high byte of the map row's address
+s_vert:   .ds 1
+s_attr:   .ds 1
 
     .area _CODE
 
@@ -71,6 +78,8 @@ _vram_queue_write::
     ld (0x2000), a
 
     ; ---- background strips --------------------------------------------------
+    ; Each strip's tiles go to the map in VRAM bank 0; if it carries attributes
+    ; (palette, bank, flips per tile), they go to the same cells in bank 1.
 20$:
     ld a, (_strip_count)
     or a, a
@@ -87,7 +96,7 @@ _vram_queue_write::
     ld (q_next + 1), a
 
     ld a, (hl+)
-    ld c, a             ; c = x
+    ld (s_x), a
     ld a, (hl+)         ; y
     ld b, a
     and a, #7
@@ -99,12 +108,45 @@ _vram_queue_write::
     srl a
     srl a
     add a, #0x98
-    ld d, a             ; d = high byte of the row's address
+    ld (s_hi), a        ; high byte of the row's address
     ld a, (hl+)
-    ld b, a             ; b = vertical
+    ld (s_vert), a
     ld a, (hl+)
-    ld (s_len), a       ; hl -> tiles
-    ld a, b
+    ld (s_len), a
+    ld a, (hl+)
+    ld (s_attr), a      ; hl -> tiles
+    push hl
+    call strip_data
+    pop hl
+    ld a, (s_attr)
+    or a, a
+    jr z, 40$
+    ld bc, #STRIP_LEN   ; -> attributes
+    add hl, bc
+    ld a, #1
+    ldh (VBK), a
+    call strip_data
+    xor a, a
+    ldh (VBK), a
+
+40$:
+    ld a, (q_next)
+    ld l, a
+    ld a, (q_next + 1)
+    ld h, a
+    ld a, (q_left)
+    dec a
+    ld (q_left), a
+    jr nz, 21$
+    ret
+
+; Write s_len bytes from hl along the strip (s_x, s_rowlo, s_hi, s_vert).
+strip_data:
+    ld a, (s_x)
+    ld c, a             ; c = x
+    ld a, (s_hi)
+    ld d, a
+    ld a, (s_vert)
     or a, a
     jr nz, 30$
 
@@ -125,7 +167,7 @@ _vram_queue_write::
     pop de
     dec e
     jr nz, 22$
-    jr 40$
+    ret
 
     ; vertical: step down a row (32 bytes), wrapping from the bottom to the top
 30$:
@@ -149,16 +191,6 @@ _vram_queue_write::
 32$:
     dec c
     jr nz, 31$
-
-40$:
-    ld a, (q_next)
-    ld l, a
-    ld a, (q_next + 1)
-    ld h, a
-    ld a, (q_left)
-    dec a
-    ld (q_left), a
-    jr nz, 21$
     ret
 
 ; ---------------------------------------------------------------------------

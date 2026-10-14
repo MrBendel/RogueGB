@@ -18,11 +18,10 @@
 static const uint16_t grey[4] = {C(248, 248, 248), C(168, 168, 168), C(80, 80, 80), C(0, 0, 0)};
 // The UI (HUD, pause panel): parchment and ink.
 static const uint16_t ui[4] = {C(248, 240, 216), C(200, 184, 152), C(112, 96, 80), C(24, 16, 24)};
-// The HUD bars: parchment behind, a highlight, the body, ink.
-static const uint16_t shield_bar[4] = {C(248, 240, 216), C(184, 236, 255), C(48, 128, 232), C(24, 16, 24)};
-static const uint16_t health_bar[4] = {C(248, 240, 216), C(255, 168, 152), C(208, 32, 48), C(24, 16, 24)};
-// The HUD's weapon side: parchment, then the weapons' gunmetal (text uses the darkest).
-static const uint16_t gun_hud[4] = {C(248, 240, 216), C(208, 216, 224), C(112, 124, 144), C(24, 16, 24)};
+// The HUD: parchment behind, a highlight, the body, ink. The blue one also draws
+// the gun icon (steel blue) and text (ink); the red one is the health bar.
+static const uint16_t hud_blue[4] = {C(248, 240, 216), C(184, 236, 255), C(48, 128, 232), C(24, 16, 24)};
+static const uint16_t hud_red[4] = {C(248, 240, 216), C(255, 168, 152), C(208, 32, 48), C(24, 16, 24)};
 // The lab: sandy stone floor, its speckle, mid stone, dark mortar and pits.
 static const uint16_t lab[4] = {C(232, 220, 192), C(200, 180, 144), C(128, 108, 88), C(40, 32, 40)};
 // The player's shots and the muzzle flash: a hot yellow pellet.
@@ -46,10 +45,8 @@ void palettes_menu(void) BANKED {
 
 void palettes_play(void) BANKED {
     set_bg(BG_PAL_SCENE, lab);
-    set_bg(BG_PAL_UI, ui);
-    set_bg(BG_PAL_SHIELD, shield_bar);
-    set_bg(BG_PAL_HEALTH, health_bar);
-    set_bg(BG_PAL_GUN, gun_hud);
+    set_bg(BG_PAL_SHIELD, hud_blue);
+    set_bg(BG_PAL_HEALTH, hud_red);
     // From the art (in switchable banks: banked_memcpy switches to them).
     banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_player_palette, 8, BANK(spr_player));
     banked_memcpy(&pal_base_obj[SPR_PAL_SLIME << 2], spr_slime_palette, 8, BANK(spr_slime));
@@ -60,3 +57,15 @@ void palettes_play(void) BANKED {
     set_obj(SPR_PAL_UI, ui_spr);
     // SPR_PAL_FLASH stays the inverted greys (gfx_init).
 }
+
+// Palette 6 on screen now, too (play runs unfaded, so the displayed palette is
+// the base): the pause panel's parchment, or the HUD's blue back.
+extern uint16_t pal_bg[PAL_COUNT * 4];
+extern volatile uint8_t pal_dirty;
+static void window_pal(const uint16_t *c) {
+    set_bg(BG_PAL_UI, c);
+    memcpy(&pal_bg[BG_PAL_UI << 2], c, 8);
+    pal_dirty = 1;
+}
+void palettes_window_ui(void) BANKED { window_pal(ui); }
+void palettes_window_hud(void) BANKED { window_pal(hud_blue); }

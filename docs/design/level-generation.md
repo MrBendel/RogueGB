@@ -156,6 +156,12 @@ test lab.
   - camps wake when the player comes within about a screen, and stay cleared once beaten;
   - the exit map has a 2×2 shaft in its middle: dropping in leads to a new area, one deeper, with no fall damage;
   - camp size grows with depth.
+- **The visual layer** (engine side, built):
+  - A second map says which **visual block** to draw at each spot (64 per theme). The collision map keeps the block types.
+  - Each visual block has 4 tiles and 4 **attributes** (palette, VRAM bank, flips), so every 8×8 tile can pick its own palette.
+  - Scrolling streams attributes into VRAM bank 1 alongside the tiles, at about 2.8k cycles on scrolling frames. When a theme's attributes are all the same, they're written once at load and streaming skips them.
+  - Scenes have background palettes 0–5. The HUD keeps 6–7, and the pause panel borrows 6.
+  - For now each visual block mirrors its block type; visual rules will choose variants.
 - **Not yet:** chests aren't drawn or opened (they come with loot), there's no minimap, and everything uses the lab's placeholder tiles.
 - **Tests** check:
   - 300 seeds for map counts, links, reachability and the farthest exit;

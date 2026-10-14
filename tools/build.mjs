@@ -92,6 +92,25 @@ function run(cmd, args, quiet) {
 export const BANK0_LIMIT = 0.9;
 const FIXED_AREAS = ['_HEADER', '_HOME', '_BASE', '_CODE', '_LIT', '_GSINIT', '_GSFINAL', '_INITIALIZER'];
 
+// Work RAM: globals start at 0xC0A0 and grow up; the room maps and the tables
+// beside them sit at fixed addresses from ROOM_MAP_ADDR (src/room.h), and the
+// linker won't notice globals growing into them. Fail the build if they do.
+const ROOM_MAP_ADDR = 0xd400;
+export function checkRam(noiPath) {
+  const syms = new Map();
+  for (const m of fs.readFileSync(noiPath, 'utf8').matchAll(/^DEF (\S+) 0x([0-9A-F]+)/gim)) syms.set(m[1], parseInt(m[2], 16));
+  let end = 0;
+  for (const area of ['_DATA', '_BSS', '_INITIALIZED']) {
+    const start = syms.get('s_' + area), len = syms.get('l_' + area);
+    if (start !== undefined && len && start >= 0xc000 && start < 0xe000) end = Math.max(end, start + len);
+  }
+  if (end > ROOM_MAP_ADDR) {
+    return { ok: false, error: `[build] globals end at 0x${end.toString(16)}, into the room map at 0x${ROOM_MAP_ADDR.toString(16)} ` +
+      '(src/room.h). Shrink or bank them, or move the map tables.' };
+  }
+  return { ok: true, end };
+}
+
 export function checkBank0(noiPath) {
   const syms = new Map();
   for (const m of fs.readFileSync(noiPath, 'utf8').matchAll(/^DEF (\S+) 0x([0-9A-F]+)/gim)) syms.set(m[1], parseInt(m[2], 16));
@@ -161,6 +180,12 @@ export function build({ clean = false, quiet = false } = {}) {
     if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
 
     const bank0 = checkBank0(out.replace(/\.gb$/, '.noi'));
+    const ram = checkRam(out.replace(/\.gb$/, '.noi'));
+    if (!ram.ok) {
+      fs.rmSync(out, { force: true });
+      console.error(ram.error);
+      return { ok: false, ms: Date.now() - t0, error: ram.error };
+    }
     if (!bank0.ok) {
       // Remove the ROM so the next build can't treat it as up to date and skip this check.
       fs.rmSync(out, { force: true });

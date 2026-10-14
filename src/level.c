@@ -368,4 +368,5 @@ void level_build_map(uint8_t i) BANKED {
         level_carved = 1;
         carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
+    room_vis_from_map();  // the look: one visual block per type for now (visual rules come here)
 }

@@ -3,16 +3,13 @@
 #include <string.h>
 #include <gb/metasprites.h>
 #include "gfx.h"
+#include "gfx_internal.h"
 #include "state.h"
 
 uint8_t scroll_x;
 uint8_t scroll_y;
 
-typedef struct {
-    uint8_t x, y, vertical, len;
-    uint8_t tiles[STRIP_MAX_LEN];
-} Strip;
-// Not static: vram_queue.s reads these.
+// Not static: vram_queue.s and gfx_strips.c read these.
 Strip strips[STRIP_MAX];
 uint8_t strip_count;
 
@@ -43,7 +40,14 @@ uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len) {
     s->y = y & 31;
     s->vertical = vertical;
     s->len = len;
+    s->attr = 0;
     return s->tiles;
+}
+
+uint8_t *gfx_strip_attr(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len) {
+    uint8_t *t = gfx_strip(x, y, vertical, len);
+    strips[strip_count - 1].attr = 1;
+    return t;
 }
 
 void gfx_vram_copy(uint8_t *dst, const uint8_t *src, uint8_t len, uint8_t bank) {
@@ -77,32 +81,7 @@ static void write_queued(uint8_t wait) {
     }
     SWITCH_ROM(saved);
     copy_count = 0;
-    for (uint8_t i = 0; i < strip_count; i++) {
-        Strip *s = &strips[i];
-        uint8_t *row = (uint8_t *)0x9800 + ((uint16_t)s->y << 5);
-        uint8_t x = s->x;
-        const uint8_t *t = s->tiles;
-        uint8_t n = s->len;
-        if (s->vertical) {
-            uint8_t *p = row + x;
-            while (n--) {
-                if (wait) set_vram_byte(p, *t++);
-                else *p = *t++;
-                p += 32;
-                if (p >= (uint8_t *)0x9C00) p -= 0x400;  // wrap to the top of the map
-            }
-        } else if (wait) {
-            while (n--) {
-                set_vram_byte(row + x, *t++);
-                x = (x + 1) & 31;
-            }
-        } else {
-            while (n--) {
-                row[x] = *t++;
-                x = (x + 1) & 31;  // wrap to the left edge
-            }
-        }
-    }
+    write_strips(wait);  // gfx_strips.c (banked: the rare slow path)
     strip_count = 0;
     vram_ready = 0;
 }

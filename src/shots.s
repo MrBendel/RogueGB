@@ -27,7 +27,7 @@ ACTOR_MAX = 8       ; actor.h
 HURT_STEPS = 4      ; think steps an enemy flashes when hit (actor.c)
 BLK_SOLID = 1       ; room.h
 BLK_RAISED = 3
-MAP_HI = 0xD0       ; room map at 0xD000, rows of 32 blocks
+MAP_HI = 0xD4       ; room map at 0xD400 (room.h ROOM_MAP_ADDR), rows of 32 blocks
 E_SIZE = 5          ; enemy table entry: x - 4 (2 bytes), y - 4 (2), slot
 
     .area _DATA

@@ -255,7 +255,7 @@ layout with guarantees, and visual rulesets. Design and numbers:
 - Chunk format (5×4 blocks, wildcards, open edges, flips) and an authoring tool + converter (open: a Sprite Studio tab or Tiled)
 - Layer generator: a seeded room grid with a guaranteed main path to the shaft down, optional branches, fixed landmarks (beacon, relic chamber, guardian arena), room types (entry, combat, connector, cache, beacon, guardian)
 - Room assembly from chunks: 1–2 screen rooms, 2×2 set pieces; wildcards filled from the seed
-- Visual rulesets per theme: autotiling, grouping rules for decorations, tileset and palettes; per-tile palette attributes streamed with the map
+- Visual rulesets per theme: autotiling, grouping rules for decorations, tileset and palettes (built: the engine side, a visual map of tile + attribute blocks with per-tile palettes streamed while scrolling; the scene has background palettes 0-5)
 - Doors and transitions between rooms; doors lock until a combat room is cleared; cleared rooms remembered for the trip
 - Spawn tables per room type and depth (replaces the arena's waves, which stay as a test room)
 - Enemies outside the camera view paused or simplified, their sprites skipped

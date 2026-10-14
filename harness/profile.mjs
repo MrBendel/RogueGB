@@ -24,7 +24,7 @@ const m = { RIGHT: 1, LEFT: 2, UP: 4, DOWN: 8, A: 16, B: 32, SELECT: 64, START: 
 const mask = (s) => s.split('+').filter(Boolean).reduce((a, d) => a | m[d], 0);
 const step = (b, n = 1) => { emu.setButtons(mask(b)); emu.run(n); };
 const v = (n) => emu.read16(emu.symbols.addr(n));
-step('', 30); step('START'); step('', 42);
+step('', 30); step('SELECT'); step('', 42);  // SELECT on the title: the test lab (START begins a descent)
 // --weapon=N: switch to weapon N first (SELECT cycles: 0 pistol, 1 shotgun, 2 rifle, 3 sniper, 4 sword).
 const weaponArg = process.argv.find((a) => a.startsWith('--weapon='));
 for (let k = 0; k < (weaponArg ? Number(weaponArg.slice(9)) : 0); k++) { step('SELECT'); step(''); }
