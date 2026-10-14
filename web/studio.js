@@ -564,6 +564,18 @@ function stepStudio() {
   const baseOy = charH > 16 ? 20 : 24;
   const shadowFootOff = charH - 2;
 
+  if (!currentRig) {
+    // Non-hero sprite preview: render active direction centered on the LCD stage
+    const activeGrid = dir === 'up' ? baseUp : dir === 'right' ? baseRight : dir === 'left' ? flipGridX(baseRight) : baseDown;
+    const ox = Math.max(0, Math.round((64 - spriteWidth) / 2));
+    const oy = Math.max(0, Math.round((64 - spriteHeight) / 2));
+    // Ground shadow
+    prevCtx.fillStyle = '#9aa690';
+    prevCtx.fillRect(ox + 2, Math.min(62, oy + spriteHeight - 2), Math.max(4, spriteWidth - 4), 2);
+    drawGrid(prevCtx, activeGrid, ox, oy, charPalette, spriteWidth, spriteHeight);
+    return;
+  }
+
   if (previewMode === 'anim') {
     const key = `${animKind}_${dir}`;
     const frames = currentRig.anims[key] || currentRig.anims.idle_down;
@@ -723,8 +735,14 @@ for (let i = 1; i <= 3; i++) {
   if (colInput) {
     colInput.oninput = () => {
       const [r, g, b] = hexToRgb(colInput.value);
-      charPalette[i] = snapColorToGbc(r, g, b);
-      if (charPalSel) charPalSel.value = 'preset_auto';
+      const snapped = snapColorToGbc(r, g, b);
+      if (editTarget === 'weapon') {
+        weapPalette[i] = snapped;
+        if (weapPalSel) weapPalSel.value = 'preset_auto';
+      } else {
+        charPalette[i] = snapped;
+        if (charPalSel) charPalSel.value = 'preset_auto';
+      }
       rebuildRig();
     };
   }
@@ -751,10 +769,24 @@ presetSel.onchange = () => loadPreset(presetSel.value);
 
 if ($('st-size-tabs')) {
   $('st-size-tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-size]');
+    const b = e.target.closest('button[data-w]');
     if (!b) return;
-    setCanvasHeight(+b.dataset.size);
+    const w = +b.dataset.w || 16;
+    const h = +b.dataset.h || 16;
+    setCanvasDimensions(w, h);
   });
+}
+if ($('st-size-w')) {
+  $('st-size-w').onchange = (e) => {
+    const w = +e.target.value || 16;
+    setCanvasDimensions(w, spriteHeight);
+  };
+}
+if ($('st-size-h')) {
+  $('st-size-h').onchange = (e) => {
+    const h = +e.target.value || 16;
+    setCanvasDimensions(spriteWidth, h);
+  };
 }
 
 document.querySelectorAll('input[name="st-synth-mode"]').forEach((r) => {
