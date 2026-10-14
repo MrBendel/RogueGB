@@ -200,6 +200,34 @@ test('walking out through an opening moves to the linked map, and back', () => {
   assert.equal(emu.v('level_map'), start, 'and back');
 });
 
+test('after a map change no sprite is left where it was on the old screen (the gun follows the player)', () => {
+  const emu = startDescent();
+  emu.hold('A', 30);  // the gun drawn, firing
+  const start = emu.v('level_map');
+  const links = emu.read8(addr(emu, 'area_links') + start);
+  const e = [1, 2, 4, 8].find((x) => links & x);
+  // Leave, then look at the sprites on each frame of the fade-in.
+  const w = emu.v('room_w'), h = emu.v('room_h');
+  const o = (bytes(emu, 'level_open', 4)[SIDE[e]] + 1) * 16;
+  const at = { 1: [o, 2 * 16 - 8], 4: [o, h * 16 - 3 * 16 + 4], 8: [2 * 16, o - 4], 2: [w * 16 - 3 * 16, o - 4] }[e];
+  w16(emu, 'player_x', at[0]);
+  w16(emu, 'player_y', at[1]);
+  const dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e];
+  const before = emu.v('maps_entered', 'u16');
+  while (emu.v('maps_entered', 'u16') === before) emu.hold(dir, 1);
+  for (let f = 0; f < 20; f++) {
+    // Player on screen (OAM 3) vs the gun's sprites (1-2 in front, 5-6 behind).
+    const oam = emu.readBytes(0xfe00, 40 * 4);
+    const py = oam[3 * 4], px = oam[3 * 4 + 1];
+    for (const i of [0, 1, 2, 5, 6, 9, 10]) {
+      const y = oam[i * 4], x = oam[i * 4 + 1];
+      if (y === 0 || y >= 160) continue;  // hidden
+      assert.ok(Math.abs(x - px) < 40 && Math.abs(y - py) < 40, `frame ${f}: sprite ${i} at ${x},${y} far from the player at ${px},${py}`);
+    }
+    emu.idle(1);
+  }
+});
+
 test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   for (let wait = 0; wait < 60; wait += 7) {
     const emu = startDescent(bootToTitle().idle(wait));

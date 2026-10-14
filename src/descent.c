@@ -7,6 +7,7 @@
 // Banked: a few compares a frame, the rest only on a map change.
 #include <gb/gb.h>
 #include <rand.h>
+#include <gb/metasprites.h>
 #include "descent.h"
 #include "level.h"
 #include "room.h"
@@ -162,6 +163,10 @@ void descent_change_room(uint8_t d) BANKED {
         descent_enter(next, side);
     }
     camera_init(player_x + 8, player_y + 8);
+    // Every sprite still sits where it was on the old map's screen (the gun,
+    // the muzzle flash, the reticle, enemies): clear them all, then draw just
+    // the player. The rest come back as the next frame draws them.
+    hide_sprites_range(0, MAX_HARDWARE_SPRITES);
     player_draw();
     DISPLAY_ON;
     gfx_sprites(1);
