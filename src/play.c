@@ -34,6 +34,7 @@
 #include "enemy_trial.h"
 #include "gunship.h"
 #include "warden.h"
+#include "acid_skimmer.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -208,7 +209,10 @@ void play_enter(void) BANKED {
     hud_init();
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS) chest_init();
-    else if (play_mode == MODE_ENEMY) enemy_trial_start();
+    else if (play_mode == MODE_ENEMY) {
+        if (enemy_trial_kind == 9) play_actor_oam=FIRST_ACTOR_OAM+8;
+        enemy_trial_start();
+    }
     else {
         if (play_mode == MODE_BOSS) play_actor_oam = FIRST_ACTOR_OAM + 8;
         boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW : play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP : BOSS_WARDEN);
@@ -355,7 +359,9 @@ void play_update(void) BANKED {
         debug_cmd = 0;
     }
     player_update();
-    if (play_mode == MODE_DESCENT) {
+    if (play_mode == MODE_LAB) {
+        waves_update();
+    } else if (play_mode == MODE_DESCENT) {
         uint8_t door = descent_door();
         if (door) descent_change_room(door);
         descent_update();
@@ -363,8 +369,6 @@ void play_update(void) BANKED {
         enemy_trial_update();
     } else if (play_mode >= MODE_MINIBOSS) {
         boss_update();
-    } else {
-        waves_update();
     }
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
@@ -372,7 +376,9 @@ void play_update(void) BANKED {
     // Boss hazards reserve entries ahead of projectiles so crowded shot pools
     // cannot hide damaging beams or floor claims.
     actors_update(play_actor_oam);
-    if (play_mode == MODE_LAB) chest_update();
+    if (play_mode != MODE_LAB) {
+        if (play_mode == MODE_ENEMY && enemy_trial_kind == 9) acid_skimmer_draw();
+    } else chest_update();
     aim_update();
     player_draw();
     health_update();

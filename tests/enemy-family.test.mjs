@@ -22,7 +22,7 @@ test('enemy families: scrolling menu launches each silhouette and correct family
     e.shot(`enemy-family-${kind}`);
   }
   const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP');
-  assert.equal(e.v('title_choice'),8);
+  assert.equal(e.v('title_choice'),9);
   e.tap('DOWN');
   assert.equal(e.v('title_choice'),0);
 });

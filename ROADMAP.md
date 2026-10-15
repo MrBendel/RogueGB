@@ -319,6 +319,8 @@ trials (Slime/Peashooter), a mixed enemy group, and the movement lab.
 Enemy trials also prototype Spore Husks, Ragebound, Contractors, and Bastion
 Drones, plus a combined encounter; see [enemy families](docs/design/enemies.md).
 Scrap Hounds add a separate pack trial with warned diagonal pounces.
+Acid Skimmer adds a flying-insect trial with locked spit targets and temporary
+acid pools that reward moving and jumping; see the enemy design notes above.
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).
 These families are not yet part of procedural campaign spawn tables.

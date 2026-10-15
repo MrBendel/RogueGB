@@ -6,6 +6,7 @@
 #include "gfx.h"
 #include "hud.h"
 #include "enemy_family.h"
+#include "acid_skimmer.h"
 
 uint8_t enemy_trial_kind, enemy_trial_cleared;
 
@@ -17,7 +18,8 @@ void enemy_trial_start(void) BANKED {
     slime_rest = 26;
     slime_speed = 192;
     health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
-    if (enemy_trial_kind >= 3) {
+    if (enemy_trial_kind == 9) acid_skimmer_start();
+    else if (enemy_trial_kind >= 3) {
         enemy_family_load();
         if (enemy_trial_kind == 8) {
             enemy_family_spawn(FAMILY_HOUND, 40, 32);
@@ -43,15 +45,16 @@ void enemy_trial_start(void) BANKED {
         actor_spawn(enemy_trial_kind ? ACTOR_PEASHOOTER : ACTOR_SLIME, 72, 32);
     }
     static const char *const names[] = {"SLIME TRIAL", "PEASHOOTER TRIAL", "MIXED GROUP TRIAL",
-        "SPORE HUSKS", "RAGEBOUND", "CONTRACTOR", "BASTION DRONE", "FACTION MIX", "SCRAP HOUNDS"};
+        "SPORE HUSKS", "RAGEBOUND", "CONTRACTOR", "BASTION DRONE", "FACTION MIX", "SCRAP HOUNDS", "ACID SKIMMER"};
     static const char *const tips[] = {"KEEP MOVING", "DODGE THE SHOTS", "PICK YOUR TARGET",
-        "DO NOT GET BOXED IN", "SIDESTEP THE RUSH", "DODGE THEN RETURN", "HIT THE OPEN CORE", "PRIORITIZE THREATS", "BAIT THEN SIDESTEP"};
+        "DO NOT GET BOXED IN", "SIDESTEP THE RUSH", "DODGE THEN RETURN", "HIT THE OPEN CORE", "PRIORITIZE THREATS", "BAIT THEN SIDESTEP", "LEAVE ACID MARKS"};
     bkg_text(1, 0, names[enemy_trial_kind]);
     bkg_text(1, 1, tips[enemy_trial_kind]);
 }
 
 void enemy_trial_update(void) BANKED {
-    if (enemy_trial_kind >= 3) enemy_family_update();
+    if (enemy_trial_kind == 9) acid_skimmer_update();
+    else if (enemy_trial_kind >= 3) enemy_family_update();
     if (enemy_trial_cleared) return;
     for (uint8_t i = 0; i < ACTOR_MAX; i++)
         if (actor_type[i] != ACTOR_NONE) return;
