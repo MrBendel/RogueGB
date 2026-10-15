@@ -51,8 +51,13 @@ test('the game runs across banks: banked scenes call bank-0 code every frame', (
   // asset loading (gfx_init, actors_init, room_load_lab).
   const emu = startRun().idle(2).hold('LEFT', 80).hold('DOWN+B', 200).hold('RIGHT', 200);
   assert.equal(emu.v('game_state'), 1, 'still playing');
-  // The bank variable GBDK keeps in sync with the hardware register.
-  assert.equal(emu.read8(syms.get('__current_bank')), bankOf('play_update'), 'the play scene\'s bank is switched in');
+  // The bank variable GBDK keeps in sync with the hardware register: a real ROM
+  // bank (a banked call restores the caller's on return, so between frames it's
+  // whichever bank-0 code last left in, not necessarily play_update's).
+  const bank = emu.read8(syms.get('__current_bank'));
+  const banks = fs.statSync(path.join(ROOT, 'build', 'roguegb.gb')).size / 0x4000;
+  assert.ok(bank >= 1 && bank < banks, `bank ${bank} is a switchable ROM bank`);
+  assert.ok(bankOf('play_update') >= 1, 'the play scene is banked');
 });
 
 test('banked code never switches banks itself (it would swap its own code out)', () => {

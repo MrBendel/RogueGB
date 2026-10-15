@@ -7,29 +7,45 @@
 #include "gfx.h"
 #include "run.h"
 #include "chunks.h"
+#include "text.h"
 
-#define BLINK_MASK 0x20  // "PRESS START" toggles every 32 frames
-#define PROMPT_Y 12
+#define BLINK_MASK 0x20  // "PRESS START" blinks every 32 frames (its palette's ink)
 
 uint8_t title_timer;
 
+// Text from this bank's constants (text.h: copied to RAM for text.c).
+static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t tile, uint8_t pal) {
+    char line[TEXT_MAX + 1];
+    uint8_t n = 0;
+    while (s[n] && n < TEXT_MAX) line[n] = s[n], n++;  // (no strncpy: it would land in bank 0)
+    line[n] = 0;
+    return text_draw(font, x, ty, line, tile, pal);
+}
+
 void title_enter(void) BANKED {
     title_timer = 0;
-    palettes_menu();
-    bkg_frame(2, 2, 16, 7);
-    bkg_text(6, 4, "ROGUE GB");
-    bkg_text(5, 6, "RUN.GUN.DIE");
-    bkg_text(5, PROMPT_Y, "PRESS START");
-    bkg_text(3, 13, "SELECT: TEST LAB");
-    bkg_text(5, 14, "B: ICE YARD");
-    bkg_text(1, 16, "V0.1");
+    palettes_title();
+    // Every cell on the text palette first (a scene before may have left others).
+    VBK_REG = 1;
+    fill_bkg_rect(0, 0, 32, 32, TITLE_PAL_TEXT);
+    VBK_REG = 0;
+    uint8_t t = SCENE_TILES;
+    t += draw(FONT_DISPLAY, TEXT_CENTER, 4, "SKAVENGAR", t, TITLE_PAL_GOLD);
+    t += draw(FONT_COMPACT, TEXT_CENTER, 7, "RUN.  GUN.  LOOT.", t, TITLE_PAL_TEXT);
+    t += draw(FONT_COMPACT, TEXT_CENTER, 11, "PRESS START", t, TITLE_PAL_PROMPT);
+    t += draw(FONT_COMPACT, TEXT_CENTER, 14, "SELECT: test lab    B: ice yard", t, TITLE_PAL_HINT);
+    draw(FONT_COMPACT, 4, 16, "v0.1", t, TITLE_PAL_HINT);
+}
+
+// The prompt blinks by its palette: ink, or the background's color.
+static void prompt_ink(uint8_t on) {
+    pal_base_bg[(TITLE_PAL_PROMPT << 2) + 3] = pal_base_bg[(TITLE_PAL_TEXT << 2) + (on ? 3 : 0)];
+    gfx_set_fade(0);
 }
 
 void title_update(void) BANKED {
     title_timer++;
-    if ((title_timer & (BLINK_MASK - 1)) == 0) {
-        bkg_text(5, PROMPT_Y, (title_timer & BLINK_MASK) ? "           " : "PRESS START");
-    }
+    if ((title_timer & (BLINK_MASK - 1)) == 0) prompt_ink(!(title_timer & BLINK_MASK));
     if (joy_pressed & (J_START | J_A | J_SELECT | J_B)) {
         play_mode = joy_pressed & J_SELECT ? MODE_LAB : joy_pressed & J_B ? MODE_YARD : MODE_DESCENT;
         sfx_play(SFX_START);

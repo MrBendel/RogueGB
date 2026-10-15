@@ -107,6 +107,12 @@ void gfx_sprites(uint8_t on);
 extern uint8_t obj_restore;  // the split turned sprites off this frame
 // The palettes for the menus (title, run over) and for play (palettes.c).
 void palettes_menu(void) BANKED;
+// The title screen's (title.c): text, the gold display font, hints, the prompt.
+#define TITLE_PAL_TEXT 0
+#define TITLE_PAL_GOLD 1
+#define TITLE_PAL_HINT 2
+#define TITLE_PAL_PROMPT 3
+void palettes_title(void) BANKED;
 void palettes_play(void) BANKED;
 // Palette 6 for the pause panel's parchment, or back to the HUD's.
 void palettes_window_ui(void) BANKED;

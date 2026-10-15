@@ -17,6 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildAssets, GEN_DIR } from './assets.mjs';
 import { buildChunks } from './chunks.mjs';
+import { buildFonts } from './fonts.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -145,6 +146,7 @@ export function build({ clean = false, quiet = false } = {}) {
   fs.mkdirSync(objDir, { recursive: true });
 
   // Generated sources (artwork -> tiles, room chunks) live in build/gen/ and are never committed.
+  buildFonts({ quiet });  // a header, included by src/text.c
   const genSources = [...buildAssets({ quiet }), buildChunks({ quiet })];
   const sources = [...walk(srcDir, ['.c', '.s']), ...genSources];
   if (!sources.length) throw new Error('no sources in src/');

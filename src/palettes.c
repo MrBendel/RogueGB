@@ -38,6 +38,20 @@ static void set_obj(uint8_t p, const uint16_t *c) {
     memcpy(&pal_base_obj[p << 2], c, 8);
 }
 
+// The title: night navy behind, the display font in gold, the compact font in
+// white, dim blue for the hints. Palette 3 is the blinking prompt (title.c).
+#define NAVY C(32, 36, 60)
+static const uint16_t title_text[4] = {NAVY, C(139, 155, 180), C(90, 105, 136), C(232, 236, 244)};
+static const uint16_t title_gold[4] = {NAVY, C(254, 231, 97), C(254, 174, 52), C(24, 20, 37)};
+static const uint16_t title_hint[4] = {NAVY, C(90, 105, 136), C(90, 105, 136), C(122, 138, 168)};
+
+void palettes_title(void) BANKED {
+    set_bg(TITLE_PAL_TEXT, title_text);
+    set_bg(TITLE_PAL_GOLD, title_gold);
+    set_bg(TITLE_PAL_HINT, title_hint);
+    set_bg(TITLE_PAL_PROMPT, title_text);
+}
+
 void palettes_menu(void) BANKED {
     set_bg(BG_PAL_SCENE, grey);
     set_bg(BG_PAL_UI, ui);
