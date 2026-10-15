@@ -16,6 +16,7 @@ const argv = process.argv.slice(2);
 const PORT = +(argv[argv.indexOf('--port') + 1] || 0) || 8080;
 const AUTO_BUILD = !argv.includes('--no-build');
 const REPLAYS = path.join(ROOT, 'replays');
+const CHUNKS = path.join(ROOT, 'content', 'chunks');
 const ROM = path.join(ROOT, 'build', 'roguegb.gb');
 const SERVED = ['web', 'harness', 'build'];
 const TYPES = {
@@ -68,6 +69,11 @@ if (AUTO_BUILD) {
   fs.watch(path.join(ROOT, 'src'), { recursive: true }, (_e, f) => {
     if (f && /\.(c|h|s|inc)$/i.test(f)) scheduleBuild();
   });
+  // Chunk files (saved by the chunk editor) are compiled into the ROM too.
+  fs.mkdirSync(CHUNKS, { recursive: true });
+  fs.watch(CHUNKS, (_e, f) => {
+    if (f && f.endsWith('.json')) scheduleBuild();
+  });
 } else {
   // Someone else builds (e.g. an IDE task): just watch the ROM.
   fs.watchFile(ROM, { interval: 300 }, () => {
@@ -109,6 +115,27 @@ function saveReplay({ kind, replay }) {
   return `${sub}/${file}`;
 }
 
+// ---- chunks API (web/chunks.html) -----------------------------------------------
+function listChunkFiles() {
+  if (!fs.existsSync(CHUNKS)) return [];
+  return fs.readdirSync(CHUNKS).filter((f) => f.endsWith('.json')).sort()
+    .map((file) => ({ file, doc: JSON.parse(fs.readFileSync(path.join(CHUNKS, file), 'utf8')) }));
+}
+
+async function saveChunkFile(file, doc) {
+  if (!/^[a-z0-9][a-z0-9_-]*\.json$/i.test(file)) throw new Error(`bad file name: ${file}`);
+  const { parseChunkDoc } = await import('../web/chunk-format.js');
+  parseChunkDoc(doc, file);  // throws on bad chunks
+  // One chunk per line, like the hand-written files: diffs stay readable.
+  const one = (v) => (Array.isArray(v) ? `[${v.map(one).join(', ')}]` : JSON.stringify(v));
+  const lines = (doc.chunks || []).map((c) => `    { ${Object.entries(c).map(([k, v]) => `${JSON.stringify(k)}: ${one(v)}`).join(', ')} }`);
+  const head = { ...doc };
+  delete head.chunks;
+  const text = JSON.stringify(head, null, 2).replace(/\n}$/, `,\n  "chunks": [\n${lines.join(',\n')}\n  ]\n}\n`);
+  fs.writeFileSync(path.join(CHUNKS, file), text);
+  console.log(`[serve] saved content/chunks/${file} (${doc.chunks.length} chunks)`);
+}
+
 // ---- HTTP -------------------------------------------------------------------------
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -134,6 +161,11 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/artwork-presets' && req.method === 'GET') {
       const { loadArtworkPresets } = await import('./sprite-cli.mjs');
       return json(res, loadArtworkPresets());
+    }
+    if (p === '/api/chunks' && req.method === 'GET') return json(res, listChunkFiles());
+    if (p.startsWith('/api/chunks/') && req.method === 'PUT') {
+      await saveChunkFile(p.slice('/api/chunks/'.length), JSON.parse(await readBody(req)));
+      return json(res, { ok: true });
     }
     if (p === '/api/replays' && req.method === 'GET') return json(res, listReplays());
     if (p === '/api/replays' && req.method === 'POST') return json(res, { id: saveReplay(JSON.parse(await readBody(req))) });
@@ -163,6 +195,7 @@ server.listen(PORT, '127.0.0.1', () => {
   const url = `http://localhost:${PORT}/`;
   console.log(`[serve] playtest page: ${url}`);
   console.log(`[serve] sprite studio: ${url}web/studio.html`);
+  console.log(`[serve] chunk editor: ${url}web/chunks.html`);
   console.log('[serve] editing files in src/ rebuilds and reloads automatically. Ctrl+C to stop.');
   if (argv.includes('--open')) {
     const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';

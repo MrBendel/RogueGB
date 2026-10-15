@@ -135,16 +135,20 @@ void level_generate(uint16_t seed) BANKED {
 
 // --- Building a map ---
 
-uint8_t chunk_tag_ram[CHUNK_COUNT], chunk_weight_ram[CHUNK_COUNT];
+uint8_t chunk_tag_ram[CHUNK_MAX], chunk_weight_ram[CHUNK_MAX];
+uint8_t chunk_count_ram;
+// The chunk picked for each chunk cell of the last map built (cy * 8 + cx);
+// watchable, for the chunk editor's preview and survey.
+uint8_t level_picks[64];
 uint8_t chunk_tables_loaded;
 
 // A chunk for this role tag, by weight.
 static uint8_t pick_chunk(uint8_t tag) {
     uint8_t total = 0;
-    for (uint8_t k = 0; k < CHUNK_COUNT; k++)
+    for (uint8_t k = 0; k < chunk_count_ram; k++)
         if (chunk_tag_ram[k] & tag) total += chunk_weight_ram[k];
     uint8_t r = below(total);
-    for (uint8_t k = 0; k < CHUNK_COUNT; k++) {
+    for (uint8_t k = 0; k < chunk_count_ram; k++) {
         if (!(chunk_tag_ram[k] & tag)) continue;
         if (r < chunk_weight_ram[k]) return k;
         r -= chunk_weight_ram[k];
@@ -263,8 +267,9 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
 void level_build_map(uint8_t i) BANKED {
     if (!area_type[i]) return;  // no map in that slot
     if (!chunk_tables_loaded) {
-        banked_memcpy(chunk_tag_ram, chunk_tags, CHUNK_COUNT, BANK(chunks));
-        banked_memcpy(chunk_weight_ram, chunk_weight, CHUNK_COUNT, BANK(chunks));
+        banked_memcpy(&chunk_count_ram, &chunk_count, 1, BANK(chunks));
+        banked_memcpy(chunk_tag_ram, chunk_tags, chunk_count_ram, BANK(chunks));
+        banked_memcpy(chunk_weight_ram, chunk_weight, chunk_count_ram, BANK(chunks));
         chunk_tables_loaded = 1;
     }
     level_rng = area_seed[i];
@@ -286,6 +291,7 @@ void level_build_map(uint8_t i) BANKED {
             uint8_t role = roles[cy * 8 + cx];
             uint8_t tag = role == ROLE_MARK && area_type[i] == MAP_EXIT ? TAG_EXIT : role_tag[role];
             uint8_t k = pick_chunk(tag), flip = rnd();
+            level_picks[cy * 8 + cx] = k;
             uint8_t camp = 0xFF;
             if (role == ROLE_CAMP && level_camps < LEVEL_CAMPS) {
                 camp = level_camps++;

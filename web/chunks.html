@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161816">
+<title>RogueGB Chunk Editor</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  #app { max-width: 1400px; }
+  header a.filebtn { color: inherit; }
+  .ce { display: grid; grid-template-columns: 240px minmax(300px, 1fr) minmax(320px, 1.2fr); gap: 14px; align-items: start; }
+  @media (max-width: 1100px) { .ce { grid-template-columns: 220px minmax(0, 1fr); } .ce-preview { grid-column: 1 / -1; } }
+  @media (max-width: 640px) { .ce { grid-template-columns: minmax(0, 1fr); } }
+  .ce-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 0; }
+  .ce-card h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .ce-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .ce button, .ce select, .ce input[type=text], .ce input[type=number] { background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+  .ce button:hover { background: var(--btn-hover); }
+  .ce button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .ce button:disabled { opacity: .45; }
+  .chip { font-size: 11px; padding: 2px 7px; border-radius: 999px; }
+
+  /* chunk list */
+  #ce-list { display: flex; flex-direction: column; gap: 4px; max-height: 70vh; overflow: auto; }
+  .ce-item { display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: center; padding: 4px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+  .ce-item:hover { background: var(--btn); }
+  .ce-item.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .ce-item canvas { width: 40px; height: 32px; image-rendering: pixelated; border-radius: 3px; }
+  .ce-item .nm { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ce-item .meta { font-size: 11px; color: var(--muted); }
+  .ce-item .warn { color: var(--rec); }
+
+  /* paint grid */
+  #ce-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: 100%; max-width: 420px; aspect-ratio: 5 / 4; touch-action: none; user-select: none; margin: 0 auto; }
+  .cell { border-radius: 3px; position: relative; display: flex; align-items: center; justify-content: center; font: 700 15px ui-monospace, Consolas, monospace; cursor: crosshair; }
+  .c0, .c7, .c8 { background: #cfd8dc; color: #4a5560; }
+  .c1 { background: #3a4048; color: #aab3bb; }
+  .c2 { background: #0e1114; color: #6b7680; }
+  .c3 { background: #9a8466; color: #f0e6d6; }
+  .c4 { background: repeating-linear-gradient(45deg, #3a4048 0 6px, #cfd8dc 6px 12px); color: #fff; }
+  .c5 { background: repeating-linear-gradient(45deg, #0e1114 0 6px, #cfd8dc 6px 12px); color: #fff; }
+  .c6 { background: repeating-linear-gradient(45deg, #9a8466 0 6px, #cfd8dc 6px 12px); color: #fff; }
+  .c4 span, .c5 span, .c6 span { background: #0008; padding: 0 4px; border-radius: 3px; }
+  .c7::after { content: ''; width: 38%; height: 38%; border-radius: 50%; background: #d23c2c; }
+  .c8::after { content: ''; width: 44%; height: 34%; border-radius: 3px; background: #d9a52b; box-shadow: inset 0 -3px #8a5d14; }
+  .c7 span, .c8 span { display: none; }
+  #ce-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 10px; }
+  #ce-tools button { display: flex; align-items: center; gap: 6px; font-size: 12px; text-align: left; }
+  #ce-tools .sw { width: 18px; height: 18px; border-radius: 3px; flex: none; display: flex; align-items: center; justify-content: center; }
+  #ce-tools kbd { margin-left: auto; font: 11px ui-monospace, monospace; color: var(--muted); }
+  .flips { display: flex; gap: 10px; align-items: end; margin-top: 10px; font-size: 11px; color: var(--muted); }
+  .flips canvas { width: 50px; height: 40px; image-rendering: pixelated; display: block; border-radius: 3px; }
+  #ce-lint { font-size: 12px; color: var(--rec); margin-top: 8px; }
+  #ce-lint div::before { content: '⚠ '; }
+
+  /* preview */
+  #ce-area { width: 100%; image-rendering: pixelated; border-radius: 6px; background: var(--btn); cursor: pointer; display: block; }
+  #ce-map { max-width: 100%; max-height: 60vh; image-rendering: pixelated; border-radius: 6px; display: block; margin: 8px auto 4px; cursor: pointer; }
+  #ce-area { max-height: 50vh; object-fit: contain; }
+  #ce-hover { font-size: 12px; color: var(--muted); min-height: 1.4em; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin: 6px 0; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+  #ce-survey { font-size: 12px; }
+  #ce-survey table { border-collapse: collapse; width: 100%; }
+  #ce-survey td { padding: 1px 4px; border-bottom: 1px solid var(--line); }
+  #ce-survey td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  #ce-survey .bar { height: 6px; background: var(--accent); border-radius: 3px; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="row">
+      <div class="brand">RogueGB <span>chunk editor</span></div>
+      <span id="ce-pill" class="pill">loading…</span>
+    </div>
+    <div class="row">
+      <select id="ce-file" title="Chunk file (a theme)"></select>
+      <button id="ce-undo" title="Undo (Ctrl+Z)">↶</button>
+      <button id="ce-redo" title="Redo (Ctrl+Y)">↷</button>
+      <button id="ce-save" class="primary" title="Save to content/chunks (Ctrl+S); the dev server rebuilds the ROM">💾 Save</button>
+      <a href="studio.html" class="filebtn" style="text-decoration:none">🎨 Studio</a>
+      <a href="index.html" class="filebtn" style="text-decoration:none">🎮 Playtest</a>
+    </div>
+  </header>
+
+  <div class="ce">
+    <section class="ce-card">
+      <h3>Chunks</h3>
+      <div class="ce-row" id="ce-filter"></div>
+      <div class="ce-row">
+        <button id="ce-new" title="A new open chunk">＋ New</button>
+        <button id="ce-dup" title="Copy the selected chunk">⧉ Copy</button>
+        <button id="ce-del" title="Delete the selected chunk">🗑</button>
+      </div>
+      <div id="ce-list"></div>
+    </section>
+
+    <section class="ce-card">
+      <h3>Chunk</h3>
+      <div class="ce-row">
+        <input type="text" id="ce-name" placeholder="name" style="flex:1; min-width: 120px">
+        <label class="muted" title="How often it's picked among chunks that fit (1-15)">weight
+          <input type="number" id="ce-weight" min="1" max="15" style="width: 52px"></label>
+      </div>
+      <div class="ce-row" id="ce-tags"></div>
+      <div id="ce-grid"></div>
+      <div id="ce-tools"></div>
+      <div class="flips" title="The generator flips chunks at random, so each can appear four ways">
+        <div><canvas id="ce-f0" width="5" height="4"></canvas>as drawn</div>
+        <div><canvas id="ce-f1" width="5" height="4"></canvas>flip ↔</div>
+        <div><canvas id="ce-f2" width="5" height="4"></canvas>flip ↕</div>
+        <div><canvas id="ce-f3" width="5" height="4"></canvas>both</div>
+      </div>
+      <div id="ce-lint"></div>
+      <p class="muted" style="font-size:12px; margin: 10px 0 0">
+        Click or drag to paint, right-click for floor. Keys pick tools. The edges of each map become wall
+        (except where it links to the next map), and the generator carves a path if chunks cut off an
+        opening, camp or chest; it's in the survey as "carved".
+      </p>
+    </section>
+
+    <section class="ce-card ce-preview">
+      <h3>Generator preview <span class="muted" style="text-transform:none; letter-spacing:0">(the real one, running in the ROM)</span></h3>
+      <div class="ce-row">
+        <label class="muted">seed <input type="number" id="ce-seed" min="1" max="65535" style="width: 80px"></label>
+        <button id="ce-roll" title="A new random seed (R)">🎲 Roll</button>
+        <button id="ce-play" title="Play this area with these chunks, in a new tab (press START on the title)">▶ Play seed</button>
+        <button id="ce-run-survey" title="Generate many areas and count how often each chunk is used">📊 Survey 100 areas</button>
+      </div>
+      <canvas id="ce-area"></canvas>
+      <div class="legend">
+        <span><i style="background:#cfd8dc"></i>floor</span><span><i style="background:#3a4048"></i>wall</span>
+        <span><i style="background:#0e1114"></i>pit</span><span><i style="background:#9a8466"></i>raised</span>
+        <span><i style="background:#d23c2c"></i>camp</span><span><i style="background:#d9a52b"></i>chest</span>
+        <span><i style="background:#5b8cff"></i>start</span><span><i style="background:#b04cff"></i>shaft down</span>
+        <span><i style="background:none; outline: 2px solid #34c77b"></i>this chunk</span>
+      </div>
+      <canvas id="ce-map"></canvas>
+      <div id="ce-hover"></div>
+      <div id="ce-survey"></div>
+    </section>
+  </div>
+</div>
+<script type="module" src="chunks.js"></script>
+</body>
+</html>

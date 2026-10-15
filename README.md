@@ -152,7 +152,7 @@ No `npm install` is needed. Everything the harness uses is already in the repo.
 
 | Command | What it does |
 |---|---|
-| `npm run play` | Builds, opens a local server at http://localhost:8080 and rebuilds and reloads the game whenever you save a file in `src\` |
+| `npm run play` | Builds, opens a local server at http://localhost:8080 and rebuilds and reloads the game whenever you save a file in `src\` or `content\chunks\`. The level chunk editor is at http://localhost:8080/web/chunks.html |
 | `npm run build` | Builds `build\roguegb.gb` (plus `.noi`/`.sym`/`.map` symbols) and prints ROM/RAM usage |
 | `npm test` | Builds, then runs the headless tests in `tests\` |
 | `npm run test:update` | Accepts the current screens as the new golden screenshots |

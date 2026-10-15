@@ -6,6 +6,7 @@
 #include "input.h"
 #include "gfx.h"
 #include "run.h"
+#include "chunks.h"
 
 #define BLINK_MASK 0x20  // "PRESS START" toggles every 32 frames
 #define PROMPT_Y 12
@@ -34,7 +35,10 @@ void title_update(void) BANKED {
         sfx_play(SFX_START);
         // The frame the player presses START is effectively random, so it
         // seeds the run. Replays press on the same frame and get the same run.
-        run_start(((uint16_t)DIV_REG << 8) ^ frame_count);
+        uint16_t seed = ((uint16_t)DIV_REG << 8) ^ frame_count, tool;
+        // The chunk editor can patch a seed into the ROM instead ("play this seed").
+        banked_memcpy(&tool, &tool_seed, 2, BANK(chunks));
+        run_start(tool ? tool : seed);
         state_change(STATE_PLAY);
     }
 }

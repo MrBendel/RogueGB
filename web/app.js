@@ -264,7 +264,13 @@ function pumpAudio() {
 async function loadFromBackend() {
   try {
     const { rom, sym, label } = await backend.loadRom();
-    start(rom, sym, label);
+    // ?draft: the chunk editor's ROM, with its unsaved chunks and seed patched in.
+    const draft = new URLSearchParams(location.search).has('draft') && store.get('draftRom', null);
+    if (draft) {
+      start(fromBase64(draft), sym, label);
+      setPill('chunk editor draft · its chunks and seed · press START', 'ok');
+    }
+    else start(rom, sym, label);
   } catch (e) {
     showOverlay(e.message);
     setPill('no ROM', 'err');

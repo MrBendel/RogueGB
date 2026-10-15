@@ -115,8 +115,6 @@ save/load.
 - Whether characters level at all (XP and skills alongside gear, or gear only).
 - Planet count; how many areas make a descent.
 - Map transitions: a fade (now) or a scroll.
-- The chunk authoring tool: a tab in the Sprite Studio (decided: our tool) with a
-  layout preview.
 - Town size and structure (one screen hub, several connected screens, interiors).
 - Currency, prices, and what shops and bars actually offer.
 - Mission types and how many can be active.
@@ -140,6 +138,14 @@ test lab.
   | `?` `:` `+` | maybe a wall, pit or raised block (else floor) |
   | `e` | enemy slot (in a camp chunk) |
   | `*` | a chest (in a camp or cache chunk) |
+- **The chunk editor** (`web/chunks.html`, from the dev server: `npm run play`, then 🧱 Chunks):
+  - paint chunks, set their tags and weights, and save them to `content/chunks/` (the server rebuilds);
+  - the preview runs the real generator in the emulator. The ROM's chunk tables are a fixed size
+    (`CHUNK_MAX`), so the editor patches edited chunks into a copy of the built ROM and loads a booted
+    save state into it: every edit shows in milliseconds, with no rebuild;
+  - "Survey" builds 100 areas and reports how often each chunk is used, camps and chests a map, and how
+    often a path had to be carved;
+  - "Play seed" opens the playtest page on that ROM, with the seed patched in (`tool_seed`).
 - **Areas** (`src/level.c`) are 6–9 maps on a 4×3 grid, grown from the start with one
   or two extra links for loops; the exit is the map farthest from the start.
 - **Maps** are rebuilt from their seed each time they're entered. Sizes:

@@ -3,34 +3,21 @@
 // (src/level.c) reads. Called by tools/build.mjs; also runnable on its own:
 //   node tools/chunks.mjs
 //
-// A chunk is CHUNK_W x CHUNK_H blocks (a quarter screen), written as rows of
-// characters (the legend is LEGEND below). Each has tags (the roles it can fill
-// in a map) and a weight (how often it's picked among those that fit).
+// The format (legend, tags, weights) is in web/chunk-format.js, shared with the
+// chunk editor. The tables are always CHUNK_MAX long, with the count in ROM too,
+// so the editor can patch edited chunks into a built ROM to preview them.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CHUNK_W, CHUNK_H, CHUNK_MAX, CELL_NAMES, TAGS, parseChunkDoc, checkChunkSet, encodeChunkTables,
+} from '../web/chunk-format.js';
 
+export { CHUNK_W, CHUNK_H, TAGS } from '../web/chunk-format.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SRC_DIR = path.join(ROOT, 'content', 'chunks');
+export const SRC_DIR = path.join(ROOT, 'content', 'chunks');
 const GEN_DIR = path.join(ROOT, 'build', 'gen');
-
-export const CHUNK_W = 5, CHUNK_H = 4;
-// Character -> cell code (must match CELL_* in the generated header).
-export const LEGEND = {
-  '.': 0, // floor
-  '#': 1, // wall
-  o: 2, // pit
-  '=': 3, // raised
-  '?': 4, // maybe wall (else floor)
-  ':': 5, // maybe pit
-  '+': 6, // maybe raised
-  e: 7, // enemy slot (floor)
-  '*': 8, // item slot (floor)
-};
-const CELL_NAMES = ['FLOOR', 'WALL', 'PIT', 'RAISED', 'MAYBE_WALL', 'MAYBE_PIT', 'MAYBE_RAISED', 'ENEMY', 'ITEM'];
-// The roles a chunk can fill in a map (docs/design/level-generation.md).
-export const TAGS = { open: 1, rock: 2, camp: 4, cache: 8, start: 16, exit: 32 };
-const ANY = 63;
+const FORMAT = path.join(ROOT, 'web', 'chunk-format.js');
 
 /** Read and check every chunk file; returns { chunks, themes }. Throws with the file and chunk on errors. */
 export function loadChunks() {
@@ -38,36 +25,13 @@ export function loadChunks() {
   const chunks = [];
   const themes = [];
   for (const f of files) {
-    const doc = JSON.parse(fs.readFileSync(path.join(SRC_DIR, f), 'utf8'));
-    const theme = themes.length;
-    themes.push(doc.theme || path.basename(f, '.json'));
-    for (const [i, c] of (doc.chunks || []).entries()) {
-      const where = `content/chunks/${f}, chunk ${c.name ?? i}`;
-      if (!Array.isArray(c.rows) || c.rows.length !== CHUNK_H) throw new Error(`${where}: needs ${CHUNK_H} rows`);
-      const cells = [];
-      for (const row of c.rows) {
-        if (row.length !== CHUNK_W) throw new Error(`${where}: row "${row}" must be ${CHUNK_W} characters`);
-        for (const ch of row) {
-          if (!(ch in LEGEND)) throw new Error(`${where}: unknown character '${ch}' (legend: ${Object.keys(LEGEND).join(' ')})`);
-          cells.push(LEGEND[ch]);
-        }
-      }
-      let tags = 0;
-      for (const t of c.tags || ['any']) {
-        if (t === 'any') tags |= ANY;
-        else if (TAGS[t]) tags |= TAGS[t];
-        else throw new Error(`${where}: unknown tag '${t}' (${Object.keys(TAGS).join(', ')}, any)`);
-      }
-      const weight = c.weight ?? 1;
-      if (!(weight >= 1 && weight <= 15)) throw new Error(`${where}: weight must be 1-15`);
-      chunks.push({ name: c.name ?? String(i), theme, tags, weight, cells });
-    }
+    const { theme, chunks: list } = parseChunkDoc(JSON.parse(fs.readFileSync(path.join(SRC_DIR, f), 'utf8')), `content/chunks/${f}`);
+    const t = themes.length;
+    themes.push(theme || path.basename(f, '.json'));
+    for (const c of list) chunks.push({ ...c, theme: t });
   }
-  if (!chunks.length) throw new Error('no chunks in content/chunks/');
-  for (const [name, bit] of Object.entries(TAGS)) {
-    if (!chunks.some((c) => c.tags & bit)) throw new Error(`no chunk is tagged '${name}' (or 'any'): the generator needs one`);
-  }
-  if (chunks.length > 255) throw new Error('at most 255 chunks');
+  const errs = checkChunkSet(chunks);
+  if (errs.length) throw new Error(`content/chunks: ${errs.join('; ')}`);
   return { chunks, themes };
 }
 
@@ -75,35 +39,40 @@ export function loadChunks() {
 export function buildChunks({ quiet = false } = {}) {
   fs.mkdirSync(GEN_DIR, { recursive: true });
   const c = path.join(GEN_DIR, 'chunks.c'), h = path.join(GEN_DIR, 'chunks.h');
-  const inputs = [fileURLToPath(import.meta.url)];
+  const inputs = [fileURLToPath(import.meta.url), FORMAT];
   if (fs.existsSync(SRC_DIR)) for (const f of fs.readdirSync(SRC_DIR)) inputs.push(path.join(SRC_DIR, f));
   const newest = Math.max(...inputs.map((f) => fs.statSync(f).mtimeMs));
   if (fs.existsSync(c) && fs.existsSync(h) && fs.statSync(c).mtimeMs > newest) return c;
   const { chunks, themes } = loadChunks();
-  const list = (vals) => vals.join(', ');
+  const t = encodeChunkTables(chunks);
+  const list = (vals) => Array.from(vals).join(', ');
   fs.writeFileSync(h, [
     '// Generated by tools/chunks.mjs from content/chunks/*.json. Do not edit.',
     '#ifndef GEN_CHUNKS_H', '#define GEN_CHUNKS_H', '#include <stdint.h>', '#include <gb/gb.h>',
     'BANKREF_EXTERN(chunks)',
     `#define CHUNK_W ${CHUNK_W}`, `#define CHUNK_H ${CHUNK_H}`, `#define CHUNK_CELLS ${CHUNK_W * CHUNK_H}`,
-    `#define CHUNK_COUNT ${chunks.length}`,
+    `#define CHUNK_MAX ${CHUNK_MAX}  // table size; chunk_count are in use (the editor patches them)`,
     ...CELL_NAMES.map((n, i) => `#define CELL_${n} ${i}`),
     ...Object.entries(TAGS).map(([n, b]) => `#define TAG_${n.toUpperCase()} ${b}`),
-    `// Themes: ${themes.map((t, i) => `${i} ${t}`).join(', ')}`,
-    'extern const uint8_t chunk_tags[CHUNK_COUNT];',
-    'extern const uint8_t chunk_weight[CHUNK_COUNT];',
-    'extern const uint8_t chunk_theme[CHUNK_COUNT];',
-    'extern const uint8_t chunk_cells[CHUNK_COUNT * CHUNK_CELLS];  // row by row',
+    `// Themes: ${themes.map((x, i) => `${i} ${x}`).join(', ')}`,
+    'extern const uint8_t chunk_count;',
+    'extern const uint16_t tool_seed;  // 0; the chunk editor patches in a seed to play',
+    'extern const uint8_t chunk_tags[CHUNK_MAX];',
+    'extern const uint8_t chunk_weight[CHUNK_MAX];',
+    'extern const uint8_t chunk_theme[CHUNK_MAX];',
+    'extern const uint8_t chunk_cells[CHUNK_MAX * CHUNK_CELLS];  // row by row',
     '#endif', '',
   ].join('\n'));
   fs.writeFileSync(c, [
     '#pragma bank 255',
     '// Generated by tools/chunks.mjs from content/chunks/*.json. Do not edit.',
     '#include <gb/gb.h>', '#include "chunks.h"', 'BANKREF(chunks)',
-    `const uint8_t chunk_tags[CHUNK_COUNT] = {${list(chunks.map((k) => k.tags))}};`,
-    `const uint8_t chunk_weight[CHUNK_COUNT] = {${list(chunks.map((k) => k.weight))}};`,
-    `const uint8_t chunk_theme[CHUNK_COUNT] = {${list(chunks.map((k) => k.theme))}};`,
-    'const uint8_t chunk_cells[CHUNK_COUNT * CHUNK_CELLS] = {',
+    `const uint8_t chunk_count = ${t.count};`,
+    'const uint16_t tool_seed = 0;',
+    `const uint8_t chunk_tags[CHUNK_MAX] = {${list(t.tags)}};`,
+    `const uint8_t chunk_weight[CHUNK_MAX] = {${list(t.weight)}};`,
+    `const uint8_t chunk_theme[CHUNK_MAX] = {${list(t.theme)}};`,
+    'const uint8_t chunk_cells[CHUNK_MAX * CHUNK_CELLS] = {',
     ...chunks.map((k) => `    ${list(k.cells)},  // ${k.name}`),
     '};', '',
   ].join('\n'));

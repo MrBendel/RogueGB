@@ -8,7 +8,7 @@
     { "name": "pillar", "tags": ["open"], "weight": 2, "rows": [".....", ".#...", ".....", "...?."] },
     { "name": "hollow", "tags": ["open"], "weight": 2, "rows": [".....", "..:..", ".:o:.", "....."] },
     { "name": "ledge", "tags": ["open"], "weight": 2, "rows": [".....", ".+==.", ".....", "....."] },
-    { "name": "wall-bit", "tags": ["open"], "weight": 1, "rows": ["?#...", "....."  , ".....", "....."] },
+    { "name": "wall-bit", "tags": ["open"], "weight": 1, "rows": ["?#...", ".....", ".....", "....."] },
     { "name": "outcrop", "tags": ["rock"], "weight": 3, "rows": ["?###?", "#####", "#####", "?###?"] },
     { "name": "crag", "tags": ["rock"], "weight": 2, "rows": ["..##?", ".####", "?###.", "..#.."] },
     { "name": "pond", "tags": ["rock"], "weight": 2, "rows": ["?:o:?", ":ooo:", ":ooo:", "?:o:?"] },
