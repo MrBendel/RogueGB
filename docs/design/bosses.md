@@ -22,9 +22,10 @@ On the main title, START still begins a descent and SELECT still opens the lab.
 - START: pause/tune. SELECT while paused: end the attempt. START on the results
   returns to the title for another attempt.
 
-Both arenas fit in one 160×128 playfield above the player HUD. Boss HP and mechanic
-instructions stay on the top wall. Trials grant the starter shield. Weapons and
-movement retain the lab's tuning behavior; fresh boots give baseline presets.
+Claimjaw uses a single-screen arena. Warden uses a scrolling 240-by-224 arena
+with three terraces and a fixed third HUD row for boss HP and attack/chase cues.
+The player health, shield, weapon and ammo display remains available. Trials
+start with the same shield and use the lab's weapon/movement settings.
 Victory clears enemies/projectiles and awards one **trial-only salvage token**
 (`boss_reward`), not campaign currency.
 
@@ -76,8 +77,9 @@ healing, making target priority easy to see at this scale.
 | First opening | Clear hostile bullets; expose core for 100 frames | Recognize protection is gone and attack |
 | Reposition / burst | Close grey armor, lock a cardinal direction, move between x=104 and x=40 during a 42-frame warning; alternate seven-pellet shotgun cones and eight-shot rings | Read the header; leave the locked shotgun cone or use gaps in the ring |
 | Recovery | Orange exposed core for 72 frames (54 below half health) | Attack or reload while watching floor claims |
-| Half health | At 24 HP, one 60-frame reinforcement warning and clear old bullets | Prepare for more targets |
-| Pressure | Up to two slimes spawn away from player and wait briefly; later recoveries shorten to 54 frames | Prioritize adds or pressure the core |
+| Stair retreats | At 32 and 16 HP, close armor, clear the current volley and walk upstairs to the next terrace | Follow the stair route while clearing Husks |
+| Pressure | Replenishing Spore Husk waves; three active before half health, four afterward | Make a path to the boss, then turn back to attack |
+| Half health | At 24 HP, triple bursts and 54-frame recoveries | Dodge the extra blast before committing |
 
 Each attack is a two-blast burst, with 18 frames between blasts. Below half
 health it becomes three blasts. Shotgun pellets travel forward at 1.5 px/frame
@@ -89,22 +91,34 @@ bullet pool stays capped at 20, so a crowded third blast may emit fewer pellets.
 Enemy bullets get sprite priority over player shots in this trial; existing
 rotation shares the remaining OAM when more enemy pellets are alive than fit.
 
-Throughout the fight, a security field claims a locked 32-by-32 square centered
-on the player's position. An empty outline warns for 48 frames; diagonal stripes
-then mark dangerous floor for 60 frames, dealing 24 damage using normal shield,
-jump and invulnerability rules. A 30-frame clear interval precedes the next mark.
-Below half health, warning drops to 36 frames and the field lasts 72. The mark
-never tracks once placed. Leave the outline before it fills; jumping can cross
-the active field, but does not remove it. Eight reserved OAM entries keep the
-field visible when the shot pool is full.
+The terrace walls block players and projectiles. The lower staircase is on the
+right, the upper staircase on the left; no jumping is required. Warden and Husks
+follow the same openings and commit to a landing before turning. This is a
+top-down terraced map, not vertically overlapping floors or a new 3D projectile
+height system. Warden stops firing and closes its armor when the player is on
+another terrace or too far away, then resumes when the chase catches up.
 
-Previously, holding A at spawn won in 2,284 frames. Updated tests require that
-strategy to lose at spawn and all four corners, while real movement and starter
-pistol fire can still win without health or damage overrides. HP remains 48.
+The first Husk wave arrives after 180 frames. Later waves check every 210 frames
+(150 below half health), adding up to two enemies without exceeding the cap.
+Husks have 2 HP in this encounter, spawn on the far side of the player's current
+terrace, flash for 36 frames, then pursue. They use separate sprite-bank art;
+normal enemy trials retain their existing art and balance. Wave navigation and
+animation are spread across four frames to keep the busiest fight within budget.
+
+A security field still claims a locked 32-by-32 square. An empty outline warns
+for 60 frames, then a striped field deals 12 damage for 42 frames. Below half
+health those times become 48 and 48 frames. There is a 90-frame clear interval.
+This gives more breathing room than the original flat arena because Husks and
+stairs now add pressure. Normal shield, jump and invulnerability rules apply.
+Eight reserved sprites keep the field visible; offscreen segments are clipped.
+
+The completion test uses real movement, jumping and starter-pistol fire to clear
+the relays, climb both stairs and defeat Warden without health/damage overrides.
+Standing still cannot follow the armored retreats and loses the camping test.
+HP remains 48. Camera shake is disabled here to keep scrolling geometry stable.
 
 Custom 16×16 machine sprites distinguish core and relays; the core has closed/open
-drawings. All bullets are jumpable. Reinforcements happen once and respect the
-actor limit. Shots currently pass through protected cores rather than being absorbed,
+drawings. All bullets are jumpable. Husk waves respect the actor limit. Shots currently pass through protected cores rather than being absorbed,
 so protection cannot obstruct shots at valid targets.
 
 **Human playtest:** does repositioning select the intended relay? Is the transition
@@ -127,7 +141,8 @@ rather than loot luck.
 ## Implementation and evidence
 
 `src/boss.c` owns arenas, compact art, state machines, and status text.
-`src/warden.c` owns the locked floor field and its reserved sprites. Scripted
+`src/warden.c` owns the terraced room, stair navigation, Husk waves, fixed boss
+HUD row and locked floor field. Scripted
 actors reuse the normal actor/hitbox/OAM pools. `actor_guard` is checked by shots,
 melee damage, and auto-aim. Normal enemies retain their existing AI. Bosses are
 standalone trials, not yet encounters inside the generated descent.
@@ -141,23 +156,20 @@ walls, protected targeting, actual shot collisions, melee protection, relay
 destruction, one-time reinforcements, pause, death/restart, reward uniqueness,
 finite pools, and cleanup of both logical actors and drawn sprites.
 
-A patrol bot defeats both using movement, reactive jumps, and starter-pistol fire with normal
-health and shield, without healing or damage injection. Before the territory-control redesign, one observed run finished
-Claimjaw in 1,142 frames (about 19 seconds) at 60 HP, and Warden in 2,302 frames
-(about 38 seconds) at 47 HP. This demonstrates a viable route, not final balance
-or first-time player comprehension. Another test exercises a full actor/bullet pool
-during the reinforcement transition while firing a shotgun.
+A control-driven test defeats both trials with normal health and shield. Warden's
+route now follows the authored stairs, dodges fields and jumps nearby threats.
+Geometry tests separately verify walkable stairs, both boss retreats, Husk paths
+that never cut through walls, replenishment caps, fixed HUD after pause, and
+victory cleanup. Crowded-pool tests cover simultaneous shots and enemies.
 
-Validation on 2026-10-14: all 214 tests pass. Holding fire without movement
-loses in 398-488 frames at spawn and four corner positions. Tests also verify
-locked warning positions, harmless warnings, active field damage, pause,
-alternating firing positions/patterns, and visible fields with sixteen live shots.
-Peak update costs: 44,108 cycles for Claimjaw, 111,404 for Warden, and 94,320
-for full-pool stress, against the 131,328-cycle CGB update budget (85% at the measured Warden peak).
-Shotgun spread, warning and active-field screenshots were reviewed. The generated descent-combat
-screenshot baseline was refreshed after visually checking its changed seeded
-layout; campaign mechanics were not changed. Emulator measurements do not replace
-human balance testing or validation on hardware.
+Validation on 2026-10-14: all 216 tests pass. The complete chase peaks at
+125,180 of 131,328 update cycles (95%) with up to five actors and twenty enemy
+bullets; this is a demanding encounter with limited remaining CPU headroom.
+Stair, combat and Husk screenshots were inspected. Two procedural-room screenshot
+baselines were refreshed after inspecting their changed seeded layouts. These
+are emulator checks, not hardware certification. Human playtesting should focus
+on finding the stairs, recognizing armored retreats, and clearing enough Husks
+to maintain pressure on the boss.
 
 ## Next after playing
 

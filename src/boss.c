@@ -120,12 +120,12 @@ void boss_start(uint8_t kind) BANKED {
     load_art();
     if (kind == BOSS_WARDEN) warden_start();
     boss_hp_max = kind == BOSS_CLAIMJAW ? 18 : 48;
-    boss_slot = machine(72, 32, boss_hp_max, kind == BOSS_CLAIMJAW ? 2 : 0);
+    boss_slot = machine(kind == BOSS_WARDEN ? 104 : 72, kind == BOSS_WARDEN ? 160 : 32, boss_hp_max, kind == BOSS_CLAIMJAW ? 2 : 0);
     boss_hp = boss_hp_max;
     boss_relays = kind == BOSS_WARDEN ? 2 : 0;
     if (boss_relays) {
-        relay_slots[0] = machine(32, 56, 5, 3);
-        relay_slots[1] = machine(112, 56, 5, 3);
+        relay_slots[0] = machine(32, 176, 5, 3);
+        relay_slots[1] = machine(176, 176, 5, 3);
     }
     boss_state = boss_relays ? BOSS_RELAYS : BOSS_RECOVER;
     boss_timer = 90; relay_clock = 100;
@@ -133,6 +133,7 @@ void boss_start(uint8_t kind) BANKED {
     // Identical starting resources for both trials, independent of lab tuning.
     health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
     shown_hp = shown_state = shown_relays = shown_phase = 0xFF;
+    if (kind == BOSS_WARDEN) { boss_status(); return; }
     bkg_text(0, 0, "                    ");
     bkg_text(0, 1, "                    ");
     bkg_text(1, 0, kind == BOSS_CLAIMJAW ? "CLAIMJAW" : "WARDEN");
@@ -167,7 +168,16 @@ static void shotgun(void) {
 }
 
 static void ring(void) {
-    for (uint8_t d=0; d<8; d++) fire_bullet(boss_slot, dx8[d], dy8[d]);
+    static const int16_t vx8[8]={0,181,256,181,0,-181,-256,-181};
+    static const int16_t vy8[8]={-256,-181,0,181,256,181,0,-181};
+    uint8_t d=0;
+    for(uint8_t k=0;k<BULLET_MAX && d<8;k++) {
+        Bullet *b=&bullets[k];if(b->alive)continue;
+        int16_t vx=vx8[d],vy=vy8[d];
+        d++;b->alive=1;b->xs=b->ys=0;
+        b->x=actor_x[boss_slot]+4;b->y=actor_y[boss_slot];
+        bullet_set_velocity(b,vx,vy);bullet_count++;bullets_fired++;
+    }
     boss_attacks++;
 }
 
@@ -176,21 +186,6 @@ static void recover(uint8_t frames) {
     boss_timer = frames;
     guard(0);
     boss_cycles++;
-}
-
-static void reinforcements(void) {
-    // Two spawn spots selected from four corners, away from the player.
-    static const uint8_t xs[4] = {24,120,24,120};
-    static const uint8_t ys[4] = {24,24,88,88};
-    uint8_t left = 2;
-    for (uint8_t n = 0; n < 4 && left; n++) {
-        int16_t dx = (int16_t)(xs[n] - player_x), dy = (int16_t)(ys[n] - player_y);
-        if (dx > -40 && dx < 40 && dy > -40 && dy < 40) continue;
-        uint8_t i = actor_spawn(ACTOR_SLIME, xs[n], ys[n]);
-        if (i == 0xFF) break;
-        actor_timer[i] = 60; // grace period to read the new targets
-        left--;
-    }
 }
 
 void boss_update(void) BANKED {
@@ -236,14 +231,25 @@ void boss_update(void) BANKED {
         }
         return;
     }
-    if (boss_kind == BOSS_WARDEN && !boss_phase && boss_hp <= boss_hp_max / 2) {
-        boss_phase = 1;
-        warden_burst_left = warden_burst_timer = 0;
-        boss_state = BOSS_REINFORCE;
-        boss_timer = 60;
-        clear_bullets();
-        guard(1);
-        return;
+    if (boss_kind == BOSS_WARDEN) {
+        if (boss_state == BOSS_RETREAT) {
+            if (warden_chase()) recover(100);
+            return;
+        }
+        if ((warden_floor==0 && boss_hp<=32) || (warden_floor==1 && boss_hp<=16)) {
+            warden_floor++;
+            if (boss_hp<=24) boss_phase=1;
+            warden_burst_left=warden_burst_timer=0;
+            clear_bullets(); guard(1); boss_state=BOSS_RETREAT;
+            return;
+        }
+        if (boss_hp<=24) boss_phase=1;
+        if (!warden_near()) {
+            warden_burst_left=warden_burst_timer=0;
+            clear_bullets(); guard(1); boss_state=BOSS_RECOVER; boss_timer=72;
+            return;
+        }
+        if (actor_guard[boss_slot] && boss_state==BOSS_RECOVER) guard(0);
     }
     if (boss_timer) boss_timer--;
     switch (boss_state) {
@@ -291,15 +297,13 @@ void boss_update(void) BANKED {
         }
         break;
     }
-    case BOSS_REINFORCE:
-        if (!boss_timer) { reinforcements(); recover(100); }
-        break;
     }
 }
 
 // Two text rows occupy the arena's top wall, not the combat area. HP + mechanic
 // stay visible throughout the fight; only changed values are queued to VRAM.
 void boss_status(void) BANKED {
+    if (boss_kind == BOSS_WARDEN) { warden_status(); return; }
     if (boss_hp != shown_hp) {
         uint8_t *row = gfx_strip(12, 0, 0, 5);
         row[0] = FONT_TILES + ('H' - ' ');

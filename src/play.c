@@ -196,8 +196,8 @@ void play_enter(void) BANKED {
         player_init(0, 0);
         descent_start(run_seed);  // builds the start room and places the player
     } else if (play_mode >= MODE_MINIBOSS) {
-        boss_room();
-        player_init(72, 96);
+        if (play_mode == MODE_BOSS) { warden_room(); player_init(72,184); }
+        else { boss_room(); player_init(72,96); }
     } else {
         room_load_lab();
         player_init(START_X, START_Y);
@@ -220,10 +220,10 @@ void play_enter(void) BANKED {
     chord_throws = 0;
     tune_sel = tune_top = 0;
     hud_draw();
-    move_win(7, HUD_WY);
+    move_win(7, play_mode == MODE_BOSS ? 120 : HUD_WY);
     SHOW_WIN;
     gfx_sprites(1);
-    gfx_sprite_split(HUD_WY);  // no sprites over the HUD
+    gfx_sprite_split(play_mode == MODE_BOSS ? 120 : HUD_WY);  // no sprites over the HUD
     player_draw();
 }
 
@@ -237,7 +237,7 @@ static void set_paused(uint8_t p) {
         gfx_sprites(0);
     } else {
         hud_draw();
-        move_win(7, HUD_WY);
+        move_win(7, play_mode == MODE_BOSS ? 120 : HUD_WY);
         gfx_sprites(1);
     }
 }
