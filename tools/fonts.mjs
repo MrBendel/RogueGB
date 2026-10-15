@@ -41,6 +41,19 @@ export const FONTS = [
     ],
     colors: { '181425': 3, '5a6988': 2, '8b9bb4': 1 },
   },
+  {
+    // Italic 8x8 letters with a soft shadow (the sheet's shaded copy): dialogue.
+    name: 'italic',
+    x: 96, y: 72, cellW: 8, cellH: 8, gap: 0, space: 4,
+    rows: [
+      'ABCDEFGHIJKL', 'MNOPQRSTUVWX', 'YZ', 'abcdefghijkl', 'mnopqrstuvw', 'xyz', '0123456789',
+      // ¢ and ÷ have no ASCII spot: their cells are skipped (spaces here)
+      "$ %\":'?!\\|#", '+-*/ =,.;', '@&_(){}<>[]',
+    ],
+    colors: { '181425': 3 },
+    // The shadow: ink at low opacity on the sheet, a color of its own here.
+    faint: 2,
+  },
 ];
 
 const hex = (r, g, b) => [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -62,7 +75,8 @@ export function sliceFont(img, f) {
         for (let x = 0; x < f.cellW; x++) {
           const o = ((y0 + y) * width + x0 + x) * 4;
           let v = 0;
-          if (rgba[o + 3] >= 128) {
+          if (f.faint && rgba[o + 3] > 0 && rgba[o + 3] < 128) v = f.faint;
+          else if (rgba[o + 3] >= 128) {
             const k = hex(rgba[o], rgba[o + 1], rgba[o + 2]);
             v = f.colors[k];
             if (v == null) throw new Error(`fonts: ${f.name} '${ch}' has a color #${k} not in its colors (${Object.keys(f.colors).join(', ')})`);

@@ -12,6 +12,8 @@
 #define BLINK_MASK 0x20  // "PRESS START" blinks every 32 frames (its palette's ink)
 
 uint8_t title_timer;
+// Tests set this (a memory write on the title) to start runs on a known seed.
+uint16_t test_seed;
 
 // Text from this bank's constants (text.h: copied to RAM for text.c).
 static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t tile, uint8_t pal) {
@@ -54,7 +56,7 @@ void title_update(void) BANKED {
         uint16_t seed = ((uint16_t)DIV_REG << 8) ^ frame_count, tool;
         // The chunk editor can patch a seed into the ROM instead ("play this seed").
         banked_memcpy(&tool, &tool_seed, 2, BANK(chunks));
-        run_start(tool ? tool : seed);
+        run_start(tool ? tool : test_seed ? test_seed : seed);
         state_change(STATE_PLAY);
     }
 }

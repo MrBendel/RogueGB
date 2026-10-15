@@ -36,7 +36,10 @@
 #define SFX_DEATH 19
 #define SFX_START 20       // a run starts (title)
 #define SFX_DEFLECT 21     // the sword turns a bullet
-#define SFX_COUNT 22
+#define SFX_TEXT 22      // a letter typed in the dialogue box
+#define SFX_RELAY 23     // Echo's channel opens: a crackle
+#define SFX_CHIME 24     // the company's three-note chime (its messages)
+#define SFX_COUNT 25
 
 // --- watchable state ---
 extern uint8_t sfx_last;      // the last sound started (0xFF: none yet)

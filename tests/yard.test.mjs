@@ -4,7 +4,13 @@ import { test } from 'node:test';
 import { assert, matchGolden, bootToTitle, settle, PLAY } from './helpers.mjs';
 
 const MODE_YARD = 5;
-const yard = () => settle(bootToTitle().tap('B'), PLAY, 'the ice yard');
+// The yard opens with a conversation (the dialogue box's showcase): skip it.
+const yard = () => {
+  const emu = settle(bootToTitle().tap('B'), PLAY, 'the ice yard');
+  for (let i = 0; i < 40 && emu.v('dlg_active'); i++) emu.tap('A');
+  assert.equal(emu.v('dlg_active'), 0, 'the conversation closed');
+  return emu;
+};
 const w16 = (emu, n, v) => emu.writeBytes(emu.symbols.addr(n), [v & 255, v >> 8]);
 
 /** Red pixels (the player's outfit) inside the player's on-screen box. */

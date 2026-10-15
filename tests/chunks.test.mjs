@@ -83,7 +83,7 @@ test('a seed patched into the ROM starts runs on it', () => {
   fs.writeFileSync(tmp, patch(base, loadChunks().chunks, 4242));
   const e = boot({ rom: tmp });
   e.symbols = base.symbols;
-  startDescent(settle(e, TITLE));
+  startDescent(settle(e, TITLE), 777);  // the ROM's seed wins over the test's
   assert.equal(e.v('run_seed', 'u16'), 4242);
 });
 

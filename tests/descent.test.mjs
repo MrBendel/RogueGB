@@ -219,7 +219,9 @@ test('after a map change no sprite is left where it was on the old screen (the g
     // Player on screen (OAM 3) vs the gun's sprites (1-2 in front, 5-6 behind).
     const oam = emu.readBytes(0xfe00, 40 * 4);
     const py = oam[3 * 4], px = oam[3 * 4 + 1];
-    for (const i of [0, 1, 2, 5, 6, 9, 10]) {
+    // The reticle (9-10) belongs on a target when there is one; else it's the reload bar, over the player.
+    const sprites = emu.v('aim_target') === 0xff ? [0, 1, 2, 5, 6, 9, 10] : [0, 1, 2, 5, 6];
+    for (const i of sprites) {
       const y = oam[i * 4], x = oam[i * 4 + 1];
       if (y === 0 || y >= 160) continue;  // hidden
       assert.ok(Math.abs(x - px) < 40 && Math.abs(y - py) < 40, `frame ${f}: sprite ${i} at ${x},${y} far from the player at ${px},${py}`);
@@ -230,7 +232,7 @@ test('after a map change no sprite is left where it was on the old screen (the g
 
 test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   for (let wait = 0; wait < 60; wait += 7) {
-    const emu = startDescent(bootToTitle().idle(wait));
+    const emu = startDescent(bootToTitle(), 4242 + wait);  // seeds until the first map links to one with a camp
     const start = emu.v('level_map');
     const links = emu.read8(addr(emu, 'area_links') + start);
     const e = [1, 2, 4, 8].find((x) => links & x);

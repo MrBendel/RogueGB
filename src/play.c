@@ -30,6 +30,8 @@
 #include "health.h"
 #include "hud.h"
 #include "chest.h"
+#include "dialog.h"
+#include "dialogue.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -121,7 +123,8 @@ uint8_t tune_top;  // the first tunable shown (the list scrolls)
 // of debug_type at (debug_x, debug_y), its slot in debug_slot; 3 = equip the
 // first shield (what the chest will hold); 4 = hurt the player for debug_type
 // damage from (debug_x, debug_y); 5 = generate an area from seed debug_x and
-// build its map debug_type into the room map (tests check the generator).
+// build its map debug_type into the room map (tests check the generator); 6 =
+// open dialogue script debug_type (dialogue.h's DLG_ ids).
 uint8_t debug_cmd;
 uint8_t debug_type;
 uint16_t debug_x, debug_y;
@@ -213,6 +216,8 @@ void play_enter(void) BANKED {
     gfx_sprites(1);
     gfx_sprite_split(HUD_WY);  // no sprites over the HUD
     player_draw();
+    // The yard has a relay: a sample conversation (the dialogue box's showcase).
+    if (play_mode == MODE_YARD) dlg_start(DLG_RELAY_FIRST_CONTACT);
 }
 
 static void set_paused(uint8_t p) {
@@ -282,6 +287,10 @@ static void tune_update(void) {
 }
 
 void play_update(void) BANKED {
+    if (dlg_active) {  // the world waits while someone talks
+        dlg_update();
+        return;
+    }
     if (paused) {
         if (joy_pressed & J_START) set_paused(0);
         else if (joy_pressed & J_SELECT) state_change(STATE_RUN_OVER);
@@ -336,6 +345,8 @@ void play_update(void) BANKED {
         else if (debug_cmd == 5) {
             level_generate(debug_x);
             level_build_map(debug_type);
+        } else if (debug_cmd == 6) {
+            dlg_start(debug_type);
         } else if (debug_cmd == 4) {
             hurt_cause = CAUSE_NONE;
             player_hurt(debug_type, debug_x, debug_y);
