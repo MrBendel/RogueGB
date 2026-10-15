@@ -29,6 +29,14 @@
 #define ATTR_TEXT (BG_PAL_UI | TEXT_BANK1)
 #define ATTR_NAME (BG_PAL_HEALTH | TEXT_BANK1)  // palette 7 (the HUD's, hidden now): the speaker's color
 #define NAME_PAL (BG_PAL_HEALTH << 2)
+// The speaker's portrait: 32x32 above the box's left end, 8 sprites (4 columns of
+// 8x16, 2 rows) from OAM_PORTRAIT, tiles in the second VRAM bank after the text's,
+// colored by the flash palette (nothing flashes while the world waits).
+#define T_PORTRAIT (DLG_TILES + 46)  // 16 tiles (even: 8x16 sprites take pairs)
+#define OAM_PORTRAIT 32
+#define PORTRAIT_X 8
+#define PORTRAIT_Y (DLG_WY - 32 - 2)
+#define PORTRAIT_PAL (SPR_PAL_FLASH << 2)
 
 uint8_t dlg_active;
 uint8_t dlg_page_i, dlg_page_end;
@@ -40,6 +48,8 @@ uint8_t dlg_timer;
 uint16_t dlg_pages_shown;
 char dlg_buf[DLG_PAGE_MAX];
 uint16_t dlg_saved_pal[4];  // palette 7 as it was (the HUD's red)
+uint16_t dlg_saved_obj_pal[4];  // the flash palette as it was
+uint8_t dlg_portrait = 0xFF;   // the one showing
 
 // The arrow that waits for a button: an ink triangle pointing down (rows 0-3).
 static const uint8_t arrow_rows[4] = {0x7E, 0x3C, 0x18, 0x00};
@@ -61,6 +71,29 @@ static void read_page(void) {
     banked_memcpy(dlg_buf, &dlg_text[at], dlg_len, BANK(dialogue));
 }
 
+static void hide_portrait(void) {
+    for (uint8_t i = 0; i < 8; i++) shadow_OAM[OAM_PORTRAIT + i].y = 0;
+    dlg_portrait = 0xFF;
+}
+
+static void show_portrait(uint8_t p) {
+    if (p == 0xFF) {
+        hide_portrait();
+        return;
+    }
+    if (p != dlg_portrait) {
+        banked_sprite_data_vbk1(T_PORTRAIT, 16, dlg_portrait_tiles + ((uint16_t)p << 8), BANK(dialogue));
+        banked_memcpy(&pal_base_obj[PORTRAIT_PAL], &dlg_portrait_pal[p << 2], 8, BANK(dialogue));
+    }
+    for (uint8_t i = 0; i < 8; i++) {
+        uint8_t c = i & 3, r = i >> 2;
+        set_sprite_tile(OAM_PORTRAIT + i, T_PORTRAIT + (i << 1));
+        set_sprite_prop(OAM_PORTRAIT + i, SPR_PAL_FLASH | S_BANK);
+        move_sprite(OAM_PORTRAIT + i, PORTRAIT_X + 8 + (c << 3), PORTRAIT_Y + 16 + (r << 4));
+    }
+    dlg_portrait = p;
+}
+
 static void show_speaker(uint8_t who) {
     char name[DLG_NAME_MAX + 1];
     uint16_t color;
@@ -68,6 +101,9 @@ static void show_speaker(uint8_t who) {
     banked_memcpy(name, dlg_speaker_name[who], DLG_NAME_MAX + 1, BANK(dialogue));
     banked_memcpy(&color, &dlg_speaker_color[who], 2, BANK(dialogue));
     banked_memcpy(&sound, &dlg_speaker_sound[who], 1, BANK(dialogue));
+    uint8_t portrait;
+    banked_memcpy(&portrait, &dlg_speaker_portrait[who], 1, BANK(dialogue));
+    show_portrait(portrait);
     // Clear the last name (frame fill, the UI palette), then draw this one.
     fill_win_rect(1, ROW_NAME, LINE_W, 1, FRAME_TILES + 4);
     VBK_REG = 1;
@@ -121,6 +157,8 @@ void dlg_start(uint8_t script) BANKED {
     dlg_page_i = (uint8_t)first;
     dlg_page_end = (uint8_t)first + pages;
     memcpy(dlg_saved_pal, &pal_base_bg[NAME_PAL], sizeof(dlg_saved_pal));
+    memcpy(dlg_saved_obj_pal, &pal_base_obj[PORTRAIT_PAL], sizeof(dlg_saved_obj_pal));
+    dlg_portrait = 0xFF;
     // The box takes the window: the HUD's rows give way (as for the pause panel).
     hud_hide();
     win_frame(0, 0, SCREEN_TW, 6);
@@ -155,6 +193,8 @@ void dlg_start(uint8_t script) BANKED {
 
 static void close(void) {
     memcpy(&pal_base_bg[NAME_PAL], dlg_saved_pal, sizeof(dlg_saved_pal));
+    memcpy(&pal_base_obj[PORTRAIT_PAL], dlg_saved_obj_pal, sizeof(dlg_saved_obj_pal));
+    hide_portrait();
     gfx_set_fade(0);
     hud_draw();
     move_win(7, VIEW_H);

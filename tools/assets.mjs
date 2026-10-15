@@ -138,6 +138,11 @@ export const ASSETS = [
     dir: 'artwork/ui',
     anims: { item: numbered('shield', 1) },
   },
+  // Things you can talk to (talk.c), placeholders from the art pack: Echo's relay,
+  // a company post, and the scrap broker (docs/design/voices.md).
+  { name: 'spr_talk_relay', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/Blocks', anims: { idle: ['teleporter.png'] } },
+  { name: 'spr_talk_post', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/Blocks', anims: { idle: ['music_stone.png'] } },
+  { name: 'spr_talk_marro', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['warden down (1).png'] } },
   // Held weapons: 16 aiming directions each, drawn by tools/make-weapon-art.mjs
   // (which also writes src/weapon_<name>.h, where each direction is placed).
   {

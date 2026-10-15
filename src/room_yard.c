@@ -11,6 +11,8 @@
 #include <string.h>
 #include "room.h"
 #include "gfx.h"
+#include "talk.h"
+#include "dialogue.h"
 
 // --- Palettes (background 0-5): one per material, sharing one ink. ---
 #define C(r, g, b) RGB8(r, g, b)
@@ -214,4 +216,12 @@ void room_load_yard(void) BANKED {
             room_vis[k] = vis;
         }
     }
+    // Who talks here (docs/design/voices.md): Echo's relay near the start (walking
+    // up to it plays her first contact once), a company post, a Meridian kiosk,
+    // and the scrap broker.
+    talk_add(9, 3, TALK_RELAY, DLG_VOICE_ECHO);
+    talk_zone(8, 2, 11, 5, DLG_RELAY_FIRST_CONTACT);
+    talk_add(20, 4, TALK_POST, DLG_VOICE_CEO);
+    talk_add(20, 13, TALK_POST, DLG_VOICE_MERIDIAN);
+    talk_add(18, 10, TALK_MARRO, DLG_VOICE_MARRO);
 }

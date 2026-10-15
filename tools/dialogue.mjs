@@ -9,6 +9,8 @@
 // pages of DLG_PAGE_LINES lines that fit the box; a long line takes several pages.
 // A "\n" in the text starts a new line, and "\n\n" a new page. Sounds play when a
 // speaker's line opens: "relay" (Echo's channel), "chime" (the company's three notes).
+// "portrait": "echo.png" (artwork/portraits) shows a 32x32 picture above the box:
+// at most 3 colors plus see-through, mapped lightest to darkest onto colors 1-3.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +20,8 @@ import { FONTS, sliceFont } from './fonts.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SRC_DIR = path.join(ROOT, 'content', 'dialogue');
 const SHEET = path.join(ROOT, 'artwork', 'fonts', 'font-sheet.png');
+const PORTRAITS = path.join(ROOT, 'artwork', 'portraits');
+export const PORTRAIT_PX = 32;
 
 export const DLG_WRAP_PX = 140;  // a line's width in the box (dialog.c: 18 tiles, the pen 2 px in)
 export const DLG_PAGE_LINES = 2;
@@ -41,29 +45,93 @@ function italic() {
   return metrics;
 }
 
-/** Wrap one speech into pages (arrays of lines). Throws on letters the font lacks. */
+/** Lines of one paragraph, wrapped to DLG_WRAP_PX. */
+function wrapLines(para, where) {
+  const m = italic();
+  const lines = [];
+  for (const hard of para.split('\n')) {
+    let line = '';
+    for (const word of hard.split(/ +/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (m.width(next) <= DLG_WRAP_PX) line = next;
+      else {
+        if (!line) throw new Error(`${where}: "${word}" is too wide for a line`);
+        lines.push(line);
+        line = word;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+/**
+ * Wrap one speech into pages (arrays of lines). A speech longer than a page
+ * breaks between sentences where it can, so no page starts or ends mid-thought
+ * (a sentence longer than a page still splits). Throws on letters the font lacks.
+ */
 export function wrap(text, where = 'dialogue') {
   const m = italic();
   for (const ch of text.replace(/\n/g, '')) if (!m.has(ch)) throw new Error(`${where}: the italic font has no '${ch}'`);
   const pages = [];
   for (const para of text.split(/\n\n/)) {
-    const lines = [];
-    for (const hard of para.split('\n')) {
-      let line = '';
-      for (const word of hard.split(/ +/).filter(Boolean)) {
-        const next = line ? `${line} ${word}` : word;
-        if (m.width(next) <= DLG_WRAP_PX) line = next;
-        else {
-          if (!line) throw new Error(`${where}: "${word}" is too wide for a line`);
-          lines.push(line);
-          line = word;
-        }
-      }
-      lines.push(line);
+    const whole = wrapLines(para, where);
+    if (whole.length <= DLG_PAGE_LINES || para.includes('\n')) {
+      for (let i = 0; i < whole.length; i += DLG_PAGE_LINES) pages.push(whole.slice(i, i + DLG_PAGE_LINES));
+      continue;
     }
-    for (let i = 0; i < lines.length; i += DLG_PAGE_LINES) pages.push(lines.slice(i, i + DLG_PAGE_LINES));
+    let page = '';
+    for (const sentence of para.split(/(?<=[.?!])\s+/)) {
+      const next = page ? `${page} ${sentence}` : sentence;
+      if (wrapLines(next, where).length <= DLG_PAGE_LINES) { page = next; continue; }
+      if (page) pages.push(wrapLines(page, where));
+      const lines = wrapLines(sentence, where);
+      // A sentence too long for a page on its own: whole pages of it, the rest carries on.
+      while (lines.length > DLG_PAGE_LINES) pages.push(lines.splice(0, DLG_PAGE_LINES));
+      page = lines.join(' ');
+    }
+    if (page) pages.push(wrapLines(page, where));
   }
   return pages;
+}
+
+/**
+ * A portrait as 8x16 sprite tiles: 4 columns x 2 rows, each a top and a bottom
+ * tile (16 tiles, 256 bytes), and its palette (4 RGB555 colors, 0 unused).
+ */
+export function portraitTiles(file) {
+  const { width, height, rgba } = decodePng(fs.readFileSync(path.join(PORTRAITS, file)));
+  if (width !== PORTRAIT_PX || height !== PORTRAIT_PX) throw new Error(`artwork/portraits/${file}: must be ${PORTRAIT_PX}x${PORTRAIT_PX}`);
+  const colors = new Map();
+  for (let i = 0; i < width * height; i++) {
+    if (rgba[i * 4 + 3] < 128) continue;
+    const k = (rgba[i * 4] << 16) | (rgba[i * 4 + 1] << 8) | rgba[i * 4 + 2];
+    colors.set(k, (rgba[i * 4] * 3 + rgba[i * 4 + 1] * 6 + rgba[i * 4 + 2]));
+  }
+  if (colors.size > 3) throw new Error(`artwork/portraits/${file}: ${colors.size} colors (at most 3, plus see-through)`);
+  const order = [...colors.keys()].sort((a, b) => colors.get(b) - colors.get(a));  // light first
+  const index = new Map(order.map((k, i) => [k, i + 1]));
+  const px = (x, y) => {
+    const o = (y * width + x) * 4;
+    return rgba[o + 3] < 128 ? 0 : index.get((rgba[o] << 16) | (rgba[o + 1] << 8) | rgba[o + 2]);
+  };
+  const tiles = [];
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 4; c++) {
+      for (let y = r * 16; y < r * 16 + 16; y++) {
+        let lo = 0, hi = 0;
+        for (let x = 0; x < 8; x++) {
+          const v = px(c * 8 + x, y);
+          lo |= (v & 1) << (7 - x);
+          hi |= (v >> 1) << (7 - x);
+        }
+        tiles.push(lo, hi);
+      }
+    }
+  }
+  const pal = [0, ...order.map((k) => rgb555('#' + k.toString(16).padStart(6, '0')))];
+  while (pal.length < 4) pal.push(0);
+  return { tiles, pal };
 }
 
 const rgb555 = (hex) => {
@@ -84,7 +152,7 @@ export function loadDialogue() {
       if (!s.name || s.name.length > NAME_MAX) throw new Error(`content/dialogue/${f}: speaker '${key}' needs a name of 1-${NAME_MAX} letters`);
       if (s.sound && !SOUNDS[s.sound]) throw new Error(`content/dialogue/${f}: speaker '${key}': sound is one of ${Object.keys(SOUNDS).join(', ')}`);
       who.set(key, speakers.length);
-      speakers.push({ key, name: s.name, color: s.color || '#181425', sound: s.sound });
+      speakers.push({ key, name: s.name, color: s.color || '#181425', sound: s.sound, portrait: s.portrait });
     }
   }
   for (const f of files) {
@@ -110,6 +178,7 @@ export function buildDialogue({ quiet = false } = {}) {
   fs.mkdirSync(GEN_DIR, { recursive: true });
   const c = path.join(GEN_DIR, 'dialogue.c'), h = path.join(GEN_DIR, 'dialogue.h');
   const inputs = [fileURLToPath(import.meta.url), SHEET, path.join(ROOT, 'tools', 'fonts.mjs')];
+  if (fs.existsSync(PORTRAITS)) for (const f of fs.readdirSync(PORTRAITS)) inputs.push(path.join(PORTRAITS, f));
   if (fs.existsSync(SRC_DIR)) for (const f of fs.readdirSync(SRC_DIR)) inputs.push(path.join(SRC_DIR, f));
   const newest = Math.max(...inputs.map((f) => fs.statSync(f).mtimeMs));
   if (fs.existsSync(c) && fs.existsSync(h) && fs.statSync(c).mtimeMs > newest) return c;
@@ -123,6 +192,13 @@ export function buildDialogue({ quiet = false } = {}) {
     len.push(bytes.length);
     text.push(...bytes);
   }
+  const portraits = [];
+  const portraitOf = speakers.map((s) => {
+    if (!s.portrait) return 255;
+    let i = portraits.findIndex((p) => p.file === s.portrait);
+    if (i < 0) { i = portraits.length; portraits.push({ file: s.portrait, ...portraitTiles(s.portrait) }); }
+    return i;
+  });
   const first = [];
   let k = 0;
   for (const s of scripts) { first.push(k); k += s.pages.length; }
@@ -145,6 +221,10 @@ export function buildDialogue({ quiet = false } = {}) {
     'extern const char dlg_speaker_name[DLG_SPEAKERS][DLG_NAME_MAX + 1];',
     'extern const uint16_t dlg_speaker_color[DLG_SPEAKERS];  // the name\'s color (RGB555)',
     'extern const uint8_t dlg_speaker_sound[DLG_SPEAKERS];   // an SFX_ id, or 0xFF',
+    'extern const uint8_t dlg_speaker_portrait[DLG_SPEAKERS]; // a portrait, or 0xFF',
+    `#define DLG_PORTRAITS ${portraits.length}`,
+    'extern const uint8_t dlg_portrait_tiles[];  // 256 bytes each: 8x16 sprite tiles, 4 columns x 2 rows',
+    'extern const uint16_t dlg_portrait_pal[];   // 4 colors each',
     '#endif', '',
   ].join('\n'));
   fs.writeFileSync(c, [
@@ -160,6 +240,9 @@ export function buildDialogue({ quiet = false } = {}) {
     `const char dlg_speaker_name[DLG_SPEAKERS][DLG_NAME_MAX + 1] = {${strs(speakers.map((s) => s.name))}};`,
     `const uint16_t dlg_speaker_color[DLG_SPEAKERS] = {${list(speakers.map((s) => rgb555(s.color)))}};`,
     `const uint8_t dlg_speaker_sound[DLG_SPEAKERS] = {${list(speakers.map((s) => (s.sound ? SOUNDS[s.sound] : '0xFF')))}};`,
+    `const uint8_t dlg_speaker_portrait[DLG_SPEAKERS] = {${list(portraitOf)}};`,
+    `const uint8_t dlg_portrait_tiles[] = {${list(portraits.flatMap((p) => p.tiles)) || 0}};`,
+    `const uint16_t dlg_portrait_pal[] = {${list(portraits.flatMap((p) => p.pal)) || 0}};`,
     '',
   ].join('\n'));
   if (!quiet) console.log(`[dialogue] content/dialogue -> build/gen/dialogue.c (${scripts.length} scripts, ${pages.length} pages)`);

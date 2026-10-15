@@ -1,0 +1,61 @@
+{
+  "about": "Voice samples (docs/design/voices.md): each character's sample lines, to read at real size in the box. Placeholders, not the final script.",
+  "speakers": {
+    "marro": { "name": "MARRO", "color": "#8a5a2c" }
+  },
+  "scripts": [
+    {
+      "id": "voice_echo",
+      "lines": [
+        { "who": "echo", "text": "Left corridor. The right one only looks shorter." },
+        { "who": "echo", "text": "Wait. Count to three. Now go." },
+        { "who": "echo", "text": "That isn't a wall. It's a door that forgot." },
+        { "who": "echo", "text": "There's a cache under the third girder. Old, but sealed." },
+        { "who": "echo", "text": "Something heard that. Move." },
+        { "who": "echo", "text": "Leave that one. Please. I'll explain when I can." },
+        { "who": "echo", "text": "What does wind sound like, from outside?" },
+        { "who": "echo", "text": "You came back. I didn't know if you would." }
+      ]
+    },
+    {
+      "id": "voice_ceo",
+      "lines": [
+        { "who": "ceo", "text": "You're a Skavengar. You find things. We own things." },
+        { "who": "ceo", "text": "Contractor 7-4417. Your recent activity has been noted with interest." },
+        { "who": "ceo", "text": "Please don't mistake our patience for a discount." },
+        { "who": "ceo", "text": "Every relic you recover improves our quarterly outlook." },
+        { "who": "ceo", "text": "We've reserved that planet for you. By \"for you,\" I mean from you." },
+        { "who": "ceo", "text": "Interesting. ... Interesting." }
+      ]
+    },
+    {
+      "id": "voice_meridian",
+      "lines": [
+        { "who": "meridian", "text": "Body restored. Personal effects retained. Thank you for your continued business." },
+        { "who": "meridian", "text": "Reconstruction fee: 18%. Remaining balance: 312 credits. Have a productive day." },
+        { "who": "meridian", "text": "Your landing permit has been revoked. Please remain on the planet." },
+        { "who": "meridian", "text": "This site is a Meridian asset. Trespass charges are accruing." }
+      ]
+    },
+    {
+      "id": "voice_you",
+      "lines": [
+        { "who": "you", "text": "How are you reaching this channel?" },
+        { "who": "you", "text": "Who are you?" },
+        { "who": "you", "text": "Noted." },
+        { "who": "you", "text": "Then tell me what's down there." },
+        { "who": "you", "text": "I'll take it. You can explain later." }
+      ]
+    },
+    {
+      "id": "voice_marro",
+      "lines": [
+        { "who": "marro", "text": "Everything's worth something. Most things are worth less than you think." },
+        { "who": "marro", "text": "Bring me a working coil and I'll forget what you owe. Mostly." },
+        { "who": "marro", "text": "Meridian came through last week. Took the good pumps. Left a receipt." },
+        { "who": "marro", "text": "Heard a Skavengar went down the east shaft. Didn't hear them come up." },
+        { "who": "marro", "text": "You smell like ozone. Find something old?" }
+      ]
+    }
+  ]
+}

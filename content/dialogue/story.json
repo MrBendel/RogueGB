@@ -1,10 +1,10 @@
 {
   "about": "Speakers and scripts for the dialogue box (tools/dialogue.mjs). Lines here are the sample dialogue from docs/design/story.md: placeholders, not the final script.",
   "speakers": {
-    "echo": { "name": "ECHO", "color": "#1c7a84", "sound": "relay" },
-    "ceo": { "name": "THE CEO", "color": "#a8401c", "sound": "chime" },
+    "echo": { "name": "ECHO", "color": "#1c7a84", "sound": "relay", "portrait": "echo.png" },
+    "ceo": { "name": "THE CEO", "color": "#a8401c", "sound": "chime", "portrait": "meridian.png" },
     "you": { "name": "YOU", "color": "#181425" },
-    "meridian": { "name": "MERIDIAN", "color": "#a8401c", "sound": "chime" }
+    "meridian": { "name": "MERIDIAN", "color": "#a8401c", "sound": "chime", "portrait": "meridian.png" }
   },
   "scripts": [
     {

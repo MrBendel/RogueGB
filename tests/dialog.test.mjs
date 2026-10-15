@@ -3,7 +3,22 @@ import { test } from 'node:test';
 import { assert, matchGolden, bootToTitle, startRun, settle, PLAY } from './helpers.mjs';
 import { loadDialogue, wrap, DLG_WRAP_PX } from '../tools/dialogue.mjs';
 
-const yardTalk = () => settle(bootToTitle().tap('B'), PLAY, 'the ice yard');
+const w16 = (emu, n, v) => emu.writeBytes(emu.symbols.addr(n), [v & 255, v >> 8]);
+const yard = () => settle(bootToTitle().tap('B'), PLAY, 'the ice yard');
+/** Into the yard, then up to Echo's relay: its zone plays her first contact. */
+const yardTalk = () => {
+  const emu = yard();
+  assert.equal(emu.v('dlg_active'), 0, 'nobody talks at the start');
+  w16(emu, 'player_x', 8 * 16);
+  w16(emu, 'player_y', 4 * 16);
+  emu.idle(2);
+  return emu;
+};
+const closeAll = (emu) => {
+  for (let i = 0; i < 60 && emu.v('dlg_active'); i++) emu.tap('A');
+  assert.equal(emu.v('dlg_active'), 0);
+  return emu;
+};
 const ids = () => loadDialogue().scripts.map((s) => s.id);
 
 test('every page fits the box: lines within the width, at most 2 a page', () => {
@@ -16,7 +31,7 @@ test('every page fits the box: lines within the width, at most 2 a page', () => 
   assert.ok(DLG_WRAP_PX <= 144);
 });
 
-test('the yard opens with a conversation: typed out a letter every 2 frames, the world waiting', () => {
+test("walking up to the relay starts Echo's first contact: typed out a letter every 2 frames, the world waiting", () => {
   const emu = yardTalk();
   assert.equal(emu.v('dlg_active'), 1);
   const x = emu.v('player_x', 'u16');
@@ -53,4 +68,24 @@ test('a script opened from play (debug command 6), its speaker named', () => {
   assert.equal(emu.v('dlg_active'), 1);
   emu.tap('A');
   matchGolden(emu.idle(20), 'dialog-receipt');
+});
+
+test('beside a talker an A bubble shows; A talks instead of firing, and each talker has its script', () => {
+  const emu = closeAll(yardTalk());
+  assert.equal(emu.v('talk_near'), 0, 'the relay is in reach');
+  const fired = emu.v('shots_fired', 'u16');
+  emu.tap('A');
+  assert.equal(emu.v('dlg_active'), 1, 'A opened its script');
+  assert.equal(emu.v('dlg_page_i'), loadDialogue().scripts.slice(0, ids().indexOf('voice_echo')).reduce((n, s) => n + s.pages.length, 0));
+  closeAll(emu).idle(4);
+  assert.equal(emu.v('shots_fired', 'u16'), fired, 'no shot fired');
+  assert.equal(emu.v('dlg_active'), 0, 'the zone plays once: walking around it again starts nothing');
+  // The scrap broker at block (18, 10): stand just left of him.
+  w16(emu, 'player_x', 17 * 16);
+  w16(emu, 'player_y', 10 * 16 - 4);
+  emu.idle(60);
+  assert.equal(emu.v('talk_near'), 3);
+  matchGolden(emu, 'talk-bubble');
+  emu.tap('A');
+  assert.equal(emu.v('dlg_who'), loadDialogue().speakers.findIndex((p) => p.key === 'marro'));
 });

@@ -31,6 +31,7 @@
 #include "hud.h"
 #include "chest.h"
 #include "dialog.h"
+#include "talk.h"
 #include "dialogue.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
@@ -188,6 +189,7 @@ static void draw_pause(void) {
 
 void play_enter(void) BANKED {
     palettes_play();
+    talk_clear();  // a room adds its own
     if (play_mode == MODE_DESCENT) {
         room_load_tiles();
         player_init(0, 0);
@@ -216,8 +218,7 @@ void play_enter(void) BANKED {
     gfx_sprites(1);
     gfx_sprite_split(HUD_WY);  // no sprites over the HUD
     player_draw();
-    // The yard has a relay: a sample conversation (the dialogue box's showcase).
-    if (play_mode == MODE_YARD) dlg_start(DLG_RELAY_FIRST_CONTACT);
+    talk_init();  // after the room: it added its talkers
 }
 
 static void set_paused(uint8_t p) {
@@ -323,6 +324,12 @@ void play_update(void) BANKED {
         }
         chord_mask &= joy;
     }
+    // A beside someone who talks: talk, don't fire (A stays out until let go).
+    if ((joy_pressed & J_A) && !(chord_mask & J_A) && talk_near != TALK_NONE) {
+        chord_mask |= J_A;
+        talk_start();
+        return;
+    }
     joy &= ~chord_mask;
     joy_pressed &= ~chord_mask;
 
@@ -354,6 +361,7 @@ void play_update(void) BANKED {
         debug_cmd = 0;
     }
     player_update();
+    if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
     if (play_mode == MODE_DESCENT) {
         uint8_t door = descent_door();
         if (door) descent_change_room(door);
@@ -364,7 +372,7 @@ void play_update(void) BANKED {
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
-    actors_update(FIRST_ACTOR_OAM);
+    actors_update(talk_count ? talk_draw(FIRST_ACTOR_OAM) : FIRST_ACTOR_OAM);  // talkers first: few, standing still
     if (play_mode == MODE_LAB) chest_update();
     aim_update();
     player_draw();
