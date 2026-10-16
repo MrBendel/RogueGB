@@ -7,7 +7,8 @@
 #include "camera.h"
 #include "room.h"
 #include "actor_internal.h"
-#include "enemy_family.h"
+// Scripted Husk reinforcements belong to this boss, independently of enemy trials.
+#define FAMILY_HUSK 2
 #include "state.h"
 
 // A locked floor claim: outline -> electrical stripes -> clear floor.

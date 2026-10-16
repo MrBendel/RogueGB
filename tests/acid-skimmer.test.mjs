@@ -5,13 +5,13 @@ const put=(e,n,v,i=0)=>e.write8(at(e,n)+i,v);
 const put16=(e,n,v)=>e.writeBytes(at(e,n),[v&255,v>>8]);
 function trial(){
  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
- assert.equal(e.v('title_choice'),9);e.shot('acid-skimmer-menu');
+ assert.equal(e.v('title_choice'),0);e.shot('acid-skimmer-menu');
  return settle(e.tap('A'),PLAY).idle(3);
 }
 function alive(e){put(e,'player_hp',60);put(e,'shield_hp',40);}
 
 test('acid skimmer: menu selection, hover animation and a shadow',()=>{
- const e=trial();assert.equal(e.v('enemy_trial_kind'),9);assert.equal(e.v('actor_hp'),8);
+ const e=trial();assert.equal(e.v('enemy_trial_kind'),0);assert.equal(e.v('actor_hp'),8);
  assert.equal(e.v('actor_scripted'),8);assert.equal(e.v('actor_guard'),0);
  const tiles=new Set();for(let f=0;f<20;f++){e.idle();tiles.add(e.v('actor_t0'));}
  assert.deepEqual([...tiles].sort((a,b)=>a-b),[96,100]);

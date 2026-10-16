@@ -314,17 +314,13 @@ Early validation: standalone title-screen trials are built for Claimjaw (locked
 charge/recovery) and Relay Warden (locked floor claims, repositioning, alternating
 shotgun/ring bursts, relays, stair retreats across three scrolling terraces,
 and replenishing Spore Husk waves).
-The title's DOWN playtest submenu groups minibosses, bosses, individual enemy
-trials (Slime/Peashooter), a mixed enemy group, and the movement lab.
-Enemy trials also prototype Spore Husks, Ragebound, Contractors, and Bastion
-Drones, plus a combined encounter; see [enemy families](docs/design/enemies.md).
-Scrap Hounds add a separate pack trial with alternating left/right running bounds,
-tucked-leg hop animation, and warned diagonal pounces.
-Acid Skimmer adds a flying-insect trial with locked spit targets and temporary
-acid pools that reward moving and jumping; see the enemy design notes above.
+The title's DOWN playtest submenu groups minibosses, bosses, the Acid Skimmer
+trial, and the movement lab. Acid Skimmer is now the only enemy trial; the other
+enemy prototypes were removed. Campaign and boss encounters retain their
+existing enemies. See [enemy design](docs/design/enemies.md).
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).
-These families are not yet part of procedural campaign spawn tables.
+Acid Skimmer is not yet part of procedural campaign spawn tables.
 See [boss design notes](docs/design/bosses.md). Campaign integration and rewards
 remain open; these trials do not complete the content milestone.
 

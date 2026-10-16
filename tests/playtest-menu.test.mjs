@@ -32,26 +32,22 @@ test('playtest menu: lab entry and SELECT shortcut stay available', () => {
   assert.equal(shortcut.v('play_mode'), 0);
 });
 
-test('playtest menu: all enemy trials spawn the selected ordinary enemies', () => {
-  for (let kind = 0; kind < 3; kind++) {
-    const e = enemyMenu();
-    for (let n = 0; n < kind; n++) e.tap('DOWN');
-    e.idle(10);
-    if (kind === 2) e.shot('playtest-enemies');
-    settle(e.tap('START'), PLAY).idle(3);
-    assert.equal(e.v('play_mode'), 4);
-    assert.equal(e.v('boss_kind'), 0);
-    assert.equal(e.v('enemy_trial_kind'), kind);
-    assert.equal(e.v('actor_count'), kind === 2 ? 4 : 1);
-    const types = Array.from({length: 8}, (_, i) => e.read8(e.symbols.addr('actor_type') + i));
-    assert.deepEqual(types.filter(Boolean).sort(), kind === 2 ? [1,1,2,2] : [kind + 1]);
-    assert.equal(e.v('shield_hp'), 40);
-    assert.equal(e.v('room_w'), 10);
-    assert.equal(e.v('wave_num'), 0);
-    e.shot(`enemy-trial-${kind}`);
+test('playtest menu: Acid Skimmer is the only enemy choice', () => {
+  const e = enemyMenu();
+  for (let n = 0; n < 12; n++) {
+    e.tap(n & 1 ? 'UP' : 'DOWN');
+    assert.equal(e.v('title_choice'), 0);
   }
+  e.idle(10).shot('playtest-enemies');
+  settle(e.tap('START'), PLAY).idle(3);
+  assert.equal(e.v('play_mode'), 4);
+  assert.equal(e.v('boss_kind'), 0);
+  assert.equal(e.v('actor_count'), 1);
+  assert.equal(e.v('actor_scripted'), 8);
+  assert.equal(e.v('actor_hp'), 8);
+  assert.equal(e.v('shield_hp'), 40);
+  assert.equal(e.v('wave_num'), 0);
 });
-
 test('playtest menu: enemy clear has no waves and returning resets selection and encounter', () => {
   const e = settle(enemyMenu().tap('START'), PLAY);
   for (let f = 0; f < 500 && !e.v('enemy_trial_cleared'); f++) e.hold('A', 1);

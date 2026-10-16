@@ -210,7 +210,7 @@ void play_enter(void) BANKED {
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS) chest_init();
     else if (play_mode == MODE_ENEMY) {
-        if (enemy_trial_kind == 9) play_actor_oam=FIRST_ACTOR_OAM+8;
+        play_actor_oam=FIRST_ACTOR_OAM+8;
         enemy_trial_start();
     }
     else {
@@ -377,7 +377,7 @@ void play_update(void) BANKED {
     // cannot hide damaging beams or floor claims.
     actors_update(play_actor_oam);
     if (play_mode != MODE_LAB) {
-        if (play_mode == MODE_ENEMY && enemy_trial_kind == 9) acid_skimmer_draw();
+        if (play_mode == MODE_ENEMY) acid_skimmer_draw();
     } else chest_update();
     aim_update();
     player_draw();
