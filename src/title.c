@@ -11,6 +11,7 @@
 #include "chunks.h"
 #include "text.h"
 #include "save.h"
+#include "settings.h"
 #include "skilldata.h"
 
 #define BLINK_MASK 0x20  // "PRESS START" blinks every 32 frames (its palette's ink)
@@ -36,6 +37,7 @@ static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t 
 }
 
 void title_enter(void) BANKED {
+    if (!settings_loaded) settings_load();  // the options, once (the title is the first scene)
     title_timer = 0;
     title_files = 0;
     palettes_title();

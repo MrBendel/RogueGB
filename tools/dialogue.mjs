@@ -35,13 +35,13 @@ let metrics = null;
 function italic() {
   if (metrics) return metrics;
   const f = FONTS.find((x) => x.name === 'italic');
-  const { chars, glyphs } = sliceFont(decodePng(fs.readFileSync(SHEET)), f);
+  const { chars, glyphs, gap } = sliceFont(decodePng(fs.readFileSync(SHEET)), f);
   metrics = {
     has: (ch) => ch === ' ' || chars.has(ch),
     width: (s) => {
       let w = 0;
-      for (const ch of s) w += ch === ' ' ? f.space : glyphs[chars.get(ch)].w + f.gap;
-      return s.length ? w - (s.at(-1) === ' ' ? 0 : f.gap) : 0;
+      for (const ch of s) w += ch === ' ' ? f.space : glyphs[chars.get(ch)].w + gap;
+      return s.length ? w - (s.at(-1) === ' ' ? 0 : gap) : 0;
     },
   };
   return metrics;

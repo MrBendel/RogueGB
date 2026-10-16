@@ -1,10 +1,10 @@
 {
   "title": "5b7bcea9",
   "start-room": "a33ac8a7",
-  "paused": "995e98f9",
+  "paused": "ae5f30f4",
   "run-over": "85200e05",
   "lab-moved": "f3f2420e",
-  "tuning": "1fe8757c",
+  "tuning": "28e9dd71",
   "player-down": "a33ac8a7",
   "player-up": "2b458d5d",
   "player-right": "8857899e",
@@ -42,7 +42,9 @@
   "files-empty": "94248e3e",
   "files-one": "37a5fa30",
   "class-picker": "8108efae",
-  "skills-page": "5273f4c5",
-  "profile-page": "ffc1b989",
-  "loot-card": "598a0dbb"
+  "skills-page": "303e090e",
+  "profile-page": "757bc5b0",
+  "loot-card": "598a0dbb",
+  "pause-character": "bbf52bd4",
+  "pause-options": "bc494cbd"
 }

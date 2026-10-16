@@ -237,7 +237,7 @@ void play_enter(void) BANKED {
     paused = 0;
     // The pause menu opens on your profile; in the lab and the yard (no file),
     // where tuning is the point, on the tuning page.
-    menu_page = save_slot == SAVE_NONE ? PAGE_TUNE : PAGE_PROFILE;
+    menu_page = save_slot == SAVE_NONE ? PAGE_TUNE : PAGE_CHARACTER;
     select_chord = chord_mask = 0;
     chord_throws = 0;
     tune_sel = tune_top = 0;
@@ -327,9 +327,21 @@ void play_update(void) BANKED {
     }
     if (paused) {
         if (joy_pressed & J_START) set_paused(0);
-        else if (joy_pressed & J_SELECT) state_change(STATE_RUN_OVER);
-        else if (joy_pressed & J_B) {
-            menu_page = menu_page + 1 < PAGES ? menu_page + 1 : 0;
+        else if (joy_pressed & J_SELECT) {
+            // A file: save and quit (the expedition goes on from this map's entrance
+            // next time); the lab and the yard: end the run.
+            if (save_slot != SAVE_NONE) {
+                save_add_time(run_seconds - saved_seconds);
+                saved_seconds = run_seconds;
+                profile.kills += enemies_killed;
+                enemies_killed = 0;  // (counted now: not again when a run ends)
+                save_write();
+                state_change(STATE_TITLE);
+            } else {
+                state_change(STATE_RUN_OVER);
+            }
+        } else if (joy_pressed & J_B) {
+            menu_next_page();
             draw_page();
         } else if (menu_page == PAGE_TUNE) tune_update();
         else menu_update();

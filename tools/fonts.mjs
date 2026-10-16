@@ -58,10 +58,30 @@ export const FONTS = [
 
 const hex = (r, g, b) => [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 
-/** Glyphs of one font from the decoded sheet: { chars: Map(char -> index), glyphs: [{ w, rows }] }. */
+const MAGENTA = 'ff00ff';
+
+/**
+ * Glyphs of one font from the decoded sheet: { chars: Map(char -> index), glyphs:
+ * [{ w, rows }], gap }. Widths, two ways:
+ * - Variable-width sheets (GB Studio's convention): the artist paints the unused
+ *   columns on a letter's right magenta. Its width is the columns before the first
+ *   magenta one (all of them if there's none), blank columns kept, and letters
+ *   follow each other with no gap: the spacing is the artist's. A sheet with any
+ *   magenta in the font's cells is read this way.
+ * - Otherwise each letter is trimmed to its inked columns and the font's gap goes
+ *   between letters.
+ */
 export function sliceFont(img, f) {
   const { width, rgba } = img;
   const step = f.rowStep ?? f.cellH;
+  const isMagenta = (x, y) => {
+    const o = (y * width + x) * 4;
+    return rgba[o + 3] >= 128 && hex(rgba[o], rgba[o + 1], rgba[o + 2]) === MAGENTA;
+  };
+  let variable = false;
+  f.rows.forEach((row, r) => [...row].forEach((ch, i) => {
+    for (let y = 0; y < f.cellH; y++) for (let x = 0; x < f.cellW; x++) if (isMagenta(f.x + i * f.cellW + x, f.y + r * step + y)) variable = true;
+  }));
   const glyphs = [];
   const chars = new Map();
   f.rows.forEach((row, r) => {
@@ -75,7 +95,8 @@ export function sliceFont(img, f) {
         for (let x = 0; x < f.cellW; x++) {
           const o = ((y0 + y) * width + x0 + x) * 4;
           let v = 0;
-          if (f.faint && rgba[o + 3] > 0 && rgba[o + 3] < 128) v = f.faint;
+          if (isMagenta(x0 + x, y0 + y)) v = 0;  // (not the letter: its width, below)
+          else if (f.faint && rgba[o + 3] > 0 && rgba[o + 3] < 128) v = f.faint;
           else if (rgba[o + 3] >= 128) {
             const k = hex(rgba[o], rgba[o + 1], rgba[o + 2]);
             v = f.colors[k];
@@ -85,6 +106,14 @@ export function sliceFont(img, f) {
           line.push(v);
         }
         px.push(line);
+      }
+      if (variable) {
+        // The artist's width: up to the first column with magenta in it.
+        let cols = f.cellW;
+        for (let x = 0; x < f.cellW && cols === f.cellW; x++)
+          for (let y = 0; y < f.cellH; y++) if (isMagenta(x0 + x, y0 + y)) { cols = x; break; }
+        left = 0;
+        right = cols - 1;
       }
       if (right < 0) throw new Error(`fonts: ${f.name} '${ch}' is empty (row ${r}, cell ${i})`);
       const w = right - left + 1;
@@ -104,7 +133,7 @@ export function sliceFont(img, f) {
       if (!chars.has(String.fromCharCode(c)) && chars.has(up)) chars.set(String.fromCharCode(c), chars.get(up));
     }
   }
-  return { chars, glyphs };
+  return { chars, glyphs, gap: variable ? 0 : f.gap, variable };
 }
 
 /** Write build/gen/fonts_data.h when the sheet (or this tool) is newer. */
@@ -126,7 +155,7 @@ export function buildFonts({ quiet = false } = {}) {
     return [`static const uint8_t ${name}[] = {`, ...out, '};'];
   };
   for (const f of FONTS) {
-    const { chars, glyphs } = sliceFont(img, f);
+    const { chars, glyphs, gap } = sliceFont(img, f);
     const map = [];
     for (let c = 32; c < 128; c++) map.push(chars.has(String.fromCharCode(c)) ? chars.get(String.fromCharCode(c)) : 255);
     const data = [];
@@ -134,7 +163,7 @@ export function buildFonts({ quiet = false } = {}) {
     const N = f.name.toUpperCase();
     lines.push(
       `// ${f.name}: ${glyphs.length} glyphs, ${f.cellH} rows each`,
-      `#define FONT_${N}_H ${f.cellH}`, `#define FONT_${N}_GAP ${f.gap}`, `#define FONT_${N}_SPACE ${f.space}`,
+      `#define FONT_${N}_H ${f.cellH}`, `#define FONT_${N}_GAP ${gap}`, `#define FONT_${N}_SPACE ${f.space}`,
       ...table(`font_${f.name}_map`, map), // ASCII 32..127 -> glyph, 255 = none (drawn as a space)
       ...table(`font_${f.name}_w`, glyphs.map((g) => g.w)),
       ...table(`font_${f.name}_rows`, data),

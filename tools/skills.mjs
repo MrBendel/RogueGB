@@ -26,10 +26,10 @@ let compact = null;
 function measure() {
   if (compact) return compact;
   const f = FONTS.find((x) => x.name === 'compact');
-  const { chars, glyphs } = sliceFont(decodePng(fs.readFileSync(SHEET)), f);
+  const { chars, glyphs, gap } = sliceFont(decodePng(fs.readFileSync(SHEET)), f);
   compact = {
     has: (ch) => ch === ' ' || chars.has(ch),
-    width: (s) => [...s].reduce((w, ch) => w + (ch === ' ' ? f.space : glyphs[chars.get(ch)].w + f.gap), 0),
+    width: (s) => [...s].reduce((w, ch) => w + (ch === ' ' ? f.space : glyphs[chars.get(ch)].w + gap), 0),
   };
   return compact;
 }

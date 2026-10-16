@@ -7,6 +7,7 @@
 #include "room.h"
 #include "gfx.h"
 #include "state.h"
+#include "settings.h"
 
 // The camera position that centers t (no lead), clamped to the room.
 static int16_t centered(uint16_t t, uint8_t half, int16_t max) {
@@ -39,6 +40,7 @@ void camera_init(uint16_t tx, uint16_t ty) BANKED {
 extern int8_t shake_dx, shake_dy;
 
 void camera_shake(uint8_t frames) BANKED {
+    if (!settings.shake) return;  // (the options can turn it off)
     if (frames > cam_shake) cam_shake = frames;
 }
 

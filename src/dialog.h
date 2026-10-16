@@ -21,7 +21,7 @@
 
 #define DLG_ROWS 6
 #define DLG_PAGE_MAX 72  // bytes in a page (tools/dialogue.mjs checks)
-#define DLG_FRAMES_PER_LETTER 2
+#define DLG_FRAMES_PER_LETTER 2  // at normal text speed (settings.h: slow 3, fast 1, instant)
 
 // --- watchable state ---
 extern uint8_t dlg_active;    // a conversation is open

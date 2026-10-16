@@ -12,6 +12,7 @@
 #include "room.h"
 #include "sfx.h"
 #include "frame.h"
+#include "settings.h"
 
 // Tiles: the Color's second VRAM bank, background tiles DLG_TILES..
 #define DLG_TILES 192
@@ -216,11 +217,12 @@ void dlg_update(void) BANKED {
         }
         return;
     }
-    if (joy_pressed & (J_A | J_B)) {
+    uint8_t fpl = text_frames_per_letter();  // (the options' text speed; 0: instant)
+    if ((joy_pressed & (J_A | J_B)) || !fpl) {
         // The rest of the page at once.
         while (dlg_pos < dlg_len) put_next();
         upload(line_tile(), text_buf, dlg_line_w);
-    } else if (++dlg_timer >= DLG_FRAMES_PER_LETTER) {
+    } else if (++dlg_timer >= fpl) {
         dlg_timer = 0;
         if (put_next()) {
             upload(line_tile() + text_dirty_first, text_buf + ((uint16_t)text_dirty_first << 4), text_dirty_n);

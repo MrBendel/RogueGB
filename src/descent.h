@@ -16,6 +16,7 @@
 extern uint8_t layer_depth;     // which area of the descent (1: the first)
 extern uint16_t maps_entered;
 extern uint8_t camp_state[];    // per camp of the current map
+extern uint16_t saved_seconds;   // run_seconds at the last save (save and quit adds the rest)
 
 void descent_start(uint16_t seed) BANKED;             // a new descent, in the first area's start map (display off)
 void descent_resume(void) BANKED;                     // the profile's expedition (save.h), at its map

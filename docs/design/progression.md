@@ -38,9 +38,17 @@ Status: decided where marked; the rest is the working plan. Builds on
 - **Classes:** a new file picks one of the four Wayfarer classes (Ironclad,
   Volt-Weaver, Ballistician, Ghost-Stalker; skill-trees.md). They share the
   player's look for now.
-- **The pause menu** has pages, turned with B: **Profile** (class, level and XP
-  bar, credits, time, deepest depth, kills, skill points), **Skills** and **Tune**
-  (the movement and gun tuning panel; the lab and the yard open on it).
+- **The pause menu** has pages, turned with B:
+  - **Character:** class and role, level and XP bar, health and shield, credits,
+    time, deepest depth, kills, skill points, and the loadout (each gun in its
+    rarity's color, the one held marked).
+  - **Skills:** the tree (below).
+  - **Options**, kept on the cartridge for every file: text speed (slow, normal,
+    fast, instant), screen shake (on, off), sound (off, low, full).
+  - **Tune** (the movement and gun tuning panel), only in the lab and the yard,
+    which open on it.
+  - SELECT in a file **saves and quits** to the title (the expedition goes on from
+    that map's entrance); in the lab and the yard it ends the run.
 - **Skill trees** (`content/skills/wayfarer.json`, `src/skills.c`): 3 branches x 3
   tiers per class; a skill costs a point and needs the one above it. Learned
   skills save with the file. Ten have real effects so far:

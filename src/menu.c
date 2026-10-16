@@ -13,19 +13,30 @@
 #include "skills.h"
 #include "skilldata.h"
 #include "sfx.h"
+#include "settings.h"
+#include "health.h"
+#include "loot.h"
 
-// Ink palettes (background palettes 1-3, borrowed; 6 is the panel's own).
+// Ink palettes (background palettes 0-5, borrowed; 6 is the panel's own).
 #define P_INK BG_PAL_UI
-#define P_DIM 1  // locked skills, labels
-#define P_LIT 2  // learned skills, the XP bar
-#define P_SEL 3  // the cursor, the page's tab
+#define P_EPIC 0    // a purple gun
+#define P_DIM 1     // locked skills, labels
+#define P_LIT 2     // learned skills, the XP bar
+#define P_SEL 3     // the cursor, the page's tab; an orange (legendary) gun
+#define P_GREEN 4   // an uncommon gun
+#define P_BLUE 5    // a rare gun
+#define BORROWED 6  // palettes 0-5
 #define C(r, g, b) RGB8(r, g, b)
 #define PAPER C(248, 240, 216)
-static const uint16_t inks[3][4] = {
+static const uint16_t inks[BORROWED][4] = {
+    {PAPER, C(220, 180, 240), C(170, 110, 220), C(130, 50, 180)},
     {PAPER, C(200, 184, 152), C(176, 164, 140), C(150, 136, 116)},
     {PAPER, C(152, 232, 216), C(32, 150, 140), C(16, 96, 92)},
     {PAPER, C(255, 200, 160), C(208, 96, 40), C(184, 64, 24)},
+    {PAPER, C(180, 230, 170), C(70, 160, 70), C(40, 120, 40)},
+    {PAPER, C(170, 200, 250), C(70, 120, 220), C(40, 80, 190)},
 };
+static const uint8_t rarity_pal[RARITIES] = {P_INK, P_GREEN, P_BLUE, P_EPIC, P_SEL};
 // HUD bar tiles in the second VRAM bank (hud.c): T_FILL + n = a cell n px full.
 #define T_FILL 1
 extern uint16_t enemies_killed;  // aim.c: this run's
@@ -33,7 +44,8 @@ extern uint16_t enemies_killed;  // aim.c: this run's
 
 uint8_t menu_page;
 uint8_t menu_skill;
-uint16_t menu_saved_pal[12];  // background palettes 1-3 as they were
+uint8_t menu_option;
+uint16_t menu_saved_pal[BORROWED * 4];  // background palettes 0-5 as they were
 // Text tiles (second VRAM bank): the HUD's 12-127, then 192-253.
 uint8_t tiles_a, tiles_b;
 uint8_t detail_tiles;  // the skill detail's 4 lines, 19 tiles each (redrawn in place)
@@ -115,14 +127,16 @@ void menu_tabs(void) BANKED {
     VBK_REG = 1;
     fill_win_rect(1, 1, SCREEN_TW - 2, 1, P_INK);
     VBK_REG = 0;
-    say_c(12, 1, "PROFILE", menu_page == PAGE_PROFILE ? P_SEL : P_DIM);
-    say_c(64, 1, "SKILLS", menu_page == PAGE_SKILLS ? P_SEL : P_DIM);
-    say_c(116, 1, "TUNE", menu_page == PAGE_TUNE ? P_SEL : P_DIM);
+    // (Each tab starts in its own tile: a tile is one palette.)
+    say_c(8, 1, "CHARACTER", menu_page == PAGE_CHARACTER ? P_SEL : P_DIM);
+    say_c(52, 1, "SKILLS", menu_page == PAGE_SKILLS ? P_SEL : P_DIM);
+    say_c(84, 1, "OPTIONS", menu_page == PAGE_OPTIONS ? P_SEL : P_DIM);
+    if (save_slot == SAVE_NONE) say_c(120, 1, "TUNE", menu_page == PAGE_TUNE ? P_SEL : P_DIM);
 }
 
 void menu_open(void) BANKED {
-    memcpy(menu_saved_pal, &pal_base_bg[1 << 2], sizeof(menu_saved_pal));
-    memcpy(&pal_base_bg[P_DIM << 2], inks, sizeof(inks));
+    memcpy(menu_saved_pal, pal_base_bg, sizeof(menu_saved_pal));
+    memcpy(pal_base_bg, inks, sizeof(inks));
     gfx_set_fade(0);
     win_frame(0, 0, SCREEN_TW, SCREEN_TH);
     VBK_REG = 1;
@@ -132,13 +146,13 @@ void menu_open(void) BANKED {
 }
 
 void menu_close(void) BANKED {
-    memcpy(&pal_base_bg[1 << 2], menu_saved_pal, sizeof(menu_saved_pal));
+    memcpy(pal_base_bg, menu_saved_pal, sizeof(menu_saved_pal));
     gfx_set_fade(0);
 }
 
-// --- the profile page ---
+// --- the character page ---
 
-static void draw_profile(void) {
+static void draw_character(void) {
     char line[TEXT_MAX + 1], name[CLASS_ROLE_MAX + 1];
     char *p;
     // The class, and its role.
@@ -148,12 +162,12 @@ static void draw_profile(void) {
     banked_memcpy(name, class_role[profile.cls], CLASS_ROLE_MAX + 1, BANK(skilldata));
     p = put(p, name);
     *p = 0;
-    say(12, 3, line, P_INK, 0xFF);
+    say(8, 3, line, P_INK, 0xFF);
     // Level and XP, with a bar.
     p = put(line, "LEVEL ");
     p = put_num(p, profile.level, 1);
     *p = 0;
-    say(12, 5, line, P_INK, 0xFF);
+    say(8, 4, line, P_INK, 0xFF);
     uint16_t need = xp_need(profile.level);
     if (need) {
         p = put(line, "XP ");
@@ -164,7 +178,7 @@ static void draw_profile(void) {
         p = put(line, "MAX LEVEL");
     }
     *p = 0;
-    say(72, 5, line, P_DIM, 0xFF);
+    say(64, 4, line, P_DIM, 0xFF);
     // The bar's pixels: XP_CELLS * 8 of them, in 16-bit math.
     uint16_t px = !need ? XP_CELLS * 8 : need < 800 ? profile.xp * (XP_CELLS * 8) / need : profile.xp / (need / (XP_CELLS * 8));
     if (px > XP_CELLS * 8) px = XP_CELLS * 8;
@@ -174,36 +188,120 @@ static void draw_profile(void) {
         cells[i] = T_FILL + f;
         px -= f;
     }
-    set_win_tiles(2, 6, XP_CELLS, 1, cells);
+    set_win_tiles(1, 5, XP_CELLS, 1, cells);
     memset(cells, P_LIT | TEXT_BANK1, XP_CELLS);
     VBK_REG = 1;
-    set_win_tiles(2, 6, XP_CELLS, 1, cells);
+    set_win_tiles(1, 5, XP_CELLS, 1, cells);
     VBK_REG = 0;
-    // The rest of the file.
+    // Health and shield; credits and time; depth and kills (two columns).
+    p = put(line, "HEALTH ");
+    p = put_num(p, player_hp, 1);
+    p = put(p, " of ");
+    p = put_num(p, player_hp_max, 1);
+    *p = 0;
+    say(8, 7, line, P_INK, 0xFF);
+    p = put(line, "SHIELD ");
+    p = shield_cap ? put_num(p, shield_cap, 1) : put(p, "none");
+    *p = 0;
+    say(96, 7, line, P_INK, 0xFF);
     p = put(line, "CREDITS ");
     p = put_u32(p, profile.credits);
     *p = 0;
-    say(12, 8, line, P_INK, 0xFF);
+    say(8, 8, line, P_INK, 0xFF);
     p = put(line, "TIME ");
     p = put_num(p, profile.play_minutes / 60, 1);
     *p++ = ':';
     p = put_num(p, profile.play_minutes % 60, 2);
     *p = 0;
-    say(12, 9, line, P_INK, 0xFF);
-    p = put(line, "DEEPEST DEPTH ");
+    say(96, 8, line, P_INK, 0xFF);
+    p = put(line, "DEEPEST ");
     p = put_num(p, profile.best_depth, 1);
     *p = 0;
-    say(12, 10, line, P_INK, 0xFF);
+    say(8, 9, line, P_INK, 0xFF);
     p = put(line, "KILLS ");
     p = put_num(p, profile.kills + enemies_killed, 1);  // (the file's, plus this run's)
     *p = 0;
-    say(12, 11, line, P_INK, 0xFF);
+    say(96, 9, line, P_INK, 0xFF);
     p = put(line, "SKILL POINTS ");
     p = put_num(p, profile.skill_points, 1);
     *p = 0;
-    say(12, 13, line, profile.skill_points ? P_LIT : P_INK, 0xFF);
-    if (save_slot == SAVE_NONE) say_c(12, 15, "Test play: nothing is saved.", P_DIM);
-    say_c(12, 16, "B: next page    SELECT: end run", P_DIM);
+    say(8, 10, line, profile.skill_points ? P_LIT : P_DIM, 0xFF);
+    // The loadout: each gun in its rarity's color, the one held marked.
+    say_c(8, 12, "LOADOUT", P_DIM);
+    for (uint8_t s = 0; s < LOADOUT; s++) {
+        const Gun *g = &profile.guns[s];
+        if (g->type == GUN_NONE) {
+            say_c(16, 13 + s, "-", P_DIM);
+            continue;
+        }
+        p = line;
+        gun_name(p, g);
+        while (*p) p++;
+        p = put(p, "  LV ");
+        p = put_num(p, g->level, 1);
+        *p = 0;
+        say(16, 13 + s, line, rarity_pal[g->rarity], 0xFF);
+        if (s == profile.gun_sel && save_slot != SAVE_NONE) say_c(120, 13 + s, "held", P_DIM);
+    }
+}
+
+// --- the options page ---
+
+#define OPTIONS 3
+#define OPT_VALUE_X 96
+static const char *const text_speeds[TEXT_SPEEDS] = {"SLOW", "NORMAL", "FAST", "INSTANT"};
+static const char *const sounds[SOUND_LEVELS] = {"OFF", "LOW", "FULL"};
+uint8_t opt_tiles[OPTIONS];  // where each option's value is drawn (redrawn in place)
+
+static void draw_option(uint8_t i) {
+    static const char *const labels[OPTIONS] = {"TEXT SPEED", "SCREEN SHAKE", "SOUND"};
+    uint8_t row = 4 + (i << 1), pal = i == menu_option ? P_SEL : P_INK;
+    fill_win_rect(1, row, SCREEN_TW - 2, 1, FRAME_TILES + 4);
+    VBK_REG = 1;
+    fill_win_rect(1, row, SCREEN_TW - 2, 1, P_INK);
+    VBK_REG = 0;
+    char line[TEXT_MAX + 1];
+    uint8_t n = 0;
+    const char *l = labels[i];
+    while (l[n]) line[n] = l[n], n++;
+    line[n] = 0;
+    say(16, row, line, pal, opt_tiles[i]);
+    const char *v = i == 0 ? text_speeds[settings.text_speed] : i == 1 ? (settings.shake ? "ON" : "OFF") : sounds[settings.sound];
+    n = 0;
+    while (v[n]) line[n] = v[n], n++;
+    line[n] = 0;
+    say(OPT_VALUE_X, row, line, pal, opt_tiles[i] + 8);
+}
+
+static void draw_options(void) {
+    for (uint8_t i = 0; i < OPTIONS; i++) {
+        opt_tiles[i] = alloc(14);  // a label (up to 8 tiles) and its value (6)
+        draw_option(i);
+    }
+    say_c(16, 12, "UP DOWN: choose", P_DIM);
+    say_c(16, 13, "LEFT RIGHT: change", P_DIM);
+    say_c(16, 15, "START: back to the game", P_DIM);
+    say_c(16, 16, save_slot != SAVE_NONE ? "SELECT: save and quit" : "SELECT: end the run", P_DIM);
+}
+
+static void options_update(void) {
+    uint8_t old = menu_option;
+    if ((joy_pressed & J_UP) && menu_option) menu_option--;
+    else if ((joy_pressed & J_DOWN) && menu_option < OPTIONS - 1) menu_option++;
+    if (old != menu_option) {
+        draw_option(old);
+        draw_option(menu_option);
+        return;
+    }
+    int8_t d = joy_pressed & J_RIGHT ? 1 : joy_pressed & J_LEFT ? -1 : 0;
+    if (!d) return;
+    if (menu_option == 0) settings.text_speed = (settings.text_speed + TEXT_SPEEDS + d) % TEXT_SPEEDS;
+    else if (menu_option == 1) settings.shake ^= 1;
+    else settings.sound = (settings.sound + SOUND_LEVELS + d) % SOUND_LEVELS;
+    settings_apply();
+    settings_save();
+    sfx_play(SFX_TEXT);  // (heard at the new volume)
+    draw_option(menu_option);
 }
 
 // --- the skills page ---
@@ -276,11 +374,22 @@ static void repaint(uint8_t k) {
 void menu_draw(void) BANKED {
     clear_inside();
     menu_tabs();
-    if (menu_page == PAGE_PROFILE) draw_profile();
+    if (menu_page == PAGE_CHARACTER) draw_character();
+    else if (menu_page == PAGE_OPTIONS) draw_options();
     else draw_skills();
 }
 
+void menu_next_page(void) BANKED {
+    menu_page++;
+    if (menu_page == PAGE_TUNE && save_slot != SAVE_NONE) menu_page++;  // (tuning: the lab and the yard)
+    if (menu_page >= PAGES) menu_page = 0;
+}
+
 void menu_update(void) BANKED {
+    if (menu_page == PAGE_OPTIONS) {
+        options_update();
+        return;
+    }
     if (menu_page != PAGE_SKILLS) return;
     uint8_t k = menu_skill, b = k / 3, t = k % 3;
     if ((joy_pressed & J_LEFT) && b) b--;
