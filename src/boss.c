@@ -12,9 +12,9 @@
 #include "gunship.h"
 #include "warden.h"
 
-// Trials replace chest graphics (the chest is not initialized here). Remain below
-// tile 128, where sprite tiles would overlap the background's signed tile area.
 #define MACHINE_VRAM 96
+#define SHADOW_VRAM 8
+
 uint8_t boss_kind, boss_slot, boss_state, boss_timer, boss_phase;
 uint8_t boss_hp, boss_hp_max, boss_relays, boss_reward;
 uint16_t boss_attacks, boss_cycles;
@@ -25,16 +25,36 @@ static uint8_t shown_hp, shown_state, shown_relays, shown_phase;
 static const int8_t dx8[8] = {0,1,1,1,0,-1,-1,-1};
 static const int8_t dy8[8] = {-1,-1,0,1,1,1,0,-1};
 
-// Duo encounter state (Sprocket & Blast)
-#define BLAST_IDLE 0
-#define BLAST_WARN_DASH 1
-#define BLAST_DASH 2
-#define BLAST_WARN_SHOT 3
-#define BLAST_RECOVER 4
+// -------------------------------------------------------------
+// SPROCKET & BLAST: DYNAMIC MODERN BOSS ENGINE
+// -------------------------------------------------------------
+
+// Blast (Jetpack Flyer)
+#define BLAST_HOVER 0
+#define BLAST_SWOOP_WARN 1
+#define BLAST_SWOOP_DIVE 2
+#define BLAST_SLAM_RECOVER 3
+#define BLAST_BURST_ATTACK 4
 
 static uint8_t blast_slot, blast_hp, blast_state, blast_timer;
-static int8_t blast_dx, blast_dy;
-static uint8_t sprocket_phase, sprocket_sweep_left, sprocket_sweep_base_d, sprocket_sweep_timer;
+static int16_t blast_x16, blast_y16;   // 8.8 fixed-point position
+static int16_t blast_vx, blast_vy;     // 8.8 velocity with easing
+static uint8_t blast_z;                // altitude (0 = ground, 12-16 = hover, 24 = dive prep)
+static uint8_t blast_orbit_angle;      // orbital trajectory angle
+static uint8_t blast_burst_left, blast_burst_timer;
+static int16_t blast_dive_vx, blast_dive_vy;
+
+// Sprocket (Mobile Tank Cannon / On-Foot Skirmisher)
+#define SPROCKET_DRIVE 0
+#define SPROCKET_MORTAR_WARN 1
+#define SPROCKET_RAM_WARN 2
+#define SPROCKET_RAM 3
+#define SPROCKET_RECOVER 4
+
+static uint8_t sprocket_state, sprocket_timer, sprocket_phase;
+static int16_t sprocket_x16, sprocket_y16;
+static int16_t sprocket_vx;
+static uint8_t mortar_active, mortar_timer, mortar_x, mortar_y;
 static uint8_t duo_attack_cycle, shown_blast_hp;
 static const char *duo_status_msg;
 
@@ -129,18 +149,54 @@ static uint8_t machine(uint8_t x, uint8_t y, uint8_t hp, uint8_t frame) {
     return i;
 }
 
-static uint8_t aim_8way(uint8_t i, int8_t *out_dx, int8_t *out_dy) {
-    int16_t dx = (int16_t)(player_x - actor_x[i]);
-    int16_t dy = (int16_t)(player_y - actor_y[i]);
-    uint16_t ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-    int8_t sx = (ax << 1) > ay ? (dx > 0 ? 1 : -1) : 0;
-    int8_t sy = (ay << 1) > ax ? (dy > 0 ? 1 : -1) : 0;
-    *out_dx = sx;
-    *out_dy = sy;
-    for (uint8_t d = 0; d < 8; d++) {
-        if (dx8[d] == sx && dy8[d] == sy) return d;
+// True 360-degree vector aim directly at the player using 16-bit math
+static void aim_at_player(uint16_t src_x, uint16_t src_y, uint8_t mult, int16_t *out_vx, int16_t *out_vy) {
+    int16_t dx = (int16_t)((player_x + 8) - src_x);
+    int16_t dy = (int16_t)((player_y + 8) - src_y);
+    uint16_t ax = dx < 0 ? -dx : dx;
+    uint16_t ay = dy < 0 ? -dy : dy;
+    uint16_t dist = (ax > ay) ? (ax + (ay >> 1)) : (ay + (ax >> 1));
+    if (dist < 1) dist = 1;
+    uint16_t rx = (ax << 7) / dist;
+    uint16_t ry = (ay << 7) / dist;
+    int16_t vx = (int16_t)(rx * mult);
+    int16_t vy = (int16_t)(ry * mult);
+    *out_vx = dx < 0 ? -vx : vx;
+    *out_vy = dy < 0 ? -vy : vy;
+}
+
+static void fire_aimed_bullet(uint16_t x, uint16_t y, uint8_t mult) {
+    if (bullet_count == BULLET_MAX) return;
+    Bullet *b = bullets;
+    for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
+        if (b->alive) continue;
+        b->alive = 1;
+        b->x = x;
+        b->y = y;
+        b->xs = b->ys = 0;
+        int16_t vx, vy;
+        aim_at_player(x + 4, y + 4, mult, &vx, &vy);
+        bullet_set_velocity(b, vx, vy);
+        bullet_count++;
+        bullets_fired++;
+        return;
     }
-    return 0;
+}
+
+static void fire_direct_bullet(uint16_t x, uint16_t y, int16_t vx, int16_t vy) {
+    if (bullet_count == BULLET_MAX) return;
+    Bullet *b = bullets;
+    for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
+        if (b->alive) continue;
+        b->alive = 1;
+        b->x = x;
+        b->y = y;
+        b->xs = b->ys = 0;
+        bullet_set_velocity(b, vx, vy);
+        bullet_count++;
+        bullets_fired++;
+        return;
+    }
 }
 
 void boss_start(uint8_t kind) BANKED {
@@ -161,23 +217,36 @@ void boss_start(uint8_t kind) BANKED {
     if (kind == BOSS_WARDEN) warden_start();
 
     if (kind == BOSS_DUO) {
-        // Place tactical cover pillars
+        // Place 2 tactical cover pillars
         room_map[((uint16_t)3 << 5) | 3] = BLK_SOLID;
         room_map[((uint16_t)3 << 5) | 6] = BLK_SOLID;
 
-        boss_hp_max = 20;
-        boss_slot = machine(104, 28, 20, 4); // Sprocket Cannon (Frame 4)
-        blast_slot = machine(32, 40, 14, 6); // Blast (Frame 6)
-        boss_hp = 20;
-        blast_hp = 14;
+        boss_hp_max = 24;
+        boss_slot = machine(72, 28, 24, 4);  // Sprocket Cannon (Frame 4)
+        blast_slot = machine(32, 48, 16, 6); // Blast (Frame 6)
+        boss_hp = 24;
+        blast_hp = 16;
         sprocket_phase = 0;
-        sprocket_sweep_left = 0;
+        sprocket_state = SPROCKET_DRIVE;
+        sprocket_timer = 50;
+        sprocket_x16 = 72 << 8;
+        sprocket_y16 = 28 << 8;
+        sprocket_vx = 192; // 0.75 px/f patrol
+
+        mortar_active = 0;
+        mortar_timer = 0;
+
+        blast_state = BLAST_HOVER;
+        blast_timer = 45;
+        blast_x16 = 32 << 8;
+        blast_y16 = 48 << 8;
+        blast_vx = blast_vy = 0;
+        blast_z = 14;
+        blast_orbit_angle = 0;
+        blast_burst_left = 0;
+
         duo_attack_cycle = 0;
-        blast_state = BLAST_IDLE;
-        blast_timer = 40;
-        boss_timer = 70;
-        boss_state = BOSS_RECOVER;
-        guard(1); // Frontal gun shield
+        guard(1); // Frontal gun mantle
         duo_status_msg = "SPROCKET & BLAST  ";
     } else {
         boss_hp_max = kind == BOSS_CLAIMJAW ? 18 : 48;
@@ -193,7 +262,6 @@ void boss_start(uint8_t kind) BANKED {
         guard(boss_relays != 0);
     }
 
-    // Identical starting resources for all trials, independent of lab tuning.
     health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
     shown_hp = shown_state = shown_relays = shown_phase = shown_blast_hp = 0xFF;
     if (kind == BOSS_WARDEN) { boss_status(); return; }
@@ -211,7 +279,6 @@ static void lock_direction(uint8_t i) {
     boss_dy = ax > ay ? 0 : (dy < 0 ? -1 : 1);
 }
 
-// Seven distinct trajectories across a cone, not duplicated cardinal shots.
 static void shotgun(void) {
     static const int16_t spread[7] = {-224,-144,-72,0,72,144,224};
     uint8_t pellet = 0;
@@ -252,32 +319,34 @@ static void recover(uint8_t frames) {
     boss_cycles++;
 }
 
+// -------------------------------------------------------------
+// DYNAMIC DUO COMBAT LOOP
+// -------------------------------------------------------------
 static void update_duo(void) {
     if (boss_state == BOSS_WON) return;
 
-    // Track Sprocket HP
+    // Track HP
     if (sprocket_phase == 0) {
         boss_hp = actor_type[boss_slot] ? actor_hp[boss_slot] : 0;
         if (!boss_hp) {
-            // Ejection! Cannon destroyed -> Sprocket leaps out on foot
+            // Cannon Totaled -> Sprocket Ejection!
             sprocket_phase = 1;
-            boss_hp = 10;
-            actor_hp[boss_slot] = 10;
+            boss_hp = 12;
+            actor_hp[boss_slot] = 12;
             art(boss_slot, 5, SPR_PAL_SHOOTER); // Frame 5: on foot
             guard(0);
             clear_bullets();
             camera_shake(SHAKE_SMALL);
-            boss_timer = 50;
-            duo_status_msg = "CANNON DOWN! EJECT!";
+            sprocket_timer = 40;
+            duo_status_msg = "CANNON WRECKED! EJECT!";
         }
     } else {
         boss_hp = actor_type[boss_slot] ? actor_hp[boss_slot] : 0;
     }
 
-    // Track Blast HP
     blast_hp = actor_type[blast_slot] ? actor_hp[blast_slot] : 0;
 
-    // Win condition: both Sprocket and Blast are defeated
+    // Win condition: both down
     if (!boss_hp && !blast_hp) {
         boss_state = BOSS_WON;
         boss_reward = 1;
@@ -287,163 +356,276 @@ static void update_duo(void) {
         return;
     }
 
-    // --- SPROCKET UPDATE ---
+    // ---------------------------------------------------------
+    // 1. SPROCKET UPDATE
+    // ---------------------------------------------------------
     if (boss_hp > 0) {
         if (sprocket_phase == 0) {
-            // Phase 1: Heavy Cannon
-            if (sprocket_sweep_left > 0) {
-                if (!--sprocket_sweep_timer) {
-                    uint8_t d = (sprocket_sweep_base_d - 2 + (5 - sprocket_sweep_left)) & 7;
-                    fire_bullet(boss_slot, dx8[d], dy8[d]);
-                    sprocket_sweep_left--;
-                    sprocket_sweep_timer = 6;
-                    if (!sprocket_sweep_left) {
-                        boss_timer = 60;
-                        guard(0); // damage window after sweep
-                        duo_status_msg = "VENT OPEN - FIRE! ";
-                    }
-                }
-            } else if (boss_timer) {
-                boss_timer--;
-                actor_flash[boss_slot] = (boss_timer < 30) && (boss_timer & 4);
-                if (!boss_timer) {
-                    int16_t cdx = (int16_t)(player_x - actor_x[boss_slot]);
-                    int16_t cdy = (int16_t)(player_y - actor_y[boss_slot]);
-                    if (cdx > -28 && cdx < 28 && cdy > -28 && cdy < 28) {
-                        // Point-blank repulsor pulse
-                        fire_bullet(boss_slot, 0, 1);
-                        fire_bullet(boss_slot, 0, -1);
-                        fire_bullet(boss_slot, 1, 0);
-                        fire_bullet(boss_slot, -1, 0);
-                        camera_shake(SHAKE_SMALL);
-                        boss_timer = 50;
-                        guard(0);
-                        duo_status_msg = "REPULSOR PULSE!   ";
-                    } else if (duo_attack_cycle++ & 1) {
-                        // 3-way Mortar Spread
-                        int8_t sx, sy;
-                        uint8_t d = aim_8way(boss_slot, &sx, &sy);
-                        fire_bullet(boss_slot, dx8[d], dy8[d]);
-                        fire_bullet(boss_slot, dx8[(d + 1) & 7], dy8[(d + 1) & 7]);
-                        fire_bullet(boss_slot, dx8[(d + 7) & 7], dy8[(d + 7) & 7]);
-                        camera_shake(SHAKE_SMALL);
-                        boss_timer = 70;
-                        guard(0); // damage window!
-                        duo_status_msg = "VENT OPEN - FIRE! ";
+            // Phase 1: Heavy Mobile Tank
+            switch (sprocket_state) {
+            case SPROCKET_DRIVE: {
+                // Active Tank Tread Repositioning
+                int16_t target_x = player_x;
+                if (target_x < 24) target_x = 24;
+                else if (target_x > 120) target_x = 120;
+                int16_t cur_x = sprocket_x16 >> 8;
+
+                if (cur_x < target_x - 6) sprocket_vx = 220;
+                else if (cur_x > target_x + 6) sprocket_vx = -220;
+                else sprocket_vx = 0;
+
+                sprocket_x16 += sprocket_vx;
+                actor_x[boss_slot] = sprocket_x16 >> 8;
+                actor_y[boss_slot] = sprocket_y16 >> 8;
+
+                if (sprocket_timer) sprocket_timer--;
+                if (!sprocket_timer) {
+                    if ((duo_attack_cycle++ & 1) == 0) {
+                        // Launch Floor Mortar AoE
+                        mortar_active = 1;
+                        mortar_timer = 36;
+                        mortar_x = player_x;
+                        mortar_y = player_y;
+                        sprocket_state = SPROCKET_MORTAR_WARN;
+                        sprocket_timer = 40;
+                        duo_status_msg = "MORTAR TARGETED!  ";
                     } else {
-                        // Start Sweeping Fan Barrage
-                        int8_t sx, sy;
-                        sprocket_sweep_base_d = aim_8way(boss_slot, &sx, &sy);
-                        sprocket_sweep_left = 5;
-                        sprocket_sweep_timer = 1;
+                        // Ram / Bulldozer Rush
+                        sprocket_state = SPROCKET_RAM_WARN;
+                        sprocket_timer = 32;
                         guard(1);
-                        duo_status_msg = "SWEEP BARRAGE!   ";
+                        duo_status_msg = "CANNON CHARGING!  ";
                     }
-                } else if (boss_timer == 35) {
-                    guard(1); // Shield comes up before firing
-                    duo_status_msg = (duo_attack_cycle & 1) ? "MORTAR INCOMING! " : "SWEEP INCOMING!  ";
                 }
+                break;
+            }
+            case SPROCKET_MORTAR_WARN:
+                actor_flash[boss_slot] = sprocket_timer & 4;
+                if (sprocket_timer) sprocket_timer--;
+                if (!sprocket_timer) {
+                    // Direct cannon shell fired accurately at player
+                    fire_aimed_bullet(actor_x[boss_slot] + 4, actor_y[boss_slot] + 6, 3);
+                    sprocket_state = SPROCKET_RECOVER;
+                    sprocket_timer = 50;
+                    guard(0); // Damage window!
+                    duo_status_msg = "CORE VENTING!     ";
+                }
+                break;
+            case SPROCKET_RAM_WARN:
+                actor_flash[boss_slot] = sprocket_timer & 4;
+                if (sprocket_timer) sprocket_timer--;
+                if (!sprocket_timer) {
+                    sprocket_state = SPROCKET_RAM;
+                    sprocket_timer = 24;
+                }
+                break;
+            case SPROCKET_RAM: {
+                // High-speed rush downward (2.5 px/f)
+                sprocket_y16 += 640;
+                actor_y[boss_slot] = sprocket_y16 >> 8;
+                if (sprocket_timer) sprocket_timer--;
+                uint16_t sy = actor_y[boss_slot];
+                if (!sprocket_timer || sy >= 80) {
+                    camera_shake(SHAKE_SMALL);
+                    sprocket_state = SPROCKET_RECOVER;
+                    sprocket_timer = 60;
+                    guard(0); // Big punish window!
+                    duo_status_msg = "CANNON STUNNED - FIRE!";
+                }
+                break;
+            }
+            case SPROCKET_RECOVER:
+                if (sprocket_timer) sprocket_timer--;
+                if (!sprocket_timer) {
+                    // Drive back up to base line
+                    if ((sprocket_y16 >> 8) > 28) {
+                        sprocket_y16 -= 384;
+                        actor_y[boss_slot] = sprocket_y16 >> 8;
+                    } else {
+                        sprocket_y16 = 28 << 8;
+                        actor_y[boss_slot] = 28;
+                        sprocket_state = SPROCKET_DRIVE;
+                        sprocket_timer = 55;
+                        guard(1);
+                        duo_status_msg = "SPROCKET & BLAST  ";
+                    }
+                }
+                break;
             }
         } else {
-            // Phase 2: Sprocket on Foot (Aggressive Shotgun Skirmisher)
-            if (boss_timer) boss_timer--;
+            // Phase 2: Sprocket on Foot (Aggressive Skirmisher with Twin Shotgun)
+            if (sprocket_timer) sprocket_timer--;
             int8_t mx = (player_x > actor_x[boss_slot] + 4) ? 1 : (player_x < actor_x[boss_slot] - 4) ? -1 : 0;
             int8_t my = (player_y > actor_y[boss_slot] + 4) ? 1 : (player_y < actor_y[boss_slot] - 4) ? -1 : 0;
-            uint16_t nx = actor_x[boss_slot] + mx;
-            uint16_t ny = actor_y[boss_slot] + my;
+            uint16_t nx = actor_x[boss_slot] + mx * 2;
+            uint16_t ny = actor_y[boss_slot] + my * 2;
             if (enemy_box_free(nx, ny)) {
                 actor_x[boss_slot] = nx;
                 actor_y[boss_slot] = ny;
             }
-            actor_flash[boss_slot] = (boss_timer < 20) && (boss_timer & 4);
-            if (!boss_timer) {
-                int8_t sx, sy;
-                uint8_t d = aim_8way(boss_slot, &sx, &sy);
-                fire_bullet(boss_slot, dx8[d], dy8[d]);
-                fire_bullet(boss_slot, dx8[(d + 1) & 7], dy8[(d + 1) & 7]);
-                fire_bullet(boss_slot, dx8[(d + 7) & 7], dy8[(d + 7) & 7]);
-                boss_timer = 65;
+            actor_flash[boss_slot] = (sprocket_timer < 20) && (sprocket_timer & 4);
+            if (!sprocket_timer) {
+                // Direct aimed shotgun spread
+                fire_aimed_bullet(actor_x[boss_slot] + 4, actor_y[boss_slot] + 4, 3);
+                fire_aimed_bullet(actor_x[boss_slot] + 2, actor_y[boss_slot] + 2, 3);
+                fire_aimed_bullet(actor_x[boss_slot] + 6, actor_y[boss_slot] + 6, 3);
+                sprocket_timer = 50;
             }
         }
     }
 
-    // --- BLAST UPDATE (Jetpack Skirmisher) ---
-    if (blast_hp > 0) {
-        if (blast_timer) blast_timer--;
-        switch (blast_state) {
-        case BLAST_IDLE: {
-            int16_t bdx = (int16_t)(player_x - actor_x[blast_slot]);
-            int16_t bdy = (int16_t)(player_y - actor_y[blast_slot]);
-            uint16_t dist = (bdx < 0 ? -bdx : bdx) + (bdy < 0 ? -bdy : bdy);
-            int8_t mx = 0, my = 0;
-            if (dist > 54) {
-                mx = bdx > 0 ? 1 : -1;
-                my = bdy > 0 ? 1 : -1;
-            } else if (dist < 30) {
-                mx = bdx > 0 ? -1 : 1;
-                my = bdy > 0 ? -1 : 1;
-            } else {
-                mx = bdy > 0 ? -1 : 1;
-                my = bdx > 0 ? 1 : -1;
+    // ---------------------------------------------------------
+    // 2. MORTAR HAZARD UPDATE
+    // ---------------------------------------------------------
+    if (mortar_active) {
+        if (mortar_timer) mortar_timer--;
+        if (!mortar_timer) {
+            mortar_active = 0;
+            camera_shake(SHAKE_SMALL);
+            // AoE damage check
+            if (player_hittable()) {
+                int16_t mdx = (int16_t)(player_x + PLAYER_HB_X - mortar_x);
+                int16_t mdy = (int16_t)(player_y + PLAYER_HB_Y - mortar_y);
+                if (mdx > -18 && mdx < 18 && mdy > -18 && mdy < 18) {
+                    hurt_cause = 10;
+                    player_hurt(12, mortar_x + 8, mortar_y + 8);
+                }
             }
-            uint16_t bx = actor_x[blast_slot] + mx;
-            uint16_t by = actor_y[blast_slot] + my;
-            if (enemy_box_free(bx, by)) {
-                actor_x[blast_slot] = bx;
-                actor_y[blast_slot] = by;
-            }
+            // Scatters 4 shrapnel shells
+            fire_direct_bullet(mortar_x + 4, mortar_y + 4, 256, 256);
+            fire_direct_bullet(mortar_x + 4, mortar_y + 4, -256, 256);
+            fire_direct_bullet(mortar_x + 4, mortar_y + 4, 256, -256);
+            fire_direct_bullet(mortar_x + 4, mortar_y + 4, -256, -256);
+        }
+    }
 
+    // ---------------------------------------------------------
+    // 3. BLAST (JETPACK FLYER) UPDATE
+    // ---------------------------------------------------------
+    if (blast_hp > 0) {
+        switch (blast_state) {
+        case BLAST_HOVER: {
+            blast_orbit_angle += 2;
+            static const int8_t cos16[16] = {48, 44, 34, 18, 0, -18, -34, -44, -48, -44, -34, -18, 0, 18, 34, 44};
+            static const int8_t sin16[16] = {0, 18, 34, 44, 48, 44, 34, 18, 0, -18, -34, -44, -48, -44, -34, -18};
+            uint8_t a = (blast_orbit_angle >> 3) & 15;
+            int16_t tx = (player_x + 8) + cos16[a];
+            int16_t ty = (player_y + 8) + sin16[a];
+            if (tx < 24) tx = 24; else if (tx > 136) tx = 136;
+            if (ty < 24) ty = 24; else if (ty > 104) ty = 104;
+
+            int16_t cur_x = blast_x16 >> 8, cur_y = blast_y16 >> 8;
+            int16_t desired_vx = (tx - cur_x) * 8;
+            int16_t desired_vy = (ty - cur_y) * 8;
+            if (desired_vx > 300) desired_vx = 300; else if (desired_vx < -300) desired_vx = -300;
+            if (desired_vy > 300) desired_vy = 300; else if (desired_vy < -300) desired_vy = -300;
+
+            // Easing / momentum
+            blast_vx += (desired_vx - blast_vx) >> 3;
+            blast_vy += (desired_vy - blast_vy) >> 3;
+            blast_x16 += blast_vx;
+            blast_y16 += blast_vy;
+
+            // Sinusoidal hover bobbing
+            blast_z = 12 + (((blast_orbit_angle >> 2) & 7) < 4 ? ((blast_orbit_angle >> 2) & 3) : (3 - ((blast_orbit_angle >> 2) & 3)));
+
+            if (blast_timer) blast_timer--;
             if (!blast_timer) {
                 if ((duo_attack_cycle & 2) == 0) {
-                    aim_8way(blast_slot, &blast_dx, &blast_dy);
-                    blast_state = BLAST_WARN_DASH;
-                    blast_timer = 24;
-                    duo_status_msg = "JETPACK DIVE!     ";
+                    // Strafe burst
+                    blast_state = BLAST_BURST_ATTACK;
+                    blast_burst_left = sprocket_phase ? 4 : 3;
+                    blast_burst_timer = 1;
+                    duo_status_msg = "BLAST: STRAFE BURST!";
                 } else {
-                    blast_state = BLAST_WARN_SHOT;
-                    blast_timer = 20;
-                    duo_status_msg = "GRENADE OUT!      ";
+                    // Prep dive-bomb
+                    blast_state = BLAST_SWOOP_WARN;
+                    blast_timer = 30;
+                    duo_status_msg = "JETPACK DIVE INCOMING!";
                 }
             }
             break;
         }
-        case BLAST_WARN_DASH:
-            actor_flash[blast_slot] = blast_timer & 4;
-            if (!blast_timer) {
-                blast_state = BLAST_DASH;
-                blast_timer = 20;
+        case BLAST_BURST_ATTACK:
+            blast_x16 += blast_vx;
+            blast_y16 += blast_vy;
+            if (!--blast_burst_timer) {
+                fire_aimed_bullet(blast_x16 >> 8, (blast_y16 >> 8) - blast_z, 3);
+                blast_burst_left--;
+                blast_burst_timer = 10;
+                if (!blast_burst_left) {
+                    blast_state = BLAST_HOVER;
+                    blast_timer = sprocket_phase ? 35 : 55;
+                }
             }
             break;
-        case BLAST_DASH: {
-            uint16_t dnx = actor_x[blast_slot] + blast_dx * 2;
-            uint16_t dny = actor_y[blast_slot] + blast_dy * 2;
-            if (!blast_timer || !enemy_box_free(dnx, dny)) {
-                blast_state = BLAST_RECOVER;
-                blast_timer = 30;
+        case BLAST_SWOOP_WARN:
+            blast_z = 22; // High altitude
+            actor_flash[blast_slot] = blast_timer & 4;
+            if (blast_timer) blast_timer--;
+            if (!blast_timer) {
+                int16_t dx = (player_x + 8) - (blast_x16 >> 8);
+                int16_t dy = (player_y + 8) - (blast_y16 >> 8);
+                uint16_t ax = dx < 0 ? -dx : dx;
+                uint16_t ay = dy < 0 ? -dy : dy;
+                uint16_t dist = (ax > ay) ? (ax + (ay >> 1)) : (ay + (ax >> 1));
+                if (dist < 1) dist = 1;
+                uint16_t rx = (ax << 7) / dist;
+                uint16_t ry = (ay << 7) / dist;
+                int16_t vx = (int16_t)(rx * 7); // 7 * 128 = 896 = 3.5 px/f plunge!
+                int16_t vy = (int16_t)(ry * 7);
+                blast_dive_vx = dx < 0 ? -vx : vx;
+                blast_dive_vy = dy < 0 ? -vy : vy;
+                blast_state = BLAST_SWOOP_DIVE;
+                blast_timer = 16;
+                duo_status_msg = "LOOK OUT BELOW!   ";
+            }
+            break;
+        case BLAST_SWOOP_DIVE:
+            blast_z = (blast_timer * 22) / 16; // Rapidly drops to 0
+            blast_x16 += blast_dive_vx;
+            blast_y16 += blast_dive_vy;
+            if (blast_timer) blast_timer--;
+            if (!blast_timer) {
+                // Ground slam!
+                blast_z = 0;
                 camera_shake(SHAKE_SMALL);
-            } else {
-                actor_x[blast_slot] = dnx;
-                actor_y[blast_slot] = dny;
+                if (player_hittable()) {
+                    int16_t bx = blast_x16 >> 8, by = blast_y16 >> 8;
+                    int16_t pdx = (player_x + PLAYER_HB_X) - bx;
+                    int16_t pdy = (player_y + PLAYER_HB_Y) - by;
+                    if (pdx > -16 && pdx < 16 && pdy > -16 && pdy < 16) {
+                        hurt_cause = 10;
+                        player_hurt(10, bx + 8, by + 8);
+                    }
+                }
+                // Shockwave spark burst
+                fire_direct_bullet(blast_x16 >> 8, blast_y16 >> 8, 256, 0);
+                fire_direct_bullet(blast_x16 >> 8, blast_y16 >> 8, -256, 0);
+                fire_direct_bullet(blast_x16 >> 8, blast_y16 >> 8, 0, 256);
+                fire_direct_bullet(blast_x16 >> 8, blast_y16 >> 8, 0, -256);
+
+                blast_state = BLAST_SLAM_RECOVER;
+                blast_timer = 45; // Stunned on ground!
+                actor_guard[blast_slot] = 0; // Punish window!
+                duo_status_msg = "BLAST GROUNDED - FIRE!";
+            }
+            break;
+        case BLAST_SLAM_RECOVER:
+            blast_z = 0;
+            actor_flash[blast_slot] = (blast_timer < 20) && (blast_timer & 4);
+            if (blast_timer) blast_timer--;
+            if (!blast_timer) {
+                blast_state = BLAST_HOVER;
+                blast_timer = sprocket_phase ? 40 : 65;
+                blast_z = 12;
             }
             break;
         }
-        case BLAST_WARN_SHOT:
-            actor_flash[blast_slot] = blast_timer & 4;
-            if (!blast_timer) {
-                int8_t sx, sy;
-                aim_8way(blast_slot, &sx, &sy);
-                fire_bullet(blast_slot, sx, sy);
-                blast_state = BLAST_RECOVER;
-                blast_timer = sprocket_phase ? 25 : 45;
-            }
-            break;
-        case BLAST_RECOVER:
-            if (!blast_timer) {
-                blast_state = BLAST_IDLE;
-                blast_timer = sprocket_phase ? 40 : 80;
-            }
-            break;
-        }
+
+        // Apply sprite positions
+        actor_x[blast_slot] = blast_x16 >> 8;
+        actor_y[blast_slot] = (blast_y16 >> 8) - blast_z;
     }
 }
 
@@ -459,12 +641,10 @@ void boss_update(void) BANKED {
     if (!boss_hp) {
         warden_burst_left = warden_burst_timer = 0;
         boss_state = BOSS_WON;
-        boss_reward = 1; // one trial salvage token; no campaign inventory yet
-        if (actor_type[boss_slot]) enemies_killed++; // melee killed it after the last reap
+        boss_reward = 1;
+        if (actor_type[boss_slot]) enemies_killed++;
         uint8_t previous_oam = oam_end_last;
-        actors_clear(); // victory removes remaining projectiles and adds
-        // Unlike a room transition the display stays on. Let actors_update hide
-        // every sprite emitted by the previous frame instead of leaving ghosts.
+        actors_clear();
         oam_end_last = previous_oam;
         camera_shake(SHAKE_SMALL);
         return;
@@ -483,12 +663,11 @@ void boss_update(void) BANKED {
         }
         if (!boss_relays) {
             clear_bullets();
-            recover(100); // clear transition and a generous first damage window
+            recover(100);
         } else if (!--relay_clock) {
             for (uint8_t n = 0; n < 2; n++) {
                 uint8_t i = relay_slots[n];
                 if (i == 0xFF || !actor_type[i] || !actor_hp[i]) continue;
-                // Aim relays independently; boss lock is unused during this phase.
                 lock_direction(i);
                 fire_bullet(i, boss_dx, boss_dy);
             }
@@ -562,6 +741,34 @@ void boss_update(void) BANKED {
         }
         break;
     }
+    }
+}
+
+// Draw custom boss layers (shadows, mortars, reticles)
+void duo_draw(void) BANKED {
+    for (uint8_t i = 4; i < 10; i++) shadow_OAM[i].y = 0;
+    if (boss_kind != BOSS_DUO || boss_state == BOSS_WON) return;
+
+    // 1. Blast Ground Shadow (Slots 4, 5)
+    if (blast_hp > 0 && blast_z > 2) {
+        int16_t sx = (blast_x16 >> 8) + 8 - cam_x;
+        int16_t sy = (blast_y16 >> 8) + 12 + 16 - cam_y;
+        if (sy > 0 && sy < 160 && sx > -8 && sx < 168) {
+            shadow_OAM[4].x = sx;     shadow_OAM[4].y = sy; shadow_OAM[4].tile = SHADOW_VRAM; shadow_OAM[4].prop = SPR_PAL_UI;
+            shadow_OAM[5].x = sx + 8; shadow_OAM[5].y = sy; shadow_OAM[5].tile = SHADOW_VRAM + 1; shadow_OAM[5].prop = SPR_PAL_UI;
+        }
+    }
+
+    // 2. Mortar Ground Reticle (Slots 6, 7)
+    if (mortar_active && mortar_timer > 0) {
+        if (mortar_timer & 4) {
+            int16_t mx = mortar_x + 8 - cam_x;
+            int16_t my = mortar_y + 16 - cam_y;
+            if (my > 0 && my < 160 && mx > -8 && mx < 168) {
+                shadow_OAM[6].x = mx;     shadow_OAM[6].y = my; shadow_OAM[6].tile = MACHINE_VRAM + 12; shadow_OAM[6].prop = SPR_PAL_BULLET;
+                shadow_OAM[7].x = mx + 8; shadow_OAM[7].y = my; shadow_OAM[7].tile = MACHINE_VRAM + 14; shadow_OAM[7].prop = SPR_PAL_BULLET;
+            }
+        }
     }
 }
 

@@ -27,4 +27,5 @@ void boss_room(void) BANKED;
 void boss_start(uint8_t kind) BANKED;
 void boss_update(void) BANKED;
 void boss_status(void) BANKED;
+void duo_draw(void) BANKED;
 #endif
