@@ -215,7 +215,7 @@ void play_enter(void) BANKED {
         enemy_trial_start();
     }
     else {
-        if ((play_mode == MODE_BOSS && enemy_trial_kind == 0) || (play_mode == MODE_BOSS && enemy_trial_kind == 2)) play_actor_oam = FIRST_ACTOR_OAM + 8;
+        if (play_mode == MODE_BOSS && enemy_trial_kind == 0) play_actor_oam = FIRST_ACTOR_OAM + 8;
         boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW :
                    play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
                    enemy_trial_kind == 2 ? BOSS_DUO : BOSS_WARDEN);

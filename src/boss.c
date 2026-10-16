@@ -11,6 +11,7 @@
 #include "camera.h"
 #include "gunship.h"
 #include "warden.h"
+#include "oam.h"
 
 #define MACHINE_VRAM 96
 #define SHADOW_VRAM 8
@@ -57,8 +58,8 @@ static uint8_t shown_bewm_hp;
 
 // Code-native pixel art, prepared once with display off. 0 is transparent.
 // 0: Closed Warden, 1: exposed Warden, 2: Claimjaw, 3: relay.
-// 4: Big Bertha Cannon, 5: Boom on Foot, 6: Bewm (Jetpack).
-static const char machine_art[7][16][17] = {
+// 4: Big Bertha (Aim Down), 5: Boom on Foot, 6: Bewm (Jetpack), 7: Big Bertha (Aim Angled Left).
+static const char machine_art[8][16][17] = {
     {"0000333333330000","0033333333333300","0332222222222330","0323333333333230",
      "3323111111113233","3223133333313223","3223132222313223","3223132222313223",
      "3223133333313223","3323111111113233","0323333333333230","0332222222222330",
@@ -75,10 +76,10 @@ static const char machine_art[7][16][17] = {
      "0000321221230000","0000331221330000","0000033113300000","0000003333000000",
      "0000003223000000","0000033223300000","0000032222300000","0000332222330000",
      "0000323333230000","0000333333330000","0000000000000000","0000000000000000"},
-    {"0000333333330000","0033222332223300","0322112332112230","0321112332111230",
-     "3321112332111233","3222222332222223","3333333333333333","0322222332222230",
-     "0323322332233230","0323322332233230","0333333333333330","3322222222222233",
-     "3222222222222223","3333333333333333","0330033003300330","0000000000000000"},
+    {"0000333333330000","0033222222223300","0322111111112230","3321133333311233",
+     "3221332222331223","3333333333333333","0000032112300000","0000032112300000",
+     "0000032112300000","0000032112300000","0000032112300000","0000332112330000",
+     "0000311221130000","0000330000330000","0000033333300000","0000000000000000"},
     {"0000333333330000","0033222222223300","0322333333332230","0323111111113230",
      "0323111111113230","0333333333333330","0032222222223000","3332222222223330",
      "3113222222223113","3113333333333113","3330322222230333","0000322222230000",
@@ -86,12 +87,16 @@ static const char machine_art[7][16][17] = {
     {"0000003333000000","0000332222330000","0003221111223000","0003221111223000",
      "0000332222330000","0033333333333300","0322332222332230","0321332222331230",
      "0333333333333330","0033032222303300","0031303223031300","0003003223003000",
-     "0000003223000000","0000032002300000","0000033003300000","0000000000000000"}
+     "0000003223000000","0000032002300000","0000033003300000","0000000000000000"},
+    {"0000333333330000","0033222222223300","0322111111112230","3321133333311233",
+     "3221332222331223","3333333333333333","0000321123000000","0003211230000000",
+     "0032112300000000","0321123000000000","3211230000000000","3211233000000000",
+     "3112211300000000","3300003300000000","0333333000000000","0000000000000000"}
 };
 
 static void load_art(void) {
     uint8_t tiles[64];
-    for (uint8_t f = 0; f < 7; f++) {
+    for (uint8_t f = 0; f < 8; f++) {
         for (uint8_t col = 0; col < 2; col++) {
             for (uint8_t y = 0; y < 16; y++) {
                 uint8_t lo = 0, hi = 0;
@@ -114,9 +119,34 @@ static void art(uint8_t i, uint8_t frame, uint8_t pal) {
     actor_p0[i] = actor_p1[i] = pal;
 }
 
+static void art_flip(uint8_t i, uint8_t frame, uint8_t pal, uint8_t flip_x) {
+    uint8_t base = MACHINE_VRAM + (frame << 2);
+    if (flip_x) {
+        actor_t0[i] = base + 2;
+        actor_t1[i] = base;
+        actor_p0[i] = actor_p1[i] = pal | 0x20; // S_FLIPX
+    } else {
+        actor_t0[i] = base;
+        actor_t1[i] = base + 2;
+        actor_p0[i] = actor_p1[i] = pal;
+    }
+}
+
+static void update_bertha_aim(void) {
+    uint8_t pal = actor_guard[boss_slot] ? SPR_PAL_SHOOTER : SPR_PAL_SHOT;
+    if (player_x + 8 < 68) {
+        art_flip(boss_slot, 7, pal, 0); // Aiming Angled Down-Left
+    } else if (player_x + 8 > 92) {
+        art_flip(boss_slot, 7, pal, 1); // Aiming Angled Down-Right
+    } else {
+        art_flip(boss_slot, 4, pal, 0); // Aiming Straight Down
+    }
+}
+
 static void guard(uint8_t on) {
     actor_guard[boss_slot] = on;
     if (boss_kind == BOSS_WARDEN) art(boss_slot, on ? 0 : 1, on ? SPR_PAL_WEAPON : SPR_PAL_SHOT);
+    else if (boss_kind == BOSS_DUO && boom_phase == 0) update_bertha_aim();
     if (on) {
         aim_score[boss_slot] = AIM_NONE;
         if (aim_target == boss_slot) aim_target = AIM_NONE;
@@ -164,6 +194,8 @@ static void aim_at_player(uint16_t src_x, uint16_t src_y, uint8_t mult, int16_t 
 
 static void fire_aimed_bullet(uint16_t x, uint16_t y, uint8_t mult) {
     if (bullet_count == BULLET_MAX) return;
+    if (x < 16) x = 16; else if (x > 144) x = 144;
+    if (y < 20) y = 20; else if (y > 108) y = 108;
     Bullet *b = bullets;
     for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
         if (b->alive) continue;
@@ -182,6 +214,8 @@ static void fire_aimed_bullet(uint16_t x, uint16_t y, uint8_t mult) {
 
 static void fire_direct_bullet(uint16_t x, uint16_t y, int16_t vx, int16_t vy) {
     if (bullet_count == BULLET_MAX) return;
+    if (x < 16) x = 16; else if (x > 144) x = 144;
+    if (y < 20) y = 20; else if (y > 108) y = 108;
     Bullet *b = bullets;
     for (uint8_t k = 0; k < BULLET_MAX; k++, b++) {
         if (b->alive) continue;
@@ -361,7 +395,7 @@ static void update_duo(void) {
             // Big Bertha Mounted Artillery
             switch (bertha_state) {
             case BERTHA_AIM:
-                // Tracks player X to aim cannon
+                update_bertha_aim();
                 actor_flash[boss_slot] = bertha_timer & 4;
                 if (bertha_timer) bertha_timer--;
                 if (!bertha_timer) {
@@ -372,10 +406,12 @@ static void update_duo(void) {
                 }
                 break;
             case BERTHA_BARRAGE:
+                actor_flash[boss_slot] = 1;
                 if (!--bertha_shot_cooldown) {
-                    // Fast lethal missile (mult 5 = 2.5 px/frame!)
-                    // Hits cover fins if player is hiding behind them!
-                    fire_aimed_bullet(actor_x[boss_slot] + 4, actor_y[boss_slot] + 10, 5);
+                    uint16_t bx = actor_x[boss_slot] + 4;
+                    if (player_x + 8 < 68) bx = actor_x[boss_slot] + 1;
+                    else if (player_x + 8 > 92) bx = actor_x[boss_slot] + 7;
+                    fire_aimed_bullet(bx, actor_y[boss_slot] + 12, 5);
                     camera_shake(SHAKE_SMALL);
                     bertha_shots_left--;
                     bertha_shot_cooldown = 7;
@@ -383,17 +419,20 @@ static void update_duo(void) {
                         bertha_state = BERTHA_RELOAD;
                         bertha_timer = 60; // 1 full second reload window!
                         guard(0); // SHIELD DROPS! AUTO-AIM LOCKS ON!
+                        art_flip(boss_slot, 4, SPR_PAL_SHOT, 0);
                         duo_status_msg = "RELOADING - FIRE! ";
                     }
                 }
                 break;
             case BERTHA_RELOAD:
+                art_flip(boss_slot, 4, SPR_PAL_SHOT, 0);
                 actor_flash[boss_slot] = (bertha_timer < 20) && (bertha_timer & 4);
                 if (bertha_timer) bertha_timer--;
                 if (!bertha_timer) {
                     bertha_state = BERTHA_AIM;
                     bertha_timer = 35;
                     guard(1); // Armor back up
+                    update_bertha_aim();
                     duo_status_msg = "TAKE COVER!       ";
                 }
                 break;
@@ -482,8 +521,8 @@ static void update_duo(void) {
             bewm_y16 += bewm_vy;
             if (bewm_timer) bewm_timer--;
             if (!bewm_timer) {
-                fire_aimed_bullet(bewm_x16 >> 8, (bewm_y16 >> 8) - bewm_z, 3);
-                fire_aimed_bullet((bewm_x16 >> 8) + 4, (bewm_y16 >> 8) - bewm_z, 3);
+                fire_aimed_bullet(bewm_x16 >> 8, bewm_y16 >> 8, 3);
+                fire_aimed_bullet((bewm_x16 >> 8) + 4, bewm_y16 >> 8, 3);
                 bewm_state = BEWM_ORBIT;
                 bewm_timer = 45;
                 bewm_z = 14;
@@ -660,28 +699,29 @@ void boss_update(void) BANKED {
 }
 
 // Draw custom boss layers (Bewm shadow, grenade reticle)
+// Uses OAM_PROP (slots 11..14), leaving player (3..4), guns (1..2, 5..6), shadow (7..8), reticle (9..10) completely intact!
 void duo_draw(void) BANKED {
-    for (uint8_t i = 4; i < 10; i++) shadow_OAM[i].y = 0;
+    for (uint8_t i = OAM_PROP; i < OAM_FIRST_ACTOR; i++) shadow_OAM[i].y = 0;
     if (boss_kind != BOSS_DUO || boss_state == BOSS_WON) return;
 
-    // 1. Bewm Ground Shadow (Slots 4, 5)
+    // 1. Bewm Ground Shadow (Slots 11, 12)
     if (bewm_hp > 0 && bewm_z > 2) {
         int16_t sx = (bewm_x16 >> 8) + 8 - cam_x;
         int16_t sy = (bewm_y16 >> 8) + 12 + 16 - cam_y;
         if (sy > 0 && sy < 160 && sx > -8 && sx < 168) {
-            shadow_OAM[4].x = sx;     shadow_OAM[4].y = sy; shadow_OAM[4].tile = SHADOW_VRAM; shadow_OAM[4].prop = SPR_PAL_UI;
-            shadow_OAM[5].x = sx + 8; shadow_OAM[5].y = sy; shadow_OAM[5].tile = SHADOW_VRAM + 1; shadow_OAM[5].prop = SPR_PAL_UI;
+            shadow_OAM[OAM_PROP].x = sx;         shadow_OAM[OAM_PROP].y = sy; shadow_OAM[OAM_PROP].tile = SHADOW_VRAM; shadow_OAM[OAM_PROP].prop = SPR_PAL_UI;
+            shadow_OAM[OAM_PROP + 1].x = sx + 8; shadow_OAM[OAM_PROP + 1].y = sy; shadow_OAM[OAM_PROP + 1].tile = SHADOW_VRAM + 1; shadow_OAM[OAM_PROP + 1].prop = SPR_PAL_UI;
         }
     }
 
-    // 2. Grenade Ground Reticle (Slots 6, 7)
+    // 2. Grenade Ground Reticle (Slots 13, 14)
     if (grenade_active && grenade_timer > 0) {
         if (grenade_timer & 4) {
             int16_t mx = grenade_x + 8 - cam_x;
             int16_t my = grenade_y + 16 - cam_y;
             if (my > 0 && my < 160 && mx > -8 && mx < 168) {
-                shadow_OAM[6].x = mx;     shadow_OAM[6].y = my; shadow_OAM[6].tile = MACHINE_VRAM + 12; shadow_OAM[6].prop = SPR_PAL_BULLET;
-                shadow_OAM[7].x = mx + 8; shadow_OAM[7].y = my; shadow_OAM[7].tile = MACHINE_VRAM + 14; shadow_OAM[7].prop = SPR_PAL_BULLET;
+                shadow_OAM[OAM_PROP + 2].x = mx;     shadow_OAM[OAM_PROP + 2].y = my; shadow_OAM[OAM_PROP + 2].tile = MACHINE_VRAM + 12; shadow_OAM[OAM_PROP + 2].prop = SPR_PAL_BULLET;
+                shadow_OAM[OAM_PROP + 3].x = mx + 8; shadow_OAM[OAM_PROP + 3].y = my; shadow_OAM[OAM_PROP + 3].tile = MACHINE_VRAM + 14; shadow_OAM[OAM_PROP + 3].prop = SPR_PAL_BULLET;
             }
         }
     }
