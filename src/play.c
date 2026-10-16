@@ -35,6 +35,7 @@
 #include "gunship.h"
 #include "warden.h"
 #include "acid_skimmer.h"
+#include "mercenary.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -377,7 +378,9 @@ void play_update(void) BANKED {
     // cannot hide damaging beams or floor claims.
     actors_update(play_actor_oam);
     if (play_mode != MODE_LAB) {
-        if (play_mode == MODE_ENEMY) acid_skimmer_draw();
+        if (play_mode == MODE_ENEMY) {
+            if(enemy_trial_kind)mercenary_draw();else acid_skimmer_draw();
+        }
     } else chest_update();
     aim_update();
     player_draw();

@@ -21,6 +21,14 @@ test('bank 0 holds all fixed code and data, with room to spare', () => {
   assert.ok(r.used <= 0x4000 * BANK0_LIMIT, `bank 0 used ${r.used} bytes`);
 });
 
+test('global RAM sections stay below the fixed room map', () => {
+  for (const section of ['DATA','BSS','INITIALIZED']) {
+    const start=syms.get(`s__${section}`), size=syms.get(`l__${section}`);
+    assert.ok(Number.isInteger(start) && Number.isInteger(size),`${section} layout exists`);
+    assert.ok(start+size<=0xD000,`${section} ends at 0x${(start+size).toString(16)} and overlaps room_map`);
+  }
+});
+
 test('cold code and once-per-scene data live in switchable banks', () => {
   for (const name of [
     'title_enter', 'title_update', 'play_enter', 'play_update', 'run_over_enter', 'run_over_update',

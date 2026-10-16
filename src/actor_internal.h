@@ -46,6 +46,8 @@
 
 extern uint8_t actor_count;
 extern uint8_t bullet_count;
+// Projectile settings for the current encounter; reset by actors_init.
+extern uint8_t enemy_bullet_damage, enemy_bullet_cause;
 extern uint8_t actor_t0[ACTOR_MAX];
 extern uint8_t actor_p0[ACTOR_MAX];
 extern uint8_t actor_t1[ACTOR_MAX];

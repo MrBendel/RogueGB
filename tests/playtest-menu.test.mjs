@@ -32,11 +32,11 @@ test('playtest menu: lab entry and SELECT shortcut stay available', () => {
   assert.equal(shortcut.v('play_mode'), 0);
 });
 
-test('playtest menu: Acid Skimmer is the only enemy choice', () => {
+test('playtest menu: Acid Skimmer and Mercenary are the two enemy choices', () => {
   const e = enemyMenu();
   for (let n = 0; n < 12; n++) {
     e.tap(n & 1 ? 'UP' : 'DOWN');
-    assert.equal(e.v('title_choice'), 0);
+    assert.equal(e.v('title_choice'), (n+1)&1);
   }
   e.idle(10).shot('playtest-enemies');
   settle(e.tap('START'), PLAY).idle(3);

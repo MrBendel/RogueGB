@@ -38,6 +38,7 @@ uint8_t actor_t1[ACTOR_MAX];
 uint8_t actor_p1[ACTOR_MAX];
 uint8_t actor_count;   // slots in use
 uint8_t bullet_count;  // bullets alive
+uint8_t enemy_bullet_damage, enemy_bullet_cause;
 
 Bullet bullets[BULLET_MAX];
 
@@ -246,8 +247,8 @@ static void update_bullets(void) {
     bullet_draw_start = &bullets[bullet_rotation];
     bullets_update();
     if (bullet_hit) {
-        hurt_cause = CAUSE_PEA;
-        player_hurt(BULLET_DAMAGE, bullet_hit_x, bullet_hit_y);
+        hurt_cause = enemy_bullet_cause;
+        player_hurt(enemy_bullet_damage, bullet_hit_x, bullet_hit_y);
     }
 }
 

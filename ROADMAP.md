@@ -314,13 +314,15 @@ Early validation: standalone title-screen trials are built for Claimjaw (locked
 charge/recovery) and Relay Warden (locked floor claims, repositioning, alternating
 shotgun/ring bursts, relays, stair retreats across three scrolling terraces,
 and replenishing Spore Husk waves).
-The title's DOWN playtest submenu groups minibosses, bosses, the Acid Skimmer
-trial, and the movement lab. Acid Skimmer is now the only enemy trial; the other
-enemy prototypes were removed. Campaign and boss encounters retain their
-existing enemies. See [enemy design](docs/design/enemies.md).
+The title's DOWN playtest submenu groups minibosses, bosses, enemy trials,
+and the movement lab. Acid Skimmer and the new rifle Mercenary are the active
+enemy trials; the earlier prototypes remain removed. Mercenary uses the supplied
+NPC sheet with strafing, reactive rolls, burst fire, and reload openings.
+Campaign and boss encounters retain their existing enemies.
+See [enemy design](docs/design/enemies.md).
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).
-Acid Skimmer is not yet part of procedural campaign spawn tables.
+These enemy trials are not yet part of procedural campaign spawn tables.
 See [boss design notes](docs/design/bosses.md). Campaign integration and rewards
 remain open; these trials do not complete the content milestone.
 

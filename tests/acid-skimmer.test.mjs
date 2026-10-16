@@ -4,7 +4,7 @@ const at=(e,n)=>e.symbols.addr(n);
 const put=(e,n,v,i=0)=>e.write8(at(e,n)+i,v);
 const put16=(e,n,v)=>e.writeBytes(at(e,n),[v&255,v>>8]);
 function trial(){
- const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
+ const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').idle(9);
  assert.equal(e.v('title_choice'),0);e.shot('acid-skimmer-menu');
  return settle(e.tap('A'),PLAY).idle(3);
 }

@@ -7,6 +7,7 @@
 #include "hud.h"
 
 #include "acid_skimmer.h"
+#include "mercenary.h"
 
 uint8_t enemy_trial_kind, enemy_trial_cleared;
 
@@ -18,13 +19,13 @@ void enemy_trial_start(void) BANKED {
     slime_rest = 26;
     slime_speed = 192;
     health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
-    acid_skimmer_start();
-    bkg_text(1, 0, "ACID SKIMMER");
-    bkg_text(1, 1, "LEAVE ACID MARKS");
+    if(enemy_trial_kind)mercenary_start();else acid_skimmer_start();
+    bkg_text(1, 0, enemy_trial_kind?"MERCENARY":"ACID SKIMMER");
+    bkg_text(1, 1, enemy_trial_kind?"PUNISH THE RELOAD":"LEAVE ACID MARKS");
 }
 
 void enemy_trial_update(void) BANKED {
-    acid_skimmer_update();
+    if(enemy_trial_kind)mercenary_update();else acid_skimmer_update();
 
     if (enemy_trial_cleared) return;
     for (uint8_t i = 0; i < ACTOR_MAX; i++)

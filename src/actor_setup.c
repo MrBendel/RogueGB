@@ -7,8 +7,10 @@
 #include "player.h"
 #include "gfx.h"
 #include "aim.h"
+#include "health.h"
 
 void actors_init(void) BANKED {
+    enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
     // Load each type's columns (2 tiles each) into its own block of sprite VRAM,
     // and its frame table into RAM. The graphics are in switchable banks: the
     // banked_* helpers (gfx.c, bank 0) switch to them and back.
