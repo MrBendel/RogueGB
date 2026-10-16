@@ -320,6 +320,8 @@ enemy prototypes were removed. Campaign and boss encounters retain their
 existing enemies. See [enemy design](docs/design/enemies.md).
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).
+The Sprocket & Blast duo trial validates coordinated two-boss combat, directional armor,
+sweeping fan barrages, tactical cover pillars, and phase 2 emergency ejection.
 Acid Skimmer is not yet part of procedural campaign spawn tables.
 See [boss design notes](docs/design/bosses.md). Campaign integration and rewards
 remain open; these trials do not complete the content milestone.
