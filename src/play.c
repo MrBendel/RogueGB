@@ -198,7 +198,7 @@ void play_enter(void) BANKED {
         player_init(0, 0);
         descent_start(run_seed);  // builds the start room and places the player
     } else if (play_mode >= MODE_MINIBOSS) {
-        if (play_mode == MODE_BOSS) { warden_room(); player_init(72,184); }
+        if (play_mode == MODE_BOSS && enemy_trial_kind == 0) { warden_room(); player_init(72,184); }
         else { boss_room(); player_init(72,96); }
     } else {
         room_load_lab();
@@ -211,12 +211,14 @@ void play_enter(void) BANKED {
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS) chest_init();
     else if (play_mode == MODE_ENEMY) {
-        play_actor_oam=FIRST_ACTOR_OAM+8;
+        play_actor_oam = FIRST_ACTOR_OAM + 8;
         enemy_trial_start();
     }
     else {
-        if (play_mode == MODE_BOSS) play_actor_oam = FIRST_ACTOR_OAM + 8;
-        boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW : play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP : BOSS_WARDEN);
+        if ((play_mode == MODE_BOSS && enemy_trial_kind == 0) || (play_mode == MODE_BOSS && enemy_trial_kind == 2)) play_actor_oam = FIRST_ACTOR_OAM + 8;
+        boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW :
+                   play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
+                   enemy_trial_kind == 2 ? BOSS_DUO : BOSS_WARDEN);
     }
     sfx_watch_reset();
     waves_init();
@@ -225,10 +227,11 @@ void play_enter(void) BANKED {
     chord_throws = 0;
     tune_sel = tune_top = 0;
     hud_draw();
-    move_win(7, play_mode == MODE_BOSS ? 120 : HUD_WY);
+    uint8_t hud_y = (play_mode == MODE_BOSS && enemy_trial_kind == 0) ? 120 : HUD_WY;
+    move_win(7, hud_y);
     SHOW_WIN;
     gfx_sprites(1);
-    gfx_sprite_split(play_mode == MODE_BOSS ? 120 : HUD_WY);  // no sprites over the HUD
+    gfx_sprite_split(hud_y);  // no sprites over the HUD
     player_draw();
 }
 
@@ -390,6 +393,7 @@ void play_update(void) BANKED {
         boss_status();
         if (boss_kind == BOSS_GUNSHIP) gunship_draw();
         else if (boss_kind == BOSS_WARDEN) warden_draw();
+        else if (boss_kind == BOSS_DUO) duo_draw();
     }
     sfx_watch();
     if (!player_hp) {

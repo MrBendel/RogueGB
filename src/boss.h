@@ -8,6 +8,7 @@
 #define BOSS_CLAIMJAW 1
 #define BOSS_WARDEN 2
 #define BOSS_GUNSHIP 3
+#define BOSS_DUO 4
 #define BOSS_CRUISE 6
 #define BOSS_LASER_WARN 7
 #define BOSS_LASER 8
@@ -26,4 +27,5 @@ void boss_room(void) BANKED;
 void boss_start(uint8_t kind) BANKED;
 void boss_update(void) BANKED;
 void boss_status(void) BANKED;
+void duo_draw(void) BANKED;
 #endif
