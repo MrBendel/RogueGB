@@ -36,6 +36,8 @@ static const char art[5][16][17] = {
 static const uint8_t hp[5] = {3, 7, 5, 8, 4};
 static const int8_t dx8[8] = {0,1,1,1,0,-1,-1,-1};
 static const int8_t dy8[8] = {-1,-1,0,1,1,1,0,-1};
+// Each hound commits to a short bound before steering again.
+uint8_t hound_step[ACTOR_MAX], hound_dir[ACTOR_MAX];
 
 void enemy_family_load(void) BANKED {
     uint8_t tiles[64];
@@ -51,6 +53,13 @@ void enemy_family_load(void) BANKED {
                         uint8_t xx = (col << 3) + x;
                         uint8_t yy = pose && k < 3 && y >= 12 ? 27 - y : y;
                         uint8_t c = art[source][yy][xx] - '0';
+                        if (source == 4) {
+                            if (pose) {
+                                c = y < 9 ? art[source][y + 2][xx] - '0' : 0;
+                                if (y == 9 && (xx == 4 || xx == 5 || xx == 10 || xx == 11)) c = 3;
+                            }
+                            if (y == 14 && xx >= 5 && xx <= 10) c = 3;
+                        }
                         if (pose && k == 3 && y >= 5 && y <= 8 && xx >= 6 && xx <= 9) c = 1;
                         lo = (lo << 1) | (c & 1); hi = (hi << 1) | (c >> 1);
                     }
@@ -65,10 +74,19 @@ void enemy_family_load(void) BANKED {
 
 static void draw(uint8_t i, uint8_t family) {
     uint8_t pose = family == FAMILY_BASTION ? !actor_guard[i] : ((uint8_t)frame_count >> 4) & 1;
+    if (family == FAMILY_HOUND) {
+        uint8_t step = hound_step[i] & 15;
+        pose = actor_state[i] == 0 ? step >= 4 && step < 12 :
+            actor_state[i] == 2 && actor_timer[i] >= 6 && actor_timer[i] <= 18;
+    }
     uint8_t art_slot = family == FAMILY_HOUND ? 0 : family - FAMILY_HUSK;
     actor_t0[i] = FAMILY_VRAM + (art_slot << 3) + (pose << 2);
     actor_t1[i] = actor_t0[i] + 2;
     actor_p0[i] = actor_p1[i] = family == FAMILY_HUSK ? SPR_PAL_SLIME : SPR_PAL_SHOOTER;
+    if (family == FAMILY_HOUND && dx8[actor_face[i]] < 0) {
+        uint8_t tile = actor_t0[i]; actor_t0[i] = actor_t1[i]; actor_t1[i] = tile;
+        actor_p0[i] |= S_FLIPX; actor_p1[i] |= S_FLIPX;
+    }
 }
 
 static void guarded(uint8_t i, uint8_t on) {
@@ -88,7 +106,9 @@ void enemy_family_spawn(uint8_t family, uint8_t x, uint8_t y) BANKED {
     actor_hp[i] = hp[family - FAMILY_HUSK];
     actor_state[i] = 0; actor_timer[i] = 60;
     if (family == FAMILY_BASTION) { guarded(i, 1); actor_timer[i] = 90; }
-    if (family == FAMILY_HOUND) actor_timer[i] = 60 + (i << 4);
+    if (family == FAMILY_HOUND) {
+        actor_timer[i] = 60 + (i << 4); hound_step[i] = 0; hound_dir[i] = 4;
+    }
     draw(i, family);
 }
 
@@ -156,9 +176,18 @@ void enemy_family_update(void) BANKED {
             }
         } else if (family == FAMILY_HOUND) {
             if (actor_state[i] == 0) {
-                lock_direction(i);
-                uint8_t d = actor_face[i];
-                if (t && !(t & 2)) move(i, dx8[d], dy8[d]);
+                if (!(hound_step[i] & 15)) {
+                    lock_direction(i); hound_dir[i] = actor_face[i];
+                }
+                uint8_t d = hound_dir[i];
+                int8_t side = ((hound_step[i] & 16) != 0) ^ (i & 1) ? -1 : 1;
+                if (t) {
+                    // Forward stride plus alternating lateral hops. A blocked
+                    // hop falls back to forward travel rather than leaving walls.
+                    if (!move(i, dx8[d] * 2 - dy8[d] * side, dy8[d] * 2 + dx8[d] * side))
+                        move(i, dx8[d] * 2, dy8[d] * 2);
+                    hound_step[i] = (hound_step[i] + 2) & 31;
+                }
                 if (!t) {
                     int16_t dx = (int16_t)(player_x - actor_x[i]), dy = (int16_t)(player_y - actor_y[i]);
                     int8_t sx = dx > 8 ? 1 : dx < -8 ? -1 : 0;
@@ -178,7 +207,7 @@ void enemy_family_update(void) BANKED {
                     actor_state[i] = 3; actor_timer[i] = 42;
                 }
             } else if (!t) {
-                actor_state[i] = 0; actor_timer[i] = 60;
+                actor_state[i] = 0; actor_timer[i] = 60; hound_step[i] = 0;
             }
         } else if (family == FAMILY_BASTION) {
             if (actor_state[i] == 0) {

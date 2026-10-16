@@ -18,11 +18,17 @@ attempt, and START on the results returns to the title.
 | Ragebound | A raider driven by an unstable combat implant | 7 HP; 36-frame warning locks a cardinal lane, then a rush and 70-frame rest | Sidestep the committed rush and attack during recovery |
 | Contractor | A corporate mercenary | 5 HP; retreats up close or strafes, stops to warn for 30 frames, fires three shots, reloads for 80 frames | Leave the firing lane, then close in during reload |
 | Bastion Drone | A corporate salvage-security robot | 8 HP; guarded for 90 frames, warns for the last 24, drops its shield to fire a three-shot fan, stays exposed for 72 | Dodge and hit the open core; auto-aim skips the shield |
-| Scrap Hound | Mutant scavenger animals with scrap lodged in their hides | Two 4-HP pack hunters; stalk, warn for 24 frames, commit to an eight-direction pounce for up to 24, recover for 42 | Bait the pounce, step out of its lane, punish the landing |
+| Scrap Hound | Mutant scavenger animals with scrap lodged in their hides | Two 4-HP pack hunters; run in alternating lateral bounds, warn for 24 frames, commit to an eight-direction pounce for up to 24, recover for 42 | Keep moving during the approach, bait the pounce, punish the landing |
 
 Faction Mix contains one of the original four families. Scrap Hounds have a
 separate two-hound trial with staggered attack timing. This animal-rusher role
 draws from skags in the reference notes; its art, name, and fiction are original.
+Hounds steer between 16-frame bounds, taking a two-pixel forward stride plus a
+one-pixel lateral step on each 30 Hz update. They alternate sides, with the two
+pack members starting on opposite sides. A blocked diagonal step falls back to
+forward movement. A tucked-leg pose lifts the body above its small shadow during
+each bound and pounce; landing and recovery use the grounded pose. These are
+visual hops, not immunity windows: the normal collision and damage rules apply.
 Every trial equips the starter shield. Timers
 are gameplay frames at roughly 60 Hz; pause and hitstop freeze them. Contact
 uses the existing 10-damage hit and bullets use the existing 8-damage hit.

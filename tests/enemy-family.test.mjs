@@ -156,6 +156,8 @@ test('enemy families: full actor and bullet pools stay inside the frame and OAM 
 test('enemy families: hound signals a diagonal pounce, commits, and recovers', () => {
   const e=trial(8);
   put(e,'actor_hp',0,1); put(e,'shots_killed',1); e.idle(2); // isolate one pounce
+  put16(e,'actor_x',40); put16(e,'actor_y',32);
+  put(e,'actor_timer',2); // isolate the attack from its faster bounding approach
   e.until(x=>read(x,'actor_state')===1,100);
   const dir=read(e,'actor_face');
   assert.equal(dir,3,'hound can pounce diagonally toward the player');
@@ -169,4 +171,32 @@ test('enemy families: hound signals a diagonal pounce, commits, and recovers', (
   assert.equal(e.v('player_hp'),60);
   assert.equal(e.v('shield_hp'),40);
   e.shot('scrap-hound-recovery');
+});
+
+test('enemy families: hounds bound side to side toward the player and freeze when paused', () => {
+  const e=trial(8);
+  put16(e,'actor_x',72); put16(e,'actor_y',24);
+  put16(e,'player_x',72); put16(e,'player_y',96);
+  put(e,'hound_step',0); put(e,'actor_timer',60);
+  const startX=pos(e,'actor_x'), startY=pos(e,'actor_y');
+  e.idle(8).shot('scrap-hound-bound-air');
+  assert.equal(read(e,'actor_t0'),100,'tucked airborne pose');
+  e.idle(8);const left=pos(e,'actor_x');
+  assert.ok(left<startX,'first bound goes left');
+  e.idle(16).shot('scrap-hound-bound-land');
+  assert.ok(pos(e,'actor_x')>left,'next bound goes right');
+  assert.ok(pos(e,'actor_y')>startY+20,'both bounds close the distance');
+  e.tap('START');
+  const frozen=[pos(e,'actor_x'),pos(e,'actor_y'),read(e,'hound_step')];
+  e.idle(60);
+  assert.deepEqual([pos(e,'actor_x'),pos(e,'actor_y'),read(e,'hound_step')],frozen);
+  e.tap('START');
+  put16(e,'player_x',16);put16(e,'player_y',16);
+  for(let f=0;f<240;f++) {
+    put(e,'player_hp',60);put(e,'shield_hp',40);e.idle();
+    for(let i=0;i<2;i++) {
+      assert.ok(pos(e,'actor_x',i)>=14 && pos(e,'actor_x',i)<=130);
+      assert.ok(pos(e,'actor_y',i)>=10 && pos(e,'actor_y',i)<=96);
+    }
+  }
 });
