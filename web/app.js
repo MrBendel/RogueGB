@@ -277,9 +277,34 @@ async function loadFromBackend() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Save files: the cartridge's battery RAM, kept in this browser per game title,
+// put back at every boot and reset, and stored again whenever the game writes it.
+let sramKey = '', sramLast = '';
+function loadSram() {
+  sramKey = 'sram.' + (emu.info.title || 'rom');
+  const b64 = store.get(sramKey, null);
+  sramLast = b64 || '';
+  if (b64) {
+    try { emu.setSram(fromBase64(b64)); } catch { /* a different size: start fresh */ }
+  }
+}
+function storeSram() {
+  if (!emu) return;
+  const b64 = toBase64(emu.sram());
+  if (b64 !== sramLast) {
+    sramLast = b64;
+    store.set(sramKey, b64);
+  }
+}
+setInterval(storeSram, 2000);
+addEventListener('pagehide', storeSram);
+
 function start(rom, symText = '', label = 'ROM') {
+  if (emu) storeSram();
   emu?.gb?.free();
   emu = new Emu(B, rom, { mode: 'auto' });
+  loadSram();
   symbols = new Symbols(symText);
   emu.symbols = symbols;
   resetBuffers();
@@ -301,7 +326,9 @@ function resetBuffers() {
 
 function resetEmu() {
   if (!emu) return;
+  storeSram();
   emu.reset();
+  loadSram();
   resetBuffers();
   player = null;
   if (recorder) { recorder = null; toast('Recording discarded (reset)'); }

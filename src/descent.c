@@ -16,10 +16,15 @@
 #include "actor.h"
 #include "gfx.h"
 #include "hud.h"
+#include "save.h"
+#include "run.h"
+#include "weapon.h"
+#include <string.h>
 
 uint8_t layer_depth;      // 1 for the first area
 uint16_t maps_entered;    // map changes this run (watchable)
 uint16_t area_seed_base;  // the run's seed; each area's is derived from it and the depth
+uint16_t saved_seconds;   // run_seconds at the last save
 // Per camp of the current map: asleep, awake, or cleared; and its enemies' actor slots.
 uint8_t camp_state[LEVEL_CAMPS];
 uint8_t camp_actors[LEVEL_CAMPS];
@@ -44,9 +49,40 @@ static void start_area(void) {
 void descent_start(uint16_t seed) BANKED {
     layer_depth = 1;
     maps_entered = 0;
+    saved_seconds = 0;
     area_seed_base = seed;
     start_area();
     descent_enter(area_start, DESCENT_NO_DOOR);
+}
+
+// The expedition saved in the profile (save.h): its area rebuilt from the seed,
+// its cleared camps put back, and the player at an opening of its map (or the
+// middle of the start map).
+void descent_resume(void) BANKED {
+    layer_depth = profile.exp_depth;
+    maps_entered = 0;
+    saved_seconds = 0;
+    area_seed_base = profile.exp_seed;
+    start_area();
+    memcpy(area_camps_cleared, profile.exp_camps, sizeof(area_camps_cleared));
+    uint8_t map = profile.exp_map, links = area_links[map], side = DESCENT_NO_DOOR;
+    if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
+    descent_enter(map, side);
+}
+
+// Save at a map's entrance (save.h: nothing without a slot).
+static void autosave(void) {
+    if (save_slot == SAVE_NONE) return;
+    save_add_time(run_seconds - saved_seconds);
+    saved_seconds = run_seconds;
+    profile.exp_active = 1;
+    profile.exp_seed = area_seed_base;
+    profile.exp_depth = layer_depth;
+    profile.exp_map = level_map;
+    memcpy(profile.exp_camps, area_camps_cleared, sizeof(profile.exp_camps));
+    if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
+    profile.weapon = weapon_cur;
+    save_write();
 }
 
 // Where the player stands on arriving through the opening on `side` of the new
@@ -86,6 +122,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
         char t[8] = "SHAFT  ";
         hud_say(t);
     }
+    autosave();
 }
 
 // Wake camp c: its enemies at its slots, a third of them peashooters, up to

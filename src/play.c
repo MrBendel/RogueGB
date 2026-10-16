@@ -32,6 +32,7 @@
 #include "chest.h"
 #include "dialog.h"
 #include "talk.h"
+#include "save.h"
 #include "dialogue.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
@@ -193,7 +194,10 @@ void play_enter(void) BANKED {
     if (play_mode == MODE_DESCENT) {
         room_load_tiles();
         player_init(0, 0);
-        descent_start(run_seed);  // builds the start room and places the player
+        // A file (save.h): its gun, and its expedition if one is under way.
+        if (save_slot != SAVE_NONE) weapon_cur = profile.weapon < WEAPON_COUNT ? profile.weapon : WEAPON_PISTOL;
+        if (save_slot != SAVE_NONE && profile.exp_active) descent_resume();
+        else descent_start(run_seed);  // builds the start room and places the player
     } else if (play_mode == MODE_YARD) {
         room_load_yard();
         player_init(5 * BLOCK_SIZE, 4 * BLOCK_SIZE);
@@ -204,6 +208,7 @@ void play_enter(void) BANKED {
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
     camera_init(player_x + 8, player_y + 8);
     actors_init();
+    if (save_slot != SAVE_NONE) weapon_select(weapon_cur);  // (the first run's weapon setup picks the pistol)
     hud_init();
     chest_init();
     sfx_watch_reset();

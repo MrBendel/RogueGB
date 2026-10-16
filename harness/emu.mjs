@@ -326,6 +326,17 @@ export class Emu {
   write8(addr, v) {
     this.writeBytes(addr, [v & 0xff]);
   }
+
+  // --- cartridge RAM (battery saves) ---------------------------------------------
+  /** A copy of the cartridge's battery-backed RAM (the game's save files). */
+  sram() {
+    return new Uint8Array(this.gb.ram_data_eager());
+  }
+
+  /** Put save files back (bytes from sram()); before the game reads them (at boot). */
+  setSram(bytes) {
+    this.gb.set_ram_data(new Uint8Array(bytes));
+  }
 }
 
 // --- symbols ------------------------------------------------------------------

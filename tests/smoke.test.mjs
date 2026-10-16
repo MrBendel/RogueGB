@@ -28,7 +28,7 @@ test('START begins a run seeded by press timing', () => {
 });
 
 test('the START that begins a run does not also pause it', () => {
-  const emu = bootToTitle().hold('START', 1);
+  const emu = bootToTitle().tap('START').hold('START', 1);  // the files, then START picks the first
   settle(emu, PLAY, 'play state').hold('START', 10);
   assert.equal(emu.v('paused'), 0);
 });

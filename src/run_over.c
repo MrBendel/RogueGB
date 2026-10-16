@@ -8,6 +8,9 @@
 #include "gfx.h"
 #include "run.h"
 #include "health.h"
+#include "save.h"
+
+extern uint16_t saved_seconds;  // descent.c
 
 extern uint16_t enemies_killed;  // aim.c
 
@@ -23,8 +26,22 @@ static uint8_t len(const char *s) {
 
 uint8_t run_over_timer;
 
+// The run's end, for a file (save.h): the corporation rebuilds you for a cut of
+// your credits (docs/design/play-loop.md), the expedition is over, and the
+// file is saved.
+static void settle(void) {
+    if (save_slot == SAVE_NONE) return;
+    profile.last_fee = profile.credits >> DEATH_FEE_SHIFT;
+    profile.credits -= profile.last_fee;
+    profile.exp_active = 0;
+    profile.kills += enemies_killed;
+    save_add_time(run_seconds - saved_seconds);
+    save_write();
+}
+
 void run_over_enter(void) BANKED {
     run_over_timer = 0;
+    settle();
     palettes_menu();
     bkg_frame(2, 2, 16, 12);
     bkg_text(6, 3, "RUN OVER");

@@ -18,6 +18,7 @@ extern uint16_t maps_entered;
 extern uint8_t camp_state[];    // per camp of the current map
 
 void descent_start(uint16_t seed) BANKED;             // a new descent, in the first area's start map (display off)
+void descent_resume(void) BANKED;                     // the profile's expedition (save.h), at its map
 void descent_enter(uint8_t map, uint8_t side) BANKED; // build a map and place the player (display off)
 void descent_update(void) BANKED;                     // per frame: camps wake and clear
 uint8_t descent_door(void) BANKED;                    // per frame: the opening walked into (EDGE_*), the shaft, or 0
