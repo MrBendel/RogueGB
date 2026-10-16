@@ -18,8 +18,11 @@ of them, an "A" bubble shows and A plays their samples:
 | The post at the bottom right | Meridian | `voice_meridian` |
 | The broker, right of the bridge | Marro | `voice_marro` |
 
-Portraits (`artwork/portraits/`, 32x32, 3 colors) float above the box: Echo's is
-her relay's signal, the company's is its logo. Marro's face is still to draw.
+Portraits (`artwork/portraits/`, 32x32, 3 colors plus see-through) float above
+the box: Echo's is her relay's signal, the company's is its logo (the CEO and
+Meridian share it), and Marro and the player have simple placeholder busts. All
+four are placeholders: redraw any PNG at the same size and the next build uses it
+(colors are mapped lightest to darkest).
 
 ## Writing for the box
 
@@ -110,7 +113,7 @@ understanding of what it just said.
 
 **For:** a Skavengar: a professional, not a blank slate. Speaks rarely, so it counts.
 
-**Box:** ink-colored name, YOU, no sound. Class flavor can come later; this is
+**Box:** ink-colored name, YOU, no sound, a placeholder bust (your class's face later). Class flavor can come later; this is
 the shared voice.
 
 **How you talk:** short and dry. Questions more than statements. Practical first,
@@ -131,7 +134,7 @@ curious second. Never a speech: a line or two, then back to work.
 company quietly. Name proposal: **Marro**. Not decided, like the rest of the
 supporting cast ([story](story.md): "NPC identities... are open").
 
-**Box:** a warm brown name; no sound. Has a face (a portrait to draw).
+**Box:** a warm brown name; no sound. Has a face (a placeholder bust for now).
 
 **How they talk:** prices and salvage metaphors. Gruff, but looks out for you.
 Knows everyone's business; tells you half.

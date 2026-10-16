@@ -27,6 +27,7 @@ uint8_t zones_done;
 uint16_t talks;
 uint8_t talk_frames[TALK_KINDS * 4];  // each kind's frame: left column, flags, right column, flags
 uint8_t talk_tick;
+uint8_t bubble_oam = 0xFF;  // where the bubble was drawn last frame
 
 // The bubble: an "A" in a white speech bubble (UI palette), over a blank tile.
 static const uint8_t bubble_tiles[32] = {
@@ -104,12 +105,14 @@ void talk_update(void) BANKED {
 
 void talk_start(void) BANKED {
     talks++;
+    if (bubble_oam != 0xFF) shadow_OAM[bubble_oam].y = 0;  // no bubble while they talk
     dlg_start(talk_script[talk_near]);
 }
 
 uint8_t talk_draw(uint8_t oam) BANKED {
     if (!talk_count) return oam;
     talk_tick++;
+    bubble_oam = 0xFF;
     for (uint8_t i = 0; i < talk_count; i++) {
         // Screen position (hardware: +8, +16); skip those off the view.
         uint16_t sx = ((uint16_t)talk_bx[i] << 4) - cam_x + 8, sy = ((uint16_t)talk_by[i] << 4) - cam_y + 16;
@@ -124,6 +127,7 @@ uint8_t talk_draw(uint8_t oam) BANKED {
         move_sprite(oam++, (uint8_t)sx + 8, (uint8_t)sy);
         if (i == talk_near && sy >= BUBBLE_UP + 16) {
             // The bubble bobs a pixel, every 16 frames.
+            bubble_oam = oam;
             set_sprite_tile(oam, BUBBLE_VRAM);
             set_sprite_prop(oam, SPR_PAL_UI);
             move_sprite(oam++, (uint8_t)sx + 4, (uint8_t)sy - BUBBLE_UP - ((talk_tick >> 4) & 1));

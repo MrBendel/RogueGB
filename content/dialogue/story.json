@@ -3,7 +3,7 @@
   "speakers": {
     "echo": { "name": "ECHO", "color": "#1c7a84", "sound": "relay", "portrait": "echo.png" },
     "ceo": { "name": "THE CEO", "color": "#a8401c", "sound": "chime", "portrait": "meridian.png" },
-    "you": { "name": "YOU", "color": "#181425" },
+    "you": { "name": "YOU", "color": "#181425", "portrait": "you.png" },
     "meridian": { "name": "MERIDIAN", "color": "#a8401c", "sound": "chime", "portrait": "meridian.png" }
   },
   "scripts": [

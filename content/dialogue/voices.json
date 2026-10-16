@@ -1,7 +1,7 @@
 {
   "about": "Voice samples (docs/design/voices.md): each character's sample lines, to read at real size in the box. Placeholders, not the final script.",
   "speakers": {
-    "marro": { "name": "MARRO", "color": "#8a5a2c" }
+    "marro": { "name": "MARRO", "color": "#8a5a2c", "portrait": "marro.png" }
   },
   "scripts": [
     {
