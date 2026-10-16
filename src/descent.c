@@ -17,6 +17,7 @@
 #include "gfx.h"
 #include "hud.h"
 #include "save.h"
+#include "progress.h"
 #include "run.h"
 #include "weapon.h"
 #include <string.h>
@@ -155,6 +156,7 @@ void descent_update(void) BANKED {
                 area_camps_cleared[level_map] |= 1 << c;
                 char t[8] = "CLEAR! ";
                 hud_say(t);
+                xp_gain(XP_CAMP + 5 * layer_depth);
             }
         }
     }
@@ -198,6 +200,7 @@ void descent_change_room(uint8_t d) BANKED {
         char t[8] = "DEPTH  ";
         t[6] = '0' + (layer_depth > 9 ? 9 : layer_depth);
         hud_say(t);
+        xp_gain(XP_SHAFT * layer_depth);
     } else {
         uint8_t side, next = through(d, &side);
         descent_enter(next, side);

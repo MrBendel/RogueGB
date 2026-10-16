@@ -12,6 +12,7 @@
 
 #include "actor_internal.h"
 #include "aim.h"
+#include "progress.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -264,6 +265,7 @@ static void reap(void) {
     shots_killed = 0;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
+        xp_pending += actor_type[i] == ACTOR_PEASHOOTER ? XP_PEASHOOTER : XP_SLIME;  // (play awards it)
         actor_type[i] = ACTOR_NONE;
         actor_count--;
         enemies_killed++;

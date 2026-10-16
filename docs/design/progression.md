@@ -28,10 +28,16 @@ Status: decided where marked; the rest is the working plan. Builds on
 - **The playtest page** keeps each game's save files in the browser and puts them
   back on every boot and reset.
 
+- **XP and levels** (`src/progress.c`): a slime is worth 4 XP, a peashooter 6,
+  plus a point a depth per kill below the first; clearing a camp 10 + 5 a depth;
+  going down the shaft 20 a depth. Level L to L + 1 takes 10 L² + 30 L XP (40 for
+  level 2, 9280 for the last of 30); a first area is worth about three levels. A
+  level: a skill point, +2 max health, health and shield refilled, a fanfare,
+  "LEVEL n" on the HUD, and the file saved.
+
 ## Next
 
-1. **XP and levels:** XP for kills (more for camps cleared), first finds and
-   depth; a level curve to about 30; a level-up moment (sound, banner, HUD).
+1. **First finds** as an XP source (relics, new guns) once loot exists.
 2. **The profile screen:** class, level and XP bar, credits, time, finds.
 3. **The Wayfarer's skill tree:** the 3x3 triad from skill-trees.md, its screen,
    and the skills' real effects.

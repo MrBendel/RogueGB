@@ -59,6 +59,10 @@ static const Step start[] = {{5, 0, DUTY50, 0xA2, P(1849)}, {10, 0, DUTY50, 0xB3
 static const Step deflect[] = {{4, 0, DUTY25, 0xB1, P(1960)}};
 static const Step text[] = {{1, 0, DUTY12, 0x41, P(1985)}};  // a soft tick
 static const Step relay[] = {{5, 0, 0, 0x72, 0x14, 0}, {3, 0, 0, 0x41, 0x05, 0}, {6, 0, 0, 0x62, 0x24, 0}};  // static
+static const Step level[] = {  // C E G C E, the last one held
+    {5, 0, DUTY50, 0xB2, P(1798)}, {5, 0, DUTY50, 0xB2, P(1849)}, {5, 0, DUTY50, 0xB2, P(1881)},
+    {5, 0, DUTY50, 0xC2, P(1923)}, {20, 0, DUTY50, 0xD6, P(1949)},
+};
 static const Step chime[] = {  // G, E, C: polite, and a little too pleased with itself
     {9, 0, DUTY50, 0x93, P(1881)}, {9, 0, DUTY50, 0x93, P(1849)}, {18, 0, DUTY50, 0xA5, P(1798)},
 };
@@ -67,16 +71,16 @@ static const Step chime[] = {  // G, E, C: polite, and a little too pleased with
 // step count and steps, as separate arrays: plain byte indexing (an array of
 // structs would multiply, a slow routine on this CPU).
 #define N(steps) (sizeof(steps) / sizeof(Step))
-static const uint8_t snd_ch[SFX_COUNT] = {0, 2, 0, 2, 2, 2, 2, 2, 0, 1, 2, 1, 2, 1, 1, 1, 0, 2, 1, 0, 1, 1, 1, 2, 1};
-static const uint8_t snd_prio[SFX_COUNT] = {2, 3, 2, 3, 4, 2, 1, 3, 5, 4, 5, 3, 2, 2, 4, 4, 1, 1, 1, 6, 4, 3, 1, 4, 4};
+static const uint8_t snd_ch[SFX_COUNT] = {0, 2, 0, 2, 2, 2, 2, 2, 0, 1, 2, 1, 2, 1, 1, 1, 0, 2, 1, 0, 1, 1, 1, 2, 1, 1};
+static const uint8_t snd_prio[SFX_COUNT] = {2, 3, 2, 3, 4, 2, 1, 3, 5, 4, 5, 3, 2, 2, 4, 4, 1, 1, 1, 6, 4, 3, 1, 4, 4, 5};
 static const uint8_t snd_n[SFX_COUNT] = {
     N(pistol), N(shotgun), N(rifle), N(sniper), N(crit), N(sword), N(hit), N(kill), N(hurt), N(shield_hit),
     N(shield_break), N(shield_full), N(reload), N(reloaded), N(chest), N(pickup), N(jump), N(dash),
-    N(enemy_shot), N(death), N(start), N(deflect), N(text), N(relay), N(chime),
+    N(enemy_shot), N(death), N(start), N(deflect), N(text), N(relay), N(chime), N(level),
 };
 static const Step *const snd_steps[SFX_COUNT] = {
     pistol, shotgun, rifle, sniper, crit, sword, hit, kill, hurt, shield_hit, shield_break, shield_full,
-    reload, reloaded, chest, pickup, jump, dash, enemy_shot, death, start, deflect, text, relay, chime,
+    reload, reloaded, chest, pickup, jump, dash, enemy_shot, death, start, deflect, text, relay, chime, level,
 };
 
 uint8_t sfx_last = 0xFF;

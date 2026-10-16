@@ -33,6 +33,7 @@
 #include "dialog.h"
 #include "talk.h"
 #include "save.h"
+#include "progress.h"
 #include "dialogue.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
@@ -209,6 +210,8 @@ void play_enter(void) BANKED {
     camera_init(player_x + 8, player_y + 8);
     actors_init();
     if (save_slot != SAVE_NONE) weapon_select(weapon_cur);  // (the first run's weapon setup picks the pistol)
+    if (play_mode != MODE_DESCENT) layer_depth = 1;  // (XP's depth bonus)
+    progress_apply();  // max health from the level
     hud_init();
     chest_init();
     sfx_watch_reset();
@@ -378,6 +381,8 @@ void play_update(void) BANKED {
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     actors_update(talk_count ? talk_draw(FIRST_ACTOR_OAM) : FIRST_ACTOR_OAM);  // talkers first: few, standing still
+    // Kills' XP (actor.c), every 8th frame: not on the kill's own frame, the busiest.
+    if (xp_pending && (run_ticks & 7) == 3) progress_award();
     if (play_mode == MODE_LAB) chest_update();
     aim_update();
     player_draw();

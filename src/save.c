@@ -67,6 +67,11 @@ static void new_profile(void) {
     profile.level = 1;
 }
 
+void save_none(void) BANKED {
+    save_slot = SAVE_NONE;
+    new_profile();
+}
+
 void save_open(uint8_t slot) BANKED {
     save_slot = slot;
     ENABLE_RAM;

@@ -50,6 +50,7 @@ extern uint16_t slot_minutes[SAVE_SLOTS];
 
 void save_scan(void) BANKED;              // fill slot_* from the cartridge
 void save_open(uint8_t slot) BANKED;      // play this slot: its profile, or a new one (saved at once)
+void save_none(void) BANKED;              // play without a file (the lab, the yard): a new profile, never saved
 void save_write(void) BANKED;             // the profile into its slot (if there is one)
 void save_add_time(uint16_t seconds) BANKED;  // play time since the last call, into the profile
 

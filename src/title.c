@@ -142,7 +142,7 @@ void title_update(void) BANKED {
         sfx_play(SFX_START);
         show_files();
     } else if (joy_pressed & (J_SELECT | J_B)) {
-        save_slot = SAVE_NONE;
+        save_none();
         begin(joy_pressed & J_SELECT ? MODE_LAB : MODE_YARD);
     }
 }

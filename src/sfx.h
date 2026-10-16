@@ -39,7 +39,8 @@
 #define SFX_TEXT 22      // a letter typed in the dialogue box
 #define SFX_RELAY 23     // Echo's channel opens: a crackle
 #define SFX_CHIME 24     // the company's three-note chime (its messages)
-#define SFX_COUNT 25
+#define SFX_LEVEL 25     // a level up: a rising fanfare
+#define SFX_COUNT 26
 
 // --- watchable state ---
 extern uint8_t sfx_last;      // the last sound started (0xFF: none yet)

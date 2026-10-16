@@ -280,6 +280,6 @@ test('the exit map has a shaft: dropping in leads to a new area, one deeper', ()
   emu.idle(40);
   assert.equal(emu.v('layer_depth'), 2, 'one deeper');
   assert.equal(emu.v('level_map'), emu.v('area_start'), 'at the start of the new area');
-  assert.equal(emu.v('player_hp'), hp, 'no fall damage');
+  assert.ok(emu.v('player_hp') >= hp, "no fall damage (the shaft's XP can level you up: health only goes up)");
   assert.notDeepEqual(bytes(emu, 'area_links'), firstLinks, 'a different area');
 });
