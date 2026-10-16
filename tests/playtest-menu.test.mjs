@@ -32,6 +32,14 @@ test('playtest menu: lab entry and SELECT shortcut stay available', () => {
   assert.equal(shortcut.v('play_mode'), 0);
 });
 
+test('playtest menu: adding a mercenary preserves the third boss entry', () => {
+  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
+  assert.equal(e.v('title_choice'),2);
+  settle(e.tap('A'),PLAY).idle(3);
+  assert.equal(e.v('boss_kind'),4);
+  assert.equal(e.v('play_mode'),3);
+});
+
 test('playtest menu: Acid Skimmer and Mercenary are the two enemy choices', () => {
   const e = enemyMenu();
   for (let n = 0; n < 12; n++) {

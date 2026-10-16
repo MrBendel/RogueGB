@@ -71,3 +71,11 @@ the player's loaded rifle in VRAM bank 1 without changing the player's weapon.
 OAM 15–22 is reserved for the gun and effects. AI is in `src/mercenary.c`;
 scripted actor value 9 identifies contact damage, and death cause 12 identifies
 the mercenary's shots. Encounter projectile settings reset when actors load.
+
+Validation covers six-shot bursts, reload visibility, reactive rolls and recovery,
+wall boundaries, pause, normal-health starter-pistol victory with movement, defeat
+when standing still holding fire, sustained combat, and switching back to Acid
+Skimmer. The merged suite also checks that the third boss entry remains available
+and that all global RAM sections end before the fixed room map at `0xD000`.
+Mercenary completion peaks at 63,580/131,328 update cycles; the sustained stress
+test peaks at 62,624. These are headless-emulator measurements.
