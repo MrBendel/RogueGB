@@ -21,6 +21,8 @@ Pronunciation and tagline are not finalized.
 
 ## Reading order
 
+- [Hardware layout and sprites](layout-and-sprites.md): OAM allocations,
+  metasprite column pairing, screen geometry, VRAM memory map, and banking rules.
 - [Enemy families](enemies.md): infected scavengers, berserkers, mercenaries,
   robots, mutant hounds, counterplay, and future variants.
 - [Bosses and minibosses](bosses.md): playable trials, reference patterns,
