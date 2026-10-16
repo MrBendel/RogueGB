@@ -17,6 +17,7 @@
 #include "weapon_sniper.h"
 #include "weapon_sword.h"
 #include "skills.h"
+#include "loot.h"
 
 uint8_t weapon_cur;
 uint8_t rifle_mode = RIFLE_AUTO;
@@ -107,9 +108,10 @@ void weapon_get_name(char *dst) BANKED {
 void weapon_select(uint8_t w) BANKED {
     // Keep what the tuner changed (the pause panel edits wpn), unless skills are
     // on top of it: then the stored stats stay the gun's own.
-    if (!skill_fx) weapon_stats[weapon_cur] = wpn;
+    if (!skill_fx && !gun_mods) weapon_stats[weapon_cur] = wpn;
     weapon_cur = w;
     wpn = weapon_stats[w];
+    if (gun_mods && gun_held.type == w) gun_apply(&wpn, &gun_held);  // a loadout's gun (loot.h)
     if (skill_fx) skills_weapon(&wpn);
     // Switching cancels a reload; a magazine tuned smaller drops what won't fit.
     reload_t = 0;
@@ -156,6 +158,20 @@ void weapon_select(uint8_t w) BANKED {
             int8_t v = gun_place[row][d], sign = (v > 0) - (v < 0);
             gun_place[row][d] = k <= 1 ? sign : k == 2 ? v : v + sign;
         }
+    }
+}
+
+void weapon_icon(uint8_t type, uint8_t *f) BANKED {
+    switch (type) {  // direction 0: pointing right (BANK() isn't a constant: no table)
+    case WEAPON_PISTOL: banked_memcpy(f, spr_pistol_frames, 4, BANK(spr_pistol)); break;
+    case WEAPON_SHOTGUN: banked_memcpy(f, spr_shotgun_frames, 4, BANK(spr_shotgun)); break;
+    case WEAPON_RIFLE: banked_memcpy(f, spr_rifle_frames, 4, BANK(spr_rifle)); break;
+    case WEAPON_SNIPER: banked_memcpy(f, spr_sniper_frames, 4, BANK(spr_sniper)); break;
+    default: banked_memcpy(f, spr_sword_frames, 4, BANK(spr_sword)); break;
+    }
+    for (uint8_t c = 0; c < 4; c += 2) {
+        f[c] = f[c] == blanks[type] ? 0xFF : weapon_vram[type] + (f[c] << 1);
+        f[c + 1] = (f[c + 1] & 0xF8) | SPR_PAL_WEAPON | S_BANK;
     }
 }
 

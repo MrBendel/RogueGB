@@ -8,6 +8,7 @@
 #include "sfx.h"
 #include "descent.h"
 #include "skills.h"
+#include "pickups.h"
 #include "skilldata.h"
 
 uint16_t xp_pending;
@@ -68,4 +69,5 @@ void progress_award(void) BANKED {
     uint16_t n = xp_pending + kills * (layer_depth > 1 ? layer_depth - 1 : 0);
     xp_pending = 0;
     xp_gain(n);
+    if (kills) loot_kill_drop();
 }

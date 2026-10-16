@@ -108,5 +108,9 @@ void weapon_select(uint8_t w) BANKED;
 // The current weapon's name on the window layer at (x, y) (its strings are in
 // weapon.c's bank, so it draws them itself).
 void weapon_draw_name(uint8_t x, uint8_t y) BANKED;
+// A weapon type's look lying on the floor (its right-facing frame): f[0] the left
+// column's sprite tile (0xFF: empty), f[1] its flags (palette, bank, flips), f[2],
+// f[3] the right column's.
+void weapon_icon(uint8_t type, uint8_t *f) BANKED;
 
 #endif

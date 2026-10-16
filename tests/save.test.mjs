@@ -8,7 +8,7 @@ const OPENING_W = 4;
 const SIDE = { 1: 0, 2: 1, 4: 2, 8: 3 };
 const DIR = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' };
 // Profile field offsets (save.h; SDCC packs structs).
-const P = { level: 1, xp: 2, credits: 7, play_minutes: 11, best_depth: 14, last_fee: 19, exp_active: 23, exp_seed: 24, exp_depth: 26, exp_map: 27 };
+const P = { level: 1, xp: 2, credits: 7, play_minutes: 11, best_depth: 14, guns: 18, gun_sel: 54, last_fee: 55, exp_active: 59, exp_seed: 60, exp_depth: 62, exp_map: 63 };
 
 const A = (emu, n) => emu.symbols.addr(n);
 const prof = (emu, field, len = 1) => {

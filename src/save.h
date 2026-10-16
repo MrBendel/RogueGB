@@ -12,10 +12,11 @@
 
 #include <gb/gb.h>
 #include <stdint.h>
+#include "loot.h"
 
 #define SAVE_SLOTS 3
 #define SAVE_NONE 0xFF
-#define SAVE_VERSION 1
+#define SAVE_VERSION 2  // 2: guns as items (loot.h)
 #define DEATH_FEE_SHIFT 3  // the corporation's cut for rebuilding you: credits >> 3 (12.5%; a shift, no 32-bit division)
 
 typedef struct {
@@ -29,8 +30,9 @@ typedef struct {
     uint8_t play_seconds;   // ... and seconds (16-bit math only: no 32-bit division on this CPU's library)
     uint8_t best_depth;
     uint16_t kills;
-    uint8_t weapon;         // the one held
     uint8_t has_shield;
+    Gun guns[LOADOUT];      // the loadout (loot.h); type GUN_NONE: an empty slot
+    uint8_t gun_sel;        // the one held
     uint32_t last_fee;      // credits the last reconstruction cost
     // The expedition under way (exp_active), resumed at its map's entrance.
     uint8_t exp_active;
@@ -38,6 +40,7 @@ typedef struct {
     uint8_t exp_depth;
     uint8_t exp_map;
     uint8_t exp_camps[12];  // camps cleared, a bit each, per map (level.h AREA_CELLS)
+    uint8_t exp_chests[12]; // chests opened, a bit each, per map
 } Profile;
 
 // --- watchable state ---

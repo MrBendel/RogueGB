@@ -32,7 +32,7 @@
   "run-over-killed": "972c4f65",
   "descent-start": "e7487ec8",
   "descent-combat": "dcceaea5",
-  "descent-camp": "d17fcd85",
+  "descent-camp": "643e800d",
   "yard-start": "123b7928",
   "yard-catwalk": "d98fccbd",
   "yard-behind-roof": "3aac0740",
@@ -43,5 +43,6 @@
   "files-one": "37a5fa30",
   "class-picker": "8108efae",
   "skills-page": "5273f4c5",
-  "profile-page": "ffc1b989"
+  "profile-page": "ffc1b989",
+  "loot-card": "598a0dbb"
 }

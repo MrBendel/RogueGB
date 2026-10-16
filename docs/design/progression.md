@@ -61,10 +61,26 @@ Status: decided where marked; the rest is the working plan. Builds on
   The other 26 can be learned and say "(Not in yet.)": they need systems that
   don't exist yet (piercing, burning, decoys, turrets, elites).
 
+- **Loot** (`src/loot.c`, `src/pickups.c`): guns are items: a base type (pistol,
+  shotgun, rifle, sniper, sword) at a level and a rarity (common, uncommon, rare,
+  epic, legendary: 60/25/10/4/1 in 100, luckier deeper), with bonus points (one a
+  rarity step, one every third level) rolled into damage, fire rate, magazine or
+  reload, and named for the biggest ("Rapid Shotgun"). A file holds 4 (SELECT
+  cycles them), kept through death; a new character starts with a plain pistol.
+  - Each camp's chest opens once the camp is cleared; hidden caches any time (and
+    a little luckier). A chest drops credits and a gun; a quarter of kills drop a
+    few credits. Opened chests stay open for the expedition.
+  - Credits are taken by walking over them. Standing on a gun shows a card at the
+    top: name and level in its rarity's color, damage, fire rate, magazine and
+    reload against the gun held; A takes it, or swaps it for the held gun (which
+    drops in its place) when the loadout is full.
+  - Enemies have a point more health a depth below the first, so better guns
+    matter deeper down.
+
 ## Next
 
-1. **The other skills' systems**, starting with whichever class we play most.
-2. **Credits:** from camps and chests; spent at towns (later). The fee already
-   takes its eighth.
-3. **First finds** as an XP source (relics, new guns) once loot exists.
+1. **Spending credits:** towns and shops (M3); the fee already takes its eighth.
+2. **More loot:** shields and relics as drops, gun parts or manufacturers, a
+   legendary's special trait, rarity on the floor (a colored glint).
+3. **The other skills' systems**, starting with whichever class we play most.
 4. **Class looks:** each class its own sprite (skill-trees.md names them).

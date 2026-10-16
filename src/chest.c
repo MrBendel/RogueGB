@@ -20,7 +20,6 @@
 
 // Sprite tiles (bank 0): above the effects' tiles, below 128 (from 128 on, sprite
 // tiles share VRAM with background tiles 128-255).
-#define CHEST_VRAM 96
 #define ITEM_VRAM (CHEST_VRAM + SPR_CHEST_COLUMN_COUNT * 2)
 
 #define ITEM_UP (3 << 8)    // the shield's pop: upward speed, px/frame 8.8 ...

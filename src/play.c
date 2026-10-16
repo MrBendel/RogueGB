@@ -36,6 +36,8 @@
 #include "progress.h"
 #include "skills.h"
 #include "menu.h"
+#include "loot.h"
+#include "pickups.h"
 #include "dialogue.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
@@ -201,12 +203,12 @@ static void draw_page(void) {
 
 void play_enter(void) BANKED {
     palettes_play();
-    talk_clear();  // a room adds its own
+    talk_clear();    // a room adds its own
+    pickups_init();  // a descent map loads its chests (descent.c)
     if (play_mode == MODE_DESCENT) {
         room_load_tiles();
         player_init(0, 0);
-        // A file (save.h): its gun, and its expedition if one is under way.
-        if (save_slot != SAVE_NONE) weapon_cur = profile.weapon < WEAPON_COUNT ? profile.weapon : WEAPON_PISTOL;
+        // A file (save.h): its expedition, if one is under way.
         if (save_slot != SAVE_NONE && profile.exp_active) descent_resume();
         else descent_start(run_seed);  // builds the start room and places the player
     } else if (play_mode == MODE_YARD) {
@@ -218,9 +220,14 @@ void play_enter(void) BANKED {
     }
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
     skills_refresh();  // this file's skills, before anything loads a gun (weapon_select applies them)
+    gun_mods = 0;      // the plain guns, until a file's loadout is picked up (below)
     camera_init(player_x + 8, player_y + 8);
     actors_init();
-    if (save_slot != SAVE_NONE) weapon_select(weapon_cur);  // (the first run's weapon setup picks the pistol)
+    if (save_slot != SAVE_NONE) {
+        // The file's loadout, magazines full.
+        for (uint8_t s = 0; s < LOADOUT; s++) slot_ammo[s] = 255;
+        loadout_select(profile.guns[profile.gun_sel].type != GUN_NONE ? profile.gun_sel : 0);
+    }
     if (play_mode != MODE_DESCENT) layer_depth = 1;  // (XP's depth bonus)
     progress_apply();  // max health from the level
     hud_init();
@@ -247,6 +254,7 @@ static void set_paused(uint8_t p) {
     paused = p;
     // Sprites would draw over the pause panel, so hide them while paused.
     if (p) {
+        pickups_card_off();
         hud_hide();
         menu_open();
         if (menu_page == PAGE_TUNE) draw_pause();
@@ -349,9 +357,17 @@ void play_update(void) BANKED {
         chord_mask = J_A | J_B;
     } else {
         if ((joy_released & J_SELECT) && !select_chord) {
-            weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);  // the HUD shows it
+            // The file's loadout; the lab and the yard cycle the five plain guns.
+            if (save_slot != SAVE_NONE) loadout_next();
+            else weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);  // the HUD shows it
         }
         chord_mask &= joy;
+    }
+    // A on a gun's card: take it, don't fire (A stays out until let go).
+    if ((joy_pressed & J_A) && !(chord_mask & J_A) && card_drop != CARD_NONE) {
+        chord_mask |= J_A;
+        pickups_take();
+        return;
     }
     // A beside someone who talks: talk, don't fire (A stays out until let go).
     if ((joy_pressed & J_A) && !(chord_mask & J_A) && talk_near != TALK_NONE) {
@@ -391,6 +407,7 @@ void play_update(void) BANKED {
     }
     player_update();
     if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
+    if (pickups_on) pickups_update();
     if (play_mode == MODE_DESCENT) {
         uint8_t door = descent_door();
         if (door) descent_change_room(door);
@@ -401,14 +418,17 @@ void play_update(void) BANKED {
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
-    actors_update(talk_count ? talk_draw(FIRST_ACTOR_OAM) : FIRST_ACTOR_OAM);  // talkers first: few, standing still
+    // Talkers and loot first (few, standing still), then actors and shots.
+    uint8_t first = talk_count ? talk_draw(FIRST_ACTOR_OAM) : FIRST_ACTOR_OAM;
+    if (pickups_on) first = pickups_draw(first);
+    actors_update(first);
     // Kills' XP (actor.c), every 8th frame: not on the kill's own frame, the busiest.
     if (xp_pending && (run_ticks & 7) == 3) progress_award();
     if (play_mode == MODE_LAB) chest_update();
     aim_update();
     player_draw();
     health_update();
-    hud_update();
+    if (card_drop == CARD_NONE) hud_update();  // (a gun's card has the window: the HUD redraws when it closes)
     sfx_watch();
     if (!player_hp) {
         sfx_play(SFX_DEATH);

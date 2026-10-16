@@ -13,6 +13,7 @@
 #include "actor_internal.h"
 #include "aim.h"
 #include "progress.h"
+#include "pickups.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -266,6 +267,8 @@ static void reap(void) {
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
         xp_pending += actor_type[i] == ACTOR_PEASHOOTER ? XP_PEASHOOTER : XP_SLIME;  // (play awards it)
+        kill_x = actor_x[i];  // (loot may drop there: pickups.c)
+        kill_y = actor_y[i];
         actor_type[i] = ACTOR_NONE;
         actor_count--;
         enemies_killed++;

@@ -5,6 +5,8 @@
 #ifndef CHEST_H
 #define CHEST_H
 
+#define CHEST_VRAM 96  // sprite tiles (bank 0): the chest's art, loaded every scene (chest_init)
+
 #include <gb/gb.h>
 #include <stdint.h>
 
@@ -23,6 +25,7 @@ extern uint8_t chest_state;
 extern uint16_t item_x, item_y;  // the shield's 16x16 frame, room pixels
 extern int16_t item_z;           // its height while it flies (px 8.8)
 extern uint8_t item_landed;
+extern uint8_t chest_frames[];  // the chest's frames (closed at 0, open at 4): pickups.c draws the descent's
 
 void chest_init(void) BANKED;    // once per play scene (tiles, state)
 void chest_update(void) BANKED;  // per frame, after the camera moved

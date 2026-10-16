@@ -11,6 +11,7 @@ uint8_t area_type[AREA_CELLS];
 uint8_t area_links[AREA_CELLS];
 uint8_t area_cw[AREA_CELLS], area_ch[AREA_CELLS];
 uint8_t area_camps_cleared[AREA_CELLS];
+uint8_t area_chests_opened[AREA_CELLS];
 uint16_t area_seed[AREA_CELLS];
 uint8_t area_start, area_exit, area_maps;
 uint8_t level_map;
@@ -74,6 +75,7 @@ void level_generate(uint16_t seed) BANKED {
         area_type[i] = MAP_NONE;
         area_links[i] = 0;
         area_camps_cleared[i] = 0;
+        area_chests_opened[i] = 0;
         area_cw[i] = area_ch[i] = 0;
     }
     // Grow from the start: link a new map onto a random existing one until

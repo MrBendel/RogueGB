@@ -65,6 +65,9 @@ void save_scan(void) BANKED {
 static void new_profile(void) {
     memset(&profile, 0, sizeof(profile));
     profile.level = 1;
+    // A plain pistol to start with; the rest of the loadout empty.
+    for (uint8_t s = 1; s < LOADOUT; s++) profile.guns[s].type = GUN_NONE;
+    gun_plain(&profile.guns[0], WEAPON_PISTOL);
 }
 
 void save_new(uint8_t slot, uint8_t cls) BANKED {

@@ -17,6 +17,7 @@
 #include "gfx.h"
 #include "hud.h"
 #include "save.h"
+#include "pickups.h"
 #include "progress.h"
 #include "run.h"
 #include "weapon.h"
@@ -66,6 +67,7 @@ void descent_resume(void) BANKED {
     area_seed_base = profile.exp_seed;
     start_area();
     memcpy(area_camps_cleared, profile.exp_camps, sizeof(area_camps_cleared));
+    memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
     uint8_t map = profile.exp_map, links = area_links[map], side = DESCENT_NO_DOOR;
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     descent_enter(map, side);
@@ -81,8 +83,8 @@ static void autosave(void) {
     profile.exp_depth = layer_depth;
     profile.exp_map = level_map;
     memcpy(profile.exp_camps, area_camps_cleared, sizeof(profile.exp_camps));
+    memcpy(profile.exp_chests, area_chests_opened, sizeof(profile.exp_chests));
     if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
-    profile.weapon = weapon_cur;
     save_write();
 }
 
@@ -112,6 +114,8 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
         room_vis_from_map();
     }
     pit_shaft = area_type[map] == MAP_EXIT;
+    pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
+    enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
     shaft_taken = 0;
     place_player(side);
     maps_entered++;
