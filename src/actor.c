@@ -30,6 +30,8 @@ uint8_t actor_try[ACTOR_MAX];  // slimes: which landing spot the next hop tries
 uint8_t actor_hurt[ACTOR_MAX];  // think steps left flashing after a hit (set by shots.s)
 uint8_t actor_frame[ACTOR_MAX];
 uint8_t actor_flash[ACTOR_MAX];
+uint8_t actor_scripted[ACTOR_MAX];
+uint8_t actor_guard[ACTOR_MAX];
 // Sprite data for the current frame (tile and flags per column), cached when the
 // frame changes so drawing just copies bytes. Read by actor_draw.s.
 uint8_t actor_t0[ACTOR_MAX];
@@ -38,6 +40,7 @@ uint8_t actor_t1[ACTOR_MAX];
 uint8_t actor_p1[ACTOR_MAX];
 uint8_t actor_count;   // slots in use
 uint8_t bullet_count;  // bullets alive
+uint8_t enemy_bullet_damage, enemy_bullet_cause;
 
 Bullet bullets[BULLET_MAX];
 
@@ -246,8 +249,8 @@ static void update_bullets(void) {
     bullet_draw_start = &bullets[bullet_rotation];
     bullets_update();
     if (bullet_hit) {
-        hurt_cause = CAUSE_PEA;
-        player_hurt(BULLET_DAMAGE, bullet_hit_x, bullet_hit_y);
+        hurt_cause = enemy_bullet_cause;
+        player_hurt(enemy_bullet_damage, bullet_hit_x, bullet_hit_y);
     }
 }
 
@@ -290,9 +293,11 @@ void actors_update(uint8_t first_oam) {
             uint8_t type = actor_type[i];
             if (type == ACTOR_NONE) continue;
             uint8_t frame = actor_frame[i];
-            if (type == ACTOR_SLIME) update_slime(i);
-            else update_shooter(i);
-            if (actor_frame[i] != frame) actor_cache_frame(i);
+            if (!actor_scripted[i]) {
+                if (type == ACTOR_SLIME) update_slime(i);
+                else update_shooter(i);
+                if (actor_frame[i] != frame) actor_cache_frame(i);
+            }
             // Hit by a shot: flash for a few think steps.
             if (actor_hurt[i]) {
                 actor_hurt[i]--;
@@ -303,7 +308,7 @@ void actors_update(uint8_t first_oam) {
             // Touching an enemy hurts (unless you're jumping over it).
             if (hittable && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
-                hurt_cause = actor_type[i];  // CAUSE_SLIME, CAUSE_PEASHOOTER
+                hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : actor_type[i];
                 player_hurt(TOUCH_DAMAGE, actor_x[i] + 8, actor_y[i] + 11);
                 hittable = 0;
             }
@@ -313,10 +318,19 @@ void actors_update(uint8_t first_oam) {
     // they move (shots.s, bullets.s).
     oam_next = first_oam;
     if (actor_count) actors_emit();
-    if (shot_count) update_shots();
-    if (shots_killed) reap();
-    actors_active = actor_count;
-    update_bullets();
+    // Warden reserves slots 15-22 for floor fields. Prioritize its enemy
+    // volleys over player projectiles. Keep the ordinary path to one branch.
+    if (first_oam == 23) {
+        update_bullets();
+        if (shot_count) update_shots();
+        if (shots_killed) reap();
+        actors_active = actor_count;
+    } else {
+        if (shot_count) update_shots();
+        if (shots_killed) reap();
+        actors_active = actor_count;
+        update_bullets();
+    }
     uint8_t used = oam_next;
     sprites_used = used;
     // Hide whatever was drawn last frame beyond this frame's sprites.

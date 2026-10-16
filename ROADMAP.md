@@ -310,6 +310,24 @@ Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/
 - Gun-part/manufacturer unlocks are candidates to integrate with discovery rewards
 
 ### M6 · Planets, campaign, and bosses (content)
+Early validation: standalone title-screen trials are built for Claimjaw (locked
+charge/recovery) and Relay Warden (locked floor claims, repositioning, alternating
+shotgun/ring bursts, relays, stair retreats across three scrolling terraces,
+and replenishing Spore Husk waves).
+The title's DOWN playtest submenu groups minibosses, bosses, enemy trials,
+and the movement lab. Acid Skimmer and the new rifle Mercenary are the active
+enemy trials; the earlier prototypes remain removed. Mercenary uses the supplied
+NPC sheet with strafing, reactive rolls, burst fire, and reload openings.
+Campaign and boss encounters retain their existing enemies.
+See [enemy design](docs/design/enemies.md).
+The Collector gunship trial validates a 32×32 body, marked floor strikes, a
+warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).
+The Sprocket & Blast duo trial validates coordinated two-boss combat, directional armor,
+sweeping fan barrages, tactical cover pillars, and phase 2 emergency ejection.
+These enemy trials are not yet part of procedural campaign spawn tables.
+See [boss design notes](docs/design/bosses.md). Campaign integration and rewards
+remain open; these trials do not complete the content milestone.
+
 Working content scope, expanded in [story.md](docs/design/story.md):
 
 - Planet destinations with distinctive environments, enemies, collectibles, and recurring sites; four initial concepts, count not final

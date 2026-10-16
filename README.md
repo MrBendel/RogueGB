@@ -1,6 +1,24 @@
-# RogueGB
+# Skavengar
 
-The plan, the design decisions and the milestones are in [ROADMAP.md](ROADMAP.md).
+**Skavengar** is the game's chosen name. RogueGB remains the repository and build
+identifier for now.
+
+The campaign, story, and play-loop notes are in [docs/design/](docs/design/README.md).
+Technical design decisions and implementation milestones are in [ROADMAP.md](ROADMAP.md).
+
+### Combat playtests
+
+Run `npm run play`. On the title, press **DOWN** to open **Playtests**. Choose
+**Minibosses**, **Bosses**, **Enemies**, or **Movement Lab** with UP/DOWN and
+**A/START**. Choose an encounter and press **A/START** to launch; **B** goes back.
+Enemy trials include the Acid Skimmer trial. Normal shooting,
+jumping, rolling, and weapon-switching controls apply. START pauses; SELECT while
+paused ends the attempt. These are standalone prototypes with trial-only rewards.
+See [boss designs and validation](docs/design/bosses.md).
+The Bosses submenu includes the Relay Warden, the [Collector Ship](docs/design/gunship.md)
+(a 32×32 gunship trial with marked bombs, laser sweep, and exposed core), and
+[Sprocket & Blast](docs/design/boss-encounters-and-behavior-engine.md) (a coordinated duo boss
+with heavy artillery cannon, sweeping fan barrages, tactical cover pillars, and phase 2 ejection).
 
 A Game Boy roguelite with run-and-gun shooting, built in C with
 [GBDK-2020](https://gbdk.org/) 4.5.0. Right now it's the game shell: a title screen, a

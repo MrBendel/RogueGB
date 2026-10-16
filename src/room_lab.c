@@ -37,6 +37,8 @@ static const uint8_t block_tiles[BLK_TYPES * 4] = {
     TILE_PIT, TILE_PIT + 1, TILE_PIT + 2, TILE_PIT + 3,      // BLK_PIT
     TILE_RAISED, TILE_RAISED + 1, TILE_RAISED + 2, TILE_RAISED + 3,  // BLK_RAISED
     TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_PROP (the prop is a sprite)
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_STAIRS: authored scenes replace art
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_DECK
 };
 
 // The movement lab: 2x2 screens. # wall, o pit, = raised block, c the chest

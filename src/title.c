@@ -1,7 +1,8 @@
 #pragma bank 255
 // Title screen: logo, blinking "PRESS START". START (or A) opens the files: three
 // save slots (save.h), each a character; picking one continues its expedition or
-// starts one. SELECT opens the test lab and B the ice yard (neither saves).
+// starts one. SELECT opens the test lab, B the ice yard, and DOWN the combat
+// playtests (minibosses, bosses, enemies, the movement lab); none of them saves.
 #include <gb/gb.h>
 #include "sfx.h"
 #include "state.h"
@@ -26,6 +27,12 @@ uint8_t title_cursor_tile;
 // Tests set this (a memory write on the title) to start runs on a known seed.
 uint16_t test_seed;
 uint8_t title_next_tile;  // the first tile the logo and prompt left free
+// The combat playtests: 0 home, 1 their categories, 2 a category's encounters.
+uint8_t title_menu, title_category;
+
+static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "MOVEMENT LAB"};
+static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY"};
+static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST"};
 
 // Text from this bank's constants (text.h: copied to RAM for text.c).
 static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t tile, uint8_t pal) {
@@ -35,6 +42,8 @@ static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t 
     line[n] = 0;
     return text_draw(font, x, ty, line, tile, pal);
 }
+
+static void draw_home(void);
 
 void title_enter(void) BANKED {
     if (!settings_loaded) settings_load();  // the options, once (the title is the first scene)
@@ -49,8 +58,17 @@ void title_enter(void) BANKED {
     t += draw(FONT_DISPLAY, TEXT_CENTER, 4, "SKAVENGAR", t, TITLE_PAL_GOLD);
     t += draw(FONT_COMPACT, TEXT_CENTER, 7, "RUN.  GUN.  LOOT.", t, TITLE_PAL_TEXT);
     title_next_tile = t;
+    title_menu = 0;
+    draw_home();
+}
+
+// Under the logo: the prompt and the other ways in.
+static void draw_home(void) {
+    uint8_t t = title_next_tile;
+    fill_bkg_rect(0, 9, SCREEN_TW, 9, 0);
     t += draw(FONT_COMPACT, TEXT_CENTER, 11, "PRESS START", t, TITLE_PAL_PROMPT);
     t += draw(FONT_COMPACT, TEXT_CENTER, 14, "SELECT: test lab    B: ice yard", t, TITLE_PAL_HINT);
+    t += draw(FONT_COMPACT, TEXT_CENTER, 15, "DOWN: combat playtests", t, TITLE_PAL_HINT);
     draw(FONT_COMPACT, 4, 16, "v0.1", t, TITLE_PAL_HINT);
 }
 
@@ -144,6 +162,27 @@ static void move_cursor(uint8_t to) {
     VBK_REG = 0;
 }
 
+static uint8_t choice_count(void) {
+    return title_menu == 1 ? 4 : title_category == 1 ? 3 : title_category == 2 ? 2 : 1;
+}
+
+// The playtest menu: a heading and its choices (rows 10, 12, ...), the cursor at one.
+static void draw_playtests(void) {
+    fill_bkg_rect(0, 9, SCREEN_TW, 9, 0);
+    uint8_t t = title_next_tile;
+    t += draw(FONT_COMPACT, TEXT_CENTER, 9, title_menu == 1 ? "COMBAT PLAYTESTS" : categories[title_category], t, TITLE_PAL_HINT);
+    for (uint8_t i = 0; i < choice_count(); i++) {
+        const char *s = title_menu == 1 ? categories[i] : title_category == 2 ? enemies[i] : title_category == 0 ? "CLAIMJAW" : bosses[i];
+        t += draw(FONT_COMPACT, 20, FILE_ROW0 + (i << 1), s, t, TITLE_PAL_TEXT);
+    }
+    t += draw(FONT_COMPACT, TEXT_CENTER, 17, "A: GO     B: BACK", t, TITLE_PAL_HINT);
+    title_cursor_tile = t;
+    draw(FONT_ITALIC, CURSOR_X, FILE_ROW0, ">", t, TITLE_PAL_TEXT);
+    uint8_t c = title_choice;
+    title_choice = 0;
+    move_cursor(c);
+}
+
 static void begin(uint8_t mode) {
     play_mode = mode;
     sfx_play(SFX_START);
@@ -158,6 +197,34 @@ static void begin(uint8_t mode) {
 
 void title_update(void) BANKED {
     title_timer++;
+    if (title_menu) {
+        uint8_t count = choice_count();
+        if (joy_pressed & J_B) {
+            title_menu--;
+            title_choice = title_menu ? title_category : 0;
+            if (title_menu) draw_playtests();
+            else draw_home();
+        } else if (joy_pressed & (J_UP | J_DOWN)) {
+            // (wraps around)
+            if (joy_pressed & J_DOWN) move_cursor(title_choice + 1 == count ? 0 : title_choice + 1);
+            else move_cursor(title_choice ? title_choice - 1 : count - 1);
+        } else if (joy_pressed & (J_START | J_A)) {
+            if (title_menu == 1 && title_choice != 3) {
+                title_category = title_choice;
+                title_choice = 0;
+                title_menu = 2;
+                draw_playtests();
+            } else {
+                uint8_t mode = title_menu == 1 ? MODE_LAB
+                             : title_category == 0 ? MODE_MINIBOSS : title_category == 1 ? MODE_BOSS : MODE_ENEMY;
+                enemy_trial_kind = title_choice;
+                if (title_menu == 2 && title_category == 1 && title_choice == 1) mode = MODE_GUNSHIP;
+                save_none();
+                begin(mode);
+            }
+        }
+        return;
+    }
     if (title_files == 2) {
         uint8_t c = title_class;
         if ((joy_pressed & J_LEFT) && c) c--;
@@ -188,7 +255,12 @@ void title_update(void) BANKED {
         return;
     }
     if ((title_timer & (BLINK_MASK - 1)) == 0) prompt_ink(!(title_timer & BLINK_MASK));
-    if (joy_pressed & (J_START | J_A)) {
+    if (joy_pressed & J_DOWN) {
+        title_menu = 1;
+        title_choice = 0;
+        draw_playtests();
+        prompt_ink(1);
+    } else if (joy_pressed & (J_START | J_A)) {
         sfx_play(SFX_START);
         show_files();
     } else if (joy_pressed & (J_SELECT | J_B)) {

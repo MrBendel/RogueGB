@@ -191,6 +191,44 @@ export function floodFillGrid(g, startX, startY, newShade) {
 }
 
 /**
+ * Arbitrary 2bpp grid resizing between any two dimensions (8x8 to 64x64) in 8px increments.
+ * mode: 'stretch' (proportional nearest neighbor scaling) | 'pad' (anchored padding/cropping)
+ * anchor: 'bottom' (feet anchor, default for characters) | 'center' | 'top'
+ */
+export function resizeGridDimensions(grid, srcW, srcH, dstW, dstH, mode = 'stretch', anchor = 'bottom') {
+  if (srcW === dstW && srcH === dstH) return cloneGrid(grid);
+  const out = new Uint8Array(dstW * dstH);
+  if (mode === 'stretch') {
+    for (let y = 0; y < dstH; y++) {
+      const sy = Math.min(srcH - 1, Math.floor((y / dstH) * srcH));
+      for (let x = 0; x < dstW; x++) {
+        const sx = Math.min(srcW - 1, Math.floor((x / dstW) * srcW));
+        out[y * dstW + x] = grid[sy * srcW + sx];
+      }
+    }
+    return out;
+  }
+  // Pad / Crop mode
+  const dx = Math.floor((dstW - srcW) / 2);
+  let dy = 0;
+  if (anchor === 'bottom') {
+    dy = dstH - srcH;
+  } else if (anchor === 'center') {
+    dy = Math.floor((dstH - srcH) / 2);
+  }
+  for (let sy = 0; sy < srcH; sy++) {
+    const dyPos = sy + dy;
+    if (dyPos < 0 || dyPos >= dstH) continue;
+    for (let sx = 0; sx < srcW; sx++) {
+      const dxPos = sx + dx;
+      if (dxPos < 0 || dxPos >= dstW) continue;
+      out[dyPos * dstW + dxPos] = grid[sy * srcW + sx];
+    }
+  }
+  return out;
+}
+
+/**
  * Convert a character grid between 16x16 and 16x24.
  * - `stretch = false`: Pads/crops from the top (keeps feet anchored at the bottom).
  * - `stretch = true`:  Proportionally scales the character's vertical anatomy to fill the new height.
@@ -224,24 +262,44 @@ export function resizeGridHeight(grid, targetH = 24, stretch = false) {
 }
 
 /**
- * Extract both the 16xH 2bpp grid (`targetH` = 16 or 24) AND the 4-color Game Boy Color
+ * Extract an arbitrary WxH 2bpp grid (8x8 to 64x64 in 8px increments) AND the 4-color Game Boy Color
  * palette from an RGBA image buffer (ranking opaque colors from lightest=1 to darkest=3).
  *
  * Options (`opts`):
  * - `bgMode`: `'auto'` (default: alpha if corners transparent, else corner color key), `'alpha'`, `'corner'`, `'white'`
  * - `bgTolerance`: Color distance threshold (0..140, default 36) for background removal
- * - `autoCrop`: Automatically crop to foreground subject & fit proportionally into 16xH (default: true for images > 20x28)
+ * - `autoCrop`: Automatically crop to foreground subject & fit proportionally (default: true for large images)
  * - `shadeBias`: Shift luminance cutoffs (-25..+25, default 0) to favor lighter or darker shades
  * - `autoOutline`: Reinforce outer silhouette edge with Shade 3 (dark outline)
+ * - `dither`: Use 2bpp Floyd-Steinberg error diffusion dithering (default: false = clean posterized)
  */
-export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = {}) {
-  const H = targetH === 24 ? 24 : 16;
-  const totalPx = 16 * H;
+export function extractGridAndPalette(rgba, width, height, arg4 = 16, arg5 = 16, arg6 = {}) {
+  let targetW = 16;
+  let targetH = 16;
+  let opts = {};
+  if (typeof arg4 === 'object' && arg4 !== null) {
+    opts = arg4;
+    targetW = opts.targetW || opts.width || 16;
+    targetH = opts.targetH || opts.height || 16;
+  } else if (typeof arg5 === 'object' && arg5 !== null) {
+    targetH = typeof arg4 === 'number' ? arg4 : 16;
+    opts = arg5;
+    targetW = opts.targetW || opts.width || 16;
+  } else {
+    targetW = typeof arg4 === 'number' ? arg4 : 16;
+    targetH = typeof arg5 === 'number' ? arg5 : 16;
+    opts = typeof arg6 === 'object' && arg6 !== null ? arg6 : {};
+  }
+  targetW = Math.max(8, Math.min(64, Math.round(targetW / 8) * 8)) || 16;
+  targetH = Math.max(8, Math.min(64, Math.round(targetH / 8) * 8)) || 16;
+  const totalPx = targetW * targetH;
+
   const bgMode = opts.bgMode || 'auto';
   const bgTol = opts.bgTolerance ?? 36;
-  const autoCrop = opts.autoCrop ?? (width > 20 || height > 28);
+  const autoCrop = opts.autoCrop ?? (width > targetW + 4 || height > targetH + 4);
   const shadeBias = (opts.shadeBias ?? 0) * 0.01;
   const autoOutline = !!opts.autoOutline;
+  const dither = !!opts.dither;
 
   // Determine background keying from image corners
   const cornerCoords = [
@@ -289,9 +347,9 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = 
     return false;
   };
 
-  // Optional auto-crop to foreground bounding box + proportional fit into 16xH
+  // Optional auto-crop to foreground bounding box + proportional fit into targetW x targetH
   let cropX0 = 0, cropY0 = 0, cropW = width, cropH = height;
-  let dstX0 = 0, dstY0 = 0, dstW = 16, dstH = H;
+  let dstX0 = 0, dstY0 = 0, dstW = targetW, dstH = targetH;
   if (autoCrop && width > 0 && height > 0) {
     let minX = width, minY = height, maxX = -1, maxY = -1;
     for (let y = 0; y < height; y++) {
@@ -309,28 +367,27 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = 
       cropY0 = minY;
       cropW = Math.max(1, maxX - minX + 1);
       cropH = Math.max(1, maxY - minY + 1);
-      // Fit proportionally inside (14 x (H-2)) so 1px margin remains on top/sides/bottom
-      const availW = 14;
-      const availH = H - 2;
+      const availW = Math.max(4, targetW - 2);
+      const availH = Math.max(4, targetH - 2);
       const scale = Math.min(availW / cropW, availH / cropH);
-      dstW = Math.max(4, Math.min(16, Math.round(cropW * scale)));
-      dstH = Math.max(6, Math.min(H - 1, Math.round(cropH * scale)));
-      dstX0 = Math.floor((16 - dstW) / 2);
-      dstY0 = Math.max(0, H - 1 - dstH); // Anchor feet at row H-2
+      dstW = Math.max(4, Math.min(targetW, Math.round(cropW * scale)));
+      dstH = Math.max(4, Math.min(targetH, Math.round(cropH * scale)));
+      dstX0 = Math.floor((targetW - dstW) / 2);
+      dstY0 = Math.max(0, targetH - 1 - dstH); // Anchor feet towards bottom
     }
   }
 
   const sample = new Uint8Array(totalPx * 4);
   for (let y = 0; y < dstH; y++) {
     const gy = dstY0 + y;
-    if (gy < 0 || gy >= H) continue;
+    if (gy < 0 || gy >= targetH) continue;
     const sy = Math.min(height - 1, cropY0 + Math.floor(((y + 0.5) * cropH) / dstH));
     for (let x = 0; x < dstW; x++) {
       const gx = dstX0 + x;
-      if (gx < 0 || gx >= 16) continue;
+      if (gx < 0 || gx >= targetW) continue;
       const sx = Math.min(width - 1, cropX0 + Math.floor(((x + 0.5) * cropW) / dstW));
       const si = (sy * width + sx) * 4;
-      const di = (gy * 16 + gx) * 4;
+      const di = (gy * targetW + gx) * 4;
       if (isBgAt(si)) {
         sample[di + 3] = 0;
       } else {
@@ -361,9 +418,9 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = 
   }
   const grid = new Uint8Array(totalPx);
   const defaultPal = GBC_PALETTES.gbc_hero_red.colors.map((c) => [...c]);
-  if (colorCounts.size === 0) return { grid, palette: defaultPal };
+  if (colorCounts.size === 0) return { grid, palette: defaultPal, width: targetW, height: targetH };
 
-  if (colorCounts.size <= 3 && !shadeBias && !autoOutline) {
+  if (colorCounts.size <= 3 && !shadeBias && !autoOutline && !dither) {
     const ranked = [...colorCounts.entries()].sort((a, b) => b[1].lum - a[1].lum);
     const colorIdx = new Map(
       ranked.map(([k], idx) => [k, ranked.length === 1 ? 3 : ranked.length === 2 ? (idx === 0 ? 1 : 3) : idx + 1]),
@@ -378,38 +435,71 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = 
       const k = (sample[i * 4] << 16) | (sample[i * 4 + 1] << 8) | sample[i * 4 + 2];
       grid[i] = colorIdx.get(k) || 3;
     }
-    return { grid, palette };
+    return { grid, palette, width: targetW, height: targetH };
   }
 
   const validLums = [...pixelLums].filter((l) => l >= 0).sort((a, b) => a - b);
   const p1 = Math.max(0.08, Math.min(0.65, 0.34 + shadeBias));
   const p2 = Math.max(p1 + 0.12, Math.min(0.92, 0.68 + shadeBias));
-  const t1 = validLums[Math.floor(validLums.length * p1)];
-  const t2 = validLums[Math.floor(validLums.length * p2)];
+  const t1 = validLums[Math.floor(validLums.length * p1)] ?? 85;
+  const t2 = validLums[Math.floor(validLums.length * p2)] ?? 170;
   const sums = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
-  for (let i = 0; i < totalPx; i++) {
-    const l = pixelLums[i];
-    if (l < 0) continue;
-    const s = l <= t1 ? 3 : l <= t2 ? 2 : 1;
-    grid[i] = s;
-    sums[s][0] += sample[i * 4];
-    sums[s][1] += sample[i * 4 + 1];
-    sums[s][2] += sample[i * 4 + 2];
-    sums[s][3]++;
+
+  if (dither) {
+    // 2bpp Floyd-Steinberg error diffusion dithering
+    const lumBuf = new Float32Array(pixelLums);
+    for (let y = 0; y < targetH; y++) {
+      for (let x = 0; x < targetW; x++) {
+        const i = y * targetW + x;
+        const curL = lumBuf[i];
+        if (curL < 0) continue;
+        const s = curL <= t1 ? 3 : curL <= t2 ? 2 : 1;
+        grid[i] = s;
+        sums[s][0] += sample[i * 4];
+        sums[s][1] += sample[i * 4 + 1];
+        sums[s][2] += sample[i * 4 + 2];
+        sums[s][3]++;
+        const idealLum = s === 3 ? t1 * 0.5 : s === 2 ? (t1 + t2) * 0.5 : (t2 + 255) * 0.5;
+        const err = curL - idealLum;
+        const distribute = (dx, dy, weight) => {
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && nx < targetW && ny >= 0 && ny < targetH) {
+            const ni = ny * targetW + nx;
+            if (lumBuf[ni] >= 0) lumBuf[ni] += err * (weight / 16);
+          }
+        };
+        distribute(1, 0, 7);
+        distribute(-1, 1, 3);
+        distribute(0, 1, 5);
+        distribute(1, 1, 1);
+      }
+    }
+  } else {
+    // Clean posterized quantization
+    for (let i = 0; i < totalPx; i++) {
+      const l = pixelLums[i];
+      if (l < 0) continue;
+      const s = l <= t1 ? 3 : l <= t2 ? 2 : 1;
+      grid[i] = s;
+      sums[s][0] += sample[i * 4];
+      sums[s][1] += sample[i * 4 + 1];
+      sums[s][2] += sample[i * 4 + 2];
+      sums[s][3]++;
+    }
   }
 
   if (autoOutline) {
     const copy = cloneGrid(grid);
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < 16; x++) {
-        if (copy[y * 16 + x] === 0) continue;
+    for (let y = 0; y < targetH; y++) {
+      for (let x = 0; x < targetW; x++) {
+        if (copy[y * targetW + x] === 0) continue;
         const touchesAir =
-          x === 0 || x === 15 || y === 0 || y === H - 1 ||
-          copy[y * 16 + (x - 1)] === 0 ||
-          copy[y * 16 + (x + 1)] === 0 ||
-          copy[(y - 1) * 16 + x] === 0 ||
-          copy[(y + 1) * 16 + x] === 0;
-        if (touchesAir) grid[y * 16 + x] = 3;
+          x === 0 || x === targetW - 1 || y === 0 || y === targetH - 1 ||
+          copy[y * targetW + (x - 1)] === 0 ||
+          copy[y * targetW + (x + 1)] === 0 ||
+          copy[(y - 1) * targetW + x] === 0 ||
+          copy[(y + 1) * targetW + x] === 0;
+        if (touchesAir) grid[y * targetW + x] = 3;
       }
     }
   }
@@ -426,7 +516,7 @@ export function extractGridAndPalette(rgba, width, height, targetH = 16, opts = 
       ]);
     }
   }
-  return { grid, palette };
+  return { grid, palette, width: targetW, height: targetH };
 }
 
 /** Quantize an arbitrary RGBA image buffer into a 16xH 4-shade grid (0..3). */
@@ -1217,6 +1307,81 @@ export const WEAPON_TEMPLATES = {
       '................',
     ]),
   },
+  heavy_cleaver: {
+    id: 'heavy_cleaver',
+    category: 'melee',
+    name: '⚔️ Melee: Heavy Cleaver (Wayfarer Axe)',
+    palette: 'gbc_hero_red',
+    paletteId: 'gbc_hero_red',
+    right: parseAsciiGrid([
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '................',
+      '.3.3.3.3...33..3',
+      '3..22122...22...',
+      '3.21121122112123',
+      '3212211122112213',
+      '.121211222112113',
+      '3211112122211123',
+      '3.1111212..22.33',
+      '3.3211223.333...',
+      '.3.3.3.3.3......',
+    ]),
+  },
+  pulsar_carbine: {
+    id: 'pulsar_carbine',
+    category: 'small_gun',
+    name: '🔫 Gun: Pulsar Carbine (Energy Rifle)',
+    palette: 'gbc_volt_blade',
+    paletteId: 'gbc_volt_blade',
+    right: parseAsciiGrid([
+      '................',
+      '................',
+      '.......3.3.33...',
+      '......3333333...',
+      '......3332233...',
+      '...3.332222223..',
+      '..3123111122223.',
+      '.331212111222233',
+      '..11111111122223',
+      '.311111111122233',
+      '311111111121133.',
+      '321111111111113.',
+      '.32111111111113.',
+      '..3122222211223.',
+      '..32233322.3133.',
+      '...3.33.33.33...',
+    ]),
+  },
+  arcane_focus: {
+    id: 'arcane_focus',
+    category: 'small_gun',
+    name: '✨ Wand: Arcane Focus (Plasma Scepter)',
+    palette: 'gbc_monk_gold',
+    paletteId: 'gbc_monk_gold',
+    right: parseAsciiGrid([
+      '................',
+      '.....33.........',
+      '...3.3333.......',
+      '...2222233......',
+      '.331222223......',
+      '3.222212223.33.3',
+      '3312221222333333',
+      '.332223222332223',
+      '32222222223.3223',
+      '33222222123332.3',
+      '.3312211123.32..',
+      '..3211112223233.',
+      '..321111222123..',
+      '..3311112112....',
+      '..332333233.....',
+      '...33333333.....',
+    ]),
+  },
 };
 
 /**
@@ -1531,6 +1696,97 @@ export function compileRigToGbdk(rig, cName = 'spr_custom', weaponPalColors = nu
   };
 }
 
+/** Encode an 8x8 tile at (x0, y0) from a WxH asset grid into 16 Game Boy 2bpp bytes. */
+export function encodeTile8x8(grid, width, height, x0, y0) {
+  const out = [];
+  for (let r = 0; r < 8; r++) {
+    const y = y0 + r;
+    let lo = 0, hi = 0;
+    if (y >= 0 && y < height) {
+      for (let c = 0; c < 8; c++) {
+        const x = x0 + c;
+        const shade = x >= 0 && x < width ? (grid[y * width + x] & 3) : 0;
+        lo |= (shade & 1) << (7 - c);
+        hi |= (shade >> 1) << (7 - c);
+      }
+    }
+    out.push(lo, hi);
+  }
+  return out;
+}
+
+/**
+ * Compile any arbitrary WxH sprite (8x8 up to 64x64 in 8px increments) into
+ * deduplicated GBDK 2bpp 8x8 tiles, hardware tile maps, and CGB palette.
+ */
+export function compileArbitrarySpriteToGbdk(grid, width, height, cName = 'spr_custom', pal = null) {
+  const hexByte = (b) => '0x' + (b & 0xff).toString(16).toUpperCase().padStart(2, '0');
+  const tilesX = Math.ceil(width / 8);
+  const tilesY = Math.ceil(height / 8);
+  const totalTiles = tilesX * tilesY;
+  const uniqueTiles = [];
+  const tileMap = new Map();
+  const addTile = (bytes) => {
+    const key = bytes.join(',');
+    if (tileMap.has(key)) return tileMap.get(key);
+    const idx = uniqueTiles.length;
+    uniqueTiles.push(bytes);
+    tileMap.set(key, idx);
+    return idx;
+  };
+  const indices = [];
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      indices.push(addTile(encodeTile8x8(grid, width, height, tx * 8, ty * 8)));
+    }
+  }
+  const palColors = pal || GBC_PALETTES.gbc_hero_red.colors;
+  const romBytes = uniqueTiles.length * 16 + totalTiles + 8;
+  const NAME = cName.toUpperCase();
+  const header = [
+    `// Generated by RogueGB Sprite Studio (${width}x${height}, ${tilesX}x${tilesY} hardware tiles).`,
+    `#ifndef GEN_${NAME}_H`,
+    `#define GEN_${NAME}_H`,
+    '#include <stdint.h>',
+    '#include <gb/cgb.h>',
+    `#define ${NAME}_WIDTH ${width}`,
+    `#define ${NAME}_HEIGHT ${height}`,
+    `#define ${NAME}_TILES_X ${tilesX}`,
+    `#define ${NAME}_TILES_Y ${tilesY}`,
+    `#define ${NAME}_TILE_COUNT ${uniqueTiles.length}`,
+    `extern const palette_color_t ${cName}_pal[4];`,
+    `extern const uint8_t ${cName}_tiles[];`,
+    `extern const uint8_t ${cName}_map[${totalTiles}];`,
+    '#endif',
+    '',
+  ].join('\n');
+  const source = [
+    `// Generated by RogueGB Sprite Studio (${width}x${height}).`,
+    `#include "${cName}.h"`,
+    formatGbcPaletteC(palColors, `${cName}_pal`),
+    `const uint8_t ${cName}_tiles[] = {`,
+    ...uniqueTiles.map((t, i) => `    /* tile ${i} */ ${t.map(hexByte).join(', ')},`),
+    '};',
+    `const uint8_t ${cName}_map[${totalTiles}] = {`,
+    `    ${indices.join(', ')}`,
+    '};',
+    '',
+  ].join('\n');
+  return {
+    header,
+    source,
+    stats: {
+      width,
+      height,
+      tilesX,
+      tilesY,
+      uniqueTiles: uniqueTiles.length,
+      totalTileSlots: totalTiles,
+      romBytes,
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Built-in Character Presets (16x16 and 16x24 4-shade grids + GBC palette IDs)
 export const CHARACTER_PRESETS = {
@@ -1676,6 +1932,188 @@ export const CHARACTER_PRESETS = {
       '....323..323....',
       '....333..333....',
       '................',
+    ]),
+  },
+  wayfarer_ironclad: {
+    id: 'wayfarer_ironclad',
+    name: 'Ironclad (Vanguard Bulwark 16x24)',
+    mode: '1pose',
+    height: 24,
+    palette: GBC_PALETTES.gbc_guard_blue.colors,
+    down: parseAsciiGrid([
+      '...233333331....',
+      '..2333333332....',
+      '.133222222232...',
+      '12323222222231..',
+      '13233322222232..',
+      '13233333333332..',
+      '13232222222232..',
+      '13232222222232..',
+      '13232222222232..',
+      '13233222122232..',
+      '13323322113332..',
+      '13322321112232..',
+      '.2322321112232..',
+      '.1333321113331..',
+      '13323332223331..',
+      '232233333333331.',
+      '333232222223332.',
+      '3333332333333331',
+      '1333333333333333',
+      '1323333223333233',
+      '1233323223333332',
+      '.133333333333331',
+      '..2333333332131.',
+      '....31....31....',
+    ]),
+  },
+  wayfarer_ballistician: {
+    id: 'wayfarer_ballistician',
+    name: 'Ballistician (Heavy Ordnance 16x24)',
+    mode: '1pose',
+    height: 24,
+    palette: GBC_PALETTES.gbc_hero_red.colors,
+    down: parseAsciiGrid([
+      '......3321......',
+      '.....23333......',
+      '....2332122.....',
+      '...133311122....',
+      '..1323232122....',
+      '...3212131121...',
+      '...3312331121...',
+      '..13323233121...',
+      '..1332323322....',
+      '...3312322231...',
+      '..232111233132..',
+      '.22122111311122.',
+      '.22113333111122.',
+      '1211221111221121',
+      '2213321111233122',
+      '1212321111232121',
+      '1211333333331121',
+      '.23223333332232.',
+      '.11133333333111.',
+      '...3333333333...',
+      '..233232232332..',
+      '1333333113333331',
+      '3333333..3333333',
+      '3333333..3333333',
+    ]),
+  },
+  wayfarer_volt_weaver: {
+    id: 'wayfarer_volt_weaver',
+    name: 'Volt-Weaver (Static Mystic 16x24)',
+    mode: '1pose',
+    height: 24,
+    palette: GBC_PALETTES.gbc_volt_blade.colors,
+    down: parseAsciiGrid([
+      '................',
+      '................',
+      '................',
+      '......3331......',
+      '.....233332.....',
+      '....23331122....',
+      '...2333111122...',
+      '..13212123122...',
+      '..13211333122...',
+      '..23323323222...',
+      '..23323223222...',
+      '..23211332222...',
+      '.13321112332231.',
+      '1311221112311131',
+      '1311133333111131',
+      '3112321111111113',
+      '3122221111123213',
+      '3122221111123113',
+      '1321123333322331',
+      '.11.23333333211.',
+      '...23333333331..',
+      '..1333332333331.',
+      '.1333331.2333331',
+      '13333331.1333333',
+    ]),
+  },
+  wayfarer_ghost_stalker: {
+    id: 'wayfarer_ghost_stalker',
+    name: 'Ghost-Stalker (Outland Scout 16x24)',
+    mode: '1pose',
+    height: 24,
+    palette: GBC_PALETTES.gbc_monk_gold.colors,
+    down: parseAsciiGrid([
+      '......3321......',
+      '.....23333......',
+      '....2323332.....',
+      '...132333332....',
+      '...332333332....',
+      '...3323333331...',
+      '..13222223331...',
+      '...2232332331...',
+      '...223333232....',
+      '..13333333331...',
+      '..233222333132..',
+      '.22123233321122.',
+      '.22113333321122.',
+      '1211232233321121',
+      '1323332233333231',
+      '1323333223333231',
+      '1322333223332231',
+      '.23322222322332.',
+      '.11133211233111.',
+      '...3333332333...',
+      '..233332233332..',
+      '1333333113333331',
+      '3333333..3333333',
+      '3333333..3333333',
+    ]),
+  },
+  pickup_chest: {
+    id: 'pickup_chest',
+    name: 'Treasure Chest (16x16 Object)',
+    mode: '1pose',
+    height: 16,
+    palette: GBC_PALETTES.gbc_monk_gold.colors,
+    down: parseAsciiGrid([
+      '................',
+      '................',
+      '...233333331....',
+      '.123332222331...',
+      '13333322222331..',
+      '13333333333332..',
+      '13332222222332..',
+      '13333222122332..',
+      '13322321113232..',
+      '.1322321113331..',
+      '12333332223221..',
+      '333333333323332.',
+      '2333333333333332',
+      '.333333223333333',
+      '.13333333333232.',
+      '...132111131.1..',
+    ]),
+  },
+  pickup_potion: {
+    id: 'pickup_potion',
+    name: 'Relic Artifact (16x16 Pickup)',
+    mode: '1pose',
+    height: 16,
+    palette: GBC_PALETTES.gbc_volt_blade.colors,
+    down: parseAsciiGrid([
+      '.......1333331..',
+      '..222223333333..',
+      '123333333323331.',
+      '333333333323333.',
+      '333332112111233.',
+      '333331111111133.',
+      '332231211111233.',
+      '233221112221133.',
+      '.13222222222231.',
+      '..133333223332..',
+      '.23323322233332.',
+      '.331123333321133',
+      '.232233322332232',
+      '..1333333333331.',
+      '....33322333....',
+      '....131..131....',
     ]),
   },
   shadow_nocturne: {

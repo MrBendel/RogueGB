@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import { assert, matchGolden, bootToTitle, settle, PLAY } from './helpers.mjs';
 
-const MODE_YARD = 5;
+const MODE_YARD = 6;
 // The yard has a story zone by Echo's relay (talk.c): these tests walk through
 // it, so mark its conversation as already played.
 const yard = () => {

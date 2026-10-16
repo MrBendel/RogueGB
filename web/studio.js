@@ -1,8 +1,8 @@
-// Standalone RogueGB Sprite Studio (16x16 & 16x24 DMG/CGB Character & Weapon Synthesizer)
+// Standalone RogueGB Sprite Studio (8x8 to 64x64 DMG/CGB Dedicated Sprite Editor & Synthesizer)
 import {
   extractGridAndPalette, flipGridX, shiftGrid, floodFillGrid, resizeGridHeight,
-  gridHeight, parseAsciiGrid, gridToAscii, synthesizeUpFromDown, synthesizeRightFromDown,
-  generateCharacterRig, compileRigToGbdk, CHARACTER_PRESETS, WEAPON_TEMPLATES,
+  resizeGridDimensions, gridHeight, parseAsciiGrid, gridToAscii, synthesizeUpFromDown, synthesizeRightFromDown,
+  generateCharacterRig, compileRigToGbdk, compileArbitrarySpriteToGbdk, encodeTile8x8, CHARACTER_PRESETS, WEAPON_TEMPLATES,
   buildWeaponDirectionalFrames, defaultWeaponAnchor, getOracleMeleeSwipeStep,
   GBC_PALETTES, snapColorToGbc, rgbToCgb555, cloneGrid,
 } from '../harness/sprite-gen.mjs';
@@ -93,7 +93,9 @@ try {
   }
 } catch {}
 
-let spriteHeight = 16; // 16 or 24
+let spriteWidth = 16;  // 8 to 64 in 8px increments
+let spriteHeight = 16; // 8 to 64 in 8px increments
+let showGridLines = true;
 let synthMode = '3pose';
 let animKind = 'idle';
 let dir = 'down';
@@ -115,7 +117,7 @@ let customAnchor = { dx: 0, dy: 0, auto: true };
 const undoStack = [];
 function pushUndo() {
   const g = getActiveEditGrid();
-  undoStack.push({ target: editTarget, height: spriteHeight, data: cloneGrid(g) });
+  undoStack.push({ target: editTarget, width: spriteWidth, height: spriteHeight, data: cloneGrid(g) });
   if (undoStack.length > 35) undoStack.shift();
 }
 function popUndo() {
@@ -124,6 +126,13 @@ function popUndo() {
   if (item.target !== editTarget) {
     editTarget = item.target;
     if ($('st-edit-target')) $('st-edit-target').value = editTarget;
+  }
+  if (item.width !== spriteWidth || item.height !== spriteHeight) {
+    spriteWidth = item.width;
+    spriteHeight = item.height;
+    baseDown = resizeGridDimensions(baseDown, spriteWidth, spriteHeight, item.width, item.height, 'stretch');
+    baseUp = resizeGridDimensions(baseUp, spriteWidth, spriteHeight, item.width, item.height, 'stretch');
+    baseRight = resizeGridDimensions(baseRight, spriteWidth, spriteHeight, item.width, item.height, 'stretch');
   }
   const g = getActiveEditGrid();
   if (g.length === item.data.length) {
@@ -182,27 +191,57 @@ function syncColorInputs() {
   }
 }
 
-function syncSizeTabsUI() {
-  if ($('st-size-tabs')) {
-    for (const b of $('st-size-tabs').querySelectorAll('button[data-size]')) {
-      b.classList.toggle('on', +b.dataset.size === spriteHeight);
+const SIZES_8PX = [8, 16, 24, 32, 40, 48, 56, 64];
+
+function populateSizeDropdowns() {
+  for (const id of ['st-size-w', 'st-size-h', 'st-conv-w', 'st-conv-h']) {
+    const sel = $(id);
+    if (!sel) continue;
+    sel.innerHTML = '';
+    for (const s of SIZES_8PX) {
+      const opt = document.createElement('option');
+      opt.value = String(s);
+      const tiles = Math.ceil(s / 8);
+      opt.textContent = `${s}px (${tiles} tile${tiles > 1 ? 's' : ''})`;
+      sel.append(opt);
     }
   }
+}
+
+function syncSizeTabsUI() {
+  if ($('st-size-tabs')) {
+    for (const b of $('st-size-tabs').querySelectorAll('button[data-w]')) {
+      const isMatch = +b.dataset.w === spriteWidth && +b.dataset.h === spriteHeight;
+      b.classList.toggle('on', isMatch);
+    }
+  }
+  if ($('st-size-w')) $('st-size-w').value = String(spriteWidth);
+  if ($('st-size-h')) $('st-size-h').value = String(spriteHeight);
+  if ($('st-conv-w')) $('st-conv-w').value = String(convCrop.targetW || spriteWidth);
+  if ($('st-conv-h')) $('st-conv-h').value = String(convCrop.targetH || spriteHeight);
+
+  const tilesX = Math.ceil(spriteWidth / 8);
+  const tilesY = Math.ceil(spriteHeight / 8);
+  if ($('st-tile-badge')) {
+    $('st-tile-badge').textContent = `${tilesX}×${tilesY} Tiles (${spriteWidth}×${spriteHeight})`;
+  }
+  const activeW = editTarget === 'weapon' ? 16 : spriteWidth;
   const activeH = editTarget === 'weapon' ? 16 : spriteHeight;
   if ($('st-editor-title')) {
-    $('st-editor-title').textContent = `3. 16×${activeH} 2bpp Pixel Editor`;
+    $('st-editor-title').textContent = `3. ${activeW}×${activeH} 2bpp Pixel Editor (${Math.ceil(activeW / 8)}×${Math.ceil(activeH / 8)} Tiles)`;
   }
   if ($('st-sheet-title')) {
-    $('st-sheet-title').textContent = `All Generated Sequences (16×${spriteHeight} GBC/DMG Sheet)`;
+    $('st-sheet-title').textContent = `All Generated Sequences (${spriteWidth}×${spriteHeight} GBC/DMG Sheet)`;
   }
   syncColorInputs();
 }
 
-function drawGrid(ctx, grid, ox = 0, oy = 0, palToUse = charPalette) {
-  const H = gridHeight(grid);
+function drawGrid(ctx, grid, ox = 0, oy = 0, palToUse = charPalette, w = null, h = null) {
+  const W = w || (grid.length === 256 ? 16 : grid.length === 384 ? 16 : spriteWidth);
+  const H = h || (grid.length === 256 ? 16 : grid.length === 384 ? 24 : Math.max(1, Math.round(grid.length / W)));
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < 16; x++) {
-      const v = grid[y * 16 + x];
+    for (let x = 0; x < W; x++) {
+      const v = grid[y * W + x];
       if (!v) continue;
       const [r, g, b] = palToUse[v] || charPalette[v] || [0, 0, 0];
       ctx.fillStyle = `rgb(${r},${g},${b})`;
@@ -231,24 +270,35 @@ function resolveWeaponStep(d, aKind, fIdx, isAttack) {
 }
 
 function rebuildRig() {
-  spriteHeight = gridHeight(baseDown);
-  currentRig = generateCharacterRig({
-    name: $('st-preset')?.value || 'custom',
-    palette: charPalette,
-    down: baseDown,
-    up: synthMode === '3pose' ? baseUp : null,
-    right: synthMode === '3pose' ? baseRight : null,
-    attack_down: synthMode === '3pose' ? baseAtkDown : null,
-    attack_up: synthMode === '3pose' ? baseAtkUp : null,
-    attack_right: synthMode === '3pose' ? baseAtkRight : null,
-  });
-  if (synthMode === '1pose') {
-    baseUp = cloneGrid(currentRig.bases.up);
-    baseRight = cloneGrid(currentRig.bases.right);
+  const isHeroRig = spriteWidth === 16 && (spriteHeight === 16 || spriteHeight === 24);
+  if (isHeroRig) {
+    currentRig = generateCharacterRig({
+      name: $('st-preset')?.value || 'custom',
+      palette: charPalette,
+      down: baseDown,
+      up: synthMode === '3pose' ? baseUp : null,
+      right: synthMode === '3pose' ? baseRight : null,
+      attack_down: synthMode === '3pose' ? baseAtkDown : null,
+      attack_up: synthMode === '3pose' ? baseAtkUp : null,
+      attack_right: synthMode === '3pose' ? baseAtkRight : null,
+    });
+    if (synthMode === '1pose') {
+      baseUp = cloneGrid(currentRig.bases.up);
+      baseRight = cloneGrid(currentRig.bases.right);
+    }
+    currentCompiled = compileRigToGbdk(currentRig, 'spr_hero', weapPalette);
+    const st = currentCompiled.stats;
+    if ($('st-hw-stats')) {
+      $('st-hw-stats').textContent = `16×${st.height} · ${st.anims} anims · ${st.frames}f · ${st.columns} unique 8×16 cols · ${st.romBytes} B ROM`;
+    }
+  } else {
+    currentRig = null;
+    currentCompiled = compileArbitrarySpriteToGbdk(baseDown, spriteWidth, spriteHeight, 'spr_custom', charPalette);
+    const st = currentCompiled.stats;
+    if ($('st-hw-stats')) {
+      $('st-hw-stats').textContent = `${st.width}×${st.height} (${st.tilesX}×${st.tilesY} tiles) · ${st.uniqueTiles} unique 8×8 tiles · ${st.romBytes} B ROM`;
+    }
   }
-  currentCompiled = compileRigToGbdk(currentRig, 'spr_hero', weapPalette);
-  const st = currentCompiled.stats;
-  $('st-hw-stats').textContent = `16×${st.height} · ${st.anims} anims · ${st.frames}f · ${st.columns} unique 8×16 cols · ${st.romBytes} B ROM`;
   syncColorInputs();
   syncSizeTabsUI();
   renderEditor();
@@ -256,19 +306,26 @@ function rebuildRig() {
   renderSheet();
 }
 
-function setCanvasHeight(newH) {
-  if (newH === spriteHeight) return;
+function setCanvasDimensions(newW, newH) {
+  newW = Math.max(8, Math.min(64, Math.round(newW / 8) * 8));
+  newH = Math.max(8, Math.min(64, Math.round(newH / 8) * 8));
+  if (newW === spriteWidth && newH === spriteHeight) return;
   pushUndo();
   const stretch = $('st-size-stretch') ? $('st-size-stretch').checked : true;
-  baseDown = resizeGridHeight(baseDown, newH, stretch);
-  baseUp = resizeGridHeight(baseUp, newH, stretch);
-  baseRight = resizeGridHeight(baseRight, newH, stretch);
+  baseDown = resizeGridDimensions(baseDown, spriteWidth, spriteHeight, newW, newH, stretch ? 'stretch' : 'pad', 'bottom');
+  baseUp = resizeGridDimensions(baseUp, spriteWidth, spriteHeight, newW, newH, stretch ? 'stretch' : 'pad', 'bottom');
+  baseRight = resizeGridDimensions(baseRight, spriteWidth, spriteHeight, newW, newH, stretch ? 'stretch' : 'pad', 'bottom');
   baseAtkDown = null;
   baseAtkUp = null;
   baseAtkRight = null;
+  spriteWidth = newW;
   spriteHeight = newH;
   rebuildRig();
-  toast(`Converted character canvas to 16×${newH} (${stretch ? 'stretched proportions' : 'padded/cropped bottom'})!`);
+  toast(`Resized canvas to ${newW}×${newH} (${stretch ? 'stretched' : 'padded'} ${Math.ceil(newW / 8)}×${Math.ceil(newH / 8)} tiles)!`);
+}
+
+function setCanvasHeight(newH) {
+  setCanvasDimensions(spriteWidth, newH);
 }
 
 function loadPreset(id) {
@@ -317,9 +374,10 @@ function getActiveEditGrid() {
 const EDIT_CELL = 14;
 function renderEditor() {
   const g = getActiveEditGrid();
-  const H = gridHeight(g);
-  const W = 16;
+  const W = editTarget === 'weapon' ? 16 : spriteWidth;
+  const H = editTarget === 'weapon' ? 16 : spriteHeight;
   const activePal = editTarget === 'weapon' ? weapPalette : charPalette;
+  const EDIT_CELL = Math.max(8, Math.min(28, Math.floor(400 / Math.max(W, H))));
   const cw = W * EDIT_CELL;
   const ch = H * EDIT_CELL;
   if (editCanvas.width !== cw || editCanvas.height !== ch) {
@@ -327,18 +385,18 @@ function renderEditor() {
     editCanvas.height = ch;
   }
 
-  const showOnion = onionSkin && (editTarget === 'up' || editTarget === 'right') && gridHeight(baseDown) === H;
+  const showOnion = onionSkin && (editTarget === 'up' || editTarget === 'right') && baseDown.length === g.length;
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const v = g[y * 16 + x];
+      const v = g[y * W + x];
       const px = x * EDIT_CELL;
       const py = y * EDIT_CELL;
       if (v === 0) {
         editCtx.fillStyle = (x + y) % 2 === 0 ? '#d8dfd0' : '#cad2c0';
         editCtx.fillRect(px, py, EDIT_CELL, EDIT_CELL);
         if (showOnion) {
-          const ov = baseDown[y * 16 + x];
+          const ov = baseDown[y * W + x];
           if (ov > 0) {
             const [or, og, ob] = charPalette[ov] || [0, 0, 0];
             editCtx.fillStyle = `rgba(${or},${og},${ob},0.22)`;
@@ -353,78 +411,123 @@ function renderEditor() {
     }
   }
 
-  // Subtle 1px pixel grid lines
-  editCtx.fillStyle = 'rgba(25, 35, 25, 0.14)';
-  for (let x = 1; x < W; x++) editCtx.fillRect(x * EDIT_CELL, 0, 1, ch);
-  for (let y = 1; y < H; y++) editCtx.fillRect(0, y * EDIT_CELL, cw, 1);
+  // Subtle 1px pixel grid lines & bold 8x8 hardware tile boundary guides
+  if (showGridLines) {
+    editCtx.fillStyle = 'rgba(25, 35, 25, 0.16)';
+    for (let x = 1; x < W; x++) editCtx.fillRect(x * EDIT_CELL, 0, 1, ch);
+    for (let y = 1; y < H; y++) editCtx.fillRect(0, y * EDIT_CELL, cw, 1);
 
-  // 8x8 / 8x16 hardware tile boundary guides
-  editCtx.fillStyle = 'rgba(20, 90, 55, 0.45)';
-  editCtx.fillRect(8 * EDIT_CELL, 0, 1, ch);
-  editCtx.fillRect(0, 8 * EDIT_CELL, cw, 1);
-  if (H > 16) {
-    editCtx.fillStyle = 'rgba(200, 60, 20, 0.55)';
-    editCtx.fillRect(0, 16 * EDIT_CELL, cw, 1);
+    // Bold 8x8 tile division boundaries (Game Boy hardware tiles)
+    editCtx.fillStyle = 'rgba(20, 110, 65, 0.55)';
+    for (let x = 8; x < W; x += 8) editCtx.fillRect(x * EDIT_CELL - 1, 0, 2, ch);
+    for (let y = 8; y < H; y += 8) editCtx.fillRect(0, y * EDIT_CELL - 1, cw, 2);
   }
 
   // Mirror X center line indicator
   if (mirrorX) {
+    const midX = Math.floor(W / 2);
     editCtx.fillStyle = 'rgba(24, 150, 230, 0.75)';
-    editCtx.fillRect(8 * EDIT_CELL - 1, 0, 2, ch);
+    editCtx.fillRect(midX * EDIT_CELL - 1, 0, 2, ch);
   }
 }
 
 function renderFrameStrip() {
   const strip = $('st-frame-strip');
+  if (!strip) return;
   strip.innerHTML = '';
-  const key = `${animKind}_${dir}`;
-  const frames = currentRig.anims[key] || currentRig.anims.idle_down;
-  if (selectedFrame >= frames.length) selectedFrame = 0;
-  const charH = currentRig.height || 16;
-  const cardH = charH > 16 ? 40 : 32;
-  const oy = Math.floor((cardH - charH) / 2);
 
-  frames.forEach((fGrid, idx) => {
-    const card = document.createElement('div');
-    card.className = 'fcard' + (idx === selectedFrame ? ' on' : '');
-    const c = document.createElement('canvas');
-    c.width = 32;
-    c.height = cardH;
-    if (charH > 16) c.style.height = '60px';
-    const cx = c.getContext('2d');
-    cx.fillStyle = '#d8dfd0';
-    cx.fillRect(0, 0, 32, cardH);
-    const wStep = resolveWeaponStep(dir, animKind, idx, attackPose);
-    if (customAnchor.auto && idx === selectedFrame && wStep) {
-      $('st-anchor-dx').value = wStep.dx;
-      $('st-anchor-dy').value = wStep.dy;
-    }
-    if (wStep && wStep.behind) drawGrid(cx, wStep.grid, 8 + wStep.dx, oy + wStep.dy, weapPalette);
-    drawGrid(cx, fGrid, 8, oy, charPalette);
-    if (wStep && !wStep.behind) drawGrid(cx, wStep.grid, 8 + wStep.dx, oy + wStep.dy, weapPalette);
+  if (currentRig) {
+    const key = `${animKind}_${dir}`;
+    const frames = currentRig.anims[key] || currentRig.anims.idle_down;
+    if (selectedFrame >= frames.length) selectedFrame = 0;
+    const charH = currentRig.height || 16;
+    const cardH = charH > 16 ? 40 : 32;
+    const oy = Math.floor((cardH - charH) / 2);
 
-    const lbl = document.createElement('span');
-    lbl.textContent = animKind === 'attack' ? ['90°', '45°', '0°'][idx] || `f${idx}` : `f${idx}`;
-    card.append(c, lbl);
-    card.onclick = () => { selectedFrame = idx; renderFrameStrip(); };
-    strip.append(card);
-  });
+    frames.forEach((fGrid, idx) => {
+      const card = document.createElement('div');
+      card.className = 'fcard' + (idx === selectedFrame ? ' on' : '');
+      const c = document.createElement('canvas');
+      c.width = 32;
+      c.height = cardH;
+      if (charH > 16) c.style.height = '60px';
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#d8dfd0';
+      cx.fillRect(0, 0, 32, cardH);
+      const wStep = resolveWeaponStep(dir, animKind, idx, attackPose);
+      if (customAnchor.auto && idx === selectedFrame && wStep) {
+        $('st-anchor-dx').value = wStep.dx;
+        $('st-anchor-dy').value = wStep.dy;
+      }
+      if (wStep && wStep.behind) drawGrid(cx, wStep.grid, 8 + wStep.dx, oy + wStep.dy, weapPalette);
+      drawGrid(cx, fGrid, 8, oy, charPalette);
+      if (wStep && !wStep.behind) drawGrid(cx, wStep.grid, 8 + wStep.dx, oy + wStep.dy, weapPalette);
+
+      const lbl = document.createElement('span');
+      lbl.textContent = animKind === 'attack' ? ['90°', '45°', '0°'][idx] || `f${idx}` : `f${idx}`;
+      card.append(c, lbl);
+      card.onclick = () => { selectedFrame = idx; renderFrameStrip(); };
+      strip.append(card);
+    });
+  } else {
+    // Non-hero sprite (e.g. 8x8, 24x24, 32x32, 48x48, 64x64) -> show base directional poses
+    const poses = [
+      { name: 'Down (Front)', grid: baseDown },
+      { name: 'Up (Back)', grid: baseUp },
+      { name: 'Right (Side)', grid: baseRight },
+      { name: 'Left (Mirror)', grid: flipGridX(baseRight) },
+    ];
+    poses.forEach((p, idx) => {
+      const card = document.createElement('div');
+      card.className = 'fcard' + (p.grid === getActiveEditGrid() ? ' on' : '');
+      const c = document.createElement('canvas');
+      c.width = Math.min(64, spriteWidth);
+      c.height = Math.min(64, spriteHeight);
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#d8dfd0';
+      cx.fillRect(0, 0, c.width, c.height);
+      drawGrid(cx, p.grid, 0, 0, charPalette, spriteWidth, spriteHeight);
+      const lbl = document.createElement('span');
+      lbl.textContent = p.name;
+      card.append(c, lbl);
+      card.onclick = () => {
+        if (idx === 0) $('st-edit-target').value = 'down';
+        else if (idx === 1) $('st-edit-target').value = 'up';
+        else if (idx === 2) $('st-edit-target').value = 'right';
+        editTarget = $('st-edit-target').value;
+        renderEditor();
+        renderFrameStrip();
+      };
+      strip.append(card);
+    });
+  }
 }
 
 function renderSheet() {
-  const entries = Object.entries(currentRig.anims);
-  const cols = 4;
-  const rows = entries.length;
-  const cellH = currentRig.height || 16;
-  sheetCanvas.width = cols * 16;
-  sheetCanvas.height = rows * cellH;
-  sheetCtx.fillStyle = '#d8dfd0';
-  sheetCtx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
-  entries.forEach(([, frames], r) => {
-    frames.forEach((g, c) => {
-      drawGrid(sheetCtx, g, c * 16, r * cellH, charPalette);
+  if (currentRig) {
+    const entries = Object.entries(currentRig.anims);
+    const cols = 4;
+    const rows = entries.length;
+    const cellH = currentRig.height || 16;
+    sheetCanvas.width = cols * 16;
+    sheetCanvas.height = rows * cellH;
+    sheetCtx.fillStyle = '#d8dfd0';
+    sheetCtx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+    entries.forEach(([, frames], r) => {
+      frames.forEach((g, c) => {
+        drawGrid(sheetCtx, g, c * 16, r * cellH, charPalette);
+      });
     });
-  });
+  } else {
+    // Arbitrary size sprite sheet (Down, Up, Right)
+    sheetCanvas.width = spriteWidth * 3;
+    sheetCanvas.height = spriteHeight;
+    sheetCtx.fillStyle = '#d8dfd0';
+    sheetCtx.fillRect(0, 0, sheetCanvas.width, sheetCanvas.height);
+    drawGrid(sheetCtx, baseDown, 0, 0, charPalette, spriteWidth, spriteHeight);
+    drawGrid(sheetCtx, baseUp, spriteWidth, 0, charPalette, spriteWidth, spriteHeight);
+    drawGrid(sheetCtx, baseRight, spriteWidth * 2, 0, charPalette, spriteWidth, spriteHeight);
+  }
 }
 
 function drawVoltSparks(ctx, wx, wy, isSwinging) {
@@ -460,6 +563,18 @@ function stepStudio() {
   const charH = currentRig?.height || 16;
   const baseOy = charH > 16 ? 20 : 24;
   const shadowFootOff = charH - 2;
+
+  if (!currentRig) {
+    // Non-hero sprite preview: render active direction centered on the LCD stage
+    const activeGrid = dir === 'up' ? baseUp : dir === 'right' ? baseRight : dir === 'left' ? flipGridX(baseRight) : baseDown;
+    const ox = Math.max(0, Math.round((64 - spriteWidth) / 2));
+    const oy = Math.max(0, Math.round((64 - spriteHeight) / 2));
+    // Ground shadow
+    prevCtx.fillStyle = '#9aa690';
+    prevCtx.fillRect(ox + 2, Math.min(62, oy + spriteHeight - 2), Math.max(4, spriteWidth - 4), 2);
+    drawGrid(prevCtx, activeGrid, ox, oy, charPalette, spriteWidth, spriteHeight);
+    return;
+  }
 
   if (previewMode === 'anim') {
     const key = `${animKind}_${dir}`;
@@ -620,8 +735,14 @@ for (let i = 1; i <= 3; i++) {
   if (colInput) {
     colInput.oninput = () => {
       const [r, g, b] = hexToRgb(colInput.value);
-      charPalette[i] = snapColorToGbc(r, g, b);
-      if (charPalSel) charPalSel.value = 'preset_auto';
+      const snapped = snapColorToGbc(r, g, b);
+      if (editTarget === 'weapon') {
+        weapPalette[i] = snapped;
+        if (weapPalSel) weapPalSel.value = 'preset_auto';
+      } else {
+        charPalette[i] = snapped;
+        if (charPalSel) charPalSel.value = 'preset_auto';
+      }
       rebuildRig();
     };
   }
@@ -648,10 +769,24 @@ presetSel.onchange = () => loadPreset(presetSel.value);
 
 if ($('st-size-tabs')) {
   $('st-size-tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-size]');
+    const b = e.target.closest('button[data-w]');
     if (!b) return;
-    setCanvasHeight(+b.dataset.size);
+    const w = +b.dataset.w || 16;
+    const h = +b.dataset.h || 16;
+    setCanvasDimensions(w, h);
   });
+}
+if ($('st-size-w')) {
+  $('st-size-w').onchange = (e) => {
+    const w = +e.target.value || 16;
+    setCanvasDimensions(w, spriteHeight);
+  };
+}
+if ($('st-size-h')) {
+  $('st-size-h').onchange = (e) => {
+    const h = +e.target.value || 16;
+    setCanvasDimensions(spriteWidth, h);
+  };
 }
 
 document.querySelectorAll('input[name="st-synth-mode"]').forEach((r) => {
@@ -765,19 +900,43 @@ if ($('st-edit-undo')) {
   $('st-edit-undo').onclick = () => popUndo();
 }
 
+if ($('st-tool-grid')) {
+  $('st-tool-grid').onclick = () => {
+    showGridLines = !showGridLines;
+    $('st-tool-grid').classList.toggle('on', showGridLines);
+    renderEditor();
+  };
+}
+
+function floodFillGridGeneric(g, W, H, startX, startY, newShade) {
+  if (startX < 0 || startX >= W || startY < 0 || startY >= H) return g;
+  const target = g[startY * W + startX];
+  if (target === newShade) return g;
+  const stack = [[startX, startY]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || x >= W || y < 0 || y >= H) continue;
+    if (g[y * W + x] !== target) continue;
+    g[y * W + x] = newShade;
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  return g;
+}
+
 let painting = false;
 let activeStrokeShade = 3;
 function paintAt(e, isStart = false) {
   const g = getActiveEditGrid();
-  const H = gridHeight(g);
+  const W = editTarget === 'weapon' ? 16 : spriteWidth;
+  const H = editTarget === 'weapon' ? 16 : spriteHeight;
   const r = editCanvas.getBoundingClientRect();
-  const x = Math.floor(((e.clientX - r.left) / r.width) * 16);
+  const x = Math.floor(((e.clientX - r.left) / r.width) * W);
   const y = Math.floor(((e.clientY - r.top) / r.height) * H);
-  if (x < 0 || x >= 16 || y < 0 || y >= H) return;
+  if (x < 0 || x >= W || y < 0 || y >= H) return;
 
   // Eyedropper tool or Alt-click picks shade under cursor
   if (editTool === 'picker' || e.altKey) {
-    selectShade(g[y * 16 + x] & 3);
+    selectShade(g[y * W + x] & 3);
     if (editTool === 'picker') setEditTool('pencil');
     toast(`Picked shade ${brushShade}`);
     painting = false;
@@ -786,12 +945,20 @@ function paintAt(e, isStart = false) {
 
   if (isStart) {
     pushUndo();
-    activeStrokeShade = e.button === 2 ? 0 : brushShade;
+    const curVal = g[y * W + x] & 3;
+    if (e.button === 2 || brushShade === 0) {
+      activeStrokeShade = 0;
+    } else if (curVal === brushShade) {
+      // Tapping an already filled pixel erases it!
+      activeStrokeShade = 0;
+    } else {
+      activeStrokeShade = brushShade;
+    }
   }
 
   if (editTool === 'bucket' && isStart) {
-    floodFillGrid(g, x, y, activeStrokeShade);
-    if (mirrorX) floodFillGrid(g, 15 - x, y, activeStrokeShade);
+    floodFillGridGeneric(g, W, H, x, y, activeStrokeShade);
+    if (mirrorX) floodFillGridGeneric(g, W, H, W - 1 - x, y, activeStrokeShade);
     if (editTarget !== 'weapon') { baseAtkDown = null; baseAtkUp = null; baseAtkRight = null; }
     rebuildRig();
     painting = false;
@@ -799,12 +966,12 @@ function paintAt(e, isStart = false) {
   }
 
   let changed = false;
-  if (g[y * 16 + x] !== activeStrokeShade) {
-    g[y * 16 + x] = activeStrokeShade;
+  if (g[y * W + x] !== activeStrokeShade) {
+    g[y * W + x] = activeStrokeShade;
     changed = true;
   }
-  if (mirrorX && g[y * 16 + (15 - x)] !== activeStrokeShade) {
-    g[y * 16 + (15 - x)] = activeStrokeShade;
+  if (mirrorX && g[y * W + (W - 1 - x)] !== activeStrokeShade) {
+    g[y * W + (W - 1 - x)] = activeStrokeShade;
     changed = true;
   }
   if (changed) {
@@ -826,7 +993,19 @@ editCanvas.addEventListener('pointercancel', () => { painting = false; });
 function nudgeActiveGrid(dx, dy) {
   pushUndo();
   const g = getActiveEditGrid();
-  g.set(shiftGrid(g, dx, dy));
+  const W = editTarget === 'weapon' ? 16 : spriteWidth;
+  const H = editTarget === 'weapon' ? 16 : spriteHeight;
+  const copy = new Uint8Array(g);
+  g.fill(0);
+  for (let y = 0; y < H; y++) {
+    const sy = y - dy;
+    if (sy < 0 || sy >= H) continue;
+    for (let x = 0; x < W; x++) {
+      const sx = x - dx;
+      if (sx < 0 || sx >= W) continue;
+      g[y * W + x] = copy[sy * W + sx];
+    }
+  }
   if (editTarget !== 'weapon') { baseAtkDown = null; baseAtkUp = null; baseAtkRight = null; }
   rebuildRig();
 }
@@ -838,7 +1017,14 @@ if ($('st-nudge-down')) $('st-nudge-down').onclick = () => nudgeActiveGrid(0, 1)
 $('st-edit-flipx').onclick = () => {
   pushUndo();
   const g = getActiveEditGrid();
-  g.set(flipGridX(g));
+  const W = editTarget === 'weapon' ? 16 : spriteWidth;
+  const H = editTarget === 'weapon' ? 16 : spriteHeight;
+  const copy = new Uint8Array(g);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      g[y * W + x] = copy[y * W + (W - 1 - x)];
+    }
+  }
   rebuildRig();
 };
 $('st-edit-clear').onclick = () => {
@@ -857,16 +1043,17 @@ $('st-edit-synth-dirs').onclick = () => {
   toast('Synthesized Up, Right & Attack poses from Down!');
 };
 
-// Interactive Image -> Game Boy (2bpp / GBC RGB555) Sprite Converter + 1:1 / 2:3 Crop Phase
+// Interactive Image -> Game Boy (2bpp / GBC RGB555) Sprite Converter + 8px increments crop & dither
 let activeConvImg = null;
 let activeConvCanvas = null;
 let activeConvData = null;
 let activeConvName = 'image';
 let lastConvResult = null;
 
-// Crop state: cx, cy in [0..1] normalized source coords, zoom in [12..100] % of max fitting 1:1 or 2:3 frame
+// Crop state: cx, cy in [0..1] normalized source coords, zoom in [12..100] % of max fitting frame
 const convCrop = {
-  targetH: 16, // 16 => 1:1 Square, 24 => 2:3 Tall
+  targetW: 16,
+  targetH: 16,
   cx: 0.5,
   cy: 0.5,
   zoom: 88,
@@ -876,21 +1063,28 @@ const convCrop = {
 let srcView = { ox: 0, oy: 0, dw: 200, dh: 200, scale: 1, cropRect: { x: 0, y: 0, w: 16, h: 16 } };
 
 function syncCropRatioTabsUI() {
+  const tw = convCrop.targetW || 16;
+  const th = convCrop.targetH || 16;
   if ($('st-crop-ratio-tabs')) {
-    for (const b of $('st-crop-ratio-tabs').querySelectorAll('button[data-size]')) {
-      b.classList.toggle('on', +b.dataset.size === convCrop.targetH);
+    for (const b of $('st-crop-ratio-tabs').querySelectorAll('button[data-w]')) {
+      const match = +b.dataset.w === tw && +b.dataset.h === th;
+      b.classList.toggle('on', match);
     }
   }
+  if ($('st-conv-w')) $('st-conv-w').value = String(tw);
+  if ($('st-conv-h')) $('st-conv-h').value = String(th);
   if ($('st-crop-zoom')) $('st-crop-zoom').value = String(Math.round(convCrop.zoom));
   if ($('st-crop-zoom-val')) $('st-crop-zoom-val').textContent = `${Math.round(convCrop.zoom)}%`;
 }
 
-/** Compute the source-image pixel rectangle { x, y, w, h } locked to 1:1 (targetH=16) or 2:3 (targetH=24). */
+/** Compute the source-image pixel rectangle { x, y, w, h } locked to target aspect ratio (targetW : targetH). */
 function getLockedCropRect() {
   if (!activeConvImg) return { x: 0, y: 0, w: 16, h: 16, maxW: 16, maxH: 16 };
   const imgW = activeConvImg.width;
   const imgH = activeConvImg.height;
-  const aspect = 16 / convCrop.targetH; // 1.0 for 16x16, 0.6667 for 16x24
+  const tw = convCrop.targetW || 16;
+  const th = convCrop.targetH || 16;
+  const aspect = tw / th;
   let maxW, maxH;
   if (imgW / imgH > aspect) {
     maxH = imgH;
@@ -919,13 +1113,15 @@ function getLockedCropRect() {
   };
 }
 
-/** Auto-snap the 1:1 or 2:3 crop box tightly around the foreground subject. */
+/** Auto-snap the crop box tightly around the foreground subject. */
 function autoFitCropToSubject() {
   if (!activeConvImg || !activeConvData) return;
   const W = activeConvImg.width;
   const H = activeConvImg.height;
-  // Exact 16x16 or 16x24 pixel art -> use 100% full frame
-  if ((W === 16 && H === 16) || (W === 16 && H === 24)) {
+  const tw = convCrop.targetW || 16;
+  const th = convCrop.targetH || 16;
+  // Exact match pixel art -> use 100% full frame
+  if (W === tw && H === th) {
     convCrop.cx = 0.5;
     convCrop.cy = 0.5;
     convCrop.zoom = 100;
@@ -969,7 +1165,7 @@ function autoFitCropToSubject() {
     convCrop.cx = (minX + maxX + 1) / (2 * W);
     convCrop.cy = (minY + maxY + 1) / (2 * H);
     const { maxW, maxH } = getLockedCropRect();
-    // Leave ~10% breathing margin around the detected subject so feet & head fit cleanly
+    // Leave ~10% breathing margin around the detected subject
     const neededZoom = Math.max((subW * 1.12) / Math.max(1, maxW), (subH * 1.12) / Math.max(1, maxH)) * 100;
     convCrop.zoom = Math.max(12, Math.min(100, Math.round(neededZoom)));
   } else {
@@ -990,9 +1186,15 @@ function openImageConverter(img, sourceName = 'image') {
   cx.drawImage(img, 0, 0);
   activeConvData = cx.getImageData(0, 0, img.width, img.height).data;
 
-  // Auto-select 2:3 (16x24) if image aspect ratio is clearly taller than square (>= 1.28:1)
-  const aspect = img.height / Math.max(1, img.width);
-  convCrop.targetH = img.height === 24 ? 24 : img.height === 16 ? 16 : aspect >= 1.28 ? 24 : spriteHeight;
+  // If image matches a multiple of 8, suggest it, otherwise default to current studio dimensions
+  if (img.width >= 8 && img.width <= 64 && img.width % 8 === 0 && img.height >= 8 && img.height <= 64 && img.height % 8 === 0) {
+    convCrop.targetW = img.width;
+    convCrop.targetH = img.height;
+  } else {
+    convCrop.targetW = spriteWidth;
+    convCrop.targetH = spriteHeight;
+  }
+
   if ($('st-conv-target') && $('st-upload-target')) {
     $('st-conv-target').value = $('st-upload-target').value || 'down';
   }
@@ -1001,27 +1203,30 @@ function openImageConverter(img, sourceName = 'image') {
   $('st-converter-card')?.classList.remove('hidden');
   pushUndo();
   updateConverterPreview(true);
-  toast(`Loaded ${sourceName} (${img.width}×${img.height}) — drag the ${convCrop.targetH === 24 ? '2:3' : '1:1'} box to crop!`);
+  toast(`Loaded ${sourceName} (${img.width}×${img.height}) — drag the ${convCrop.targetW}×${convCrop.targetH} box to crop!`);
 }
 
 function updateConverterPreview(applyLive = true) {
   if (!activeConvImg || !activeConvData || !activeConvCanvas) return;
-  const targetH = convCrop.targetH === 24 ? 24 : 16;
+  const targetW = convCrop.targetW || 16;
+  const targetH = convCrop.targetH || 16;
   const bgMode = $('st-conv-bgmode')?.value || 'auto';
   const bgTolerance = +($('st-conv-tol')?.value ?? 36);
   const shadeBias = +($('st-conv-bias')?.value ?? 0);
   const autoOutline = $('st-conv-outline') ? $('st-conv-outline').checked : false;
+  const dither = $('st-conv-dither') ? $('st-conv-dither').checked : false;
   const usePal = $('st-conv-usepal') ? $('st-conv-usepal').checked : true;
 
   if ($('st-conv-tol-val')) $('st-conv-tol-val').textContent = String(bgTolerance);
   if ($('st-conv-bias-val')) $('st-conv-bias-val').textContent = (shadeBias > 0 ? '+' : '') + shadeBias;
-  if ($('st-conv-dst-label')) $('st-conv-dst-label').textContent = `Converted 16×${targetH} (${targetH === 24 ? '2:3' : '1:1'} 2bpp)`;
+  const tilesX = Math.ceil(targetW / 8);
+  const tilesY = Math.ceil(targetH / 8);
+  if ($('st-conv-dst-label')) $('st-conv-dst-label').textContent = `Converted ${targetW}×${targetH} (${tilesX}×${tilesY} Tiles 2bpp)`;
   syncCropRatioTabsUI();
 
   const rect = getLockedCropRect();
   if ($('st-crop-readout')) {
-    const ratioStr = targetH === 24 ? '2:3' : '1:1';
-    $('st-crop-readout').textContent = `Crop (${ratioStr}): ${Math.round(rect.w)}×${Math.round(rect.h)}px at (${Math.round(rect.x)}, ${Math.round(rect.y)})`;
+    $('st-crop-readout').textContent = `Crop (${targetW}×${targetH}): ${Math.round(rect.w)}×${Math.round(rect.h)}px at (${Math.round(rect.x)}, ${Math.round(rect.y)})`;
   }
 
   // Render interactive source crop canvas with dark exterior mask, 8x8 tile guides, and corner handles
@@ -1051,15 +1256,17 @@ function updateConverterPreview(applyLive = true) {
     sctx.fillRect(0, cy0, cx0, ch);
     sctx.fillRect(cx0 + cw, cy0, dw - (cx0 + cw), ch);
 
-    // Subtle 8x8 hardware tile grid inside the crop box (2x2 for 16x16, 2x3 for 16x24)
+    // Subtle 8x8 hardware tile grid inside the crop box
     sctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     sctx.lineWidth = 1;
     sctx.beginPath();
-    sctx.moveTo(cx0 + cw / 2, cy0);
-    sctx.lineTo(cx0 + cw / 2, cy0 + ch);
-    const tileRows = targetH === 24 ? 3 : 2;
-    for (let r = 1; r < tileRows; r++) {
-      const ty = cy0 + (ch * r) / tileRows;
+    for (let c = 1; c < tilesX; c++) {
+      const tx = cx0 + (cw * c) / tilesX;
+      sctx.moveTo(tx, cy0);
+      sctx.lineTo(tx, cy0 + ch);
+    }
+    for (let r = 1; r < tilesY; r++) {
+      const ty = cy0 + (ch * r) / tilesY;
       sctx.moveTo(cx0, ty);
       sctx.lineTo(cx0 + cw, ty);
     }
@@ -1100,27 +1307,28 @@ function updateConverterPreview(applyLive = true) {
   const bgColor = activeConvData.length >= 4
     ? [activeConvData[0], activeConvData[1], activeConvData[2], activeConvData[3]]
     : null;
-  lastConvResult = extractGridAndPalette(subRgba, cropW, cropH, targetH, {
+  lastConvResult = extractGridAndPalette(subRgba, cropW, cropH, targetW, targetH, {
     bgMode,
     bgTolerance,
     bgColor,
-    autoCrop: false, // The interactive 1:1 or 2:3 crop box defines the exact framing!
+    autoCrop: false, // The interactive crop box defines the exact framing!
     shadeBias,
     autoOutline,
+    dither,
   });
 
   // Render converted 2bpp preview canvas
   const dstCanvas = $('st-conv-dst');
   if (dstCanvas) {
-    const scale = 6;
-    dstCanvas.width = 16 * scale;
+    const scale = Math.max(2, Math.floor(140 / Math.max(targetW, targetH)));
+    dstCanvas.width = targetW * scale;
     dstCanvas.height = targetH * scale;
     const dctx = dstCanvas.getContext('2d');
     dctx.clearRect(0, 0, dstCanvas.width, dstCanvas.height);
     const palToPreview = usePal ? lastConvResult.palette : charPalette;
     for (let y = 0; y < targetH; y++) {
-      for (let x = 0; x < 16; x++) {
-        const v = lastConvResult.grid[y * 16 + x];
+      for (let x = 0; x < targetW; x++) {
+        const v = lastConvResult.grid[y * targetW + x];
         if (!v) continue;
         const [r, g, b] = palToPreview[v] || [0, 0, 0];
         dctx.fillStyle = `rgb(${r},${g},${b})`;
@@ -1136,12 +1344,10 @@ function updateConverterPreview(applyLive = true) {
 
 function applyConvertedSpriteToRig(showToast = true) {
   if (!lastConvResult) return;
-  const targetH = gridHeight(lastConvResult.grid);
-  if (targetH !== spriteHeight) {
-    baseDown = resizeGridHeight(baseDown, targetH, true);
-    baseUp = resizeGridHeight(baseUp, targetH, true);
-    baseRight = resizeGridHeight(baseRight, targetH, true);
-    spriteHeight = targetH;
+  const targetW = lastConvResult.width || convCrop.targetW || 16;
+  const targetH = lastConvResult.height || convCrop.targetH || 16;
+  if (targetW !== spriteWidth || targetH !== spriteHeight) {
+    setCanvasDimensions(targetW, targetH, false);
   }
   const target = $('st-conv-target')?.value || $('st-upload-target')?.value || 'down';
   const usePal = $('st-conv-usepal') ? $('st-conv-usepal').checked : true;
@@ -1165,7 +1371,7 @@ function applyConvertedSpriteToRig(showToast = true) {
   baseAtkRight = null;
   rebuildRig();
   if (showToast) {
-    toast(`Applied cropped 16×${spriteHeight} sprite (${activeConvName}) & synthesized all animations!`);
+    toast(`Applied ${targetW}×${targetH} sprite (${activeConvName}) & updated canvas!`);
   }
 }
 
@@ -1247,11 +1453,24 @@ if (convSrcCanvas) {
 
 if ($('st-crop-ratio-tabs')) {
   $('st-crop-ratio-tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-size]');
+    const b = e.target.closest('button[data-w]');
     if (!b) return;
-    convCrop.targetH = +b.dataset.size === 24 ? 24 : 16;
+    convCrop.targetW = +b.dataset.w || 16;
+    convCrop.targetH = +b.dataset.h || 16;
     updateConverterPreview(true);
   });
+}
+if ($('st-conv-w')) {
+  $('st-conv-w').onchange = (e) => {
+    convCrop.targetW = +e.target.value || 16;
+    updateConverterPreview(true);
+  };
+}
+if ($('st-conv-h')) {
+  $('st-conv-h').onchange = (e) => {
+    convCrop.targetH = +e.target.value || 16;
+    updateConverterPreview(true);
+  };
 }
 if ($('st-crop-zoom')) {
   $('st-crop-zoom').oninput = (e) => {
@@ -1283,7 +1502,7 @@ if ($('st-crop-right')) $('st-crop-right').onclick = () => nudgeCrop(0.025, 0);
 if ($('st-crop-up')) $('st-crop-up').onclick = () => nudgeCrop(0, -0.025);
 if ($('st-crop-down')) $('st-crop-down').onclick = () => nudgeCrop(0, 0.025);
 
-['st-conv-target', 'st-conv-bgmode', 'st-conv-tol', 'st-conv-bias', 'st-conv-outline', 'st-conv-usepal'].forEach((id) => {
+['st-conv-target', 'st-conv-bgmode', 'st-conv-tol', 'st-conv-bias', 'st-conv-outline', 'st-conv-dither', 'st-conv-usepal'].forEach((id) => {
   const el = $(id);
   if (el) el.oninput = () => updateConverterPreview(true);
 });
@@ -1486,6 +1705,8 @@ $('st-copy-c').onclick = async () => {
   }
 };
 
+populateSizeDropdowns();
+syncSizeTabsUI();
 syncWeaponPaletteFromWeapon();
 loadPreset(Object.keys(allPresets)[0] || 'adventurer');
 setInterval(stepStudio, 1000 / 60);

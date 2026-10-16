@@ -14,6 +14,7 @@
 uint16_t xp_pending;
 uint16_t level_ups;
 uint16_t xp_kills_seen;  // enemies_killed when XP was last awarded
+uint8_t xp_on;           // XP counts here (not in the combat playtests: their balance is fixed)
 
 extern uint16_t enemies_killed;  // aim.c
 
@@ -36,7 +37,7 @@ void progress_apply(void) BANKED {
 }
 
 void xp_gain(uint16_t n) BANKED {
-    if (profile.level >= LEVEL_CAP || !n) return;
+    if (!xp_on || profile.level >= LEVEL_CAP || !n) return;
     profile.xp += n;
     uint8_t gained = 0;
     uint16_t need;

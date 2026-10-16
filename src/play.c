@@ -39,6 +39,12 @@
 #include "loot.h"
 #include "pickups.h"
 #include "dialogue.h"
+#include "boss.h"
+#include "enemy_trial.h"
+#include "gunship.h"
+#include "warden.h"
+#include "acid_skimmer.h"
+#include "mercenary.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -117,6 +123,7 @@ static const Tunable tunables[] = {
 // --- watchable state ---
 uint16_t run_seed;
 uint8_t play_mode;
+uint8_t play_actor_oam;
 uint16_t run_seconds;
 uint8_t run_ticks;
 uint8_t paused;
@@ -202,6 +209,7 @@ static void draw_page(void) {
 }
 
 void play_enter(void) BANKED {
+    play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
     palettes_play();
     talk_clear();    // a room adds its own
     pickups_init();  // a descent map loads its chests (descent.c)
@@ -214,6 +222,9 @@ void play_enter(void) BANKED {
     } else if (play_mode == MODE_YARD) {
         room_load_yard();
         player_init(5 * BLOCK_SIZE, 4 * BLOCK_SIZE);
+    } else if (play_mode >= MODE_MINIBOSS) {
+        if (play_mode == MODE_BOSS && enemy_trial_kind == 0) { warden_room(); player_init(72,184); }
+        else { boss_room(); player_init(72,96); }
     } else {
         room_load_lab();
         player_init(START_X, START_Y);
@@ -230,8 +241,22 @@ void play_enter(void) BANKED {
     }
     if (play_mode != MODE_DESCENT) layer_depth = 1;  // (XP's depth bonus)
     progress_apply();  // max health from the level
+    // XP and levels: a file's descent, the lab and the yard; the combat playtests
+    // (bosses, enemies) are tuned arenas: a level up's full heal would skew them.
+    xp_on = play_mode == MODE_DESCENT || play_mode == MODE_LAB || play_mode == MODE_YARD;
     hud_init();
-    chest_init();
+    boss_kind = BOSS_NONE;
+    if (play_mode < MODE_MINIBOSS || play_mode == MODE_YARD) chest_init();  // (the yard is no boss room)
+    else if (play_mode == MODE_ENEMY) {
+        play_actor_oam = FIRST_ACTOR_OAM + 8;
+        enemy_trial_start();
+    }
+    else {
+        if (play_mode == MODE_BOSS && enemy_trial_kind == 0) play_actor_oam = FIRST_ACTOR_OAM + 8;
+        boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW :
+                   play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
+                   enemy_trial_kind == 2 ? BOSS_DUO : BOSS_WARDEN);
+    }
     sfx_watch_reset();
     waves_init();
     paused = 0;
@@ -242,10 +267,11 @@ void play_enter(void) BANKED {
     chord_throws = 0;
     tune_sel = tune_top = 0;
     hud_draw();
-    move_win(7, HUD_WY);
+    uint8_t hud_y = (play_mode == MODE_BOSS && enemy_trial_kind == 0) ? 120 : HUD_WY;
+    move_win(7, hud_y);
     SHOW_WIN;
     gfx_sprites(1);
-    gfx_sprite_split(HUD_WY);  // no sprites over the HUD
+    gfx_sprite_split(hud_y);  // no sprites over the HUD
     player_draw();
     talk_init();  // after the room: it added its talkers
 }
@@ -264,7 +290,7 @@ static void set_paused(uint8_t p) {
         menu_close();
         hud_init();  // the menu's text borrowed the HUD's tiles
         hud_draw();
-        move_win(7, HUD_WY);
+        move_win(7, play_mode == MODE_BOSS ? 120 : HUD_WY);
         gfx_sprites(1);
     }
 }
@@ -420,27 +446,44 @@ void play_update(void) BANKED {
     player_update();
     if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
     if (pickups_on) pickups_update();
-    if (play_mode == MODE_DESCENT) {
+    if (play_mode == MODE_LAB) {
+        waves_update();
+    } else if (play_mode == MODE_DESCENT) {
         uint8_t door = descent_door();
         if (door) descent_change_room(door);
         descent_update();
-    } else if (play_mode == MODE_LAB) {
-        waves_update();
+    } else if (play_mode == MODE_ENEMY) {
+        enemy_trial_update();
+    } else if (play_mode >= MODE_MINIBOSS && play_mode != MODE_YARD) {
+        boss_update();
     }
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
-    // Talkers and loot first (few, standing still), then actors and shots.
-    uint8_t first = talk_count ? talk_draw(FIRST_ACTOR_OAM) : FIRST_ACTOR_OAM;
+    // Boss hazards reserve entries ahead of projectiles so crowded shot pools
+    // cannot hide damaging beams or floor claims. Talkers and loot come next (few,
+    // standing still; never in a boss's room), then actors and shots.
+    uint8_t first = talk_count ? talk_draw(play_actor_oam) : play_actor_oam;
     if (pickups_on) first = pickups_draw(first);
     actors_update(first);
     // Kills' XP (actor.c), every 8th frame: not on the kill's own frame, the busiest.
     if (xp_pending && (run_ticks & 7) == 3) progress_award();
-    if (play_mode == MODE_LAB) chest_update();
+    if (play_mode == MODE_ENEMY) {
+        if (enemy_trial_kind) mercenary_draw();
+        else acid_skimmer_draw();
+    } else if (play_mode == MODE_LAB) {
+        chest_update();
+    }
     aim_update();
     player_draw();
     health_update();
     if (card_drop == CARD_NONE) hud_update();  // (a gun's card has the window: the HUD redraws when it closes)
+    if (boss_kind != BOSS_NONE) {
+        boss_status();
+        if (boss_kind == BOSS_GUNSHIP) gunship_draw();
+        else if (boss_kind == BOSS_WARDEN) warden_draw();
+        else if (boss_kind == BOSS_DUO) duo_draw();
+    }
     sfx_watch();
     if (!player_hp) {
         sfx_play(SFX_DEATH);

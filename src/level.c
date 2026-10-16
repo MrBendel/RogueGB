@@ -166,7 +166,10 @@ static uint8_t pick_chunk(uint8_t tag) {
 // of a fill on a map up to 30x32 blocks stays far under 256). The map's edges
 // are wall except at openings, and outside the map is wall, so the fill can't
 // leave it; indices off the top are skipped.
-uint16_t fill_queue[256];
+// The ring lives in room_vis (512 of its 1024 bytes): the fill runs while a map
+// is built, before its looks are filled in (room_vis_from_map, last), with the
+// display off; work RAM below the maps has no room for it.
+#define fill_queue ((uint16_t *)ROOM_VIS_ADDR)
 
 static void flood(uint8_t x, uint8_t y) {
     uint16_t k = ((uint16_t)y << 5) | x;

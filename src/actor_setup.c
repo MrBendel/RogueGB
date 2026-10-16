@@ -7,8 +7,10 @@
 #include "player.h"
 #include "gfx.h"
 #include "aim.h"
+#include "health.h"
 
 void actors_init(void) BANKED {
+    enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
     // Load each type's columns (2 tiles each) into its own block of sprite VRAM,
     // and its frame table into RAM. The graphics are in switchable banks: the
     // banked_* helpers (gfx.c, bank 0) switch to them and back.
@@ -31,7 +33,10 @@ void actors_init(void) BANKED {
 
 // No enemies, enemy bullets or player shots (a room change).
 void actors_clear(void) BANKED {
-    for (uint8_t i = 0; i < ACTOR_MAX; i++) actor_type[i] = ACTOR_NONE;
+    for (uint8_t i = 0; i < ACTOR_MAX; i++) {
+        actor_type[i] = ACTOR_NONE;
+        actor_scripted[i] = actor_guard[i] = 0;
+    }
     for (uint8_t i = 0; i < BULLET_MAX; i++) bullets[i].alive = 0;
     for (uint8_t i = 0; i < SHOT_MAX; i++) shots[i].alive = 0;
     shot_count = 0;
@@ -46,6 +51,7 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] != ACTOR_NONE) continue;
         actor_type[i] = type;
+        actor_scripted[i] = actor_guard[i] = 0;
         actor_x[i] = x;
         actor_y[i] = y;
         actor_xs[i] = actor_ys[i] = 0;
@@ -113,6 +119,7 @@ void actors_debug_stress(uint16_t px, uint16_t py) BANKED {
 // Knock enemy i back by (dx, dy) px: all the way if it lands on plain floor, else
 // half way, else not at all (so it can't be pushed into a wall or a pit).
 void actor_push(uint8_t i, int8_t dx, int8_t dy) BANKED {
+    if (actor_scripted[i] == 1) return; // boss machines are anchored
     uint16_t x = actor_x[i] + dx, y = actor_y[i] + dy;
     if (!enemy_box_free(x, y)) {
         x = actor_x[i] + (dx >> 1);

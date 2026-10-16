@@ -26,7 +26,9 @@
 #define RAISED_PX 8
 #define BLK_PROP 4    // under a prop (the chest): solid to the player, drawn as floor;
                       // shots, bullets and line of sight pass (they test SOLID/RAISED)
-#define BLK_TYPES 5
+#define BLK_STAIRS 5 // traversable steps in authored terrace arenas
+#define BLK_DECK 6   // traversable upper terrace surface
+#define BLK_TYPES 7
 
 extern uint8_t room_w;  // size in blocks
 extern uint8_t room_h;

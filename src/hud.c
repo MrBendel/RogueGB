@@ -19,6 +19,8 @@
 #include "gfx.h"
 #include "weapon.h"
 #include "font.h"
+#include "boss.h"
+#include "warden.h"
 
 #define WIN_MAP ((uint8_t *)0x9C00)
 #define BAR_COLS 11              // cells: 8 px each
@@ -246,6 +248,10 @@ void hud_draw(void) BANKED {
     fill_win_rect(0, 0, ROW_LEN, 1, BG_PAL_SHIELD | ATTR_BANK1);
     fill_win_rect(0, 1, ROW_LEN, 1, BG_PAL_HEALTH | ATTR_BANK1);
     fill_win_rect(RIGHT_X, 0, RIGHT_LEN, 2, BG_PAL_GUN | ATTR_BANK1);
+    if (boss_kind == BOSS_WARDEN) {
+        fill_win_rect(0,2,20,1,BG_PAL_UI);
+        warden_hud_dirty=1;
+    }
     VBK_REG = 0;
     hud_shield_px = hud_hp_px = 0xFF;  // redraw everything
     hud_raw_cap = hud_raw_max = 0xFF;

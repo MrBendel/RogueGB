@@ -18,6 +18,7 @@
 // --- watchable state ---
 extern uint16_t xp_pending;   // XP from kills this frame (actor.c), awarded by play
 extern uint16_t level_ups;    // this session
+extern uint8_t xp_on;         // XP counts in this scene (play.c: not in the combat playtests)
 
 void progress_award(void) BANKED;        // xp_pending (and the kills' depth bonus) into the profile
 void xp_gain(uint16_t n) BANKED;         // n XP: levels up as it fills

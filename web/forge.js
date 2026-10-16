@@ -667,7 +667,15 @@ function paintAt(e, isStart = false) {
 
   if (isStart) {
     pushUndo();
-    activeStrokeShade = e.button === 2 ? 0 : brushShade;
+    const curVal = g[y * W + x] & 3;
+    if (e.button === 2 || brushShade === 0) {
+      activeStrokeShade = 0;
+    } else if (curVal === brushShade) {
+      // Tapping an already filled pixel erases it!
+      activeStrokeShade = 0;
+    } else {
+      activeStrokeShade = brushShade;
+    }
   }
 
   if (editTool === 'bucket' && isStart) {

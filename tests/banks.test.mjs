@@ -21,6 +21,16 @@ test('bank 0 holds all fixed code and data, with room to spare', () => {
   assert.ok(r.used <= 0x4000 * BANK0_LIMIT, `bank 0 used ${r.used} bytes`);
 });
 
+test('global RAM sections stay below the fixed room map', () => {
+  // Where the map starts (src/room.h; the work RAM layout is described there).
+  const mapAt = parseInt(fs.readFileSync(path.join(ROOT, 'src', 'room.h'), 'utf8').match(/#define ROOM_MAP_ADDR (0x[0-9A-Fa-f]+)/)[1], 16);
+  for (const section of ['DATA','BSS','INITIALIZED']) {
+    const start=syms.get(`s__${section}`), size=syms.get(`l__${section}`);
+    assert.ok(Number.isInteger(start) && Number.isInteger(size),`${section} layout exists`);
+    assert.ok(start+size<=mapAt,`${section} ends at 0x${(start+size).toString(16)} and overlaps room_map at 0x${mapAt.toString(16)}`);
+  }
+});
+
 test('cold code and once-per-scene data live in switchable banks', () => {
   for (const name of [
     'title_enter', 'title_update', 'play_enter', 'play_update', 'run_over_enter', 'run_over_update',
@@ -51,13 +61,24 @@ test('the game runs across banks: banked scenes call bank-0 code every frame', (
   // asset loading (gfx_init, actors_init, room_load_lab).
   const emu = startRun().idle(2).hold('LEFT', 80).hold('DOWN+B', 200).hold('RIGHT', 200);
   assert.equal(emu.v('game_state'), 1, 'still playing');
-  // The bank variable GBDK keeps in sync with the hardware register: a real ROM
-  // bank (a banked call restores the caller's on return, so between frames it's
-  // whichever bank-0 code last left in, not necessarily play_update's).
-  const bank = emu.read8(syms.get('__current_bank'));
-  const banks = fs.statSync(path.join(ROOT, 'build', 'roguegb.gb')).size / 0x4000;
-  assert.ok(bank >= 1 && bank < banks, `bank ${bank} is a switchable ROM bank`);
-  assert.ok(bankOf('play_update') >= 1, 'the play scene is banked');
+  // At vsync, banked calls have returned and restored the caller's bank. Once
+  // autobanking places play_update elsewhere, its bank need not remain active.
+  // Observe the function entry itself, bounded to a few frames of instructions.
+  const entry = syms.get('_play_update') & 0xffff;
+  let entered = false;
+  for (let cycles = 0; cycles < 300000;) {
+    const r = emu.gb.registers(), pc = r.pc;
+    r.free();
+    if (pc === entry) {
+      emu._snap = null;
+      if (emu.read8(syms.get('__current_bank')) === bankOf('play_update')) {
+        entered = true;
+        break;
+      }
+    }
+    cycles += emu.gb.clock();
+  }
+  assert.ok(entered, 'entered play_update with its ROM bank selected');
 });
 
 test('banked code never switches banks itself (it would swap its own code out)', () => {

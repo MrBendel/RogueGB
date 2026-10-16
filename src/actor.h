@@ -45,6 +45,9 @@ extern uint8_t actor_try[ACTOR_MAX];
 extern uint8_t actor_hurt[ACTOR_MAX];
 extern uint8_t actor_frame[ACTOR_MAX];  // frame index into the type's frame table
 extern uint8_t actor_flash[ACTOR_MAX];  // frames left drawing with the flash palette
+extern uint8_t actor_scripted[ACTOR_MAX]; // encounter controller owns AI/art; still collides
+extern uint8_t actor_guard[ACTOR_MAX];    // excluded from aim and weapon damage while protected
+extern uint8_t actor_count;
 
 // One enemy bullet. The layout is used by bullets.s (offsets in its header): per
 // axis, velocity then position, so moving is one straight walk through the record.

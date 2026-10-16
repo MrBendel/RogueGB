@@ -15,6 +15,7 @@
     .module aim_score
 
     .globl _actor_type, _actor_hp, _actor_x, _actor_y
+    .globl _actor_guard
     .globl _player_x, _player_y, _player_facing
     .globl _aim_range, _aim_bias
     .globl _line_fx, _line_fy, _line_sx, _line_sy, _line_n, _room_line_clear
@@ -70,6 +71,10 @@ _aim_score_of::
     ld a, (hl)
     or a, a
     jp z, 90$
+    IDX8 _actor_guard
+    ld a, (hl)
+    or a, a
+    jp nz, 90$
     ld a, c
     add a, a
     ld b, a

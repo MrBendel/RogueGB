@@ -1,0 +1,81 @@
+# Enemies
+
+Acid Skimmer and Mercenary are the active enemy playtests. Acid Skimmer remains
+the reference for future enemy quality. From the title, press DOWN, select
+Enemies, then an encounter. B goes back;
+START pauses and SELECT while paused ends the attempt.
+
+The Slime, Peashooter, Mixed Group, Spore Husk, Ragebound, Contractor, Bastion
+Drone, Faction Mix, and Scrap Hound trials have been removed, along with the
+unused family controller and artwork. Their earlier prototypes remain in Git
+history. Campaign/lab enemies and boss-specific reinforcements remain intact.
+The new Mercenary is a fresh controller using the supplied NPC artwork, not a
+restoration of the removed Contractor prototype.
+
+## Acid Skimmer trial (2026-10-15)
+
+An alien flying insect that denies ground with acid, inspired by the requested
+Varkid role. Select **Enemies → Acid Skimmer** in the title playtest menu.
+Its original silhouette has flapping wings and a ground shadow; it stays
+vulnerable to ordinary weapons throughout the fight.
+
+- One 8-HP insect patrols across the top of a compact arena.
+- A 36-frame warning marks the player's position, then a visible glob travels
+  to that fixed location over 24 frames. Moving after the warning avoids it.
+- The impact leaves a bubbling acid pool for 180 gameplay frames (about three
+  seconds). At most two pools persist, with a 60-frame rest before targeting again.
+- Ground contact deals 6 damage with a 30-frame acid cooldown. Jumping high
+  enough clears the hazard. The warning itself is harmless.
+- Killing the insect clears its remaining acid. Pause freezes warnings,
+  projectiles, and pool timers.
+
+The standalone controller is `src/acid_skimmer.c`, using scripted actor value 8.
+Its 16×16 body, two animation poses, marker, pools, glob, and shadow occupy sprite
+tiles 96–119. Eight reserved OAM entries keep hazards allocated during heavy
+player fire. This prototype does not yet add campaign spawns or metamorphosis.
+
+Focused emulator tests cover menu access, animation, target lock, damage,
+jumping, pause, expiration, sprite allocation, and completion with the starter
+pistol and normal health. Visuals are reviewed at the native game resolution.
+At the prior cleanup, 212 repository tests passed. The normal Acid Skimmer completion test peaked at
+49,400 of the 131,328 available update cycles (about 38%).
+
+## Mercenary rifle duelist
+
+Select **Enemies → Mercenary**. One 28-HP mercenary uses the supplied cyan NPC
+sheet's four-frame directional walk and roll animations, with a separate rifle
+that rotates through sixteen directions. It is a fresh prototype, rather than
+the removed Contractor design.
+
+- Strafe at combat distance, advance when far away, and retreat when crowded.
+  Running covers one pixel per frame; reload movement runs at half that rate.
+- An 18-frame firing warning leads into six rounds, seven frames apart. Each
+  group of three commits to a muzzle-to-player aim vector; the second group
+  reacquires the target. Rifle hits deal 16 damage through the ordinary shield
+  and invulnerability rules. Accuracy is continuous, despite the gun's sixteen
+  visual angles.
+- Reload for 30 frames, then reposition for 16 before the next warning. The
+  player can shoot throughout; there is no armor or arbitrary immunity phase.
+- Nearby approaching player shots can trigger an eight-frame dodge warning,
+  a committed 14-frame lateral roll at three pixels per frame, and an 18-frame
+  stationary recovery. A 140-frame cooldown prevents endless dodges. Wall
+  collision checks each roll substep.
+- The rifle recoils and flashes when firing, is tucked away during rolls, and
+  returns afterward. A shadow stays under the body and a filling meter marks
+  reloads. Defeat clears its bullets.
+
+`tools/import-mercenary-art.mjs` converts the original 2x sheet into native 16x16
+frames. Body tiles use VRAM bank 0 at 96–191, shadow at 192–193, and reload meter
+at 194–201; rifle art reuses
+the player's loaded rifle in VRAM bank 1 without changing the player's weapon.
+OAM 15–22 is reserved for the gun and effects. AI is in `src/mercenary.c`;
+scripted actor value 9 identifies contact damage, and death cause 12 identifies
+the mercenary's shots. Encounter projectile settings reset when actors load.
+
+Validation covers six-shot bursts, reload visibility, reactive rolls and recovery,
+wall boundaries, pause, normal-health starter-pistol victory with movement, defeat
+when standing still holding fire, sustained combat, and switching back to Acid
+Skimmer. The merged suite also checks that the third boss entry remains available
+and that all global RAM sections end before the fixed room map at `0xD000`.
+Mercenary completion peaks at 63,580/131,328 update cycles; the sustained stress
+test peaks at 62,624. These are headless-emulator measurements.

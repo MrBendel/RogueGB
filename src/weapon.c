@@ -24,6 +24,7 @@ uint8_t rifle_mode = RIFLE_AUTO;
 WeaponStats wpn;
 WeaponStats weapon_stats[WEAPON_COUNT];
 uint8_t gun_vram, gun_blank;
+uint8_t rifle_vram; // Shared rifle art for the mercenary; independent of player selection.
 uint8_t gun_frames[16 * 4];
 const uint8_t *gun_tiles;  // the held weapon's art in ROM (the HUD's icon copies from it)
 uint8_t gun_tiles_bank;
@@ -73,6 +74,7 @@ void weapon_init(void) BANKED {
     banked_sprite_data_vbk1(v, SPR_SHOTGUN_COLUMN_COUNT * 2, spr_shotgun_tiles, BANK(spr_shotgun));
     v += SPR_SHOTGUN_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_RIFLE] = v;
+    rifle_vram = v;
     banked_sprite_data_vbk1(v, SPR_RIFLE_COLUMN_COUNT * 2, spr_rifle_tiles, BANK(spr_rifle));
     v += SPR_RIFLE_COLUMN_COUNT * 2;
     weapon_vram[WEAPON_SNIPER] = v;
