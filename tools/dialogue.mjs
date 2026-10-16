@@ -9,8 +9,9 @@
 // pages of DLG_PAGE_LINES lines that fit the box; a long line takes several pages.
 // A "\n" in the text starts a new line, and "\n\n" a new page. Sounds play when a
 // speaker's line opens: "relay" (Echo's channel), "chime" (the company's three notes).
-// "portrait": "echo.png" (artwork/portraits) shows a 32x32 picture above the box:
-// at most 3 colors plus see-through, mapped lightest to darkest onto colors 1-3.
+// "portrait": "echo.png" (artwork/portraits) shows a 32x32 picture in the box, the
+// text beside it (so narrower lines): at most 3 colors plus see-through, mapped
+// lightest to darkest onto colors 1-3.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,8 @@ const SHEET = path.join(ROOT, 'artwork', 'fonts', 'font-sheet.png');
 const PORTRAITS = path.join(ROOT, 'artwork', 'portraits');
 export const PORTRAIT_PX = 32;
 
-export const DLG_WRAP_PX = 140;  // a line's width in the box (dialog.c: 18 tiles, the pen 2 px in)
+export const DLG_WRAP_PX = 140;  // a line's width in the box (dialog.c: 18 tiles, the pen 2 px in) ...
+export const DLG_WRAP_PX_PORTRAIT = 108;  // ... and beside a portrait (14 tiles, the pen 3 px in)
 export const DLG_PAGE_LINES = 2;
 const NAME_MAX = 12;
 const SOUNDS = { relay: 'SFX_RELAY', chime: 'SFX_CHIME' };
@@ -45,15 +47,15 @@ function italic() {
   return metrics;
 }
 
-/** Lines of one paragraph, wrapped to DLG_WRAP_PX. */
-function wrapLines(para, where) {
+/** Lines of one paragraph, wrapped to `width` px. */
+function wrapLines(para, where, width) {
   const m = italic();
   const lines = [];
   for (const hard of para.split('\n')) {
     let line = '';
     for (const word of hard.split(/ +/).filter(Boolean)) {
       const next = line ? `${line} ${word}` : word;
-      if (m.width(next) <= DLG_WRAP_PX) line = next;
+      if (m.width(next) <= width) line = next;
       else {
         if (!line) throw new Error(`${where}: "${word}" is too wide for a line`);
         lines.push(line);
@@ -70,12 +72,12 @@ function wrapLines(para, where) {
  * breaks between sentences where it can, so no page starts or ends mid-thought
  * (a sentence longer than a page still splits). Throws on letters the font lacks.
  */
-export function wrap(text, where = 'dialogue') {
+export function wrap(text, where = 'dialogue', width = DLG_WRAP_PX) {
   const m = italic();
   for (const ch of text.replace(/\n/g, '')) if (!m.has(ch)) throw new Error(`${where}: the italic font has no '${ch}'`);
   const pages = [];
   for (const para of text.split(/\n\n/)) {
-    const whole = wrapLines(para, where);
+    const whole = wrapLines(para, where, width);
     if (whole.length <= DLG_PAGE_LINES || para.includes('\n')) {
       for (let i = 0; i < whole.length; i += DLG_PAGE_LINES) pages.push(whole.slice(i, i + DLG_PAGE_LINES));
       continue;
@@ -83,14 +85,24 @@ export function wrap(text, where = 'dialogue') {
     let page = '';
     for (const sentence of para.split(/(?<=[.?!])\s+/)) {
       const next = page ? `${page} ${sentence}` : sentence;
-      if (wrapLines(next, where).length <= DLG_PAGE_LINES) { page = next; continue; }
-      if (page) pages.push(wrapLines(page, where));
-      const lines = wrapLines(sentence, where);
-      // A sentence too long for a page on its own: whole pages of it, the rest carries on.
-      while (lines.length > DLG_PAGE_LINES) pages.push(lines.splice(0, DLG_PAGE_LINES));
-      page = lines.join(' ');
+      if (wrapLines(next, where, width).length <= DLG_PAGE_LINES) { page = next; continue; }
+      if (page) pages.push(wrapLines(page, where, width));
+      const lines = wrapLines(sentence, where, width);
+      if (lines.length <= DLG_PAGE_LINES) { page = sentence; continue; }
+      // A sentence too long for a page: shared evenly between as few pages as it
+      // needs (wrapped narrower until it fits them exactly), so no page is left
+      // with a word or two.
+      const n = Math.ceil(lines.length / DLG_PAGE_LINES);
+      let narrow = lines;
+      const widest = Math.max(...sentence.split(/ +/).map((x) => italic().width(x)));
+      for (let w = widest; w <= width; w++) {
+        const l = wrapLines(sentence, where, w);
+        if (l.length <= n * DLG_PAGE_LINES) { narrow = l; break; }
+      }
+      for (let i = 0; i < narrow.length; i += DLG_PAGE_LINES) pages.push(narrow.slice(i, i + DLG_PAGE_LINES));
+      page = '';
     }
-    if (page) pages.push(wrapLines(page, where));
+    if (page) pages.push(wrapLines(page, where, width));
   }
   return pages;
 }
@@ -164,7 +176,8 @@ export function loadDialogue() {
       for (const [i, l] of (s.lines || []).entries()) {
         const where = `content/dialogue/${f}, ${s.id} line ${i + 1}`;
         if (!who.has(l.who)) throw new Error(`${where}: no speaker '${l.who}'`);
-        for (const p of wrap(l.text || '', where)) pages.push({ who: who.get(l.who), lines: p });
+        const sp = speakers[who.get(l.who)];
+        for (const p of wrap(l.text || '', where, sp.portrait ? DLG_WRAP_PX_PORTRAIT : DLG_WRAP_PX)) pages.push({ who: who.get(l.who), lines: p });
       }
       if (!pages.length) throw new Error(`content/dialogue/${f}: script '${s.id}' has no lines`);
       scripts.push({ id: s.id, pages });

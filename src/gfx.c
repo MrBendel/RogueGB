@@ -105,6 +105,20 @@ void gfx_lcd(void) {
     obj_restore = 1;
 }
 
+// The dialogue box's split (gfx_box_split), the other way around: its own
+// handlers, installed only while a box is up, so other frames pay nothing.
+// The new frame starts in the box: window on, sprites off ...
+void gfx_vbl_box(void) {
+    LCDC_REG = (LCDC_REG | LCDCF_WINON) & ~LCDCF_OBJON;
+}
+
+// ... and at its bottom line, the window off and sprites on.
+void gfx_lcd_box(void) {
+    while (STAT_REG & STATF_BUSY) {
+    }
+    LCDC_REG = (LCDC_REG & ~LCDCF_WINON) | LCDCF_OBJON;
+}
+
 void gfx_sprites(uint8_t on) {
     obj_restore = 0;
     if (on) SHOW_SPRITES;
@@ -149,30 +163,6 @@ void bkg_text(uint8_t x, uint8_t y, const char *s) {
 
 void win_text(uint8_t x, uint8_t y, const char *s) {
     while (*s) set_win_tile_xy(x++, y, glyph(*s++));
-}
-
-static void draw_number(uint8_t win, uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) {
-    x += width;
-    do {
-        uint8_t t = glyph('0' + (n % 10));
-        if (win) set_win_tile_xy(--x, y, t);
-        else set_bkg_tile_xy(--x, y, t);
-        n /= 10;
-        width--;
-    } while (n && width);
-    while (width--) {
-        uint8_t t = glyph(zero_pad ? '0' : ' ');
-        if (win) set_win_tile_xy(--x, y, t);
-        else set_bkg_tile_xy(--x, y, t);
-    }
-}
-
-void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) {
-    draw_number(0, x, y, n, width, zero_pad);
-}
-
-void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) {
-    draw_number(1, x, y, n, width, zero_pad);
 }
 
 void banked_memcpy(void *dst, const void *src, uint16_t n, uint8_t bank) {

@@ -58,8 +58,9 @@ void gfx_clear(void) BANKED;  // gfx_setup.c
 void bkg_text(uint8_t x, uint8_t y, const char *s);
 void win_text(uint8_t x, uint8_t y, const char *s);
 // Draw an unsigned number, right-aligned in width tiles (zero-padded if zero_pad).
-void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad);
-void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad);
+// Banked (menus only).
+void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) BANKED;
+void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) BANKED;
 
 // Draw a framed box on the background or the window.
 // Banked (gfx_setup.c): they take no strings, so they needn't be in bank 0.
@@ -105,6 +106,11 @@ void gfx_sprite_split(uint8_t line) BANKED;
 // split is on (the vblank would otherwise turn hidden sprites back on).
 void gfx_sprites(uint8_t on);
 extern uint8_t obj_restore;  // the split turned sprites off this frame
+// A box at the top of the screen (dialogue): the window (from y = 0) shows down to
+// screen line `line`, sprites only below it. 0 = off (the window and sprites on;
+// set the HUD's split again after). Replaces the sprite split while it's on.
+void gfx_box_split(uint8_t line) BANKED;
+extern uint8_t split_box;
 // The palettes for the menus (title, run over) and for play (palettes.c).
 void palettes_menu(void) BANKED;
 // The title screen's (title.c): text, the gold display font, hints, the prompt.

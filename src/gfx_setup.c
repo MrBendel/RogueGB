@@ -12,6 +12,8 @@ extern volatile uint8_t vram_ready;  // gfx.c
 extern uint8_t strip_count, copy_count;
 void gfx_vbl(void);  // gfx.c: the vblank handler, in bank 0
 void gfx_lcd(void);  // gfx.c: the sprite split's LCD interrupt, in bank 0
+void gfx_lcd_box(void);  // ... and the dialogue box's (gfx_box_split)
+void gfx_vbl_box(void);
 
 extern uint16_t pal_bg[PAL_COUNT * 4], pal_obj[PAL_COUNT * 4];  // gfx.c: on screen
 extern volatile uint8_t pal_dirty;
@@ -74,7 +76,33 @@ void gfx_init(void) BANKED {
     }
 }
 
+uint8_t split_box;
+
+void gfx_box_split(uint8_t line) BANKED {
+    if (line == 0 && !split_box) return;
+    CRITICAL {
+        if (line) {
+            if (!split_box) {
+                remove_LCD(gfx_lcd);
+                add_LCD(gfx_lcd_box);
+                add_VBL(gfx_vbl_box);
+            }
+            LYC_REG = line - 1;
+            STAT_REG = STATF_LYC;
+            split_box = 1;
+        } else {
+            remove_VBL(gfx_vbl_box);
+            remove_LCD(gfx_lcd_box);
+            add_LCD(gfx_lcd);
+            STAT_REG = 0;
+            LCDC_REG |= LCDCF_WINON | LCDCF_OBJON;
+            split_box = 0;
+        }
+    }
+}
+
 void gfx_sprite_split(uint8_t line) BANKED {
+    gfx_box_split(0);
     if (line) {
         LYC_REG = line - 1;
         STAT_REG = STATF_LYC;
@@ -122,6 +150,32 @@ void fade_in(void) BANKED {
     set(x + w - 1, y, FRAME_TILES + 2);                                          \
     set(x, y + h - 1, FRAME_TILES + 6);                                          \
     set(x + w - 1, y + h - 1, FRAME_TILES + 8)
+
+// Numbers (menus only, so banked: they take no strings, which a banked
+// function couldn't read from its caller's bank). Digits are the font's tiles.
+static void draw_number(uint8_t win, uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) {
+    x += width;
+    do {
+        uint8_t t = FONT_TILES + ('0' - ' ') + (uint8_t)(n % 10);
+        if (win) set_win_tile_xy(--x, y, t);
+        else set_bkg_tile_xy(--x, y, t);
+        n /= 10;
+        width--;
+    } while (n && width);
+    while (width--) {
+        uint8_t t = FONT_TILES + (zero_pad ? '0' - ' ' : 0);
+        if (win) set_win_tile_xy(--x, y, t);
+        else set_bkg_tile_xy(--x, y, t);
+    }
+}
+
+void bkg_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) BANKED {
+    draw_number(0, x, y, n, width, zero_pad);
+}
+
+void win_number(uint8_t x, uint8_t y, uint16_t n, uint8_t width, uint8_t zero_pad) BANKED {
+    draw_number(1, x, y, n, width, zero_pad);
+}
 
 void bkg_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED {
     FRAME_DRAW(fill_bkg_rect, set_bkg_tile_xy);

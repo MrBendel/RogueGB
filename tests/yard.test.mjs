@@ -4,11 +4,11 @@ import { test } from 'node:test';
 import { assert, matchGolden, bootToTitle, settle, PLAY } from './helpers.mjs';
 
 const MODE_YARD = 5;
-// The yard opens with a conversation (the dialogue box's showcase): skip it.
+// The yard has a story zone by Echo's relay (talk.c): these tests walk through
+// it, so mark its conversation as already played.
 const yard = () => {
   const emu = settle(bootToTitle().tap('B'), PLAY, 'the ice yard');
-  for (let i = 0; i < 40 && emu.v('dlg_active'); i++) emu.tap('A');
-  assert.equal(emu.v('dlg_active'), 0, 'the conversation closed');
+  emu.write8(emu.symbols.addr('zones_done'), 0xff);
   return emu;
 };
 const w16 = (emu, n, v) => emu.writeBytes(emu.symbols.addr(n), [v & 255, v >> 8]);

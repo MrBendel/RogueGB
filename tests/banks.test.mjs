@@ -38,7 +38,7 @@ test('hot paths, vblank code and text drawing stay in bank 0', () => {
     'camera_update', 'room_block_at', 'room_draw_row', 'room_draw_column', 'room_fill_row', 'room_fill_column',
     // Banked code passes strings from its own bank to these; if they were in another
     // switchable bank, calling them would hide the caller's strings.
-    'bkg_text', 'win_text', 'bkg_number', 'win_number',
+    'bkg_text', 'win_text',
   ]) {
     assert.equal(bankOf(name), 0, `${name} is in bank 0`);
     assert.ok(syms.get('_' + name) < 0x4000, `${name} is below 0x4000`);
