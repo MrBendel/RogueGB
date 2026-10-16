@@ -35,10 +35,36 @@ Status: decided where marked; the rest is the working plan. Builds on
   level: a skill point, +2 max health, health and shield refilled, a fanfare,
   "LEVEL n" on the HUD, and the file saved.
 
+- **Classes:** a new file picks one of the four Wayfarer classes (Ironclad,
+  Volt-Weaver, Ballistician, Ghost-Stalker; skill-trees.md). They share the
+  player's look for now.
+- **The pause menu** has pages, turned with B: **Profile** (class, level and XP
+  bar, credits, time, deepest depth, kills, skill points), **Skills** and **Tune**
+  (the movement and gun tuning panel; the lab and the yard open on it).
+- **Skill trees** (`content/skills/wayfarer.json`, `src/skills.c`): 3 branches x 3
+  tiers per class; a skill costs a point and needs the one above it. Learned
+  skills save with the file. Ten have real effects so far:
+
+  | Class | Skill | Effect |
+  |---|---|---|
+  | Ironclad | Plated Mesh | max health +15 |
+  | Ironclad | Capacitor Surge | shields recharge 30 frames sooner |
+  | Ironclad | Hair-Pin Draw | reloads take half the time |
+  | Ironclad | Heavy Rifling | shots fly 25% faster |
+  | Ironclad | Expanded Drums | magazines +2 |
+  | Volt-Weaver | Blink Dash | longer dash, 4 more invulnerable frames |
+  | Ballistician | Rapid Cycle | fire interval -2 frames |
+  | Ballistician | Cluster Shot | shotguns +1 pellet |
+  | Ballistician | Momentum | firing doesn't slow you |
+  | Ghost-Stalker | Hawk Sight | auto-aim reach +32 px |
+
+  The other 26 can be learned and say "(Not in yet.)": they need systems that
+  don't exist yet (piercing, burning, decoys, turrets, elites).
+
 ## Next
 
-1. **First finds** as an XP source (relics, new guns) once loot exists.
-2. **The profile screen:** class, level and XP bar, credits, time, finds.
-3. **The Wayfarer's skill tree:** the 3x3 triad from skill-trees.md, its screen,
-   and the skills' real effects.
-4. **Credits:** from camps and chests; spent at towns (later).
+1. **The other skills' systems**, starting with whichever class we play most.
+2. **Credits:** from camps and chests; spent at towns (later). The fee already
+   takes its eighth.
+3. **First finds** as an XP source (relics, new guns) once loot exists.
+4. **Class looks:** each class its own sprite (skill-trees.md names them).

@@ -43,7 +43,7 @@ test('a new file: the files screen offers three, the first one is saved as soon 
   assert.equal(emu.v('title_files'), 1);
   for (let s = 0; s < 3; s++) assert.equal(emu.read8(A(emu, 'slot_used') + s), 0, `slot ${s} is empty`);
   matchGolden(emu.idle(2), 'files-empty');
-  settle(emu.tap('A'), PLAY);
+  settle(emu.tap('A').tap('A'), PLAY);  // the file, then its class
   assert.equal(emu.v('save_slot'), 0);
   assert.ok(emu.v('saves_written', 'u16') >= 1);
   const sram = emu.sram();
@@ -77,7 +77,7 @@ test('a write cut short leaves the other copy: the file still loads', () => {
   assert.notEqual(again.v('level_map'), map, 'the older save: the map before');
   // Both copies broken: the slot reads as new.
   sram[(128 - newer) + 8 + 5] ^= 0xff;
-  const fresh = withSram(sram).tap('START');
+  const fresh = withSram(sram).tap('START');  // (a new file there would ask for a class)
   assert.equal(fresh.read8(A(fresh, 'slot_used')), 0);
 });
 

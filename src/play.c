@@ -34,6 +34,8 @@
 #include "talk.h"
 #include "save.h"
 #include "progress.h"
+#include "skills.h"
+#include "menu.h"
 #include "dialogue.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
@@ -181,12 +183,20 @@ static void draw_tune_rows(void) {
                     tune_top + TUNE_ROWS < TUNE_COUNT ? FONT_TILES + ('V' - ' ') : FRAME_TILES + 5);
 }
 
+// The tuning page of the pause menu (menu.h: the profile and skills pages are menu.c's).
 static void draw_pause(void) {
     win_frame(0, 0, SCREEN_TW, PAUSE_H);
-    win_text(2, 1, "TUNE   GUN:");
-    weapon_draw_name(13, 1);
+    VBK_REG = 1;
+    fill_win_rect(0, 0, SCREEN_TW, PAUSE_H, BG_PAL_UI);
+    VBK_REG = 0;
+    menu_tabs();
     draw_tune_rows();
-    win_text(1, TUNE_ROW0 + TUNE_ROWS, "START:BACK SEL:END");
+    win_text(1, TUNE_ROW0 + TUNE_ROWS, "B:PAGE SEL:END RUN");
+}
+
+static void draw_page(void) {
+    if (menu_page == PAGE_TUNE) draw_pause();
+    else menu_draw();
 }
 
 void play_enter(void) BANKED {
@@ -207,6 +217,7 @@ void play_enter(void) BANKED {
         player_init(START_X, START_Y);
     }
     if (!move_top) move_apply_preset(0);  // first run; later runs keep the chosen movement
+    skills_refresh();  // this file's skills, before anything loads a gun (weapon_select applies them)
     camera_init(player_x + 8, player_y + 8);
     actors_init();
     if (save_slot != SAVE_NONE) weapon_select(weapon_cur);  // (the first run's weapon setup picks the pistol)
@@ -217,6 +228,9 @@ void play_enter(void) BANKED {
     sfx_watch_reset();
     waves_init();
     paused = 0;
+    // The pause menu opens on your profile; in the lab and the yard (no file),
+    // where tuning is the point, on the tuning page.
+    menu_page = save_slot == SAVE_NONE ? PAGE_TUNE : PAGE_PROFILE;
     select_chord = chord_mask = 0;
     chord_throws = 0;
     tune_sel = tune_top = 0;
@@ -234,10 +248,13 @@ static void set_paused(uint8_t p) {
     // Sprites would draw over the pause panel, so hide them while paused.
     if (p) {
         hud_hide();
-        draw_pause();
+        menu_open();
+        if (menu_page == PAGE_TUNE) draw_pause();
         move_win(7, PAUSE_WY);
         gfx_sprites(0);
     } else {
+        menu_close();
+        hud_init();  // the menu's text borrowed the HUD's tiles
         hud_draw();
         move_win(7, HUD_WY);
         gfx_sprites(1);
@@ -303,7 +320,11 @@ void play_update(void) BANKED {
     if (paused) {
         if (joy_pressed & J_START) set_paused(0);
         else if (joy_pressed & J_SELECT) state_change(STATE_RUN_OVER);
-        else tune_update();
+        else if (joy_pressed & J_B) {
+            menu_page = menu_page + 1 < PAGES ? menu_page + 1 : 0;
+            draw_page();
+        } else if (menu_page == PAGE_TUNE) tune_update();
+        else menu_update();
         return;
     }
     if (joy_pressed & J_START) {

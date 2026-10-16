@@ -16,6 +16,7 @@
 #include "weapon_rifle.h"
 #include "weapon_sniper.h"
 #include "weapon_sword.h"
+#include "skills.h"
 
 uint8_t weapon_cur;
 uint8_t rifle_mode = RIFLE_AUTO;
@@ -104,9 +105,12 @@ void weapon_get_name(char *dst) BANKED {
 }
 
 void weapon_select(uint8_t w) BANKED {
-    weapon_stats[weapon_cur] = wpn;
+    // Keep what the tuner changed (the pause panel edits wpn), unless skills are
+    // on top of it: then the stored stats stay the gun's own.
+    if (!skill_fx) weapon_stats[weapon_cur] = wpn;
     weapon_cur = w;
     wpn = weapon_stats[w];
+    if (skill_fx) skills_weapon(&wpn);
     // Switching cancels a reload; a magazine tuned smaller drops what won't fit.
     reload_t = 0;
     if (weapon_ammo[w] > wpn.mag) weapon_ammo[w] = wpn.mag;

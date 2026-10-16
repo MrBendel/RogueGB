@@ -7,6 +7,8 @@
 #include "hud.h"
 #include "sfx.h"
 #include "descent.h"
+#include "skills.h"
+#include "skilldata.h"
 
 uint16_t xp_pending;
 uint16_t level_ups;
@@ -26,7 +28,8 @@ uint16_t xp_need(uint8_t level) BANKED {
 
 void progress_apply(void) BANKED {
     if (!profile.level) profile.level = 1;
-    player_hp_max = HEALTH_START + (uint8_t)((profile.level - 1) * HP_PER_LEVEL);
+    skills_refresh();
+    player_hp_max = HEALTH_START + (uint8_t)((profile.level - 1) * HP_PER_LEVEL) + (HAS_FX(SKILL_FX_HP15) ? 15 : 0);
     player_hp = player_hp_max;
     xp_kills_seen = enemies_killed;
 }

@@ -67,6 +67,18 @@ static void new_profile(void) {
     profile.level = 1;
 }
 
+void save_new(uint8_t slot, uint8_t cls) BANKED {
+    save_slot = slot;
+    new_profile();
+    profile.cls = cls;
+    ENABLE_RAM;
+    SWITCH_RAM(0);
+    uint8_t *r = newest(slot);  // (a new file over an old one: keep counting its copies on)
+    slot_seq = r ? r[3] : 0;
+    DISABLE_RAM;
+    save_write();
+}
+
 void save_none(void) BANKED {
     save_slot = SAVE_NONE;
     new_profile();

@@ -152,5 +152,7 @@ export function startDescent(emu = bootToTitle(), seed = 4242, slot = 0) {
   emu.writeBytes(emu.symbols.addr('test_seed'), [seed & 255, seed >> 8]);
   emu.tap('START');  // the files
   for (let i = 0; i < slot; i++) emu.tap('DOWN');
-  return settle(emu.tap('A'), PLAY, 'play state');
+  emu.tap('A');
+  if (emu.v('title_files') === 2) emu.tap('A');  // a new file: the first class
+  return settle(emu, PLAY, 'play state');
 }

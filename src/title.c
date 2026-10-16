@@ -11,13 +11,15 @@
 #include "chunks.h"
 #include "text.h"
 #include "save.h"
+#include "skilldata.h"
 
 #define BLINK_MASK 0x20  // "PRESS START" blinks every 32 frames (its palette's ink)
 #define FILE_ROW0 10     // the files' tile rows: 10, 12, 14
 #define CURSOR_X 8       // px
 
 uint8_t title_timer;
-uint8_t title_files;   // the files are showing
+uint8_t title_files;   // the files are showing (2: a new file's class choice)
+uint8_t title_class;   // the class under consideration
 uint8_t title_choice;  // the file under the cursor
 uint8_t title_cursor_tile;
 // Tests set this (a memory write on the title) to start runs on a known seed.
@@ -104,6 +106,33 @@ static void show_files(void) {
     draw(FONT_ITALIC, CURSOR_X, FILE_ROW0, ">", t, TITLE_PAL_TEXT);
 }
 
+// A new file: which class? Its name, role and a line about it, from the skill data.
+static void draw_class(void) {
+    fill_bkg_rect(0, 9, SCREEN_TW, 9, 0);
+    char line[TEXT_MAX + 1], buf[SKILL_LINE_MAX + 1];
+    uint8_t t = title_next_tile;
+    banked_memcpy(buf, class_name[title_class], CLASS_NAME_MAX + 1, BANK(skilldata));
+    t += text_draw(FONT_COMPACT, TEXT_CENTER, 10, buf, t, TITLE_PAL_TEXT);
+    // Which of them: a dot each, this one lit.
+    char *p = line;
+    for (uint8_t c = 0; c < CLASS_COUNT; c++) *p++ = c == title_class ? '*' : '.', *p++ = ' ';
+    p[-1] = 0;
+    t += text_draw(FONT_COMPACT, TEXT_CENTER, 16, line, t, TITLE_PAL_GOLD);
+    banked_memcpy(buf, class_role[title_class], CLASS_ROLE_MAX + 1, BANK(skilldata));
+    t += text_draw(FONT_COMPACT, TEXT_CENTER, 11, buf, t, TITLE_PAL_HINT);
+    for (uint8_t i = 0; i < 2; i++) {
+        banked_memcpy(buf, class_about[title_class][i], SKILL_LINE_MAX + 1, BANK(skilldata));
+        if (buf[0]) t += text_draw(FONT_COMPACT, TEXT_CENTER, 13 + i, buf, t, TITLE_PAL_TEXT);
+    }
+    draw(FONT_COMPACT, TEXT_CENTER, 17, "D-PAD: CLASS    A: BEGIN    B: BACK", t, TITLE_PAL_HINT);
+}
+
+static void show_classes(void) {
+    title_files = 2;
+    title_class = 0;
+    draw_class();
+}
+
 static void move_cursor(uint8_t to) {
     set_bkg_tile_xy(CURSOR_X >> 3, FILE_ROW0 + (title_choice << 1), 0);
     title_choice = to;
@@ -127,13 +156,32 @@ static void begin(uint8_t mode) {
 
 void title_update(void) BANKED {
     title_timer++;
+    if (title_files == 2) {
+        uint8_t c = title_class;
+        if ((joy_pressed & J_LEFT) && c) c--;
+        else if ((joy_pressed & J_RIGHT) && c < CLASS_COUNT - 1) c++;
+        else if (joy_pressed & J_B) state_change(STATE_TITLE);
+        else if (joy_pressed & (J_A | J_START)) {
+            save_new(title_choice, title_class);
+            begin(MODE_DESCENT);
+        }
+        if (c != title_class) {
+            title_class = c;
+            draw_class();
+        }
+        return;
+    }
     if (title_files) {
         if ((joy_pressed & J_UP) && title_choice > 0) move_cursor(title_choice - 1);
         else if ((joy_pressed & J_DOWN) && title_choice < SAVE_SLOTS - 1) move_cursor(title_choice + 1);
         else if (joy_pressed & J_B) state_change(STATE_TITLE);
         else if (joy_pressed & (J_A | J_START)) {
-            save_open(title_choice);
-            begin(MODE_DESCENT);
+            if (slot_used[title_choice]) {
+                save_open(title_choice);
+                begin(MODE_DESCENT);
+            } else {
+                show_classes();
+            }
         }
         return;
     }

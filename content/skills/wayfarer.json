@@ -1,0 +1,89 @@
+{
+  "about": "The Wayfarer's classes and skill trees (docs/design/skill-trees.md): 3 branches x 3 tiers per class. A skill needs the one above it in its branch. 'effect' names what the game does with it (src/skills.c); skills without one can be learned but do nothing yet, and say so.",
+  "classes": [
+    {
+      "key": "ironclad", "name": "IRONCLAD", "role": "Vanguard bulwark",
+      "about": "Armored shock trooper who holds the line and outlasts the fight.",
+      "branches": [
+        { "name": "BASTION", "skills": [
+          { "name": "Plated Mesh", "text": "Max health +15.", "effect": "hp15" },
+          { "name": "Capacitor Surge", "text": "Shields start recharging half a second sooner.", "effect": "shield_fast" },
+          { "name": "Juggernaut", "text": "A breaking shield knocks enemies back and clears bullets." }
+        ]},
+        { "name": "MARKSMAN", "skills": [
+          { "name": "Hair-Pin Draw", "text": "Reloads take half the time.", "effect": "reload_half" },
+          { "name": "Heavy Rifling", "text": "Shots fly a quarter faster.", "effect": "shot_speed" },
+          { "name": "Breach and Clear", "text": "A magazine's last round deals double damage." }
+        ]},
+        { "name": "ORDNANCE", "skills": [
+          { "name": "Expanded Drums", "text": "Every magazine holds 2 more rounds.", "effect": "mag2" },
+          { "name": "Penetrators", "text": "Shots pierce through one enemy." },
+          { "name": "Resupply", "text": "Elites drop a crate: shield and full ammo." }
+        ]}
+      ]
+    },
+    {
+      "key": "volt", "name": "VOLT-WEAVER", "role": "Static mystic",
+      "about": "Bends lightning to their will: shocks, warps and fields.",
+      "branches": [
+        { "name": "ARC", "skills": [
+          { "name": "Galvanic", "text": "Moving builds static: the next hit shocks for +2." },
+          { "name": "Chain Arc", "text": "Shots arc to a second enemy for half damage." },
+          { "name": "Tesla Storm", "text": "Swings release three seeking sparks." }
+        ]},
+        { "name": "WARP", "skills": [
+          { "name": "Blink Dash", "text": "Dashes go further and protect you longer.", "effect": "dash_far" },
+          { "name": "Decoy", "text": "Dashing leaves an afterimage enemies shoot at." },
+          { "name": "Fracture", "text": "Dash again mid-jump to warp ahead, shocking enemies." }
+        ]},
+        { "name": "FIELD", "skills": [
+          { "name": "Flux Siphon", "text": "Bullets that hit you restore a point of shield." },
+          { "name": "Reflect", "text": "Your blade sends bullets back twice as fast." },
+          { "name": "Superconductor", "short": "Supercond.", "text": "Below a quarter health, a pulse freezes enemies." }
+        ]}
+      ]
+    },
+    {
+      "key": "ballistician", "name": "BALLISTICIAN", "role": "Heavy ordnance",
+      "about": "Frontline gunner: more lead, more pellets, never slowing down.",
+      "branches": [
+        { "name": "HAILFIRE", "skills": [
+          { "name": "Rapid Cycle", "text": "Every gun fires a little faster.", "effect": "fire_fast" },
+          { "name": "Cluster Shot", "text": "Shotguns fire one more pellet.", "effect": "pellet" },
+          { "name": "Shrapnel", "text": "Critical hits burst into three flechettes." }
+        ]},
+        { "name": "MUNITIONS", "skills": [
+          { "name": "Bandolier", "text": "Half again as much reserve ammo." },
+          { "name": "Thermite", "text": "Shots set enemies burning." },
+          { "name": "Sentry Pod", "text": "SELECT+A drops a turret that fires on its own." }
+        ]},
+        { "name": "BLITZ", "skills": [
+          { "name": "Tactical Roll", "text": "A burst of speed after every dash." },
+          { "name": "Momentum", "text": "Firing never slows you down.", "effect": "no_slow" },
+          { "name": "Overdrive", "text": "Three kills in two seconds: endless ammo for three." }
+        ]}
+      ]
+    },
+    {
+      "key": "ghost", "name": "GHOST-STALKER", "role": "Outland scout",
+      "about": "Covert ranger: long sight, a sharp blade, hard to pin down.",
+      "branches": [
+        { "name": "DEAD-EYE", "skills": [
+          { "name": "Hawk Sight", "text": "Auto-aim reaches 32 pixels further.", "effect": "aim_far" },
+          { "name": "Ambush", "text": "The first hit on a healthy enemy deals double." },
+          { "name": "Fatal Horizon", "text": "Sniping a weak enemy kills it outright." }
+        ]},
+        { "name": "BLADE", "skills": [
+          { "name": "Sweeping Edge", "text": "Your blade sweeps a wider arc." },
+          { "name": "Parry", "text": "Hitting an enemy as it winds up stuns it." },
+          { "name": "Cyclone", "text": "A three-hit combo ends in a full spin." }
+        ]},
+        { "name": "VEIL", "skills": [
+          { "name": "Sixth Sense", "text": "Enemies off screen show at the HUD's edge." },
+          { "name": "Mirage", "text": "Kills hide you from enemy aim for a second." },
+          { "name": "Shadow", "text": "Dashing leaves a decoy that copies your next shot." }
+        ]}
+      ]
+    }
+  ]
+}
