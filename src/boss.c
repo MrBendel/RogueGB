@@ -36,7 +36,7 @@ static const int8_t dy8[8] = {-1,-1,0,1,1,1,0,-1};
 #define BERTHA_RELOAD 2    // 60 frames: vents steam, shield down (guard=0), PUNISH WINDOW!
 
 static uint8_t bertha_state, bertha_timer, bertha_shots_left, bertha_shot_cooldown;
-static uint8_t boom_phase; // 0 = mounted in Bertha (20 HP), 1 = on foot (12 HP)
+static uint8_t boom_phase, boom_dead, bewm_dead; // 0 = mounted in Bertha (20 HP), 1 = on foot (12 HP)
 
 // Bewm (The Fast Jetpack Flusher)
 #define BEWM_ORBIT 0         // 40 frames: swoops with thrusters, altitude z=14
@@ -133,6 +133,7 @@ static void art_flip(uint8_t i, uint8_t frame, uint8_t pal, uint8_t flip_x) {
 }
 
 static void update_bertha_aim(void) {
+    if (boss_slot == 0xFF) return;
     uint8_t pal = actor_guard[boss_slot] ? SPR_PAL_SHOOTER : SPR_PAL_SHOT;
     if (player_x + 8 < 68) {
         art_flip(boss_slot, 7, pal, 0); // Aiming Angled Down-Left
@@ -144,6 +145,7 @@ static void update_bertha_aim(void) {
 }
 
 static void guard(uint8_t on) {
+    if (boss_slot == 0xFF) return;
     actor_guard[boss_slot] = on;
     if (boss_kind == BOSS_WARDEN) art(boss_slot, on ? 0 : 1, on ? SPR_PAL_WEAPON : SPR_PAL_SHOT);
     else if (boss_kind == BOSS_DUO && boom_phase == 0) update_bertha_aim();
@@ -252,6 +254,10 @@ void boss_start(uint8_t kind) BANKED {
         room_map[((uint16_t)4 << 5) | 3] = BLK_SOLID;
         room_map[((uint16_t)4 << 5) | 6] = BLK_SOLID;
 
+        boom_dead = bewm_dead = 0;
+        enemy_bullet_damage = BULLET_DAMAGE;
+        enemy_bullet_cause = CAUSE_PEA;
+
         boss_hp_max = 20;
         boss_slot = machine(72, 20, 20, 4);  // Big Bertha Emplacement (Frame 4)
         bewm_slot = machine(32, 40, 12, 6);  // Bewm (Frame 6)
@@ -356,29 +362,46 @@ static void recover(uint8_t frames) {
 static void update_duo(void) {
     if (boss_state == BOSS_WON) return;
 
-    // Track Boss HP
+    // 1. Track Bertha & Boom HP
     if (boom_phase == 0) {
-        boss_hp = actor_type[boss_slot] ? actor_hp[boss_slot] : 0;
-        if (!boss_hp) {
-            // Big Bertha Destroyed -> Boom Flushed Out on Foot!
+        if (boss_slot != 0xFF && actor_type[boss_slot] && actor_hp[boss_slot] > 0) {
+            boss_hp = actor_hp[boss_slot];
+        } else {
+            // Big Bertha Destroyed -> Flush Boom out on Foot!
             boom_phase = 1;
             boss_hp = 12;
-            actor_hp[boss_slot] = 12;
-            art(boss_slot, 5, SPR_PAL_SHOOTER); // Frame 5: Boom on foot
+            boss_slot = machine(72, 48, 12, 5); // Cleanly re-spawn Boom into actor table
             guard(0);
             clear_bullets();
-            camera_shake(SHAKE_SMALL);
+            camera_shake(SHAKE_BIG);
             bertha_timer = 40;
-            duo_status_msg = "BERTHA DESTROYED! ";
+            duo_status_msg = "BOOM ON FOOT!     ";
         }
     } else {
-        boss_hp = actor_type[boss_slot] ? actor_hp[boss_slot] : 0;
+        if (!boom_dead) {
+            if (boss_slot != 0xFF && actor_type[boss_slot] && actor_hp[boss_slot] > 0) {
+                boss_hp = actor_hp[boss_slot];
+            } else {
+                boss_hp = 0;
+                boom_dead = 1;
+                boss_slot = 0xFF;
+            }
+        }
     }
 
-    bewm_hp = actor_type[bewm_slot] ? actor_hp[bewm_slot] : 0;
+    // 2. Track Bewm HP
+    if (!bewm_dead) {
+        if (bewm_slot != 0xFF && actor_type[bewm_slot] && actor_hp[bewm_slot] > 0) {
+            bewm_hp = actor_hp[bewm_slot];
+        } else {
+            bewm_hp = 0;
+            bewm_dead = 1;
+            bewm_slot = 0xFF;
+        }
+    }
 
-    // Victory: both defeated
-    if (!boss_hp && !bewm_hp) {
+    // 3. Victory: both defeated
+    if (boom_dead && bewm_dead) {
         boss_state = BOSS_WON;
         boss_reward = 1;
         actors_clear();
@@ -390,7 +413,7 @@ static void update_duo(void) {
     // ---------------------------------------------------------
     // 1. BIG BERTHA (Mounted Emplacement / Boom on Foot)
     // ---------------------------------------------------------
-    if (boss_hp > 0) {
+    if (!boom_dead && boss_slot != 0xFF && actor_type[boss_slot]) {
         if (boom_phase == 0) {
             // Big Bertha Mounted Artillery
             switch (bertha_state) {
@@ -460,7 +483,7 @@ static void update_duo(void) {
     // ---------------------------------------------------------
     // 2. BEWM (The Fast Jetpack Flusher)
     // ---------------------------------------------------------
-    if (bewm_hp > 0) {
+    if (!bewm_dead && bewm_slot != 0xFF && actor_type[bewm_slot]) {
         switch (bewm_state) {
         case BEWM_ORBIT: {
             bewm_orbit_angle += 2;
@@ -540,8 +563,10 @@ static void update_duo(void) {
             break;
         }
 
+        int16_t by = (bewm_y16 >> 8) - bewm_z;
+        if (by < 16) by = 16;
         actor_x[bewm_slot] = bewm_x16 >> 8;
-        actor_y[bewm_slot] = (bewm_y16 >> 8) - bewm_z;
+        actor_y[bewm_slot] = (uint16_t)by;
     }
 
     // ---------------------------------------------------------
@@ -705,7 +730,7 @@ void duo_draw(void) BANKED {
     if (boss_kind != BOSS_DUO || boss_state == BOSS_WON) return;
 
     // 1. Bewm Ground Shadow (Slots 11, 12)
-    if (bewm_hp > 0 && bewm_z > 2) {
+    if (!bewm_dead && bewm_slot != 0xFF && bewm_hp > 0 && bewm_z > 2) {
         int16_t sx = (bewm_x16 >> 8) + 8 - cam_x;
         int16_t sy = (bewm_y16 >> 8) + 12 + 16 - cam_y;
         if (sy > 0 && sy < 160 && sx > -8 && sx < 168) {
