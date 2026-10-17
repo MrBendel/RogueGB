@@ -1,5 +1,37 @@
 # Bosses and minibosses: Game Boy Color combat trials
 
+## Scrapback miniboss trial
+
+Title → DOWN → Minibosses → Scrapback. A 24x24 armored scavenger beast in a
+single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
+
+- Stalk for 36 frames initially, 28 thereafter, following the player at half
+  running speed. Stop within about 36 pixels.
+- Shake the body and flash for a 36-frame warning. Continue tracking the
+  player's position through the warning; lock the actual continuous-angle vector
+  on launch. The charge never steers after launch.
+- Charge roughly three pixels per frame, using fractional motion and three wall
+  checks per update. The whole 24x24 footprint remains inside the arena. A charge
+  hit deals 20 damage; jumping or stepping sideways avoids it.
+- A wall crash shakes the camera and opens the cyan back panel for 100 frames.
+  In this first prototype the entire damage hitbox is vulnerable during recovery,
+  and the whole shell is guarded otherwise. Precise directional front armor and
+  a separate rear-only weak-point hitbox remain follow-up work.
+- Defeat clears the body and grants the existing trial completion flag. Pause
+  freezes the encounter. No campaign spawns or campaign rewards are added.
+
+Implementation: `src/scrapback.c`, boss kind 5, scripted actor 11, death cause 14.
+Four rotated art headings use tiles 96–143; movement is not quantized to these
+headings. The six sprite parts use prop slots 11–14 and the single actor's two
+dynamic slots 15–16; player sprites and the projectile pool remain intact. The
+shared 16x16 actor anchor remains the damage target inside the larger visual body.
+Focused emulator checks cover arbitrary-angle aim, committed trajectories, all
+four corners, actual projectile protection/damage, pause, sprite cleanup, and
+normal-health pistol completion. Standing still holding fire loses. The moving
+victory test peaks at 74,604/131,328 update cycles (57% of the frame budget).
+
+## Earlier trials and campaign concepts
+
 Claimjaw and Warden validate the combat design before building a campaign
 roster; the larger [Collector gunship](gunship.md) is a third standalone trial.
 These are original Skavengar concepts inspired by sections A2 and A3 of

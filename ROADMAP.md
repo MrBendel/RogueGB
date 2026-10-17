@@ -321,6 +321,8 @@ NPC sheet with strafing, reactive rolls, burst fire, and reload openings.
 Acid Wolf circles close, reacts to incoming shots with sideways leaps and a ground
 shadow, and spits a warned acid fan; landing and spit recovery leave hit windows.
 Campaign and boss encounters retain their existing enemies.
+Scrapback is a new standalone 24x24 miniboss with continuous-angle charges and
+exposed wall-crash recovery windows, available under Minibosses.
 See [enemy design](docs/design/enemies.md).
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).

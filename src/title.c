@@ -32,6 +32,7 @@ uint8_t title_menu, title_category;
 
 static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "MOVEMENT LAB"};
 static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY", "ACID WOLF"};
+static const char *const minibosses[] = {"CLAIMJAW", "SCRAPBACK"};
 static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST"};
 
 // Text from this bank's constants (text.h: copied to RAM for text.c).
@@ -163,7 +164,7 @@ static void move_cursor(uint8_t to) {
 }
 
 static uint8_t choice_count(void) {
-    return title_menu == 1 ? 4 : title_category == 1 || title_category == 2 ? 3 : 1;
+    return title_menu == 1 ? 4 : title_category == 1 || title_category == 2 ? 3 : title_category == 0 ? 2 : 1;
 }
 
 // The playtest menu: a heading and its choices (rows 10, 12, ...), the cursor at one.
@@ -172,7 +173,7 @@ static void draw_playtests(void) {
     uint8_t t = title_next_tile;
     t += draw(FONT_COMPACT, TEXT_CENTER, 9, title_menu == 1 ? "COMBAT PLAYTESTS" : categories[title_category], t, TITLE_PAL_HINT);
     for (uint8_t i = 0; i < choice_count(); i++) {
-        const char *s = title_menu == 1 ? categories[i] : title_category == 2 ? enemies[i] : title_category == 0 ? "CLAIMJAW" : bosses[i];
+        const char *s = title_menu == 1 ? categories[i] : title_category == 2 ? enemies[i] : title_category == 0 ? minibosses[i] : bosses[i];
         t += draw(FONT_COMPACT, 20, FILE_ROW0 + (i << 1), s, t, TITLE_PAL_TEXT);
     }
     t += draw(FONT_COMPACT, TEXT_CENTER, 17, "A: GO     B: BACK", t, TITLE_PAL_HINT);

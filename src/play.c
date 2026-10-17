@@ -46,6 +46,7 @@
 #include "acid_skimmer.h"
 #include "mercenary.h"
 #include "acid_wolf.h"
+#include "scrapback.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -255,7 +256,7 @@ void play_enter(void) BANKED {
     }
     else {
         if (play_mode == MODE_BOSS && enemy_trial_kind == 0) play_actor_oam = FIRST_ACTOR_OAM + 8;
-        boss_start(play_mode == MODE_MINIBOSS ? BOSS_CLAIMJAW :
+        boss_start(play_mode == MODE_MINIBOSS ? (enemy_trial_kind==1 ? BOSS_SCRAPBACK : BOSS_CLAIMJAW) :
                    play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
                    enemy_trial_kind == 2 ? BOSS_DUO : BOSS_WARDEN);
     }
@@ -536,6 +537,7 @@ void play_update(void) BANKED {
         if (boss_kind == BOSS_GUNSHIP) gunship_draw();
         else if (boss_kind == BOSS_WARDEN) warden_draw();
         else if (boss_kind == BOSS_DUO) duo_draw();
+        else if (boss_kind == BOSS_SCRAPBACK) scrapback_draw();
     }
     sfx_watch();
     if (!player_hp) {

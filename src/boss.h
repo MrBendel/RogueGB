@@ -9,6 +9,7 @@
 #define BOSS_WARDEN 2
 #define BOSS_GUNSHIP 3
 #define BOSS_DUO 4
+#define BOSS_SCRAPBACK 5
 #define BOSS_CRUISE 6
 #define BOSS_LASER_WARN 7
 #define BOSS_LASER 8
