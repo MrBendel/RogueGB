@@ -27,17 +27,19 @@ Each has one rule that changes how its guns play.
 Makers lean toward types: Kessler toward pistols, Bulk toward rifles and
 shotguns; Meridian is rarer at low levels.
 
-## Elements (proposal: three)
+## Elements (decided: three)
 
-| Element | On a hit | Strong against | Look |
+One clear job each (no cryo: electro already holds enemies still).
+
+| Element | Job | On a hit | Look |
 |---|---|---|---|
-| **Fire** | Burns: 1 damage every half second for 3 s | flesh (slimes, creatures) | orange shots; the enemy flickers red |
-| **Electro** | Arcs to one nearby enemy for half damage; x2 on shields | shields, groups | blue-white shots; a spark |
-| **Acid** | Weakens: +50% damage taken for 3 s | armor, tough enemies, bosses | green shots; the enemy tinted green |
+| **Fire** | damage over time | burns: 1 damage every half second for 3 s; strong against flesh (slimes, creatures) | orange shots; the enemy flickers red |
+| **Electro** | control, shields | x2 against shields, and a stun: the enemy twitches in place, no moving or shooting, for about a third of a second | blue-white shots; a spark |
+| **Acid** | breaking the tough | weakens: +50% damage taken for 3 s; strong against armor and bosses | green shots; the enemy tinted green |
 
 A hit applies the element by chance (20% common to 50% legendary; always on
 Sparkworks guns). Matchups need enemy variety: deeper camps bring shielded and
-armored enemies. Open: a fourth (cryo: slows).
+armored enemies.
 
 ## Parts
 
@@ -58,7 +60,8 @@ An orange gun gets one unique trait and a line of flavor on its card. Ideas:
 - **Ouroboros:** kills refill the magazine.
 - **Second Opinion:** every third shot is a free double.
 - **Quarterly Bonus** (Meridian): reloads pay you instead.
-- **Static Bloom** (Sparkworks): electro arcs to everything on screen.
+- **Static Bloom** (Sparkworks): electro hits arc to the nearest enemies (the chain
+  lightning that plain electro doesn't do).
 - **Junk Heart:** shots can jam, or overcharge for x3 damage.
 
 ## On the Game Boy
