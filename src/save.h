@@ -16,7 +16,7 @@
 
 #define SAVE_SLOTS 3
 #define SAVE_NONE 0xFF
-#define SAVE_VERSION 2  // 2: guns as items (loot.h)
+#define SAVE_VERSION 3  // 2: guns as items (loot.h); 3: story flags
 #define DEATH_FEE_SHIFT 3  // the corporation's cut for rebuilding you: credits >> 3 (12.5%; a shift, no 32-bit division)
 
 typedef struct {
@@ -41,7 +41,10 @@ typedef struct {
     uint8_t exp_map;
     uint8_t exp_camps[12];  // camps cleared, a bit each, per map (level.h AREA_CELLS)
     uint8_t exp_chests[12]; // chests opened, a bit each, per map
+    uint8_t story;          // STORY_*: what's happened in the story (once per file)
 } Profile;
+
+#define STORY_MET_ECHO 1    // her first contact at the town's relay has played
 
 // --- watchable state ---
 extern Profile profile;          // the one being played

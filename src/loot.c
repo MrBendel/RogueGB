@@ -7,6 +7,7 @@
 #include "loot.h"
 #include "save.h"
 #include "weapon.h"
+#include "skills.h"
 
 #define MIN_INTERVAL 3   // the fastest a gun fires (frames between shots)
 #define MIN_RELOAD 12    // ... and reloads
@@ -86,6 +87,77 @@ void loadout_next(void) BANKED {
             return;
         }
     }
+}
+
+// --- describing a gun (the loot card, the shop) ---
+
+static char *put(char *p, const char *s) {
+    while (*s) *p++ = *s++;
+    return p;
+}
+
+static char *put_num(char *p, int16_t n, uint8_t sign) {
+    if (n < 0) *p++ = '-', n = -n;
+    else if (sign) *p++ = '+';
+    char d[5];
+    uint8_t k = 0;
+    do {
+        d[k++] = '0' + n % 10;
+        n /= 10;
+    } while (n);
+    while (k) *p++ = d[--k];
+    return p;
+}
+
+// " (+n)" when they differ.
+static char *put_diff(char *p, int16_t d) {
+    if (!d) return p;
+    p = put(p, " (");
+    p = put_num(p, d, 1);
+    return put(p, ")");
+}
+
+// Shots a second, from frames between them.
+static int16_t rate(const WeaponStats *w) {
+    uint8_t f = w->mode == FIRE_SEMI && w->tap_interval ? w->tap_interval : w->fire_interval;
+    return f ? 60 / f : 0;
+}
+
+void gun_card_lines(const Gun *g, char *l1, char *l2) BANKED {
+    WeaponStats n = weapon_stats[g->type];
+    gun_apply(&n, g);
+    if (skill_fx) skills_weapon(&n);
+    const WeaponStats *h = &wpn;
+    char *p;
+    // Damage (x pellets), and shots a second; the magazine and reload.
+    p = put(l1, "DMG ");
+    p = put_num(p, n.damage, 0);
+    if (n.pellets > 1) *p++ = 'x', p = put_num(p, n.pellets, 0);
+    p = put_diff(p, (int16_t)n.damage * n.pellets - (int16_t)h->damage * h->pellets);
+    if (n.mode != FIRE_MELEE) {
+        p = put(p, "   RATE ");
+        p = put_num(p, rate(&n), 0);
+        p = put_diff(p, rate(&n) - rate(h));
+    }
+    *p = 0;
+    if (n.mag) {
+        p = put(l2, "MAG ");
+        p = put_num(p, n.mag, 0);
+        p = put_diff(p, (int16_t)n.mag - h->mag);
+        p = put(p, "   RELOAD ");
+        p = put_num(p, n.reload / 6 / 10, 0);
+        *p++ = '.';
+        p = put_num(p, n.reload / 6 % 10, 0);
+        *p++ = 's';
+        *p = 0;
+    } else {
+        p = put(l2, "A blade: no magazine.");
+        *p = 0;
+    }
+}
+
+uint16_t gun_price(const Gun *g) BANKED {
+    return (uint16_t)(15 + 5 * g->level) << g->rarity;
 }
 
 void gun_name(char *dst, const Gun *g) BANKED {

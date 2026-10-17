@@ -143,6 +143,8 @@ export const ASSETS = [
   { name: 'spr_talk_relay', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/Blocks', anims: { idle: ['teleporter.png'] } },
   { name: 'spr_talk_post', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/Blocks', anims: { idle: ['music_stone.png'] } },
   { name: 'spr_talk_marro', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['warden down (1).png'] } },
+  // The lift between the town and the descent (a placeholder).
+  { name: 'spr_talk_lift', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/Blocks', anims: { idle: ['switch_green.png'] } },
   // Held weapons: 16 aiming directions each, drawn by tools/make-weapon-art.mjs
   // (which also writes src/weapon_<name>.h, where each direction is placed).
   {

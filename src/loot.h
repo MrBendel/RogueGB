@@ -52,5 +52,10 @@ void loadout_select(uint8_t slot) BANKED;                // hold the file's gun 
 void loadout_next(void) BANKED;                          // SELECT: the next gun in the loadout
 // "Rapid Shotgun" etc. into dst (at most 20 characters and a 0).
 void gun_name(char *dst, const Gun *g) BANKED;
+// Its stats against the gun held (with the skills): damage and fire rate into
+// l1, magazine and reload into l2 (each up to 40 characters and a 0).
+void gun_card_lines(const Gun *g, char *l1, char *l2) BANKED;
+// What Marro asks for it (credits): more for a higher level, double a rarity step.
+uint16_t gun_price(const Gun *g) BANKED;
 
 #endif

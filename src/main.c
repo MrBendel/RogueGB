@@ -13,7 +13,6 @@
 #include "input.h"
 #include "gfx.h"
 
-#define STATE_NONE 0xFF
 
 uint8_t game_state = STATE_NONE;
 uint8_t next_state = STATE_TITLE;

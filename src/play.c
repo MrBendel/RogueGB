@@ -212,6 +212,7 @@ void play_enter(void) BANKED {
     play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
     palettes_play();
     talk_clear();    // a room adds its own
+    saved_seconds = 0;  // (run_start began the clock again)
     pickups_init();  // a descent map loads its chests (descent.c)
     if (play_mode == MODE_DESCENT) {
         room_load_tiles();
@@ -274,6 +275,46 @@ void play_enter(void) BANKED {
     gfx_sprite_split(hud_y);  // no sprites over the HUD
     player_draw();
     talk_init();  // after the room: it added its talkers
+    if (play_mode == MODE_YARD && save_slot != SAVE_NONE) shop_restock();  // new stock each time you're in town
+}
+
+// Leaving this scene for another (a lift): the file gets the time and kills so far.
+static void leave_scene(void) {
+    if (save_slot == SAVE_NONE) return;
+    save_add_time(run_seconds - saved_seconds);
+    saved_seconds = run_seconds;
+    profile.kills += enemies_killed;
+    enemies_killed = 0;
+    save_write();
+}
+
+// Play again in another mode (play -> play: the main loop only changes scenes
+// when the next differs, so fade out here and leave none; it then enters play).
+static void go(uint8_t mode) {
+    leave_scene();
+    play_mode = mode;
+    sfx_play(SFX_START);
+    run_start(run_new_seed());
+    fade_out();
+    game_state = STATE_NONE;
+    state_change(STATE_PLAY);
+}
+
+static void set_paused(uint8_t p);
+
+// A talker's action (talk.h): the lifts, the shop.
+static void take_action(void) {
+    uint8_t a = talk_action;
+    talk_action = 0;
+    if (a == TALK_DO_DOWN) {
+        go(MODE_DESCENT);  // a new expedition
+    } else if (a == TALK_DO_UP) {
+        profile.exp_active = 0;  // back up with everything: the expedition is over (no fee)
+        go(MODE_YARD);
+    } else if (a == TALK_DO_SHOP) {
+        menu_page = PAGE_SHOP;  // the pause menu's shop page: the world waits while you browse
+        set_paused(1);
+    }
 }
 
 static void set_paused(uint8_t p) {
@@ -351,6 +392,15 @@ void play_update(void) BANKED {
         dlg_update();
         return;
     }
+    if (paused && menu_page == PAGE_SHOP) {
+        if (joy_pressed & (J_START | J_B)) {
+            set_paused(0);
+            menu_page = PAGE_CHARACTER;
+        } else {
+            menu_update();
+        }
+        return;
+    }
     if (paused) {
         if (joy_pressed & J_START) set_paused(0);
         else if (joy_pressed & J_SELECT) {
@@ -411,6 +461,7 @@ void play_update(void) BANKED {
     if ((joy_pressed & J_A) && !(chord_mask & J_A) && talk_near != TALK_NONE) {
         chord_mask |= J_A;
         talk_start();
+        if (talk_action) take_action();
         return;
     }
     joy &= ~chord_mask;

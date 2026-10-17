@@ -15,7 +15,8 @@ extern uint8_t run_ticks;     // frames into the current second
 #define MODE_BOSS 3
 #define MODE_ENEMY 4
 #define MODE_GUNSHIP 5
-#define MODE_YARD 6  // the ice yard: a hand-laid test map for the visual layer (B on the title)
+#define MODE_YARD 6  // the ice yard: the first town (the hub, with a file), or a test map (B on the title)
+uint16_t run_new_seed(void) BANKED;  // title.c: a seed for a new run (or the test's or chunk editor's)
 extern uint8_t play_mode;
 extern uint8_t enemy_trial_kind;
 

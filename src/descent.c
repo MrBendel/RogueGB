@@ -18,6 +18,7 @@
 #include "hud.h"
 #include "save.h"
 #include "pickups.h"
+#include "talk.h"
 #include "progress.h"
 #include "run.h"
 #include "weapon.h"
@@ -115,6 +116,12 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     }
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
+    // An area's start map has the lift back up to town (a file's only).
+    talk_clear();
+    if (map == area_start && save_slot != SAVE_NONE) {
+        talk_add(room_w >> 1, room_h >> 1, TALK_LIFT, TALK_DO_UP);
+        talk_init();
+    }
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
     shaft_taken = 0;
     place_player(side);

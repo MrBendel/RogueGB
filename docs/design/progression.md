@@ -85,9 +85,20 @@ Status: decided where marked; the rest is the working plan. Builds on
   - Enemies have a point more health a depth below the first, so better guns
     matter deeper down.
 
+- **The town** (decided 2026-10-16: the hub). The ice yard is the first town: a
+  new file starts there, and a lift goes down into a new expedition. Every area's
+  start map has a lift back up (everything kept, no fee, the expedition over). A
+  run that ends (death: the reconstruction fee) also comes back to town. Echo's
+  first contact at the relay plays once per file (story flags in the file).
+- **Marro's shop** (decided: guns first): talk to him in town. Three guns at your
+  level (luckier the deeper you've been), new stock each time you come into town,
+  each with its stats against the gun held. A price is (15 + 5 x level) credits,
+  doubled per rarity step. A buy goes into a free slot; with a full loadout it
+  trades in the held gun for a quarter of its price.
+
 ## Next
 
-1. **Spending credits:** towns and shops (M3); the fee already takes its eighth.
+1. **More to spend on:** shields, healing, upgrades; a second shop or a bar.
 2. **More loot:** shields and relics as drops, gun parts or manufacturers, a
    legendary's special trait, rarity on the floor (a colored glint).
 3. **The other skills' systems**, starting with whichever class we play most.

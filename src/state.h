@@ -9,6 +9,7 @@
 #define STATE_TITLE    0
 #define STATE_PLAY     1
 #define STATE_RUN_OVER 2
+#define STATE_NONE     0xFF  // before the first scene (and play -> play: play.c's go())
 
 // Watchable: the state currently running, and the one requested for next frame.
 extern uint8_t game_state;

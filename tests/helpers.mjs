@@ -154,5 +154,22 @@ export function startDescent(emu = bootToTitle(), seed = 4242, slot = 0) {
   for (let i = 0; i < slot; i++) emu.tap('DOWN');
   emu.tap('A');
   if (emu.v('title_files') === 2) emu.tap('A');  // a new file: the first class
-  return settle(emu, PLAY, 'play state');
+  settle(emu, PLAY, 'play state');
+  if (emu.v('play_mode') === MODE_TOWN) takeLiftDown(emu);  // a file starts in the town
+  return emu;
+}
+
+export const MODE_DESCENT = 1, MODE_TOWN = 6;
+export const TOWN_LIFT = [4, 12];  // its block (room_yard.c)
+
+/** In the town: walk up to the lift, A, and wait for the descent. */
+export function takeLiftDown(emu) {
+  emu.writeBytes(emu.symbols.addr('zones_done'), [0xff]);  // (no first contact on the way)
+  const x = TOWN_LIFT[0] * 16 - 16, y = TOWN_LIFT[1] * 16 - 2;
+  emu.writeBytes(emu.symbols.addr('player_x'), [x & 255, x >> 8]);
+  emu.writeBytes(emu.symbols.addr('player_y'), [y & 255, y >> 8]);
+  emu.idle(2).tap('A');
+  emu.until((e) => e.v('play_mode') === MODE_DESCENT, 60, 'the lift down');
+  emu.until((e) => e.v('in_transition'), 60, 'the scene change');  // (play is still the town's until it starts)
+  return settle(emu, PLAY, 'the descent');
 }

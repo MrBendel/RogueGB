@@ -49,7 +49,8 @@ test('a new file: the files screen offers three, the first one is saved as soon 
   const sram = emu.sram();
   assert.ok(sram[0] === 0x53 && sram[1] === 0x4b || sram[128] === 0x53 && sram[129] === 0x4b, 'the slot has a copy');
   assert.equal(prof(emu, 'level'), 1);
-  assert.equal(prof(emu, 'exp_active'), 1, 'an expedition under way');
+  assert.equal(emu.v('play_mode'), 6, 'a new character starts in the town');
+  assert.equal(prof(emu, 'exp_active'), 0, 'no expedition yet');
 });
 
 test('continue: the expedition picks up at the map it was saved in, same seed and depth', () => {

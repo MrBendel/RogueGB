@@ -157,13 +157,6 @@ static char *put_num(char *p, int16_t n, uint8_t sign) {
     return p;
 }
 
-// " (+n)" when they differ.
-static char *put_diff(char *p, int16_t d) {
-    if (!d) return p;
-    p = put(p, " (");
-    p = put_num(p, d, 1);
-    return put(p, ")");
-}
 
 static uint8_t card_tile;
 
@@ -173,18 +166,8 @@ static void card_line(uint8_t row, const char *s, uint8_t pal) {
     text_on_window = 0;
 }
 
-// Shots a second, from frames between them.
-static int16_t rate(const WeaponStats *w) {
-    uint8_t f = w->mode == FIRE_SEMI && w->tap_interval ? w->tap_interval : w->fire_interval;
-    return f ? 60 / f : 0;
-}
-
 static void card_draw(void) {
     const Gun *g = &floor_gun[drop_value[card_drop]];
-    WeaponStats n = weapon_stats[g->type];
-    gun_apply(&n, g);
-    if (skill_fx) skills_weapon(&n);
-    const WeaponStats *h = &wpn;
     char line[TEXT_MAX + 1], name[24];
     char *p;
     card_tile = CARD_TILES;
@@ -211,33 +194,10 @@ static void card_draw(void) {
     text_on_window = 1;
     card_tile += text_draw(FONT_COMPACT, 112, 2, line, card_tile, BG_PAL_UI | TEXT_BANK1);
     text_on_window = 0;
-    // Damage (x pellets), and shots a second or the magazine and reload.
-    p = put(line, "DMG ");
-    p = put_num(p, n.damage, 0);
-    if (n.pellets > 1) *p++ = 'x', p = put_num(p, n.pellets, 0);
-    p = put_diff(p, (int16_t)n.damage * n.pellets - (int16_t)h->damage * h->pellets);
-    if (n.mode != FIRE_MELEE) {
-        p = put(p, "   RATE ");
-        p = put_num(p, rate(&n), 0);
-        p = put_diff(p, rate(&n) - rate(h));
-    }
-    *p = 0;
+    char l2[TEXT_MAX + 1];
+    gun_card_lines(g, line, l2);
     card_line(3, line, BG_PAL_UI);
-    if (n.mag) {
-        p = put(line, "MAG ");
-        p = put_num(p, n.mag, 0);
-        p = put_diff(p, (int16_t)n.mag - h->mag);
-        p = put(p, "   RELOAD ");
-        p = put_num(p, n.reload / 6 / 10, 0);
-        *p++ = '.';
-        p = put_num(p, n.reload / 6 % 10, 0);
-        *p++ = 's';
-        *p = 0;
-    } else {
-        p = put(line, "A blade: no magazine.");
-        *p = 0;
-    }
-    card_line(4, line, BG_PAL_UI);
+    card_line(4, l2, BG_PAL_UI);
     move_win(7, 0);
     gfx_box_split(CARD_ROWS * 8);
 }

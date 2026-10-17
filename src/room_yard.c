@@ -12,6 +12,7 @@
 #include "room.h"
 #include "gfx.h"
 #include "talk.h"
+#include "save.h"
 #include "dialogue.h"
 
 // --- Palettes (background 0-5): one per material, sharing one ink. ---
@@ -220,8 +221,15 @@ void room_load_yard(void) BANKED {
     // up to it plays her first contact once), a company post, a Meridian kiosk,
     // and the scrap broker.
     talk_add(9, 3, TALK_RELAY, DLG_VOICE_ECHO);
-    talk_zone(8, 2, 11, 5, DLG_RELAY_FIRST_CONTACT);
+    talk_zone(8, 2, 11, 5, DLG_RELAY_FIRST_CONTACT, STORY_MET_ECHO);
     talk_add(20, 4, TALK_POST, DLG_VOICE_CEO);
     talk_add(20, 13, TALK_POST, DLG_VOICE_MERIDIAN);
-    talk_add(18, 10, TALK_MARRO, DLG_VOICE_MARRO);
+    // With a file this is the town (the hub): Marro keeps a shop, and the lift goes
+    // down into the descent. Without one (B on the title), just his voice.
+    if (save_slot != SAVE_NONE) {
+        talk_add(18, 10, TALK_MARRO, TALK_DO_SHOP);
+        talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
+    } else {
+        talk_add(18, 10, TALK_MARRO, DLG_VOICE_MARRO);
+    }
 }

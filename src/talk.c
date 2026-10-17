@@ -10,6 +10,8 @@
 #include "spr_talk_relay.h"
 #include "spr_talk_post.h"
 #include "spr_talk_marro.h"
+#include "spr_talk_lift.h"
+#include "save.h"
 
 // Sprite tiles (bank 0): after the chest's, below 128 (see chest.c). 4 a kind
 // (one 16x16 frame), then the bubble's 2.
@@ -24,6 +26,7 @@ uint8_t talk_near = TALK_NONE;
 uint8_t zone_count;
 uint8_t zone_x0[TALK_ZONES], zone_y0[TALK_ZONES], zone_x1[TALK_ZONES], zone_y1[TALK_ZONES], zone_script[TALK_ZONES];
 uint8_t zones_done;
+uint8_t zone_story[TALK_ZONES];
 uint16_t talks;
 uint8_t talk_frames[TALK_KINDS * 4];  // each kind's frame: left column, flags, right column, flags
 uint8_t talk_tick;
@@ -35,10 +38,19 @@ static const uint8_t bubble_tiles[32] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-// Each kind's palette slot: the enemies' (talk.h).
-static const uint8_t kind_pal[TALK_KINDS] = {SPR_PAL_SLIME, SPR_PAL_SHOOTER, SPR_PAL_BULLET};
+// Each kind's palette slot: the enemies' (talk.h), the lift the flash's.
+static const uint8_t kind_pal[TALK_KINDS] = {SPR_PAL_SLIME, SPR_PAL_SHOOTER, SPR_PAL_BULLET, SPR_PAL_FLASH};
+uint8_t talk_action;
+uint16_t flash_saved[4];  // the flash palette, while the lift has it
+uint8_t flash_borrowed;
 
 void talk_clear(void) BANKED {
+    if (flash_borrowed) {
+        for (uint8_t i = 0; i < 4; i++) pal_base_obj[(SPR_PAL_FLASH << 2) + i] = flash_saved[i];
+        flash_borrowed = 0;
+        gfx_set_fade(0);
+    }
+    talk_action = 0;
     talk_count = zone_count = 0;
     zones_done = 0;
     talk_near = TALK_NONE;
@@ -54,14 +66,15 @@ void talk_add(uint8_t bx, uint8_t by, uint8_t kind, uint8_t script) BANKED {
     room_map[((uint16_t)by << 5) | bx] = BLK_PROP;  // solid to walk into, drawn as what's under it
 }
 
-void talk_zone(uint8_t bx0, uint8_t by0, uint8_t bx1, uint8_t by1, uint8_t script) BANKED {
-    if (zone_count >= TALK_ZONES) return;
+void talk_zone(uint8_t bx0, uint8_t by0, uint8_t bx1, uint8_t by1, uint8_t script, uint8_t story) BANKED {
+    if (zone_count >= TALK_ZONES || (profile.story & story)) return;
     uint8_t i = zone_count++;
     zone_x0[i] = bx0;
     zone_y0[i] = by0;
     zone_x1[i] = bx1;
     zone_y1[i] = by1;
     zone_script[i] = script;
+    zone_story[i] = story;
 }
 
 static void load_kind(uint8_t k, const uint8_t *tiles, const uint8_t *frames, const uint16_t *pal, uint8_t bank) {
@@ -72,10 +85,21 @@ static void load_kind(uint8_t k, const uint8_t *tiles, const uint8_t *frames, co
 
 void talk_init(void) BANKED {
     if (!talk_count && !zone_count) return;
-    load_kind(TALK_RELAY, spr_talk_relay_tiles, spr_talk_relay_frames, spr_talk_relay_palette, BANK(spr_talk_relay));
-    load_kind(TALK_POST, spr_talk_post_tiles, spr_talk_post_frames, spr_talk_post_palette, BANK(spr_talk_post));
-    load_kind(TALK_MARRO, spr_talk_marro_tiles, spr_talk_marro_frames, spr_talk_marro_palette, BANK(spr_talk_marro));
+    // Only the kinds standing here: their palettes are borrowed.
+    uint8_t kinds = 0;
+    for (uint8_t i = 0; i < talk_count; i++) kinds |= 1 << talk_kind[i];
+    if (kinds & (1 << TALK_RELAY)) load_kind(TALK_RELAY, spr_talk_relay_tiles, spr_talk_relay_frames, spr_talk_relay_palette, BANK(spr_talk_relay));
+    if (kinds & (1 << TALK_POST)) load_kind(TALK_POST, spr_talk_post_tiles, spr_talk_post_frames, spr_talk_post_palette, BANK(spr_talk_post));
+    if (kinds & (1 << TALK_MARRO)) load_kind(TALK_MARRO, spr_talk_marro_tiles, spr_talk_marro_frames, spr_talk_marro_palette, BANK(spr_talk_marro));
+    if (kinds & (1 << TALK_LIFT)) {
+        if (!flash_borrowed) {
+            for (uint8_t i = 0; i < 4; i++) flash_saved[i] = pal_base_obj[(SPR_PAL_FLASH << 2) + i];
+            flash_borrowed = 1;
+        }
+        load_kind(TALK_LIFT, spr_talk_lift_tiles, spr_talk_lift_frames, spr_talk_lift_palette, BANK(spr_talk_lift));
+    }
     set_sprite_data(BUBBLE_VRAM, 2, bubble_tiles);
+    gfx_set_fade(0);
 }
 
 void talk_update(void) BANKED {
@@ -88,6 +112,10 @@ void talk_update(void) BANKED {
         if (zones_done & bit) continue;
         if (bx >= zone_x0[i] && bx <= zone_x1[i] && by >= zone_y0[i] && by <= zone_y1[i]) {
             zones_done |= bit;
+            if (zone_story[i]) {
+                profile.story |= zone_story[i];
+                save_write();
+            }
             dlg_start(zone_script[i]);
             return;
         }
@@ -106,7 +134,9 @@ void talk_update(void) BANKED {
 void talk_start(void) BANKED {
     talks++;
     if (bubble_oam != 0xFF) shadow_OAM[bubble_oam].y = 0;  // no bubble while they talk
-    dlg_start(talk_script[talk_near]);
+    uint8_t s = talk_script[talk_near];
+    if (s & TALK_DO) talk_action = s;  // the shop or a lift: play.c's
+    else dlg_start(s);
 }
 
 uint8_t talk_draw(uint8_t oam) BANKED {

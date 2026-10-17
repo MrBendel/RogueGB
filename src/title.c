@@ -183,15 +183,19 @@ static void draw_playtests(void) {
     move_cursor(c);
 }
 
-static void begin(uint8_t mode) {
-    play_mode = mode;
-    sfx_play(SFX_START);
+uint16_t run_new_seed(void) BANKED {
     // The frame the player presses the button is effectively random, so it
     // seeds the run. Replays press on the same frame and get the same run.
     uint16_t seed = ((uint16_t)DIV_REG << 8) ^ frame_count, tool;
     // The chunk editor can patch a seed into the ROM instead ("play this seed").
     banked_memcpy(&tool, &tool_seed, 2, BANK(chunks));
-    run_start(tool ? tool : test_seed ? test_seed : seed);
+    return tool ? tool : test_seed ? test_seed : seed;
+}
+
+static void begin(uint8_t mode) {
+    play_mode = mode;
+    sfx_play(SFX_START);
+    run_start(run_new_seed());
     state_change(STATE_PLAY);
 }
 
@@ -232,7 +236,7 @@ void title_update(void) BANKED {
         else if (joy_pressed & J_B) state_change(STATE_TITLE);
         else if (joy_pressed & (J_A | J_START)) {
             save_new(title_choice, title_class);
-            begin(MODE_DESCENT);
+            begin(MODE_YARD);  // a new character starts in the town
         }
         if (c != title_class) {
             title_class = c;
@@ -246,8 +250,9 @@ void title_update(void) BANKED {
         else if (joy_pressed & J_B) state_change(STATE_TITLE);
         else if (joy_pressed & (J_A | J_START)) {
             if (slot_used[title_choice]) {
+                // Mid-expedition: back to its map; otherwise the town.
                 save_open(title_choice);
-                begin(MODE_DESCENT);
+                begin(profile.exp_active ? MODE_DESCENT : MODE_YARD);
             } else {
                 show_classes();
             }

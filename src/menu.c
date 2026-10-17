@@ -45,6 +45,11 @@ extern uint16_t enemies_killed;  // aim.c: this run's
 uint8_t menu_page;
 uint8_t menu_skill;
 uint8_t menu_option;
+Gun shop_stock[SHOP_STOCK];
+uint8_t shop_sel, shop_sold;
+uint16_t guns_bought;
+uint8_t shop_tiles;  // where the detail lines are drawn (redrawn in place)
+uint8_t shop_marker; // the cursor's tile
 uint16_t menu_saved_pal[BORROWED * 4];  // background palettes 0-5 as they were
 // Text tiles (second VRAM bank): the HUD's 12-127, then 192-253.
 uint8_t tiles_a, tiles_b;
@@ -371,12 +376,155 @@ static void repaint(uint8_t k) {
     VBK_REG = 0;
 }
 
+static void clear_row(uint8_t row);
+static void draw_shop(void);
+
 void menu_draw(void) BANKED {
     clear_inside();
+    if (menu_page == PAGE_SHOP) {
+        clear_row(1);
+        draw_shop();
+        return;
+    }
     menu_tabs();
     if (menu_page == PAGE_CHARACTER) draw_character();
     else if (menu_page == PAGE_OPTIONS) draw_options();
     else draw_skills();
+}
+
+// --- Marro's shop ---
+
+#define SHOP_ROW0 4       // the stock's rows: 4, 6, 8 (name and price on one line)
+#define SHOP_PRICE_X 112
+
+void shop_restock(void) BANKED {
+    // At your level; deeper explorers get luckier stock.
+    for (uint8_t i = 0; i < SHOP_STOCK; i++) loot_roll(&shop_stock[i], profile.level, profile.best_depth * 3);
+    shop_sold = 0;
+    shop_sel = 0;
+}
+
+static void clear_row(uint8_t row) {
+    fill_win_rect(1, row, SCREEN_TW - 2, 1, FRAME_TILES + 4);
+    VBK_REG = 1;
+    fill_win_rect(1, row, SCREEN_TW - 2, 1, P_INK);
+    VBK_REG = 0;
+}
+
+static void shop_credits(void) {
+    char line[TEXT_MAX + 1];
+    char *p = put(line, "CREDITS ");
+    p = put_u32(p, profile.credits);
+    *p = 0;
+    clear_row(2);
+    say(8, 2, line, P_INK, shop_tiles + 76);
+}
+
+// The gun under the cursor against the one held, and what A would do.
+static void shop_detail(void) {
+    char l1[TEXT_MAX + 1], l2[TEXT_MAX + 1];
+    for (uint8_t r = 11; r <= 14; r++) clear_row(r);
+    const Gun *g = &shop_stock[shop_sel];
+    uint16_t price = gun_price(g);
+    gun_card_lines(g, l1, l2);
+    say(8, 11, l1, P_INK, shop_tiles);
+    say(8, 12, l2, P_INK, shop_tiles + 19);
+    uint8_t full = 1;
+    for (uint8_t s = 0; s < LOADOUT; s++) if (profile.guns[s].type == GUN_NONE) full = 0;
+    char *p;
+    if (shop_sold & (1 << shop_sel)) p = put(l1, "Sold.");
+    else if (profile.credits < price) p = put(l1, "Not enough credits.");
+    else if (full) p = put(l1, "A: buy, trading in yours");
+    else p = put(l1, "A: buy");
+    *p = 0;
+    uint8_t ok = !(shop_sold & (1 << shop_sel)) && profile.credits >= price;
+    say(8, 14, l1, ok ? P_LIT : P_DIM, shop_tiles + 38);
+}
+
+static void shop_cursor(uint8_t old) {
+    set_win_tile_xy(1, SHOP_ROW0 + (old << 1), FRAME_TILES + 4);
+    VBK_REG = 1;
+    set_win_tile_xy(1, SHOP_ROW0 + (old << 1), P_INK);
+    set_win_tile_xy(1, SHOP_ROW0 + (shop_sel << 1), P_SEL | TEXT_BANK1);
+    VBK_REG = 0;
+    set_win_tile_xy(1, SHOP_ROW0 + (shop_sel << 1), shop_marker);
+}
+
+static void draw_shop(void) {
+    tiles_a = 12;
+    tiles_b = 192;
+    char line[TEXT_MAX + 1];
+    char *p;
+    shop_tiles = alloc(19 * 4 + 12);  // the detail's 3 lines and the credits
+    say_c(8, 1, "MARRO'S SALVAGE", P_SEL);
+    shop_credits();
+    for (uint8_t i = 0; i < SHOP_STOCK; i++) {
+        const Gun *g = &shop_stock[i];
+        gun_name(line, g);
+        p = line;
+        while (*p) p++;
+        p = put(p, "  LV ");
+        p = put_num(p, g->level, 1);
+        *p = 0;
+        uint8_t sold = shop_sold & (1 << i);
+        say(16, SHOP_ROW0 + (i << 1), line, sold ? P_DIM : rarity_pal[g->rarity], 0xFF);
+        if (sold) {
+            p = put(line, "SOLD");
+        } else {
+            p = put_num(line, gun_price(g), 1);
+            p = put(p, " CR");
+        }
+        *p = 0;
+        say(SHOP_PRICE_X, SHOP_ROW0 + (i << 1), line, sold ? P_DIM : P_INK, 0xFF);
+    }
+    // The cursor: an italic arrow, in the row's first column.
+    shop_marker = alloc(1);
+    text_on_window = 1;
+    char arrow[2] = ">";
+    text_draw(FONT_ITALIC, 8, SHOP_ROW0 + (shop_sel << 1), arrow, shop_marker, P_SEL | TEXT_BANK1);
+    text_on_window = 0;
+    shop_detail();
+    say_c(8, 16, "UP DOWN: choose    B: leave", P_DIM);
+}
+
+static void buy(void) {
+    const Gun *g = &shop_stock[shop_sel];
+    uint16_t price = gun_price(g);
+    if ((shop_sold & (1 << shop_sel)) || profile.credits < price) {
+        sfx_play(SFX_RELOAD);  // a click: can't
+        return;
+    }
+    profile.credits -= price;
+    uint8_t s = 0;
+    while (s < LOADOUT && profile.guns[s].type != GUN_NONE) s++;
+    if (s == LOADOUT) {
+        // Full: Marro takes the held gun for a quarter of what he'd ask for it.
+        s = profile.gun_sel;
+        profile.credits += gun_price(&profile.guns[s]) >> 2;
+        gun_mods = 0;  // (its magazine isn't kept for the new gun)
+    }
+    profile.guns[s] = *g;
+    slot_ammo[s] = 255;
+    loadout_select(s);
+    shop_sold |= 1 << shop_sel;
+    guns_bought++;
+    sfx_play(SFX_PICKUP);
+    save_write();
+    menu_draw();
+}
+
+static void shop_update(void) {
+    uint8_t old = shop_sel;
+    if ((joy_pressed & J_UP) && shop_sel) shop_sel--;
+    else if ((joy_pressed & J_DOWN) && shop_sel < SHOP_STOCK - 1) shop_sel++;
+    else if (joy_pressed & J_A) {
+        buy();
+        return;
+    }
+    if (old != shop_sel) {
+        shop_cursor(old);
+        shop_detail();
+    }
 }
 
 void menu_next_page(void) BANKED {
@@ -386,6 +534,10 @@ void menu_next_page(void) BANKED {
 }
 
 void menu_update(void) BANKED {
+    if (menu_page == PAGE_SHOP) {
+        shop_update();
+        return;
+    }
     if (menu_page == PAGE_OPTIONS) {
         options_update();
         return;

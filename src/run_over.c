@@ -69,5 +69,13 @@ void run_over_update(void) BANKED {
         run_over_timer++;
         return;
     }
-    if (joy_pressed & (J_START | J_A)) state_change(STATE_TITLE);
+    if (!(joy_pressed & (J_START | J_A))) return;
+    if (save_slot != SAVE_NONE) {
+        // Rebuilt, back in town (the hub).
+        play_mode = MODE_YARD;
+        run_start(run_new_seed());
+        state_change(STATE_PLAY);
+    } else {
+        state_change(STATE_TITLE);
+    }
 }
