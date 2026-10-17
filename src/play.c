@@ -45,6 +45,7 @@
 #include "warden.h"
 #include "acid_skimmer.h"
 #include "mercenary.h"
+#include "acid_wolf.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -249,7 +250,7 @@ void play_enter(void) BANKED {
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS || play_mode == MODE_YARD) chest_init();  // (the yard is no boss room)
     else if (play_mode == MODE_ENEMY) {
-        play_actor_oam = FIRST_ACTOR_OAM + 8;
+        play_actor_oam = enemy_trial_kind==2 ? FIRST_ACTOR_OAM : FIRST_ACTOR_OAM + 8;
         enemy_trial_start();
     }
     else {
@@ -520,7 +521,8 @@ void play_update(void) BANKED {
     // Kills' XP (actor.c), every 8th frame: not on the kill's own frame, the busiest.
     if (xp_pending && (run_ticks & 7) == 3) progress_award();
     if (play_mode == MODE_ENEMY) {
-        if (enemy_trial_kind) mercenary_draw();
+        if (enemy_trial_kind==2) acid_wolf_draw();
+        else if (enemy_trial_kind==1) mercenary_draw();
         else acid_skimmer_draw();
     } else if (play_mode == MODE_LAB) {
         chest_update();
