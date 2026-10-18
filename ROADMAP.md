@@ -315,10 +315,14 @@ charge/recovery) and Relay Warden (locked floor claims, repositioning, alternati
 shotgun/ring bursts, relays, stair retreats across three scrolling terraces,
 and replenishing Spore Husk waves).
 The title's DOWN playtest submenu groups minibosses, bosses, enemy trials,
-and the movement lab. Acid Skimmer and the new rifle Mercenary are the active
+and the movement lab. Acid Skimmer, rifle Mercenary, and Acid Wolf are the active
 enemy trials; the earlier prototypes remain removed. Mercenary uses the supplied
 NPC sheet with strafing, reactive rolls, burst fire, and reload openings.
+Acid Wolf circles close, reacts to incoming shots with sideways leaps and a ground
+shadow, and spits a warned acid fan; landing and spit recovery leave hit windows.
 Campaign and boss encounters retain their existing enemies.
+Scrapback is a new standalone 24x24 miniboss with continuous-angle charges and
+exposed wall-crash recovery windows, available under Minibosses.
 See [enemy design](docs/design/enemies.md).
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).

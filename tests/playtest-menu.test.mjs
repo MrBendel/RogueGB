@@ -41,11 +41,11 @@ test('playtest menu: adding a mercenary preserves the third boss entry', () => {
   assert.equal(e.v('play_mode'),3);
 });
 
-test('playtest menu: Acid Skimmer and Mercenary are the two enemy choices', () => {
+test('playtest menu: three enemy choices wrap in both directions', () => {
   const e = enemyMenu();
   for (let n = 0; n < 12; n++) {
-    e.tap(n & 1 ? 'UP' : 'DOWN');
-    assert.equal(e.v('title_choice'), (n+1)&1);
+    e.tap(n < 6 ? 'DOWN' : 'UP');
+    assert.equal(e.v('title_choice'), n < 6 ? (n+1)%3 : (12-n-1)%3);
   }
   e.idle(10).shot('playtest-enemies');
   settle(e.tap('START'), PLAY).idle(3);

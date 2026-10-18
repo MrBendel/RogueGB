@@ -1,6 +1,6 @@
 # Enemies
 
-Acid Skimmer and Mercenary are the active enemy playtests. Acid Skimmer remains
+Acid Skimmer, Mercenary, and Acid Wolf are the active enemy playtests. Acid Skimmer remains
 the reference for future enemy quality. From the title, press DOWN, select
 Enemies, then an encounter. B goes back;
 START pauses and SELECT while paused ends the attempt.
@@ -79,3 +79,34 @@ Skimmer. The merged suite also checks that the third boss entry remains availabl
 and that all global RAM sections end before the fixed room map at `0xD000`.
 Mercenary completion peaks at 63,580/131,328 update cycles; the sustained stress
 test peaks at 62,624. These are headless-emulator measurements.
+
+## Acid Wolf trial
+
+Select **Enemies → Acid Wolf**. This is a fresh movement prototype, using a
+16×16 quadruped silhouette with running, crouching, leaping, and spitting poses.
+One 30-HP wolf closes to roughly 25–48 pixels, circles, and backs off if crowded.
+
+- Approaching player projectiles can trigger a four-frame crouch followed by a
+  committed sideways leap: 12 frames at three pixels per frame. It alternates
+  sides, reversing when a landing would be blocked. Every movement substep checks
+  the floor; it cannot jump through walls. Its body rises eight pixels above a
+  ground shadow. Collision remains on the ground; there is no invulnerability.
+- A leap has an 84-frame cooldown and ends in a 14-frame stationary landing.
+  Bait the dodge, then punish the landing. It reacts to visible projectiles,
+  never to the player's fire button, and cannot dodge while attacking/recovering.
+- An open-mouth, flashing 18-frame warning locks a muzzle-to-player aim vector.
+  Three green acid globs fan out at roughly two pixels per frame, dealing 18 damage through ordinary
+  shields. Sidestep after the warning or jump the volley. The wolf holds still
+  for 22 frames after spitting; there are no persistent acid pools in this trial.
+- Pause freezes the entire controller. Defeat clears its projectiles and shadow.
+
+`src/acid_wolf.c` owns the trial (scripted actor 10, death cause 13). Body art uses
+tiles 96–111, shadow 112–113; the glob replaces the scene's enemy bullet art.
+The shadow uses OAM 11. Actors and projectiles retain all 25 dynamic slots from
+OAM 15 onward. The temporary body elevation assumes this single-actor trial;
+campaign packs will need shared actor elevation before integrating these wolves.
+
+Emulator tests exercise trajectories, committed leaps, landing windows, warnings,
+pause, walls, normal-health pistol completion, damage, cleanup, and frame limits.
+Standing still while holding fire loses across four starting frame phases; moving
+and jumping wins. Peak measured update cost is 55,696 of 131,328 cycles (43%).
