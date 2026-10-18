@@ -53,6 +53,22 @@ test('a new file: the files screen offers three, the first one is saved as soon 
   assert.equal(prof(emu, 'exp_active'), 0, 'no expedition yet');
 });
 
+test('file load menu: B button returns to title home, and B from class select returns to files', () => {
+  const emu = bootToTitle().tap('START');
+  assert.equal(emu.v('title_files'), 1, 'START opens files menu');
+
+  // Test B from class select back to files menu
+  emu.tap('A'); // open class selection for new file
+  assert.equal(emu.v('title_files'), 2, 'A opens class select');
+  emu.tap('B'); // B should return to files
+  assert.equal(emu.v('title_files'), 1, 'B from class select returns to files');
+
+  // Test B from files menu back to title home
+  emu.tap('B');
+  assert.equal(emu.v('title_files'), 0, 'B from files menu returns to title home');
+  assert.equal(emu.v('game_state'), TITLE, 'remains in title scene');
+});
+
 test('continue: the expedition picks up at the map it was saved in, same seed and depth', () => {
   const emu = nextMap(startDescent());
   const map = emu.v('level_map'), seed = emu.v('area_seed_base', 'u16'), depth = emu.v('layer_depth');

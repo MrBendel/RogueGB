@@ -234,7 +234,10 @@ void title_update(void) BANKED {
         uint8_t c = title_class;
         if ((joy_pressed & J_LEFT) && c) c--;
         else if ((joy_pressed & J_RIGHT) && c < CLASS_COUNT - 1) c++;
-        else if (joy_pressed & J_B) state_change(STATE_TITLE);
+        else if (joy_pressed & J_B) {
+            show_files();
+            return;
+        }
         else if (joy_pressed & (J_A | J_START)) {
             save_new(title_choice, title_class);
             begin(MODE_YARD);  // a new character starts in the town
@@ -248,7 +251,12 @@ void title_update(void) BANKED {
     if (title_files) {
         if ((joy_pressed & J_UP) && title_choice > 0) move_cursor(title_choice - 1);
         else if ((joy_pressed & J_DOWN) && title_choice < SAVE_SLOTS - 1) move_cursor(title_choice + 1);
-        else if (joy_pressed & J_B) state_change(STATE_TITLE);
+        else if (joy_pressed & J_B) {
+            title_files = 0;
+            draw_home();
+            prompt_ink(1);
+            return;
+        }
         else if (joy_pressed & (J_A | J_START)) {
             if (slot_used[title_choice]) {
                 // Mid-expedition: back to its map; otherwise the town.
