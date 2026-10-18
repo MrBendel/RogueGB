@@ -6,3 +6,4 @@ tools/*.zip
 tools/*.tar.gz
 scratch/
 node_modules/
+.codex-remote-attachments/

@@ -1,5 +1,28 @@
 # Bosses and minibosses: Game Boy Color combat trials
 
+## Captain Flynt boss trial: Furnace Deck Showdown
+
+Title → DOWN → Bosses → Captain Flynt. The Southern Shelf pirate commander in his furnace deck arena (`boss_kind 10`); 36 HP, starter pistol and shield.
+
+- **Stalking & Positioning**:
+  - Closes distance smoothly toward the player, maintaining ~48 px combat spacing before raising his harpoon cleaver.
+- **Flame Cleave**:
+  - 32-frame warning telegraph with flashing windup; launches a 3-projectile spreading incendiary wave aimed directly at the player. In Phase 3 (below 12 HP), expands into a 5-projectile fan.
+- **Furnace Grates (Arena Hazard)**:
+  - 4 iron grates in the four quadrants of the arena floor cycle through Safe (0), Steaming Warning (1), and Erupting Flame Pillars (2).
+  - Standing on an active flame jet deals 8 fire damage (`hurt_cause 15`).
+  - **Jumping clears active furnace vents safely** (`player_z > 0`), rewarding acrobatic movement.
+- **Flame Shield / Overheat (HP 24 and 12)**:
+  - At health thresholds, Flynt roars and ignites a blazing heat shield (`actor_guard = 1`), deflecting all incoming projectile fire.
+  - **Leap Slam**: Leaps high into the air with visual altitude and ground shadow (in `OAM_PROP`), then slams down with camera shake, close shockwave damage, and 6 radial fire bullets.
+  - **Overheat Burnout & Punish Window**: After 90 frames, his cooling radiators blow out with a blast of steam; he collapses to one knee (`FLYNT_STUNNED`, `actor_guard = 0`), giving the player a 75-frame massive damage opening.
+- **Desperation Phase & Second Wind Fodder (HP < 12)**:
+  - Vents cycle faster, cleaves fire 5-pellet fans, and an occasional bandit/psycho minion add spawns from the corner to provide tactical Second Wind opportunities.
+- **Implementation**:
+  - `src/flynt.c`, `src/flynt.h`, `boss_kind 10`.
+  - Uses 4 metasprite frames in `MACHINE_VRAM` (96–111) and background tiles 144–155 for furnace grates on background palette 5.
+  - Leap shadow exclusively uses `OAM_PROP` (slots 11–12), preserving all player and combat sprite slots.
+
 ## Scrapback miniboss trial
 
 Title → DOWN → Minibosses → Scrapback. A 24x24 armored scavenger beast in a

@@ -47,6 +47,7 @@
 #include "mercenary.h"
 #include "acid_wolf.h"
 #include "scrapback.h"
+#include "flynt.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -227,6 +228,7 @@ void play_enter(void) BANKED {
         player_init(5 * BLOCK_SIZE, 4 * BLOCK_SIZE);
     } else if (play_mode >= MODE_MINIBOSS) {
         if (play_mode == MODE_BOSS && enemy_trial_kind == 0) { warden_room(); player_init(72,184); }
+        else if (play_mode == MODE_BOSS && enemy_trial_kind == 3) { flynt_room(); player_init(72,96); }
         else { boss_room(); player_init(72,96); }
     } else {
         room_load_lab();
@@ -258,7 +260,8 @@ void play_enter(void) BANKED {
         if (play_mode == MODE_BOSS && enemy_trial_kind == 0) play_actor_oam = FIRST_ACTOR_OAM + 8;
         boss_start(play_mode == MODE_MINIBOSS ? (enemy_trial_kind==1 ? BOSS_SCRAPBACK : BOSS_CLAIMJAW) :
                    play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
-                   enemy_trial_kind == 2 ? BOSS_DUO : BOSS_WARDEN);
+                   enemy_trial_kind == 2 ? BOSS_DUO :
+                   enemy_trial_kind == 3 ? BOSS_FLYNT : BOSS_WARDEN);
     }
     sfx_watch_reset();
     waves_init();
@@ -541,6 +544,7 @@ void play_update(void) BANKED {
         else if (boss_kind == BOSS_WARDEN) warden_draw();
         else if (boss_kind == BOSS_DUO) duo_draw();
         else if (boss_kind == BOSS_SCRAPBACK) scrapback_draw();
+        else if (boss_kind == BOSS_FLYNT) flynt_draw();
     }
     sfx_watch();
     if (!player_hp) {

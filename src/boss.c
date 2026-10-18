@@ -13,6 +13,7 @@
 #include "warden.h"
 #include "oam.h"
 #include "scrapback.h"
+#include "flynt.h"
 
 #define MACHINE_VRAM 96
 #define SHADOW_VRAM 8
@@ -241,6 +242,12 @@ void boss_start(uint8_t kind) BANKED {
     }
     if (kind == BOSS_GUNSHIP) {
         gunship_start();
+        shown_hp = shown_state = shown_relays = shown_phase = 0xFF;
+        boss_status();
+        return;
+    }
+    if (kind == BOSS_FLYNT) {
+        flynt_start();
         shown_hp = shown_state = shown_relays = shown_phase = 0xFF;
         boss_status();
         return;
@@ -636,6 +643,7 @@ void boss_update(void) BANKED {
     }
     if (boss_kind == BOSS_GUNSHIP) { gunship_update(); return; }
     if (boss_kind == BOSS_SCRAPBACK) { scrapback_update(); return; }
+    if (boss_kind == BOSS_FLYNT) { flynt_update(); return; }
     if (boss_kind == BOSS_WARDEN) warden_update();
     actor_flash[boss_slot] = boss_state == BOSS_WARN && (boss_timer & 4);
     if (boss_kind == BOSS_WARDEN) art(boss_slot, actor_guard[boss_slot] ? 0 : 1, actor_guard[boss_slot] ? SPR_PAL_WEAPON : SPR_PAL_SHOT);
@@ -761,6 +769,7 @@ void duo_draw(void) BANKED {
 
 // Two text rows occupy the arena's top wall, not the combat area.
 void boss_status(void) BANKED {
+    if (boss_kind == BOSS_FLYNT) { flynt_status(); return; }
     if (boss_kind == BOSS_WARDEN) { warden_status(); return; }
 
     if (boss_kind == BOSS_DUO) {
