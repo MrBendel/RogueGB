@@ -49,7 +49,7 @@ test('text speed: instant puts a whole page out at once', () => {
   assert.equal(setting(emu, 0), 3);
   emu.tap('START').idle(2);
   emu.writeBytes(A(emu, 'debug_cmd'), [6, 0]);  // a script
-  emu.idle(2);
+  emu.idle(3);  // (the box opens between frames)
   assert.equal(emu.v('dlg_pos'), emu.v('dlg_len'), 'the page is out');
 });
 

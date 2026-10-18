@@ -17,7 +17,7 @@ const yardTalk = () => {
 const closeAll = (emu) => {
   for (let i = 0; i < 60 && emu.v('dlg_active'); i++) emu.tap('A');
   assert.equal(emu.v('dlg_active'), 0);
-  return emu;
+  return emu.idle(1);  // (it closes between frames; play looks around again the frame after)
 };
 const ids = () => loadDialogue().scripts.map((s) => s.id);
 
@@ -64,7 +64,7 @@ test('a script opened from play (debug command 6), its speaker named', () => {
   const emu = startRun().idle(2);
   const script = ids().indexOf('service_receipt');
   emu.writeBytes(emu.symbols.addr('debug_cmd'), [6, script]);
-  emu.idle(1);
+  emu.idle(2);  // (the box opens between frames)
   assert.equal(emu.v('dlg_active'), 1);
   emu.tap('A');
   matchGolden(emu.idle(20), 'dialog-receipt');

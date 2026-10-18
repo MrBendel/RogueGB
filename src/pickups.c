@@ -198,6 +198,10 @@ static void card_draw(void) {
     gun_card_lines(g, line, l2);
     card_line(3, line, BG_PAL_UI);
     card_line(4, l2, BG_PAL_UI);
+    // The window's registers change between frames, never mid-draw: switched on
+    // part-way down with its position at the top, it shows from that line down
+    // (a frame of blank card over the bottom of the screen).
+    vsync();
     move_win(7, 0);
     gfx_box_split(CARD_ROWS * 8);
 }
@@ -212,6 +216,7 @@ static void card_show(uint8_t d) {
 }
 
 static void card_hide(void) {
+    vsync();  // (between frames: see card_draw)
     card_drop = CARD_NONE;
     memcpy(&pal_base_bg[CARD_PAL], card_saved_pal, sizeof(card_saved_pal));
     gfx_set_fade(0);
@@ -249,7 +254,10 @@ void pickups_take(void) BANKED {
     guns_taken++;
     sfx_play(SFX_PICKUP);
     save_write();
-    card_hide();  // (shows again next frame if a gun is still underfoot)
+    // Swapped: the old gun lies here now, so the card stays and shows it;
+    // taken into a free slot: nothing underfoot, the card goes.
+    if (drop_kind[d] == DROP_GUN) card_draw();
+    else card_hide();
 }
 
 void pickups_update(void) BANKED {

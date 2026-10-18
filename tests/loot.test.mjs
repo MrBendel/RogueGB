@@ -124,3 +124,33 @@ test('the lab has no loot: kills drop nothing there', () => {
   assert.equal(emu.v('pickups_on'), 0);
   assert.equal(emu.v('card_drop'), CARD_NONE);
 });
+
+test('swapping on a gun never flashes the window over the play area (it switches between frames)', () => {
+  const emu = atCampChest();
+  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, [0, 0, 1, 0, 0, 0, 0, 0, 0]);
+  const x = emu.read16(A(emu, 'chest_x')), y = emu.read16(A(emu, 'chest_y'));
+  w16(emu, 'player_x', x);
+  w16(emu, 'player_y', y + 8);
+  emu.idle(2);
+  const g = Array.from(emu.readBytes(A(emu, 'drop_kind'), 6)).indexOf(DROP_GUN);
+  w16(emu, 'player_x', words(emu, 'drop_x', 6)[g]);
+  w16(emu, 'player_y', words(emu, 'drop_y', 6)[g] - 4);
+  emu.idle(4);
+  // A solid band of one color across screen lines 100-125 is the window drawn over
+  // the play area (the floor's dots and blocks always vary).
+  const solid = () => {
+    const fb = emu.frameBuffer();
+    const colors = new Set();
+    for (let y = 100; y < 126; y++) for (let x = 0; x < 160; x += 3) colors.add(fb.slice((y * 160 + x) * 3, (y * 160 + x) * 3 + 3).join());
+    return colors.size === 1;
+  };
+  for (let n = 0; n < 6; n++) {
+    emu.hold('A', 1);
+    for (let f = 0; f < 8; f++) {
+      assert.ok(!solid(), `swap ${n}, frame ${f}: the window over the play area`);
+      emu.idle(1);
+    }
+  }
+  assert.ok(emu.v('guns_taken', 'u16') >= 3, 'swapped');
+  assert.notEqual(emu.v('card_drop'), CARD_NONE, 'the card stays up (the old gun lies here)');
+});

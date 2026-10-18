@@ -189,6 +189,7 @@ void dlg_start(uint8_t script) BANKED {
     VBK_REG = 1;
     set_win_tile_xy(ARROW_X, ARROW_Y, ATTR_TEXT);
     VBK_REG = 0;
+    vsync();  // the window's registers change between frames (a mid-frame switch flashes)
     move_win(7, 0);
     gfx_box_split(DLG_ROWS * 8);
     dlg_who = dlg_portrait = 0xFF;
@@ -197,6 +198,7 @@ void dlg_start(uint8_t script) BANKED {
 }
 
 static void close(void) {
+    vsync();  // (between frames, as when it opened)
     memcpy(&pal_base_bg[SPEAKER_PAL], dlg_saved_pal, sizeof(dlg_saved_pal));
     gfx_set_fade(0);
     gfx_box_split(0);
