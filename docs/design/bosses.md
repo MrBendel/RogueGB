@@ -17,6 +17,13 @@ single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
   In this first prototype the entire damage hitbox is vulnerable during recovery,
   and the whole shell is guarded otherwise. Precise directional front armor and
   a separate rear-only weak-point hitbox remain follow-up work.
+- Charges leave up to four 16x16 acid patches, spaced about 20 pixels apart
+  (short charges leave fewer). Each patch fizzes harmlessly for 20 frames before
+  turning green and dealing 8 contact damage through normal shields and hit
+  invulnerability. Jumping clears it. Patches stay through crash recovery, fade
+  harmlessly during its final 12 frames, and disappear before the next charge.
+  Defeat removes the trail too; pause freezes it. Impact projectiles are not part
+  of this pass: the trail alone is the new source of pressure.
 - Defeat clears the body and grants the existing trial completion flag. Pause
   freezes the encounter. No campaign spawns or campaign rewards are added.
 
@@ -25,10 +32,16 @@ Four rotated art headings use tiles 96–143; movement is not quantized to these
 headings. The six sprite parts use prop slots 11–14 and the single actor's two
 dynamic slots 15–16; player sprites and the projectile pool remain intact. The
 shared 16x16 actor anchor remains the damage target inside the larger visual body.
+Acid uses background tiles 144–155 and scene palette 5, rather than hardware
+sprites, so shots cannot hide a damaging pool. One patch redraws per frame via
+queued tile/attribute strips; cleanup restores the original room tiles. Collision
+remains ordinary walkable floor, with damage checked separately.
 Focused emulator checks cover arbitrary-angle aim, committed trajectories, all
 four corners, actual projectile protection/damage, pause, sprite cleanup, and
 normal-health pistol completion. Standing still holding fire loses. The moving
-victory test peaks at 74,604/131,328 update cycles (57% of the frame budget).
+victory test with the acid trail peaks at 79,448/131,328 update cycles (61% of the
+frame budget). Trail checks cover safe warning/fade stages, grounded damage,
+jumping, pause, visibility with all player shot slots full, and floor restoration.
 
 ## Earlier trials and campaign concepts
 

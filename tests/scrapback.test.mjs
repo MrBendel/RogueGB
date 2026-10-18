@@ -75,3 +75,47 @@ test('scrapback: standing still and holding fire cannot win',()=>{
  for(let f=0;f<2400&&e.v('player_hp')&&e.v('boss_state')!==5;f++)e.hold('A');
  assert.equal(e.v('player_hp'),0);assert.notEqual(e.v('boss_state'),5);assert.equal(e.v('death_cause'),14);
 });
+
+const poolTile=(e,i=0)=>0x9800+(e.read8(at(e,'scrap_pool_y')+i)>>3)*32+(e.read8(at(e,'scrap_pool_x')+i)>>3);
+function seededPool(e) {
+ put(e,'boss_state',0);put(e,'boss_timer',100);
+ put(e,'scrap_pool_count',1);put(e,'scrap_pool_x',32);put(e,'scrap_pool_y',64);
+ put(e,'scrap_pool_age',0);put(e,'scrap_pool_painted',0);
+ put16(e,'player_x',32);put16(e,'player_y',64);
+ put(e,'player_invuln',0);put(e,'player_blink',0);put(e,'shield_hp',40);
+}
+test('scrapback acid: charge deposits a bounded trail which lasts through recovery and fades',()=>{
+ const e=trial();e.until(x=>x.v('boss_state')===2).idle(6);e.shot('scrapback-acid-fizz');
+ assert.ok(e.v('scrap_pool_count')>=1);assert.equal(e.v('scrap_pool_painted'),1);
+ e.until(x=>x.v('boss_state')===0,100).idle(8);
+ const count=e.v('scrap_pool_count');assert.ok(count>=2&&count<=4);
+ assert.equal(e.v('scrap_pool_painted'),2);e.shot('scrapback-acid-trail');
+ e.until(x=>x.v('boss_timer')===12,110).idle(4);e.shot('scrapback-acid-fade');
+ assert.equal(e.v('scrap_pool_painted'),3);
+ e.until(x=>x.v('boss_state')===9,20).idle(6);
+ for(let i=0;i<count;i++) {
+  assert.equal(e.read8(at(e,'scrap_pool_painted')+i),0);
+  assert.ok(e.read8(poolTile(e,i))<144,'floor art is restored before the next charge');
+ }
+});
+test('scrapback acid: fizz is safe, active acid hurts, jump clears it, pause freezes it',()=>{
+ const e=trial();seededPool(e);e.idle(12);
+ assert.equal(e.v('shield_hp'),40);assert.equal(e.v('scrap_pool_painted'),1);
+ e.tap('START');const age=e.v('scrap_pool_age');e.idle(60);assert.equal(e.v('scrap_pool_age'),age);
+ e.tap('START').idle(15);assert.equal(e.v('shield_hp'),32);assert.equal(e.v('scrap_acid_hits','u16'),1);
+ put(e,'player_invuln',0);put(e,'player_blink',0);put(e,'shield_hp',40);
+ put16(e,'player_x',32);put16(e,'player_y',64);put16(e,'player_z',4096);put(e,'player_air',1);put16(e,'player_vz',0);
+ e.idle(3);assert.equal(e.v('shield_hp'),40,'airborne crossing avoids acid');
+ put(e,'boss_timer',10);put16(e,'player_z',0);put(e,'player_air',0);put16(e,'player_vz',0);
+ e.idle(3);assert.equal(e.v('shield_hp'),40,'fading acid is harmless');
+});
+test('scrapback acid: full shot pool cannot hide hazards, and defeat restores the floor',()=>{
+ const e=trial();seededPool(e);const floor=e.read8(poolTile(e));
+ put(e,'scrap_pool_age',30);put16(e,'player_x',112);e.idle(3);
+ for(let n=0;n<16;n++)e.writeBytes(at(e,'shots')+13*n,[40,0,0,0,0,24,0,0,0,0,0,80,0]);
+ put(e,'shot_count',16);e.idle(3);assert.equal(e.read8(poolTile(e)),148);
+ assert.ok(e.lastFrameCycles<FRAME_LIMIT);e.shot('scrapback-acid-crowded');
+ put(e,'actor_hp',0);put(e,'shots_killed',1);e.idle(8);
+ assert.equal(e.v('boss_state'),5);assert.equal(e.read8(poolTile(e)),floor);
+ assert.equal(e.v('scrap_pool_painted'),0);
+});
