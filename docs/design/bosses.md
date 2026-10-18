@@ -36,7 +36,16 @@ single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
 - Charge roughly three pixels per frame, using fractional motion and three wall
   checks per update. The whole 24x24 footprint remains inside the arena. A charge
   hit deals 20 damage; jumping or stepping sideways avoids it.
-- A wall crash shakes the camera and opens the cyan back panel for 100 frames.
+- A wall crash uses the shotgun's eight-frame shake (`SHAKE_MEDIUM`), rebounds
+  along the reverse charge vector for eight frames (roughly eight pixels), and
+  opens the cyan back panel for 100 frames including the rebound.
+  Grounded players anywhere in the arena are knocked down for 24 frames (0.4 s):
+  the body lies sideways and movement, jumping, and attacks are disabled. Being
+  airborne at impact avoids it. Knockdown itself deals no damage and temporarily
+  protects against hits, including acid, so loss of control cannot chain damage.
+  Four recovery-grace frames allow a jump off acid when control returns. Physical
+  charge contact resolves before this protection; the shock itself adds no damage.
+  Pause freezes both timers; changing encounters resets the player's stun.
   In this first prototype the entire damage hitbox is vulnerable during recovery,
   and the whole shell is guarded otherwise. Precise directional front armor and
   a separate rear-only weak-point hitbox remain follow-up work.
@@ -47,6 +56,8 @@ single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
   harmlessly during its final 12 frames, and disappear before the next charge.
   Defeat removes the trail too; pause freezes it. Impact projectiles are not part
   of this pass: the trail alone is the new source of pressure.
+  Patches occupy non-overlapping floor cells centered on the path; an impact-point
+  patch is added when capacity allows, before Scrapback rebounds.
 - Defeat clears the body and grants the existing trial completion flag. Pause
   freezes the encounter. No campaign spawns or campaign rewards are added.
 
@@ -62,9 +73,13 @@ remains ordinary walkable floor, with damage checked separately.
 Focused emulator checks cover arbitrary-angle aim, committed trajectories, all
 four corners, actual projectile protection/damage, pause, sprite cleanup, and
 normal-health pistol completion. Standing still holding fire loses. The moving
-victory test with the acid trail peaks at 79,448/131,328 update cycles (61% of the
+updated timed-jump victory test peaks at 62,616/131,328 update cycles (48% of the
 frame budget). Trail checks cover safe warning/fade stages, grounded damage,
 jumping, pause, visibility with all player shot slots full, and floor restoration.
+Impact tests cover recoil distance, shotgun shake, ground/air outcomes, locked
+controls and attacks, recovery, pause, charge contact, and encounter reset. Rare
+stun and pit-respawn handling live in player_setup.c to keep fixed ROM within its
+budget; the existing pit and movement tests still pass.
 
 ## Earlier trials and campaign concepts
 

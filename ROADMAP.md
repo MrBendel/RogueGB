@@ -325,6 +325,8 @@ Scrapback is a new standalone 24x24 miniboss with continuous-angle charges and
 exposed wall-crash recovery windows, available under Minibosses.
 Its charges now leave warned acid patches that constrain the route to the exposed
 boss, can be jumped over, and fade before the next charge.
+Wall impacts also rebound with shotgun-strength shake and briefly knock down
+grounded players; jumping at impact avoids the stun.
 See [enemy design](docs/design/enemies.md).
 The Collector gunship trial validates a 32×32 body, marked floor strikes, a
 warned laser sweep, and exposed-core windows; see [gunship design](docs/design/gunship.md).

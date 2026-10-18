@@ -1,5 +1,5 @@
 import {test} from 'node:test';
-import {assert,bootToTitle,settle,PLAY,FRAME_LIMIT} from './helpers.mjs';
+import {assert,bootToTitle,settle,PLAY,FRAME_LIMIT,RUN_OVER,TITLE} from './helpers.mjs';
 const at=(e,n)=>e.symbols.addr(n),put=(e,n,v)=>e.write8(at(e,n),v);
 const put16=(e,n,v)=>e.writeBytes(at(e,n),[v&255,(v>>8)&255]);
 function trial(){
@@ -59,12 +59,25 @@ test('scrapback: pause freezes a charge and defeat clears the larger sprite',()=
  for(let i=11;i<17;i++)assert.equal(e.read8(at(e,'shadow_OAM')+i*4),0);
 });
 test('scrapback: moving and jumping can win with normal health and the starter pistol',()=>{
- const e=trial();let worst=0,last=0;
+ const e=trial();let worst=0;
  for(let f=0;f<3600&&e.v('boss_state')!==5&&e.v('player_hp');f++) {
   const state=e.v('boss_state'),x=e.v('player_x','u16'),keys=['A'];
   if((f/70|0)&1){if(x>22)keys.push('LEFT');}else if(x<122)keys.push('RIGHT');
-  if(state===2&&last!==2)keys.push('B');
-  last=state;e.hold(keys);worst=Math.max(worst,e.lastFrameCycles);
+  // Respond to the visible threats: jump as the boss approaches a wall or
+  // before crossing an active pool, rather than blindly jumping at launch.
+  let jump=false;
+  if(state===2) {
+   const bx=e.v('actor_x','u16'),by=e.v('actor_y','u16');
+   const vx=e.v('actor_vx','i16')/256*3,vy=e.v('actor_vy','i16')/256*3;
+   const impact=Math.min(vx?((vx>0?124:20)-bx)/vx:999,vy?((vy>0?92:20)-by)/vy:999);
+   jump=impact<9;
+  }
+  for(let i=0;i<e.v('scrap_pool_count');i++)if(e.read8(at(e,'scrap_pool_painted')+i)===2) {
+   const px=e.read8(at(e,'scrap_pool_x')+i),py=e.read8(at(e,'scrap_pool_y')+i);
+   if(Math.abs(x-px)<22&&Math.abs(e.v('player_y','u16')-py)<22)jump=true;
+  }
+  if(jump&&!e.v('player_air'))keys.push('B');
+  e.hold(keys);worst=Math.max(worst,e.lastFrameCycles);
  }
  assert.equal(e.v('boss_state'),5,`player=${e.v('player_hp')} boss=${e.v('boss_hp')}`);
  assert.ok(worst<FRAME_LIMIT);e.shot('scrapback-victory');
@@ -118,4 +131,48 @@ test('scrapback acid: full shot pool cannot hide hazards, and defeat restores th
  put(e,'actor_hp',0);put(e,'shots_killed',1);e.idle(8);
  assert.equal(e.v('boss_state'),5);assert.equal(e.read8(poolTile(e)),floor);
  assert.equal(e.v('scrap_pool_painted'),0);
+});
+
+function impact(e,air=false,near=false) {
+ put16(e,'actor_x',123);put16(e,'actor_y',32);
+ put16(e,'actor_vx',256);put16(e,'actor_vy',0);put(e,'actor_xs',0);put(e,'actor_ys',0);
+ put(e,'boss_state',2);put(e,'boss_timer',90);
+ put16(e,'player_x',near?112:40);put16(e,'player_y',near?32:80);put16(e,'player_vx',0);put16(e,'player_vy',0);
+ put(e,'player_air',0);put16(e,'player_z',0);put16(e,'player_vz',0);
+ put(e,'player_blink',0);put(e,'player_invuln',0);put(e,'cam_shake',0);
+ if(air)e.hold('B');else e.idle();
+ assert.equal(e.v('boss_state'),0);
+}
+test('scrapback impact: shotgun shake, bounded recoil and grounded knockdown',()=>{
+ const e=trial();impact(e);
+ assert.ok(e.v('cam_shake')>=6&&e.v('cam_shake')<=8);
+ assert.equal(e.v('scrap_rebound_timer'),8);assert.equal(e.v('player_stun'),24);
+ const bx=e.v('actor_x','u16'),x=e.v('player_x','u16'),y=e.v('player_y','u16'),shots=e.v('shots_fired','u16');
+ e.hold('RIGHT+A+B',8);
+ assert.equal(e.v('actor_x','u16'),bx-8);assert.equal(e.v('scrap_rebound_timer'),0);
+ assert.equal(e.v('player_x','u16'),x);assert.equal(e.v('player_y','u16'),y);
+ assert.equal(e.v('player_air'),0);assert.equal(e.v('shots_fired','u16'),shots);
+ e.shot('scrapback-knockdown');
+ const rebound=e.v('actor_x','u16');e.hold('RIGHT+A',8);
+ assert.equal(e.v('actor_x','u16'),rebound,'rebound settles instead of sliding forever');
+ e.hold('RIGHT',15);assert.equal(e.v('player_stun'),0);assert.ok(e.v('player_x','u16')>x);
+});
+test('scrapback impact: jumping avoids stun; pause freezes stun and rebound; acid cannot chain-hit',()=>{
+ const air=trial();impact(air,true);assert.equal(air.v('player_stun'),0);
+ const contact=trial();impact(contact,false,true);
+ assert.equal(contact.v('shield_hp'),20,'physical charge contact resolves before knockdown protection');
+ assert.equal(contact.v('player_stun'),24);
+ const e=trial();impact(e);e.tap('START');const t=e.v('player_stun'),r=e.v('scrap_rebound_timer');
+ e.idle(60);assert.equal(e.v('player_stun'),t);assert.equal(e.v('scrap_rebound_timer'),r);e.tap('START');
+ put(e,'scrap_pool_count',1);put(e,'scrap_pool_x',40);put(e,'scrap_pool_y',80);
+ put(e,'scrap_pool_age',30);put(e,'scrap_pool_painted',2);put(e,'shield_hp',40);
+ e.idle(5);assert.equal(e.v('shield_hp'),40,'knockdown protects against unavoidable acid damage');
+ e.until(x=>!x.v('player_stun'),40).tap('B');
+ assert.equal(e.v('player_air'),1);assert.equal(e.v('shield_hp'),40,'getting up allows a jump before acid can hit');
+});
+test('scrapback impact: leaving a stunned fight resets player control on the next encounter',()=>{
+ const e=trial();impact(e);e.tap('START').tap('SELECT');
+ settle(e,RUN_OVER).idle(35).tap('START');settle(e,TITLE);
+ settle(e.tap('SELECT'),PLAY).idle(3);assert.equal(e.v('player_stun'),0);
+ const x=e.v('player_x','u16');e.hold('RIGHT',10);assert.ok(e.v('player_x','u16')>x);
 });

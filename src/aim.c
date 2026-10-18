@@ -865,6 +865,14 @@ static void draw_gun(void) __naked {
 }
 
 void aim_update(void) BANKED {
+    if(player_stun) {
+        burst_left=swing_t=weapon_windup=0;move_slow=0;aim_facing=0xFF;
+        hide_sprite(OAM_FLASH);
+        hide_sprite(OAM_GUN_FRONT);hide_sprite(OAM_GUN_FRONT+1);
+        hide_sprite(OAM_GUN_BACK);hide_sprite(OAM_GUN_BACK+1);
+        hide_sprite(OAM_RETICLE);hide_sprite(OAM_RETICLE+1);
+        return;
+    }
     // Score one enemy (round-robin), then pick the target (aim_score.s). Scoring
     // is the optional part (~3,500 cycles with line of sight), so it runs on odd
     // frames only (each enemy is rescored about every 16 frames, a quarter of a

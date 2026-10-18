@@ -14,6 +14,7 @@
 // BOSS_RETREAT is used here for stalking; the remaining states are shared.
 uint8_t scrap_facing, scrap_target_x, scrap_target_y;
 uint16_t scrap_crashes;
+uint8_t scrap_rebound_timer;
 // Floor hazards use background tiles so neither bullets nor the large body
 // can exhaust their sprite allocation. Stage: 1 fizz, 2 acid, 3 fade, 0 gone.
 uint8_t scrap_pool_x[4],scrap_pool_y[4],scrap_pool_age[4],scrap_pool_painted[4];
@@ -79,7 +80,7 @@ static void load_art(void) {
 }
 static void drop_pool(void) {
     if(scrap_pool_count==4)return;
-    uint8_t x=actor_x[boss_slot]&0xf8,y=actor_y[boss_slot]&0xf8;
+    uint8_t x=(actor_x[boss_slot]+8)&0xf0,y=(actor_y[boss_slot]+8)&0xf0;
     // Do not layer duplicate patches on short or nearly stationary charges.
     for(uint8_t i=0;i<scrap_pool_count;i++)if(scrap_pool_x[i]==x && scrap_pool_y[i]==y)return;
     uint8_t i=scrap_pool_count++;
@@ -158,9 +159,15 @@ static void lock_charge(void) {
     boss_state=BOSS_CHARGE;boss_timer=90;boss_attacks++;
     scrap_pool_count=0;drop_pool();
 }
-static void crash(void) {
+static void crash(uint8_t wall_hit) {
     boss_state=BOSS_RECOVER;boss_timer=100;boss_cycles++;scrap_crashes++;
-    actor_guard[boss_slot]=0;camera_shake(SHAKE_SMALL);
+    actor_guard[boss_slot]=0;
+    if(!wall_hit)return;
+    drop_pool(); // keep the trail at the impact point before the body rebounds
+    camera_shake(SHAKE_MEDIUM); // exactly the shotgun shake preset
+    scrap_rebound_timer=8;
+    actor_vx[boss_slot]=-actor_vx[boss_slot];actor_vy[boss_slot]=-actor_vy[boss_slot];
+    actor_xs[boss_slot]=actor_ys[boss_slot]=0;
 }
 void scrapback_start(void) BANKED {
     load_art();boss_kind=BOSS_SCRAPBACK;boss_slot=actor_spawn(ACTOR_PEASHOOTER,72,28);
@@ -168,6 +175,7 @@ void scrapback_start(void) BANKED {
     actor_guard[boss_slot]=1;boss_state=BOSS_RETREAT;boss_timer=36;
     boss_phase=boss_reward=boss_relays=0;boss_attacks=boss_cycles=scrap_crashes=0;
     scrap_pool_count=scrap_pool_cursor=0;scrap_acid_hits=0;
+    scrap_rebound_timer=0;
     for(uint8_t i=0;i<4;i++)scrap_pool_painted[i]=scrap_pool_age[i]=0;
     pal_base_bg[5*4]=pal_base_bg[0];
     pal_base_bg[5*4+1]=RGB(24,29,9);pal_base_bg[5*4+2]=RGB(10,23,3);pal_base_bg[5*4+3]=RGB(2,8,1);
@@ -204,7 +212,7 @@ void scrapback_update(void) BANKED {
             int16_t fx=(int16_t)actor_xs[boss_slot]+actor_vx[boss_slot];
             int16_t fy=(int16_t)actor_ys[boss_slot]+actor_vy[boss_slot];
             uint16_t x=actor_x[boss_slot]+(fx>>8),y=actor_y[boss_slot]+(fy>>8);
-            if(!free_at(x,y)){crash();break;}
+            if(!free_at(x,y)){crash(1);break;}
             actor_x[boss_slot]=x;actor_y[boss_slot]=y;
             actor_xs[boss_slot]=(uint8_t)fx;actor_ys[boss_slot]=(uint8_t)fy;
         }
@@ -216,9 +224,26 @@ void scrapback_update(void) BANKED {
         if(player_hittable() && dx>-19 && dx<19 && dy>-19 && dy<19) {
             hurt_cause=14;player_hurt(20,actor_x[boss_slot]+8,actor_y[boss_slot]+8);
         }
-        if(!boss_timer && boss_state==BOSS_CHARGE)crash();
-    } else if(boss_state==BOSS_RECOVER && !boss_timer) {
-        actor_guard[boss_slot]=1;boss_state=BOSS_RETREAT;boss_timer=28;
+        // Resolve physical charge contact before granting knockdown protection;
+        // standing against the wall must not turn the impact into a free dodge.
+        if(boss_state==BOSS_RECOVER && scrap_rebound_timer==8 &&
+           !player_air && !player_fall_timer && player_z==0) {
+            player_stun=24;player_vx=player_vy=0;player_xs=player_ys=0;
+            player_dash_timer=player_roll_len=0;
+        }
+        if(!boss_timer && boss_state==BOSS_CHARGE)crash(0);
+    } else if(boss_state==BOSS_RECOVER) {
+        if(scrap_rebound_timer) {
+            scrap_rebound_timer--;
+            int16_t fx=(int16_t)actor_xs[boss_slot]+actor_vx[boss_slot];
+            int16_t fy=(int16_t)actor_ys[boss_slot]+actor_vy[boss_slot];
+            uint16_t x=actor_x[boss_slot]+(fx>>8),y=actor_y[boss_slot]+(fy>>8);
+            if(free_at(x,y)) {
+                actor_x[boss_slot]=x;actor_y[boss_slot]=y;
+                actor_xs[boss_slot]=(uint8_t)fx;actor_ys[boss_slot]=(uint8_t)fy;
+            } else scrap_rebound_timer=0;
+        }
+        if(!boss_timer){actor_guard[boss_slot]=1;boss_state=BOSS_RETREAT;boss_timer=28;}
     }
 }
 void scrapback_draw(void) BANKED {
