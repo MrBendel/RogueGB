@@ -221,6 +221,10 @@ static void card_hide(void) {
     gfx_sprite_split(VIEW_H);
 }
 
+void pickups_card_refresh(void) BANKED {
+    if (card_drop != CARD_NONE) card_draw();  // its numbers are against the gun held
+}
+
 void pickups_card_off(void) BANKED {
     if (card_drop != CARD_NONE) card_hide();
 }

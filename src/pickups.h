@@ -35,6 +35,7 @@ void pickups_load_map(uint8_t opened) BANKED;  // a map was built: its chests (o
 void pickups_update(void) BANKED;         // per frame: chests, picking up, the card
 uint8_t pickups_draw(uint8_t oam) BANKED; // chests and drops from oam on; returns the next free
 void pickups_take(void) BANKED;           // A on the card: take the gun
+void pickups_card_refresh(void) BANKED;    // the held gun changed: the card's comparison again
 void pickups_card_off(void) BANKED;       // put the card away (before the pause menu takes the window)
 void loot_kill_drop(void) BANKED;         // maybe credits where the last enemy died
 

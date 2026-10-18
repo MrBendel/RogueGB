@@ -446,7 +446,10 @@ void play_update(void) BANKED {
     } else {
         if ((joy_released & J_SELECT) && !select_chord) {
             // The file's loadout; the lab and the yard cycle the five plain guns.
-            if (save_slot != SAVE_NONE) loadout_next();
+            if (save_slot != SAVE_NONE) {
+                loadout_next();
+                pickups_card_refresh();
+            }
             else weapon_select(weapon_cur + 1 < WEAPON_COUNT ? weapon_cur + 1 : 0);  // the HUD shows it
         }
         chord_mask &= joy;
