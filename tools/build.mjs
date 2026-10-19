@@ -20,6 +20,7 @@ import { buildChunks } from './chunks.mjs';
 import { buildFonts } from './fonts.mjs';
 import { buildDialogue } from './dialogue.mjs';
 import { buildSkills } from './skills.mjs';
+import { buildTilesets } from './tileset.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -149,7 +150,7 @@ export function build({ clean = false, quiet = false } = {}) {
 
   // Generated sources (artwork -> tiles, room chunks) live in build/gen/ and are never committed.
   buildFonts({ quiet });  // a header, included by src/text.c
-  const genSources = [...buildAssets({ quiet }), buildChunks({ quiet }), buildDialogue({ quiet }), buildSkills({ quiet })];
+  const genSources = [...buildAssets({ quiet }), buildChunks({ quiet }), buildDialogue({ quiet }), buildSkills({ quiet }), ...buildTilesets({ quiet })];
   const sources = [...walk(srcDir, ['.c', '.s']), ...genSources];
   if (!sources.length) throw new Error('no sources in src/');
   const newestHeader = Math.max(0, ...walk(srcDir, ['.h', '.inc']).map(mtime), ...walk(GEN_DIR, ['.h']).map(mtime), mtime(fileURLToPath(import.meta.url)));

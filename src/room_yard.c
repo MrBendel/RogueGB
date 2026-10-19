@@ -137,6 +137,12 @@ static uint8_t cell(int8_t x, int8_t y) {
 }
 
 void room_load_yard(void) BANKED {
+    // With a file this is the town, drawn with the artist's tiles (room_town.c);
+    // without one (B on the title), this hand-laid test yard.
+    if (save_slot != SAVE_NONE) {
+        room_load_town();
+        return;
+    }
     // Tiles from the drawings, into the scene's tiles.
     uint8_t t[16];
     for (uint8_t i = 0; i < T_COUNT; i++) {
@@ -224,12 +230,5 @@ void room_load_yard(void) BANKED {
     talk_zone(8, 2, 11, 5, DLG_RELAY_FIRST_CONTACT, STORY_MET_ECHO);
     talk_add(20, 4, TALK_POST, DLG_VOICE_CEO);
     talk_add(20, 13, TALK_POST, DLG_VOICE_MERIDIAN);
-    // With a file this is the town (the hub): Marro keeps a shop, and the lift goes
-    // down into the descent. Without one (B on the title), just his voice.
-    if (save_slot != SAVE_NONE) {
-        talk_add(18, 10, TALK_MARRO, TALK_DO_SHOP);
-        talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
-    } else {
-        talk_add(18, 10, TALK_MARRO, DLG_VOICE_MARRO);
-    }
+    talk_add(18, 10, TALK_MARRO, DLG_VOICE_MARRO);
 }

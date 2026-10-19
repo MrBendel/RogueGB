@@ -67,6 +67,7 @@ void room_vis_from_map(void) BANKED;
 void room_randomize_floor(void) BANKED;
 // The ice yard (room_yard.c): a test map in six palettes, with a walk-behind roof.
 void room_load_yard(void) BANKED;
+void room_load_town(void) BANKED;  // room_town.c: the town, drawn with the ice tileset (content/tilesets/ice.json)
 
 // Block at a pixel known to be inside the room (no bounds check), for hot loops.
 #define ROOM_BLOCK_IN(x, y) \
