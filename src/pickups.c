@@ -7,6 +7,7 @@
 #include <string.h>
 #include "pickups.h"
 #include "loot.h"
+#include "aim.h"
 #include "level.h"
 #include "descent.h"
 #include "room.h"
@@ -22,6 +23,7 @@
 #include "weapon.h"
 
 #define COIN_VRAM 84        // sprite tiles (bank 0): free between the reload bar's and the chest's
+#define AMMO_VRAM 86        // ... and the ammo's
 #define OPEN_REACH 14       // px between the player's feet and a chest's middle to open it
 #define TAKE_REACH 10       // ... and a drop's, to pick it up (or see a gun's card)
 #define CARD_ROWS 6
@@ -47,6 +49,14 @@ static const uint8_t coin_tiles[32] = {
     0x3C, 0x3C, 0x62, 0x5E, 0xC1, 0xBF, 0xC1, 0xBF, 0xC1, 0xBF, 0x81, 0xFF, 0x42, 0x7E, 0x3C, 0x3C,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
+// Ammo: three cartridges (tips in the highlight, shaded right, a dark base), over a blank tile.
+static const uint8_t ammo_tiles[32] = {
+    0xDB, 0x00, 0xDB, 0x00, 0x49, 0xDB, 0x49, 0xDB, 0x49, 0xDB, 0x49, 0xDB, 0x49, 0xDB, 0xDB, 0xDB,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+// Rounds in a pickup, and its HUD tag, per type.
+static const uint8_t ammo_pack[AMMO_TYPES] = {12, 4, 20, 2};
+static const char ammo_tag[AMMO_TYPES][4] = {"PST", "SHL", "RFL", "SNP"};
 // Rarity colors for the card's name (on the card's paper): grey, green, blue, purple, orange.
 static const uint16_t rarity_ink[RARITIES] = {
     RGB8(96, 88, 80), RGB8(40, 140, 48), RGB8(40, 96, 216), RGB8(144, 56, 200), RGB8(224, 112, 16),
@@ -55,6 +65,7 @@ static const char *const rarity_names[RARITIES] = {"Common", "Uncommon", "Rare",
 
 void pickups_init(void) BANKED {
     set_sprite_data(COIN_VRAM, 2, coin_tiles);
+    set_sprite_data(AMMO_VRAM, 2, ammo_tiles);
     pickups_on = pickups_map = 0;
     card_drop = CARD_NONE;
 }
@@ -96,6 +107,22 @@ static void drop_credits(uint16_t x, uint16_t y, uint16_t value) {
     pickups_on = 1;
 }
 
+static void drop_ammo(uint16_t x, uint16_t y, uint8_t type) {
+    uint8_t d = free_drop();
+    if (d == 0xFF || type >= AMMO_TYPES) return;
+    drop_kind[d] = DROP_AMMO;
+    drop_x[d] = x;
+    drop_y[d] = y;
+    drop_value[d] = type;
+    pickups_on = 1;
+}
+
+// Rounds for a gun in the loadout (a random slot; an empty one or the sword: the held gun's).
+static uint8_t loadout_ammo_type(void) {
+    uint8_t t = profile.guns[rand() & 3].type;
+    return t < AMMO_TYPES ? t : profile.guns[profile.gun_sel].type;
+}
+
 static void drop_gun(uint16_t x, uint16_t y, const Gun *g) {
     uint8_t used = 0;
     for (uint8_t i = 0; i < DROP_MAX; i++)
@@ -127,6 +154,8 @@ static void open_chest(uint8_t c) {
     uint8_t lv = profile.level + (rand() & 1);
     loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, luck);
     drop_gun(x + 10, y, &g);
+    drop_ammo(x, y + 6, profile.guns[profile.gun_sel].type);  // rounds for the gun held ...
+    drop_ammo(x + 4, y - 6, loadout_ammo_type());           // ... and for one you carry
     // Opened for good: into the file now (a continue mustn't refill it).
     profile.exp_chests[level_map] = area_chests_opened[level_map];
     save_write();
@@ -134,7 +163,9 @@ static void open_chest(uint8_t c) {
 
 void loot_kill_drop(void) BANKED {
     if (!pickups_map) return;  // (only where loot can lie: the descent's maps)
-    if ((rand() & 3) == 0) drop_credits(kill_x, kill_y, (uint16_t)(1 + (rand() & 3)) * layer_depth);
+    uint8_t r = rand() & 7;  // a quarter drop credits, an eighth rounds
+    if (r < 2) drop_credits(kill_x, kill_y, (uint16_t)(1 + (rand() & 3)) * layer_depth);
+    else if (r == 2) drop_ammo(kill_x, kill_y, loadout_ammo_type());
 }
 
 // --- the card: a gun on the floor against the one held ---
@@ -290,7 +321,20 @@ void pickups_update(void) BANKED {
             hud_say(t);
             sfx_play(SFX_PICKUP);
             drop_kind[i] = DROP_NONE;
-        } else if (card == CARD_NONE) {
+        } else if (drop_kind[i] == DROP_AMMO) {
+            uint8_t type = drop_value[i], n = ammo_give(type, ammo_pack[type]);
+            if (!n) continue;  // carrying all you can: it stays
+            char t[8] = "+      ";
+            t[1] = '0' + n / 10;
+            t[2] = '0' + n % 10;
+            if (n < 10) t[1] = t[2], t[2] = ' ';
+            for (uint8_t k = 0; k < 3; k++) t[4 + k] = ammo_tag[type][k];
+            hud_say(t);
+            sfx_play(SFX_PICKUP);
+            drop_kind[i] = DROP_NONE;
+            // Holding that gun with an empty magazine: reload now.
+            if (type == weapon_cur && !weapon_ammo[weapon_cur]) aim_reload();
+        } else if (drop_kind[i] == DROP_GUN && card == CARD_NONE) {
             card = i;
         }
     }
@@ -334,6 +378,11 @@ uint8_t pickups_draw(uint8_t oam) BANKED {
             f[2] = COIN_VRAM;
             f[3] = SPR_PAL_SHOT;
             oam = draw16(oam, f, drop_x[i] - 4, drop_y[i] - bob);  // one sprite, in the middle
+        } else if (drop_kind[i] == DROP_AMMO) {
+            f[0] = 0xFF;
+            f[2] = AMMO_VRAM;
+            f[3] = SPR_PAL_SHOT;
+            oam = draw16(oam, f, drop_x[i] - 4, drop_y[i] - bob);
         } else if (drop_kind[i] == DROP_GUN) {
             oam = draw16(oam, floor_icon[drop_value[i]], drop_x[i], drop_y[i] - bob);
         }

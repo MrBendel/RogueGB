@@ -51,6 +51,7 @@ static void start_area(void) {
 
 void descent_start(uint16_t seed) BANKED {
     layer_depth = 1;
+    ammo_fill();  // a new expedition: full reserves
     maps_entered = 0;
     saved_seconds = 0;
     area_seed_base = seed;

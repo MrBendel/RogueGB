@@ -180,3 +180,60 @@ test('a full loadout, room in the backpack: A stows the gun there and leaves the
   assert.equal(emu.read8(A(emu, 'drop_kind') + g), 0, 'nothing left on the floor');
   assert.equal(emu.v('card_drop'), CARD_NONE, 'the card goes');
 });
+
+// --- ammo: a reserve per gun type on an expedition (loot.h) ---
+const AMMO = 198, WEAPON_SWORD = 4, DROP_AMMO = 4;
+const reserve = (emu, t) => emu.read8(A(emu, 'profile') + AMMO + t);
+const mag = (emu) => emu.read8(A(emu, 'weapon_ammo') + emu.v('weapon_cur'));
+
+test('an expedition starts with full reserves; a reload draws from them, and only what is there', () => {
+  const emu = startDescent().idle(4);
+  assert.deepEqual([0, 1, 2, 3].map((t) => reserve(emu, t)), [72, 24, 120, 12]);
+  emu.writeBytes(A(emu, 'profile') + AMMO, [5]);
+  emu.writeBytes(A(emu, 'weapon_ammo') + emu.v('weapon_cur'), [1]);
+  emu.tap('A').idle(120);  // the last round, then the reload
+  assert.equal(mag(emu), 5, 'the reserve went into the magazine');
+  assert.equal(reserve(emu, 0), 0);
+});
+
+test('every gun dry: A says so and takes up the sword; picking up rounds puts the gun back in hand', () => {
+  const emu = startDescent().idle(4);
+  emu.writeBytes(A(emu, 'profile') + AMMO, [0]);
+  emu.writeBytes(A(emu, 'weapon_ammo') + emu.v('weapon_cur'), [0]);
+  emu.tap('A').idle(2);
+  assert.equal(emu.v('melee_fallback'), 1);
+  assert.equal(emu.v('weapon_cur'), WEAPON_SWORD);
+  // Pistol rounds at the player's feet.
+  emu.writeBytes(A(emu, 'drop_kind'), [DROP_AMMO]);
+  emu.writeBytes(A(emu, 'drop_value'), [0, 0]);
+  emu.writeBytes(A(emu, 'drop_x'), [emu.read8(A(emu, 'player_x')), emu.read8(A(emu, 'player_x') + 1)]);
+  emu.writeBytes(A(emu, 'drop_y'), [emu.read8(A(emu, 'player_y')), emu.read8(A(emu, 'player_y') + 1)]);
+  emu.writeBytes(A(emu, 'pickups_on'), [1]);
+  emu.idle(3);
+  assert.equal(emu.read8(A(emu, 'drop_kind')), 0, 'taken');
+  assert.equal(emu.v('melee_fallback'), 0);
+  assert.equal(emu.v('weapon_cur'), 0, 'the pistol again');
+  emu.idle(120);
+  assert.equal(mag(emu), 12, 'reloaded from the pickup');
+  assert.equal(reserve(emu, 0), 0);
+});
+
+test('a dry gun with another loaded: A switches to that one, not the sword', () => {
+  const emu = startDescent().idle(4);
+  emu.writeBytes(A(emu, 'profile') + GUNS + GUN_SIZE, [1, 0, 1, 0, 0, 0, 0, 0, 0]);  // a shotgun, slot 2
+  emu.writeBytes(A(emu, 'slot_ammo') + 1, [255]);
+  emu.writeBytes(A(emu, 'profile') + AMMO, [0]);
+  emu.writeBytes(A(emu, 'weapon_ammo') + emu.v('weapon_cur'), [0]);
+  emu.tap('A').idle(2);
+  assert.equal(emu.v('melee_fallback'), 0);
+  assert.equal(emu.v('weapon_cur'), 1, 'the shotgun');
+});
+
+test("the lab's ammo isn't limited", () => {
+  const emu = settle(bootToTitle().tap('SELECT'), PLAY).idle(4);
+  const before = emu.v('reloads', 'u16');
+  emu.writeBytes(A(emu, 'weapon_ammo') + emu.v('weapon_cur'), [1]);
+  emu.tap('A').idle(120);
+  assert.ok(emu.v('reloads', 'u16') > before);
+  assert.ok(mag(emu) > 1, 'a full magazine');
+});

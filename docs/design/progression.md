@@ -102,6 +102,16 @@ Status: decided where marked; the rest is the working plan. Builds on
   and the backpack: A picks a gun up, A on another slot swaps them (the last gun
   can't leave the loadout; B puts it back). Files grew to 256 bytes a copy for it
   (save version 4; the options moved to 0xA600).
+- **Ammo** (decided 2026-10-19: limited, to push weapon switching). A reserve per
+  gun type (pistol 72, shotgun 24, rifle 120, sniper 12 rounds), filled when an
+  expedition starts and saved with it; each backpack upgrade carries half again as
+  much. A reload takes only what's in reserve. A gun that's out: A switches to the
+  next gun with rounds, or to the sword (always works) when every gun is dry; the
+  HUD says NO AMMO. An eighth of kills drop rounds for a loadout gun, and a chest
+  drops two (for the held gun and one carried); a full reserve leaves them lying.
+  Picking up rounds while on the sword puts that gun back in hand. Unlimited in the
+  lab, the yard and the town. The Gear page shows each loadout gun's reserve.
+  Later: an ammo depot (a vending machine) to restock, and the reserve on the HUD.
 
 ## Next
 

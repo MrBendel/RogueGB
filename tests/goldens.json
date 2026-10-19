@@ -21,7 +21,7 @@
   "hud-sprite-clipped": "2e698cd2",
   "jump-mid": "56e5a315",
   "lab-moved": "f3f2420e",
-  "loot-card": "b9330af0",
+  "loot-card": "7f565bcc",
   "on-platform": "14ccfd51",
   "pause-character": "3366979a",
   "pause-options": "0b9b1f59",
@@ -47,6 +47,6 @@
   "yard-behind-roof": "3aac0740",
   "yard-catwalk": "d98fccbd",
   "yard-start": "123b7928",
-  "pause-gear": "83b0f176",
-  "pause-gear-scrolled": "58b1915c"
+  "pause-gear": "d33d1af2",
+  "pause-gear-scrolled": "083c7ad8"
 }

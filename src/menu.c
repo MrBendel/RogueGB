@@ -502,6 +502,13 @@ static void draw_gear(void) {
         if (i >= LOADOUT && (i - LOADOUT < gear_top || i - LOADOUT >= gear_top + GEAR_ROWS)) continue;
         gun_row(gear_row(i), gear_gun(i), i == gear_pick ? P_SEL : 0xFF);
         if (i == profile.gun_sel && save_slot != SAVE_NONE) say_c(128, gear_row(i), "held", P_DIM);
+        // On an expedition: the rounds in reserve for each loadout gun.
+        uint8_t t = gear_gun(i)->type;
+        if (i < LOADOUT && t < AMMO_TYPES && ammo_limited()) {
+            p = put_num(line, profile.ammo[t], 1);
+            *p = 0;
+            say(104, gear_row(i), line, profile.ammo[t] ? P_DIM : P_SEL, 0xFF);
+        }
     }
     scroll_marks(GEAR_PACK_ROW, GEAR_ROWS, gear_top, profile.pack_size);
     gear_marker = arrow_at(gear_row(gear_sel));
@@ -654,6 +661,7 @@ static void shop_detail(void) {
         p = put_num(p, profile.pack_size + PACK_STEP, 1);
         *p = 0;
         say(8, SHOP_DETAIL, l1, P_INK, shop_tiles);
+        say_at(8, SHOP_DETAIL + 1, "and half again as much ammo.", P_INK, shop_tiles + 19);
         ok = profile.credits >= pack_upgrade_price();
         say_at(8, SHOP_DETAIL + 3, ok ? "A: buy" : "Not enough credits.", ok ? P_LIT : P_DIM, shop_tiles + 38);
         return;

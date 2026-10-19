@@ -4,6 +4,7 @@
 // target choice, reticle); the shots move in shots.s. See aim.h.
 #include <gb/gb.h>
 #include "aim.h"
+#include "loot.h"
 #include "actor.h"
 #include "player.h"
 #include "room.h"
@@ -128,6 +129,7 @@ static void reload_bar_tiles(uint8_t v) {
 }
 
 static void reload_start(void) {
+    if (!ammo_left()) return;  // no rounds in reserve (an expedition's limit: loot.h)
     reload_t = wpn.reload ? wpn.reload : 1;
     weapon_windup = 0;
     reload_fill = 0;
@@ -549,13 +551,17 @@ static uint8_t trigger(void) {
     if (reload_t) {
         reload_fill += reload_step;
         if (!--reload_t) {
-            weapon_ammo[weapon_cur] = wpn.mag;
+            weapon_ammo[weapon_cur] += ammo_take(wpn.mag - weapon_ammo[weapon_cur]);
             burst_left = 0;  // a burst cut off by the reload doesn't resume
         }
         reticle_tight = 0;
         return 0;
     }
     if (wpn.mode == FIRE_MELEE) return swing(pressed, able);
+    if (wpn.mag && !weapon_ammo[weapon_cur]) {  // out, and nothing to reload with
+        if (pressed) ammo_dry();
+        return 0;
+    }
     switch (wpn.mode) {
     case FIRE_SEMI:
         // A press fires once the tap interval has passed; holding, the full interval.

@@ -14,6 +14,10 @@
 #define PACK_START 4   // backpack slots a new character has ...
 #define PACK_STEP 4    // ... each upgrade from Marro adds ...
 #define PACK_MAX 12    // ... up to
+// Ammo: a reserve per gun type (pistol, shotgun, rifle, sniper; the sword needs
+// none), limited on an expedition and filled when one starts. A reload draws from
+// it; drops and chests add to it. Each backpack upgrade carries half again as much.
+#define AMMO_TYPES 4
 #define GUN_NONE 0xFF  // an empty loadout slot (its type)
 
 #define RARITY_COMMON 0     // white
@@ -70,5 +74,14 @@ uint8_t pack_free(void) BANKED;
 uint8_t pack_add(const Gun *g) BANKED;
 // What the next backpack upgrade costs (0: it's as big as it gets).
 uint16_t pack_upgrade_price(void) BANKED;
+
+extern uint8_t melee_fallback;  // every gun dry: the sword in hand until a switch or ammo
+uint8_t ammo_limited(void) BANKED;          // on an expedition with a file
+uint8_t ammo_cap(uint8_t type) BANKED;      // the most rounds of a type carried
+void ammo_fill(void) BANKED;                // every reserve full (a new expedition)
+uint8_t ammo_left(void) BANKED;             // the held gun's reserve (255: unlimited)
+uint8_t ammo_take(uint8_t need) BANKED;     // a reload: rounds out of the reserve (up to need)
+uint8_t ammo_give(uint8_t type, uint8_t n) BANKED;  // a pickup: rounds added (0: full)
+void ammo_dry(void) BANKED;                 // the held gun is out: the next with rounds, or the sword
 
 #endif

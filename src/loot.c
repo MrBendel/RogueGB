@@ -8,6 +8,8 @@
 #include "save.h"
 #include "weapon.h"
 #include "skills.h"
+#include "hud.h"
+#include "run.h"
 
 #define MIN_INTERVAL 3   // the fastest a gun fires (frames between shots)
 #define MIN_RELOAD 12    // ... and reloads
@@ -16,6 +18,7 @@ Gun gun_held;
 uint8_t gun_mods;
 uint8_t slot_ammo[LOADOUT];
 uint16_t guns_rolled;
+uint8_t melee_fallback;
 
 // Rarity by a roll out of 100: common 60, uncommon 25, rare 10, epic 4, legendary 1
 // (luck moves the roll up: deeper areas find better guns).
@@ -70,6 +73,7 @@ void gun_apply(WeaponStats *w, const Gun *g) BANKED {
 
 void loadout_select(uint8_t slot) BANKED {
     if (profile.guns[slot].type == GUN_NONE) return;
+    melee_fallback = 0;
     // Each slot keeps its own magazine (two shotguns don't share one).
     if (gun_mods) slot_ammo[profile.gun_sel] = weapon_ammo[weapon_cur];
     profile.gun_sel = slot;
@@ -83,7 +87,7 @@ void loadout_next(void) BANKED {
     for (uint8_t i = 1; i <= LOADOUT; i++) {
         uint8_t s = (profile.gun_sel + i) % LOADOUT;
         if (profile.guns[s].type != GUN_NONE) {
-            if (s != profile.gun_sel) loadout_select(s);
+            if (s != profile.gun_sel || melee_fallback) loadout_select(s);
             return;
         }
     }
@@ -176,6 +180,78 @@ uint8_t pack_add(const Gun *g) BANKED {
 
 uint16_t pack_upgrade_price(void) BANKED {
     return profile.pack_size >= PACK_MAX ? 0 : profile.pack_size == PACK_START ? 300 : 800;
+}
+
+// --- ammo ---
+
+static const uint8_t ammo_base[AMMO_TYPES] = {72, 24, 120, 12};
+
+uint8_t ammo_limited(void) BANKED {
+    return save_slot != SAVE_NONE && play_mode == MODE_DESCENT;
+}
+
+uint8_t ammo_cap(uint8_t type) BANKED {
+    uint8_t b = ammo_base[type], tier = (profile.pack_size - PACK_START) / PACK_STEP;
+    return b + (b >> 1) * tier;
+}
+
+void ammo_fill(void) BANKED {
+    for (uint8_t t = 0; t < AMMO_TYPES; t++) profile.ammo[t] = ammo_cap(t);
+}
+
+uint8_t ammo_left(void) BANKED {
+    if (!ammo_limited() || weapon_cur >= AMMO_TYPES) return 255;
+    return profile.ammo[weapon_cur];
+}
+
+uint8_t ammo_take(uint8_t need) BANKED {
+    if (!ammo_limited() || weapon_cur >= AMMO_TYPES) return need;
+    uint8_t r = profile.ammo[weapon_cur];
+    if (need > r) need = r;
+    profile.ammo[weapon_cur] = r - need;
+    return need;
+}
+
+// The first loadout slot after the held one whose gun can fire (rounds in it or
+// in reserve, or a sword); LOADOUT: none.
+static uint8_t armed_slot(void) {
+    for (uint8_t i = 1; i <= LOADOUT; i++) {
+        uint8_t s = (profile.gun_sel + i) % LOADOUT, t = profile.guns[s].type;
+        if (t == GUN_NONE) continue;
+        if (t >= AMMO_TYPES || slot_ammo[s] || profile.ammo[t]) return s;
+    }
+    return LOADOUT;
+}
+
+uint8_t ammo_give(uint8_t type, uint8_t n) BANKED {
+    uint8_t r = profile.ammo[type], cap = ammo_cap(type);
+    if (r >= cap) return 0;
+    if (n > cap - r) n = cap - r;
+    profile.ammo[type] = r + n;
+    // On the sword because everything was dry: back to a gun that can use it.
+    if (melee_fallback) {
+        for (uint8_t s = 0; s < LOADOUT; s++) {
+            if (profile.guns[s].type != type) continue;
+            loadout_select(s);
+            break;
+        }
+    }
+    return n;
+}
+
+void ammo_dry(void) BANKED {
+    char t[8] = "NO AMMO";
+    hud_say(t);
+    if (gun_mods) slot_ammo[profile.gun_sel] = weapon_ammo[weapon_cur];
+    uint8_t s = armed_slot();
+    if (s < LOADOUT) {
+        loadout_select(s);
+        return;
+    }
+    // Nothing loaded anywhere: the sword (no gun's parts on it).
+    gun_mods = 0;
+    melee_fallback = 1;
+    weapon_select(WEAPON_SWORD);
 }
 
 uint16_t gun_price(const Gun *g) BANKED {

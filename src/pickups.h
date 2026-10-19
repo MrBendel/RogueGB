@@ -16,6 +16,7 @@
 #define DROP_NONE 0
 #define DROP_CREDITS 1
 #define DROP_GUN 2
+#define DROP_AMMO 4  // value: the gun type
 #define DROP_GUNS 3  // guns on the floor at once (their Gun records)
 #define CARD_NONE 0xFF
 

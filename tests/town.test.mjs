@@ -166,3 +166,12 @@ test("selling: RIGHT turns to the backpack's guns; A sells one for a quarter of 
   emu.tap('LEFT').idle(2);
   assert.equal(emu.v('shop_mode'), 0, 'back to buying');
 });
+
+test('a bigger backpack carries half again as much ammo on the next expedition', () => {
+  const emu = atShop(300);
+  for (let i = 0; i < 3; i++) emu.tap('DOWN').idle(2);
+  emu.tap('A').idle(4).tap('B').idle(4);
+  assert.equal(prof(emu, PACK_SIZE), 8);
+  takeLiftDown(emu);
+  assert.equal(prof(emu, 198), 108, 'pistol rounds: 72 and half again');
+});

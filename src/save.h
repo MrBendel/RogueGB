@@ -16,7 +16,7 @@
 
 #define SAVE_SLOTS 3
 #define SAVE_NONE 0xFF
-#define SAVE_VERSION 4  // 2: guns as items (loot.h); 3: story flags; 4: the backpack (256-byte copies)
+#define SAVE_VERSION 5  // 2: guns as items (loot.h); 3: story flags; 4: the backpack (256-byte copies); 5: ammo
 #define DEATH_FEE_SHIFT 3  // the corporation's cut for rebuilding you: credits >> 3 (12.5%; a shift, no 32-bit division)
 
 typedef struct {
@@ -44,6 +44,7 @@ typedef struct {
     uint8_t story;          // STORY_*: what's happened in the story (once per file)
     uint8_t pack_size;      // backpack slots (PACK_START .. PACK_MAX, bought from Marro)
     Gun pack[PACK_MAX];     // the backpack; type GUN_NONE: an empty slot
+    uint8_t ammo[AMMO_TYPES];  // the expedition's reserve rounds, per gun type (loot.h)
 } Profile;
 
 #define STORY_MET_ECHO 1    // her first contact at the town's relay has played
