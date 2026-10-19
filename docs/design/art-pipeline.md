@@ -46,10 +46,20 @@ Status: first version 2026-10-19 (the town in the artist's ice art).
 ## The ice set (content/tilesets/ice.json)
 
 Ground: `snow`, `snow_specks`, `snow_dots` (the cliff's base), `cliff`, `fence`.
-Buildings: `roof` (the middle cabin's, with the gradient top; the big rounded panels are floating ice sheets, for water later), fronts `win_a` `door_a` `win_b`
-`door_b` `win_c` `win_d` `door_d` `shutter` `win_e`, `hut`, the roof with a house
-sign over the door `roof_sign_a` `roof_sign_b` (map: `e` `E` in the roof's lower row). Props: crate, rock, barrel, signpost, shelf, fire barrel, drum,
-ammo tub, vending machine, lockers, chest (and open), safe, gun box (and open).
+Terrain: `water` (the two sparkly 8x8 tiles, made a block), `ice_floe` (the big
+rounded ice sheet: walkable, in water), `ice_chunk` (in water), `rock_wall`,
+`spire`, `boulder`, `rock`, `ladder` (up a cliff face), `ice_ledge`, `palisade`,
+fence posts `post` `post_b`.
+Buildings: `roof` (the middle cabin's, with the gradient top), fronts `win_a`
+`door_a` `win_b` `door_b` `win_c` `win_d` `door_d` `shutter` `win_e`, `hut`, the
+roof with a house sign over the door `roof_sign_a` `roof_sign_b` (map: `e` `E` in
+the roof's lower row).
+Props: crate, barrel, signpost, fire barrel, drum, ammo tub, vending machine,
+lockers, chest, gun box.
 
-For water, later (not in the set yet): the big rounded ice sheets and the small
-ice chunk on blue (sheet 96,144) float in water; they don't go on the snow.
+The town uses 63 of the 64 blocks: the open chest and gun box, the safe, the shelf
+and the second ice sheet are out for now (a second tileset, or interiors, can take
+them).
+
+Art that would help next: shore edges and corners where water meets snow (it's a
+hard step now), and paths (worn snow).
