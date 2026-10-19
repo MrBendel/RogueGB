@@ -15,7 +15,7 @@
 
 #define MACHINE_VRAM 96
 #define SHADOW_VRAM 8
-#define VENT_TILE_BASE 144
+#define VENT_TILE_BASE 144u
 
 #define VENT_COUNT 4
 uint8_t flynt_state, flynt_timer, flynt_phase;
@@ -117,6 +117,9 @@ static const char flynt_art[4][16][17] = {
      "0000000000000000"}
 };
 
+extern uint16_t pal_bg[PAL_COUNT * 4];
+extern volatile uint8_t pal_dirty;
+
 // CGB background palette for rising floor spikes (Palette 5)
 static const uint16_t spike_bg_palette[4] = {
     RGB8(232, 220, 192), // Floor stone base
@@ -125,84 +128,92 @@ static const uint16_t spike_bg_palette[4] = {
     RGB8(36, 28, 36)     // Deep hole / shadow
 };
 
-// 2x2 background tile graphics for floor spike traps (4 stages = 16 tiles):
-// Stage 0 (Tiles 144-147): Retracted holes in stone plate with dried blood
-// Stage 1 (Tiles 148-151): Warning stage: silver tips peeking up inside holes
-// Stage 2 (Tiles 152-155): Extending stage: sharp triangular spikes rising halfway
-// Stage 3 (Tiles 156-159): Fully extended sharp blood-tipped spikes (active hazard)
-static const char spike_art[4][16][17] = {
-    // Stage 0: Retracted Holes with Blood
-    {"3000000000000003",
-     "0033300333003320",
-     "0033300333003220",
-     "0003000030000020",
-     "0000000000000000",
-     "0233300333003330",
-     "2233300333003330",
-     "0203000030000030",
-     "0000000000000000",
-     "0000000000000000",
-     "0033300333003320",
-     "0033300333003220",
-     "0003000030000020",
-     "0000000000000000",
-     "0000000000000000",
-     "3000000000000003"},
-
-    // Stage 1: Warning Tips Emerging
-    {"3000000000000003",
-     "0031300313003210",
-     "0031300313003220",
-     "0003000030000020",
-     "0000000000000000",
-     "0211300313003130",
-     "2211300313003130",
-     "0203000030000030",
-     "0000000000000000",
-     "0000000000000000",
-     "0031300313003210",
-     "0031300313003220",
-     "0003000030000020",
-     "0000000000000000",
-     "0000000000000000",
-     "3000000000000003"},
-
-    // Stage 2: Extending Halfway
-    {"3001000010000023",
-     "0011100111000220",
-     "0311133111303210",
-     "0033300333003330",
-     "0002000010000010",
-     "0222100111000110",
-     "2221133111303110",
-     "0033300333003330",
-     "0000000000000000",
-     "0001000010000020",
-     "0011100111000220",
-     "0311133111303210",
-     "0033300333003330",
-     "0000000000000000",
-     "0000000000000000",
-     "3000000000000003"},
-
-    // Stage 3: Fully Extended Razor Spikes with Blood
-    {"3001000010000023",
-     "0011100111000220",
-     "0011100111000210",
-     "0311133111303210",
-     "0002000010000010",
-     "0022200111000110",
-     "0221100111000110",
-     "2211133111303110",
-     "0033300333003330",
-     "0001000010000020",
-     "0011100111000220",
-     "0011100111000210",
-     "0311133111303210",
-     "0311133111303110",
-     "0033300333003330",
-     "3000000000000003"}
+// Warning flash palette (intense glowing fiery red/amber danger)
+static const uint16_t spike_warn_palette[4] = {
+    RGB8(255, 110, 60),  // Glowing fiery warning orange/red stone!
+    RGB8(255, 245, 170), // Intense white-hot tip highlight!
+    RGB8(255, 30, 20),   // Burning danger red
+    RGB8(80, 15, 10)     // Deep pit / warning dark rim
 };
+
+// Pre-baked 2BPP tile graphics for floor spike traps (4 stages x 4 tiles = 64 bytes per stage):
+// Stage 0: Retracted holes in stone plate with dried blood
+// Stage 1: Warning stage: silver tips peeking up inside holes
+// Stage 2: Extending stage: sharp triangular spikes rising halfway
+// Stage 3: Fully extended sharp blood-tipped spikes (active hazard)
+static const uint8_t spike_tiles_var0[4][64] = {
+    // Stage 0
+    {
+        0x80, 0x80, 0x39, 0x39, 0x39, 0x39, 0x10, 0x10, 0x00, 0x00, 0x39, 0x79, 0x39, 0xF9, 0x10, 0x50,
+        0x01, 0x01, 0xCC, 0xCE, 0xC8, 0xCE, 0x80, 0x82, 0x00, 0x00, 0xCE, 0xCE, 0xCE, 0xCE, 0x82, 0x82,
+        0x00, 0x00, 0x00, 0x00, 0x39, 0x39, 0x39, 0x39, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
+        0x00, 0x00, 0x00, 0x00, 0xCC, 0xCE, 0xC8, 0xCE, 0x80, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
+    },
+    // Stage 1
+    {
+        0x80, 0x80, 0x39, 0x29, 0x39, 0x29, 0x10, 0x10, 0x00, 0x00, 0x39, 0x49, 0x39, 0xC9, 0x10, 0x50,
+        0x01, 0x01, 0xCA, 0x4C, 0xC8, 0x4E, 0x80, 0x82, 0x00, 0x00, 0xCE, 0x4A, 0xCE, 0x4A, 0x82, 0x82,
+        0x00, 0x00, 0x00, 0x00, 0x39, 0x29, 0x39, 0x29, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
+        0x00, 0x00, 0x00, 0x00, 0xCA, 0x4C, 0xC8, 0x4E, 0x80, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
+    },
+    // Stage 2
+    {
+        0x90, 0x80, 0x39, 0x00, 0x7F, 0x46, 0x39, 0x39, 0x00, 0x10, 0x09, 0x70, 0x1F, 0xE6, 0x39, 0x39,
+        0x81, 0x03, 0xC0, 0x06, 0xEA, 0x2C, 0xCE, 0xCE, 0x82, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0xCE, 0xCE,
+        0x00, 0x00, 0x10, 0x00, 0x39, 0x00, 0x7F, 0x46, 0x39, 0x39, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
+        0x00, 0x00, 0x80, 0x02, 0xC0, 0x06, 0xEA, 0x2C, 0xCE, 0xCE, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
+    },
+    // Stage 3
+    {
+        0x90, 0x80, 0x39, 0x00, 0x39, 0x00, 0x7F, 0x46, 0x00, 0x10, 0x01, 0x38, 0x19, 0x60, 0x3F, 0xC6,
+        0x81, 0x03, 0xC0, 0x06, 0xC2, 0x04, 0xEA, 0x2C, 0x82, 0x00, 0xC6, 0x00, 0xC6, 0x00, 0xEE, 0x28,
+        0x39, 0x39, 0x10, 0x00, 0x39, 0x00, 0x39, 0x00, 0x7F, 0x46, 0x7F, 0x46, 0x39, 0x39, 0x80, 0x80,
+        0xCE, 0xCE, 0x80, 0x02, 0xC0, 0x06, 0xC2, 0x04, 0xEA, 0x2C, 0xEE, 0x28, 0xCE, 0xCE, 0x01, 0x01,
+    },
+};
+
+static const uint8_t spike_tiles_var1[4][64] = {
+    // Stage 0
+    {
+        0x80, 0x80, 0x39, 0x79, 0x39, 0xF9, 0x10, 0x50, 0x00, 0x00, 0x39, 0x39, 0x39, 0x39, 0x10, 0x10,
+        0x01, 0x01, 0xCE, 0xCE, 0xCE, 0xCE, 0x82, 0x82, 0x00, 0x00, 0xCC, 0xCE, 0xC8, 0xCE, 0x80, 0x82,
+        0x00, 0x00, 0x00, 0x00, 0x39, 0x79, 0x39, 0xF9, 0x10, 0x50, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
+        0x00, 0x00, 0x00, 0x00, 0xCE, 0xCE, 0xCE, 0xCE, 0x82, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
+    },
+    // Stage 1
+    {
+        0x80, 0x80, 0x39, 0x49, 0x39, 0xC9, 0x10, 0x50, 0x00, 0x00, 0x39, 0x29, 0x39, 0x29, 0x10, 0x10,
+        0x01, 0x01, 0xCE, 0x4A, 0xCE, 0x4A, 0x82, 0x82, 0x00, 0x00, 0xCA, 0x4C, 0xC8, 0x4E, 0x80, 0x82,
+        0x00, 0x00, 0x00, 0x00, 0x39, 0x49, 0x39, 0xC9, 0x10, 0x50, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
+        0x00, 0x00, 0x00, 0x00, 0xCE, 0x4A, 0xCE, 0x4A, 0x82, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
+    },
+    // Stage 2
+    {
+        0x80, 0x90, 0x09, 0x70, 0x1F, 0xE6, 0x39, 0x39, 0x10, 0x00, 0x39, 0x00, 0x7F, 0x46, 0x39, 0x39,
+        0x83, 0x01, 0xC6, 0x00, 0xEE, 0x28, 0xCE, 0xCE, 0x80, 0x02, 0xC0, 0x06, 0xEA, 0x2C, 0xCE, 0xCE,
+        0x00, 0x00, 0x00, 0x10, 0x09, 0x70, 0x1F, 0xE6, 0x39, 0x39, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
+        0x00, 0x00, 0x82, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0xCE, 0xCE, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
+    },
+    // Stage 3
+    {
+        0x80, 0x90, 0x01, 0x38, 0x19, 0x60, 0x3F, 0xC6, 0x10, 0x00, 0x39, 0x00, 0x39, 0x00, 0x7F, 0x46,
+        0x83, 0x01, 0xC6, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0x80, 0x02, 0xC0, 0x06, 0xC2, 0x04, 0xEA, 0x2C,
+        0x39, 0x39, 0x00, 0x10, 0x01, 0x38, 0x19, 0x60, 0x3F, 0xC6, 0x7F, 0x46, 0x39, 0x39, 0x80, 0x80,
+        0xCE, 0xCE, 0x82, 0x00, 0xC6, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0xEE, 0x28, 0xCE, 0xCE, 0x01, 0x01,
+    },
+};
+
+static void set_floor_palette(const uint16_t *c) {
+    memcpy(&pal_base_bg[5 << 2], c, 8);
+    memcpy(&pal_bg[5 << 2], c, 8);
+    pal_dirty = 1;
+}
+
+static void flynt_set_spike_stage(uint8_t s) {
+    if (s > 3) s = 3;
+    set_bkg_data((uint8_t)VENT_TILE_BASE, 4, spike_tiles_var0[s]);
+    set_bkg_data((uint8_t)(VENT_TILE_BASE + 4u), 4, spike_tiles_var1[s]);
+}
 
 static void load_flynt_art(void) {
     uint8_t tiles[64];
@@ -223,27 +234,11 @@ static void load_flynt_art(void) {
         set_sprite_data(MACHINE_VRAM + (f << 2), 4, tiles);
     }
 
-    // 2. Background tile art: 4 stages of floor spike traps (4 tiles each = 16 tiles)
-    for (uint8_t s = 0; s < 4; s++) {
-        for (uint8_t t = 0; t < 4; t++) {
-            uint8_t t_row = (t >> 1) * 8;
-            uint8_t t_col = (t & 1) * 8;
-            for (uint8_t y = 0; y < 8; y++) {
-                uint8_t lo = 0, hi = 0;
-                for (uint8_t x = 0; x < 8; x++) {
-                    uint8_t c = spike_art[s][t_row + y][t_col + x] - '0';
-                    lo = (lo << 1) | (c & 1);
-                    hi = (hi << 1) | (c >> 1);
-                }
-                tiles[(y << 1)] = lo;
-                tiles[(y << 1) + 1] = hi;
-            }
-            set_bkg_data(VENT_TILE_BASE + (s << 2) + t, 1, tiles);
-        }
-    }
+    // 2. Load initial retracted stage 0 for spike floor
+    flynt_set_spike_stage(0);
 
     // Set background palette 5 to steel spike & blood colors
-    memcpy(&pal_base_bg[5 << 2], spike_bg_palette, 8);
+    set_floor_palette(spike_bg_palette);
     gfx_set_fade(0);
 }
 
@@ -289,6 +284,27 @@ static void aim_vector(uint16_t sx, uint16_t sy, uint16_t tx, uint16_t ty, uint8
 
 void flynt_room(void) BANKED {
     boss_room();
+    // 1. In VRAM Bank 1, map all arena floor cells (tx: 2..17, ty: 2..13) to Palette 5
+    VBK_REG = 1;
+    fill_bkg_rect(2, 2, 16, 12, 5);
+    VBK_REG = 0;
+
+    // 2. Map all floor visual blocks in room_tile_lut to the two spike trap variants at VENT_TILE_BASE:
+    // Variant 0 (tiles 144..147): blocks 0, 8, 10
+    // Variant 1 (tiles 148..151): blocks 7, 9, 11
+    for (uint8_t v = 0; v < VIS_BLOCKS; v++) {
+        if (v == 0 || v == 8 || v == 10) {
+            room_tile_lut[(v << 2) + 0] = (uint8_t)(VENT_TILE_BASE + 0u);
+            room_tile_lut[(v << 2) + 1] = (uint8_t)(VENT_TILE_BASE + 1u);
+            room_tile_lut[(v << 2) + 2] = (uint8_t)(VENT_TILE_BASE + 2u);
+            room_tile_lut[(v << 2) + 3] = (uint8_t)(VENT_TILE_BASE + 3u);
+        } else if (v == 7 || v == 9 || v == 11) {
+            room_tile_lut[(v << 2) + 0] = (uint8_t)(VENT_TILE_BASE + 4u);
+            room_tile_lut[(v << 2) + 1] = (uint8_t)(VENT_TILE_BASE + 5u);
+            room_tile_lut[(v << 2) + 2] = (uint8_t)(VENT_TILE_BASE + 6u);
+            room_tile_lut[(v << 2) + 3] = (uint8_t)(VENT_TILE_BASE + 7u);
+        }
+    }
 }
 
 void flynt_start(void) BANKED {
@@ -320,10 +336,10 @@ void flynt_start(void) BANKED {
     flynt_status_msg = "STALK";
 
     flynt_vent_cycle = 0;
-    flynt_vent_timer = 60;
+    flynt_vent_timer = 90;
     for (uint8_t i = 0; i < VENT_COUNT; i++) {
         vent_stage[i] = 0;
-        vent_painted[i] = 0xFF; // forces initial paint
+        vent_painted[i] = 0;
     }
     vent_cursor = 0;
 
@@ -332,45 +348,26 @@ void flynt_start(void) BANKED {
     flynt_shown_hp = flynt_shown_state = 0xFF;
 }
 
-// Redraw one furnace vent patch per frame via queued strips
+// Redraw / strip sync hook
 static void update_vent_graphics(void) {
-    for (uint8_t n = 0; n < VENT_COUNT; n++) {
-        uint8_t i = vent_cursor;
-        vent_cursor = (vent_cursor + 1) & 3;
-        uint8_t stage = vent_stage[i];
-        if (stage == vent_painted[i]) continue;
-
-        uint8_t tx = vent_tx[i];
-        uint8_t ty = vent_ty[i];
-        for (uint8_t row = 0; row < 2; row++) {
-            uint8_t *strip = gfx_strip_attr(tx, ty + row, 0, 2);
-            for (uint8_t col = 0; col < 2; col++) {
-                strip[col] = VENT_TILE_BASE + (stage << 2) + (row << 1) + col;
-                strip[STRIP_MAX_LEN + col] = 5; // Palette 5: blazing fire
-            }
-        }
-        vent_painted[i] = stage;
-        return; // at most one vent strip per frame
-    }
+    // Floor is mapped across all cells in room_tile_lut and VRAM bank 1;
+    // stage changes are applied instantaneously to VRAM tiles at VENT_TILE_BASE.
 }
 
-// Check player collision with erupting floor spikes
+// Check player collision with floor spikes
 static void update_vent_hazards(void) {
-    if (!player_hittable() || player_z > 0) return; // JUMPING CLEARS FLOOR SPIKES!
+    if (!player_hittable() || player_z > 0) return; // JUMPING OVER SPIKES IS SAFE!
+    if (vent_stage[0] < 2 && flynt_vent_cycle != 2) return;
+
     uint16_t px = player_x + PLAYER_HB_X;
     uint16_t py = player_y + PLAYER_HB_Y;
 
-    for (uint8_t i = 0; i < VENT_COUNT; i++) {
-        if (vent_stage[i] < 2) continue; // Stages 2 (extending) and 3 (full extended) deal damage
-        uint16_t vx = (uint16_t)vent_tx[i] << 3;
-        uint16_t vy = (uint16_t)vent_ty[i] << 3;
-        if (px + PLAYER_HB_W > vx && px < vx + 16 &&
-            py + PLAYER_HB_H > vy && py < vy + 16) {
-            hurt_cause = 15;
-            player_hurt(8, vx + 8, vy + 8);
-            camera_shake(SHAKE_SMALL);
-            return;
-        }
+    // Entire arena floor area (x: 16..144, y: 16..112)
+    if (px + PLAYER_HB_W > 16 && px < 144 &&
+        py + PLAYER_HB_H > 16 && py < 112) {
+        hurt_cause = 15;
+        player_hurt(8, player_x + 8, player_y + 8);
+        camera_shake(SHAKE_SMALL);
     }
 }
 
@@ -379,39 +376,44 @@ static void update_furnace_cycle(void) {
     if (!flynt_vent_timer) {
         flynt_vent_cycle = (flynt_vent_cycle + 1) % 3;
         switch (flynt_vent_cycle) {
-        case 0: // All spikes retracted (safe)
+        case 0: // All spikes retracted (safe window)
             for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 0;
-            flynt_vent_timer = (flynt_phase >= 2) ? 45 : 75;
+            flynt_set_spike_stage(0);
+            set_floor_palette(spike_bg_palette);
+            flynt_vent_timer = (flynt_phase >= 2) ? 60 : 90;
             break;
-        case 1: // Warning: tips emerge from holes
-            if (flynt_phase == 1) { // In Flame Cloak: all 4 spike traps prime!
-                for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 1;
-            } else { // Alternating diagonal pairs
-                static uint8_t alt = 0;
-                alt ^= 1;
-                vent_stage[0] = alt ? 1 : 0;
-                vent_stage[3] = alt ? 1 : 0;
-                vent_stage[1] = alt ? 0 : 1;
-                vent_stage[2] = alt ? 0 : 1;
-            }
-            flynt_vent_timer = 32;
+
+        case 1: // Warning telegraph: Palette flashes & tips emerge!
+            for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 1;
+            flynt_set_spike_stage(1); // Tips poke up inside holes!
+            flynt_vent_timer = 36;
             sfx_play(SFX_ENEMY_SHOT);
             break;
-        case 2: // Erupting spikes burst out!
-            for (uint8_t i = 0; i < VENT_COUNT; i++) {
-                if (vent_stage[i] == 1) vent_stage[i] = 2;
-            }
-            flynt_vent_timer = (flynt_phase >= 2) ? 48 : 40;
+
+        case 2: // Spikes burst out across the whole floor!
+            for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 2;
+            flynt_set_spike_stage(2); // Spikes thrust halfway up!
+            set_floor_palette(spike_bg_palette);
+            flynt_vent_timer = 24; // Spikes active for 24 frames (~0.4s) - jump duration is 28f!
             camera_shake(SHAKE_SMALL);
             sfx_play(SFX_SWORD);
             break;
         }
-    } else if (flynt_vent_cycle == 2 && flynt_vent_timer == 34) {
-        // Transition from extending (stage 2) to fully extended (stage 3)
-        for (uint8_t i = 0; i < VENT_COUNT; i++) {
-            if (vent_stage[i] == 2) vent_stage[i] = 3;
+    } else if (flynt_vent_cycle == 1) {
+        // Warning telegraph: Flash floor palette every 4 frames!
+        if ((flynt_vent_timer & 4) != 0) {
+            set_floor_palette(spike_warn_palette); // Intense burning danger flash!
+        } else {
+            set_floor_palette(spike_bg_palette);
+        }
+    } else if (flynt_vent_cycle == 2) {
+        // At frame 18 of eruption (6 frames in), snap to full razor spikes!
+        if (flynt_vent_timer == 18) {
+            for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 3;
+            flynt_set_spike_stage(3);
         }
     }
+
     update_vent_hazards();
     update_vent_graphics();
 }
