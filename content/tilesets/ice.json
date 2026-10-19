@@ -24,7 +24,6 @@
     "rock": [0, 144, 16, 16],
     "barrel": [16, 144, 16, 16],
     "signpost": [64, 144, 16, 16],
-    "snowball": [96, 144, 16, 16],
     "shelf": [160, 144, 16, 16],
     "fire_barrel": [128, 0, 16, 32],
     "drum": [96, 48, 16, 16],
@@ -51,7 +50,6 @@
     "x": { "piece": "crate", "solid": true },
     "b": { "piece": "barrel", "solid": true },
     "n": { "piece": "signpost", "solid": true },
-    "o": { "piece": "snowball", "solid": true },
     "k": { "piece": "shelf", "solid": true },
     "f": { "piece": "fire_barrel", "solid": true },
     "d": { "piece": "drum", "solid": true },
@@ -83,13 +81,13 @@
       "r...........f..........r",
       "rx..........f..........r",
       "rxb.............RRRR...r",
-      "r.....o.......ggRRRR.v.r",
+      "r.............ggRRRR.v.r",
       "r............kggaA|uEv.r",
       "r..............n.......r",
       "r........RRR..........qr",
       "r.....tt.RRR..........cr",
       "rd.......wOm...........r",
-      "r....o.............b...r",
+      "r..................b...r",
       "FFFFFFFFFFFFFFFFFFFFFFFF"
     ]
   }

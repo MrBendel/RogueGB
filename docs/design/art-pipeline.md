@@ -45,5 +45,8 @@ Status: first version 2026-10-19 (the town in the artist's ice art).
 Ground: `snow`, `snow_specks`, `snow_dots` (the cliff's base), `cliff`, `fence`.
 Buildings: `roof` (the middle cabin's, with the gradient top; the big rounded panels are floating ice sheets, for water later), fronts `win_a` `door_a` `win_b`
 `door_b` `win_c` `win_d` `door_d` `shutter` `win_e`, `hut`, house signs `sign_a`
-`sign_b`. Props: crate, rock, barrel, signpost, snowball, shelf, fire barrel, drum,
+`sign_b`. Props: crate, rock, barrel, signpost, shelf, fire barrel, drum,
 ammo tub, vending machine, lockers, chest (and open), safe, gun box (and open).
+
+For water, later (not in the set yet): the big rounded ice sheets and the small
+ice chunk on blue (sheet 96,144) float in water; they don't go on the snow.
