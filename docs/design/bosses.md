@@ -1,5 +1,28 @@
 # Bosses and minibosses: Game Boy Color combat trials
 
+## Captain Flynt boss trial: Furnace Deck Showdown
+
+Title → DOWN → Bosses → Captain Flynt. The Southern Shelf pirate commander in his furnace deck arena (`boss_kind 10`); 36 HP, starter pistol and shield.
+
+- **Stalking & Positioning**:
+  - Closes distance smoothly toward the player, maintaining ~48 px combat spacing before raising his harpoon cleaver.
+- **Flame Cleave**:
+  - 32-frame warning telegraph with flashing windup; launches a 3-projectile spreading incendiary wave aimed directly at the player. In Phase 3 (below 12 HP), expands into a 5-projectile fan.
+- **Furnace Grates (Arena Hazard)**:
+  - 4 iron grates in the four quadrants of the arena floor cycle through Safe (0), Steaming Warning (1), and Erupting Flame Pillars (2).
+  - Standing on an active flame jet deals 8 fire damage (`hurt_cause 15`).
+  - **Jumping clears active furnace vents safely** (`player_z > 0`), rewarding acrobatic movement.
+- **Flame Shield / Overheat (HP 24 and 12)**:
+  - At health thresholds, Flynt roars and ignites a blazing heat shield (`actor_guard = 1`), deflecting all incoming projectile fire.
+  - **Leap Slam**: Leaps high into the air with visual altitude and ground shadow (in `OAM_PROP`), then slams down with camera shake, close shockwave damage, and 6 radial fire bullets.
+  - **Overheat Burnout & Punish Window**: After 90 frames, his cooling radiators blow out with a blast of steam; he collapses to one knee (`FLYNT_STUNNED`, `actor_guard = 0`), giving the player a 75-frame massive damage opening.
+- **Desperation Phase & Second Wind Fodder (HP < 12)**:
+  - Vents cycle faster, cleaves fire 5-pellet fans, and an occasional bandit/psycho minion add spawns from the corner to provide tactical Second Wind opportunities.
+- **Implementation**:
+  - `src/flynt.c`, `src/flynt.h`, `boss_kind 10`.
+  - Uses 4 metasprite frames in `MACHINE_VRAM` (96–111) and background tiles 144–155 for furnace grates on background palette 5.
+  - Leap shadow exclusively uses `OAM_PROP` (slots 11–12), preserving all player and combat sprite slots.
+
 ## Scrapback miniboss trial
 
 Title → DOWN → Minibosses → Scrapback. A 24x24 armored scavenger beast in a
@@ -13,10 +36,29 @@ single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
 - Charge roughly three pixels per frame, using fractional motion and three wall
   checks per update. The whole 24x24 footprint remains inside the arena. A charge
   hit deals 20 damage; jumping or stepping sideways avoids it.
-- A wall crash shakes the camera and opens the cyan back panel for 100 frames.
+- A wall crash uses the shotgun's eight-frame shake (`SHAKE_MEDIUM`),
+  visibly offsets the floor and sprites even in this screen-sized arena, rebounds
+  along the reverse charge vector for eight frames (roughly eight pixels), and
+  opens the cyan back panel for 100 frames including the rebound.
+  Grounded players anywhere in the arena are knocked down for 24 frames (0.4 s):
+  the body lies sideways and movement, jumping, and attacks are disabled. Being
+  airborne at impact avoids it. Knockdown itself deals no damage and temporarily
+  protects against hits, including acid, so loss of control cannot chain damage.
+  Four recovery-grace frames allow a jump off acid when control returns. Physical
+  charge contact resolves before this protection; the shock itself adds no damage.
+  Pause freezes both timers; changing encounters resets the player's stun.
   In this first prototype the entire damage hitbox is vulnerable during recovery,
   and the whole shell is guarded otherwise. Precise directional front armor and
   a separate rear-only weak-point hitbox remain follow-up work.
+- Charges leave up to four 16x16 acid patches, spaced about 20 pixels apart
+  (short charges leave fewer). Each patch fizzes harmlessly for 20 frames before
+  turning green and dealing 8 contact damage through normal shields and hit
+  invulnerability. Jumping clears it. Patches stay through crash recovery, fade
+  harmlessly during its final 12 frames, and disappear before the next charge.
+  Defeat removes the trail too; pause freezes it. Impact projectiles are not part
+  of this pass: the trail alone is the new source of pressure.
+  Patches occupy non-overlapping floor cells centered on the path; an impact-point
+  patch is added when capacity allows, before Scrapback rebounds.
 - Defeat clears the body and grants the existing trial completion flag. Pause
   freezes the encounter. No campaign spawns or campaign rewards are added.
 
@@ -25,10 +67,20 @@ Four rotated art headings use tiles 96–143; movement is not quantized to these
 headings. The six sprite parts use prop slots 11–14 and the single actor's two
 dynamic slots 15–16; player sprites and the projectile pool remain intact. The
 shared 16x16 actor anchor remains the damage target inside the larger visual body.
+Acid uses background tiles 144–155 and scene palette 5, rather than hardware
+sprites, so shots cannot hide a damaging pool. One patch redraws per frame via
+queued tile/attribute strips; cleanup restores the original room tiles. Collision
+remains ordinary walkable floor, with damage checked separately.
 Focused emulator checks cover arbitrary-angle aim, committed trajectories, all
 four corners, actual projectile protection/damage, pause, sprite cleanup, and
 normal-health pistol completion. Standing still holding fire loses. The moving
-victory test peaks at 74,604/131,328 update cycles (57% of the frame budget).
+updated timed-jump victory test stays within the 131,328-cycle frame budget. Trail checks cover safe warning/fade stages, grounded damage,
+jumping, pause, all three distinct animation frames, palette fade progression,
+visibility with all player shot slots full, and floor restoration.
+Impact tests cover recoil distance, shotgun shake, ground/air outcomes, locked
+controls and attacks, recovery, pause, charge contact, and encounter reset. Rare
+stun and pit-respawn handling live in player_setup.c to keep fixed ROM within its
+budget; the existing pit and movement tests still pass.
 
 ## Earlier trials and campaign concepts
 

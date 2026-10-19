@@ -34,11 +34,20 @@ test('playtest menu: lab entry and SELECT shortcut stay available', () => {
 });
 
 test('playtest menu: adding a mercenary preserves the third boss entry', () => {
-  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
+  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('DOWN').tap('DOWN').idle(9);
   assert.equal(e.v('title_choice'),2);
   settle(e.tap('A'),PLAY).idle(3);
   assert.equal(e.v('boss_kind'),4);
   assert.equal(e.v('play_mode'),3);
+});
+
+test('playtest menu: fourth boss entry launches Captain Flynt', () => {
+  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
+  assert.equal(e.v('title_choice'),3);
+  settle(e.tap('A'),PLAY).idle(3);
+  assert.equal(e.v('boss_kind'),10);
+  assert.equal(e.v('play_mode'),3);
+  assert.equal(e.v('boss_hp'),36);
 });
 
 test('playtest menu: three enemy choices wrap in both directions', () => {

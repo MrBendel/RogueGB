@@ -9,6 +9,9 @@
 #define TILE_WALL  (SCENE_TILES + 1)
 #define TILE_RAISED (SCENE_TILES + 2)  // 4 tiles: TL, TR, BL, BR of one 16x16 block
 #define TILE_PIT   (SCENE_TILES + 6)   // 4 tiles
+#define TILE_FLOOR_CRACK (SCENE_TILES + 10)
+#define TILE_FLOOR_SEAM  (SCENE_TILES + 11)
+#define TILE_FLOOR_CHIP  (SCENE_TILES + 12)
 
 static const uint8_t room_tiles[] = {
     // floor speckle
@@ -27,18 +30,34 @@ static const uint8_t room_tiles[] = {
     0x00, 0xFF, 0x01, 0xFF, 0x03, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    // floor cracked stone
+    0x00, 0x00, 0x00, 0x20, 0x00, 0x10, 0x10, 0x08,
+    0x00, 0x08, 0x00, 0x04, 0x04, 0x02, 0x00, 0x02,
+    // floor slab seam / border
+    0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x08, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    // floor chipped stone / gravel fleck
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x08, 0x14,
+    0x00, 0x10, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
 };
-#define ROOM_TILE_COUNT 10
+#define ROOM_TILE_COUNT 13
 
+#define VIS_INIT_BLOCKS 12
 // Background tile for each block type (BLK_*) and quadrant (TL, TR, BL, BR).
-static const uint8_t block_tiles[BLK_TYPES * 4] = {
-    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_FLOOR
-    TILE_WALL, TILE_WALL, TILE_WALL, TILE_WALL,              // BLK_SOLID
-    TILE_PIT, TILE_PIT + 1, TILE_PIT + 2, TILE_PIT + 3,      // BLK_PIT
-    TILE_RAISED, TILE_RAISED + 1, TILE_RAISED + 2, TILE_RAISED + 3,  // BLK_RAISED
-    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_PROP (the prop is a sprite)
-    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_STAIRS: authored scenes replace art
-    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_DECK
+static const uint8_t block_tiles[VIS_INIT_BLOCKS * 4] = {
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_FLOOR (0)
+    TILE_WALL, TILE_WALL, TILE_WALL, TILE_WALL,              // BLK_SOLID (1)
+    TILE_PIT, TILE_PIT + 1, TILE_PIT + 2, TILE_PIT + 3,      // BLK_PIT (2)
+    TILE_RAISED, TILE_RAISED + 1, TILE_RAISED + 2, TILE_RAISED + 3,  // BLK_RAISED (3)
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_PROP (4)
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_STAIRS (5)
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,          // BLK_DECK (6)
+    // Randomized floor block variations:
+    TILE_FLOOR_CRACK, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR,    // 7: crack in TL
+    TILE_FLOOR, TILE_FLOOR, TILE_FLOOR, TILE_FLOOR_CRACK,    // 8: crack in BR
+    TILE_FLOOR_SEAM, TILE_FLOOR_SEAM, TILE_FLOOR, TILE_FLOOR,// 9: slab joint top
+    TILE_FLOOR, TILE_FLOOR_CHIP, TILE_FLOOR, TILE_FLOOR_CHIP,// 10: chips
+    TILE_FLOOR_CHIP, TILE_FLOOR, TILE_FLOOR_SEAM, TILE_FLOOR,// 11: varied
 };
 
 // The movement lab: 2x2 screens. # wall, o pit, = raised block, c the chest
@@ -103,6 +122,24 @@ void room_load_tiles(void) BANKED {
 
 void room_vis_from_map(void) BANKED {
     for (uint16_t i = 0; i < ROOM_MAX_W * ROOM_MAX_H; i++) room_vis[i] = room_map[i];
+}
+
+void room_randomize_floor(void) BANKED {
+    for (uint8_t y = 0; y < ROOM_MAX_H; y++) {
+        for (uint8_t x = 0; x < ROOM_MAX_W; x++) {
+            uint16_t i = ((uint16_t)y << 5) | x;
+            if (room_map[i] == BLK_FLOOR) {
+                uint8_t h = (uint8_t)(x * 17 + y * 29 + ((x ^ y) << 1));
+                uint8_t r = h & 7;
+                if (r == 1) room_vis[i] = 7;
+                else if (r == 2) room_vis[i] = 8;
+                else if (r == 3) room_vis[i] = 9;
+                else if (r == 4) room_vis[i] = 10;
+                else if (r == 5) room_vis[i] = 11;
+                else room_vis[i] = 0;
+            }
+        }
+    }
 }
 
 void room_load_lab(void) BANKED {

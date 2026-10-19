@@ -30,6 +30,23 @@ extern uint16_t safe_y;
 extern int16_t safe_z;
 extern uint16_t move_top_diag;
 
+void player_stun_update(void) BANKED {
+    player_stun--;
+    if(player_invuln)player_invuln--;
+    player_vx=player_vy=0;player_xs=player_ys=0;player_jump_buffer=0;
+    // Let the first controllable frame accept a jump off acid before it hurts.
+    if(!player_stun && player_invuln<4)player_invuln=4;
+}
+
+void update_pit_fall(void) BANKED {
+    if (--player_fall_timer) return;
+    if (pit_shaft) { shaft_taken=1;return; }
+    player_x=safe_x;player_y=safe_y;player_xs=player_ys=0;player_z=safe_z;
+    hurt_cause=CAUSE_PIT;
+    health_damage(PIT_DAMAGE,DMG_DIRECT);
+    player_blink=BLINK_FRAMES;camera_shake(SHAKE_MEDIUM);
+}
+
 // Shadow: a 14x3 ellipse in color 2 at the bottom of an 8x16 column. This is the
 // left half; the right half is the same column drawn flipped.
 static const uint8_t shadow_tiles[32] = {
@@ -76,6 +93,7 @@ void player_init(uint16_t px, uint16_t py) BANKED {
     player_z = player_vz = 0;
     player_air = player_dashed = player_dash_timer = player_invuln = player_jump_buffer = 0;
     player_roll_len = player_roll_t = 0;
+    player_stun = 0;
     player_fall_timer = player_blink = 0;
     pit_shaft = shaft_taken = 0;  // pits hurt (the descent's exit map turns them into a shaft)
     player_falls = 0;
@@ -95,7 +113,7 @@ void player_init(uint16_t px, uint16_t py) BANKED {
 
 // (Banked: only on a hit.)
 void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) BANKED {
-    if (player_blink || player_invuln || player_fall_timer) return;
+    if (player_stun || player_blink || player_invuln || player_fall_timer) return;
     if (!health_damage(dmg, 0)) {
         // The shield took it: no knockback, a moment's grace.
         player_invuln = SHIELD_IFRAMES;

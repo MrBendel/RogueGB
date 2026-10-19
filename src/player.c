@@ -90,6 +90,8 @@ uint8_t player_air;        // 1 while airborne
 uint8_t player_dashed;     // 1 once this jump's dash is used
 uint8_t player_dash_timer; // frames of dash left
 uint8_t player_invuln;     // invulnerability frames left
+uint8_t player_stun;
+void player_stun_update(void) BANKED;  // rare control-lock path in player_setup.c
 uint8_t player_jump_buffer;
 uint8_t player_fall_timer; // frames left in a pit fall (0 = not falling)
 uint8_t player_blink;      // frames left blinking after reappearing
@@ -348,7 +350,7 @@ static void update_jump(int8_t dx, int8_t dy) {
 
 
 uint8_t player_hittable(void) {
-    return !player_blink && !player_invuln && !player_fall_timer && player_z < PLAYER_CLEAR_Z;
+    return !player_stun && !player_blink && !player_invuln && !player_fall_timer && player_z < PLAYER_CLEAR_Z;
 }
 
 
@@ -364,21 +366,7 @@ uint8_t shaft_taken;  // ... and the player just went down one
 
 // Falling into a pit: no control; at the end, reappear at the last safe spot
 // (or, down a shaft, leave it to the descent).
-static void update_pit_fall(void) {
-    if (--player_fall_timer) return;
-    if (pit_shaft) {
-        shaft_taken = 1;
-        return;
-    }
-    player_x = safe_x;
-    player_y = safe_y;
-    player_xs = player_ys = 0;
-    player_z = safe_z;
-    hurt_cause = CAUSE_PIT;
-    health_damage(PIT_DAMAGE, DMG_DIRECT);  // pits skip the shield
-    player_blink = BLINK_FRAMES;
-    camera_shake(SHAKE_MEDIUM);
-}
+void update_pit_fall(void) BANKED; // rare respawn path lives beside knockdown handling
 
 // Is the player against a wall in direction dx (x axis) or dy (y axis)? Yes if
 // the whole side touches, or one corner touches by more than NUDGE pixels. A
@@ -405,6 +393,10 @@ static uint8_t wall_y(int8_t dy) {
 
 void player_update(void) {
     if (player_blink) player_blink--;
+    if (player_stun) {
+        player_stun_update();
+        return;
+    }
     if (player_fall_timer) {
         update_pit_fall();
         return;
@@ -462,7 +454,9 @@ void player_update(void) {
 
 void player_draw(void) {
     uint8_t anim, frame;
-    if (player_fall_timer) {
+    if (player_stun) {
+        anim=roll_anim[player_anim_dir];frame=ROLL_FRAMES>>2;
+    } else if (player_fall_timer) {
         anim = SPR_PLAYER_ANIM_FALL;
         frame = (uint8_t)((FALL_FRAMES - player_fall_timer) * 4 / FALL_FRAMES);
     } else if (player_roll_len) {

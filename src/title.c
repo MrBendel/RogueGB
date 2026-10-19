@@ -33,7 +33,7 @@ uint8_t title_menu, title_category;
 static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "MOVEMENT LAB"};
 static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY", "ACID WOLF"};
 static const char *const minibosses[] = {"CLAIMJAW", "SCRAPBACK"};
-static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST"};
+static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST", "CAPTAIN FLYNT"};
 
 // Text from this bank's constants (text.h: copied to RAM for text.c).
 static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t tile, uint8_t pal) {
@@ -164,7 +164,7 @@ static void move_cursor(uint8_t to) {
 }
 
 static uint8_t choice_count(void) {
-    return title_menu == 1 ? 4 : title_category == 1 || title_category == 2 ? 3 : title_category == 0 ? 2 : 1;
+    return title_menu == 1 || title_category == 1 ? 4 : title_category == 2 ? 3 : title_category == 0 ? 2 : 1;
 }
 
 // The playtest menu: a heading and its choices (rows 10, 12, ...), the cursor at one.
@@ -234,7 +234,10 @@ void title_update(void) BANKED {
         uint8_t c = title_class;
         if ((joy_pressed & J_LEFT) && c) c--;
         else if ((joy_pressed & J_RIGHT) && c < CLASS_COUNT - 1) c++;
-        else if (joy_pressed & J_B) state_change(STATE_TITLE);
+        else if (joy_pressed & J_B) {
+            show_files();
+            return;
+        }
         else if (joy_pressed & (J_A | J_START)) {
             save_new(title_choice, title_class);
             begin(MODE_YARD);  // a new character starts in the town
@@ -248,7 +251,12 @@ void title_update(void) BANKED {
     if (title_files) {
         if ((joy_pressed & J_UP) && title_choice > 0) move_cursor(title_choice - 1);
         else if ((joy_pressed & J_DOWN) && title_choice < SAVE_SLOTS - 1) move_cursor(title_choice + 1);
-        else if (joy_pressed & J_B) state_change(STATE_TITLE);
+        else if (joy_pressed & J_B) {
+            title_files = 0;
+            draw_home();
+            prompt_ink(1);
+            return;
+        }
         else if (joy_pressed & (J_A | J_START)) {
             if (slot_used[title_choice]) {
                 // Mid-expedition: back to its map; otherwise the town.

@@ -13,6 +13,7 @@
 #include "warden.h"
 #include "oam.h"
 #include "scrapback.h"
+#include "flynt.h"
 
 #define MACHINE_VRAM 96
 #define SHADOW_VRAM 8
@@ -168,6 +169,8 @@ void boss_room(void) BANKED {
     for (uint16_t i = 0; i < sizeof(room_map); i++) room_map[i] = BLK_SOLID;
     for (uint8_t y = 1; y < 7; y++)
         for (uint8_t x = 1; x < 9; x++) room_map[((uint16_t)y << 5) | x] = BLK_FLOOR;
+    room_vis_from_map();
+    room_randomize_floor();
 }
 
 static uint8_t machine(uint8_t x, uint8_t y, uint8_t hp, uint8_t frame) {
@@ -241,6 +244,12 @@ void boss_start(uint8_t kind) BANKED {
     }
     if (kind == BOSS_GUNSHIP) {
         gunship_start();
+        shown_hp = shown_state = shown_relays = shown_phase = 0xFF;
+        boss_status();
+        return;
+    }
+    if (kind == BOSS_FLYNT) {
+        flynt_start();
         shown_hp = shown_state = shown_relays = shown_phase = 0xFF;
         boss_status();
         return;
@@ -636,6 +645,7 @@ void boss_update(void) BANKED {
     }
     if (boss_kind == BOSS_GUNSHIP) { gunship_update(); return; }
     if (boss_kind == BOSS_SCRAPBACK) { scrapback_update(); return; }
+    if (boss_kind == BOSS_FLYNT) { flynt_update(); return; }
     if (boss_kind == BOSS_WARDEN) warden_update();
     actor_flash[boss_slot] = boss_state == BOSS_WARN && (boss_timer & 4);
     if (boss_kind == BOSS_WARDEN) art(boss_slot, actor_guard[boss_slot] ? 0 : 1, actor_guard[boss_slot] ? SPR_PAL_WEAPON : SPR_PAL_SHOT);
@@ -761,6 +771,7 @@ void duo_draw(void) BANKED {
 
 // Two text rows occupy the arena's top wall, not the combat area.
 void boss_status(void) BANKED {
+    if (boss_kind == BOSS_FLYNT) { flynt_status(); return; }
     if (boss_kind == BOSS_WARDEN) { warden_status(); return; }
 
     if (boss_kind == BOSS_DUO) {
