@@ -15,6 +15,9 @@ Status: first version 2026-10-19 (the town in the artist's ice art).
    `RRR` on two rows); `"stretch": true` lets a run be any length (the piece's first
    and last columns at the ends, the middle repeated: a roof over a 4-wide front).
    `"vary": ["snow_specks", 9]` swaps in a variant now and then, by position.
+   A piece can draw other parts of the sheet over itself (`"overlay"`): the house
+   signs are the roof's eave block with a sign plate on its wood band. `"run": "R"`
+   lets such a block sit in a roof's row without breaking how the roof lines up.
 4. **The build** (`node tools/tileset.mjs`, also run by `npm run build`):
    - fits the art into the Color's background palettes (6 for a scene: the HUD
      keeps 2). Each tile keeps its 4 best colours; similar palettes are merged, the
@@ -44,8 +47,8 @@ Status: first version 2026-10-19 (the town in the artist's ice art).
 
 Ground: `snow`, `snow_specks`, `snow_dots` (the cliff's base), `cliff`, `fence`.
 Buildings: `roof` (the middle cabin's, with the gradient top; the big rounded panels are floating ice sheets, for water later), fronts `win_a` `door_a` `win_b`
-`door_b` `win_c` `win_d` `door_d` `shutter` `win_e`, `hut`, house signs `sign_a`
-`sign_b`. Props: crate, rock, barrel, signpost, shelf, fire barrel, drum,
+`door_b` `win_c` `win_d` `door_d` `shutter` `win_e`, `hut`, the roof with a house
+sign over the door `roof_sign_a` `roof_sign_b` (map: `e` `E` in the roof's lower row). Props: crate, rock, barrel, signpost, shelf, fire barrel, drum,
 ammo tub, vending machine, lockers, chest (and open), safe, gun box (and open).
 
 For water, later (not in the set yet): the big rounded ice sheets and the small

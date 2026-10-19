@@ -95,16 +95,28 @@ export function convert(name) {
   const def = JSON.parse(fs.readFileSync(path.join(DIR, `${name}.json`), 'utf8'));
   const img = decodePng(fs.readFileSync(path.join(ROOT, def.src)));
   const [br, bg, bb] = def.backdrop;
-  const pixel = (x, y) => {
+  const sheetPixel = (x, y) => {
     const i = (y * img.width + x) * 4, a = img.rgba[i + 3] / 255;
     const mix = (v, w) => Math.round(v * a + w * (1 - a));
     return pack(mix(img.rgba[i], br), mix(img.rgba[i + 1], bg), mix(img.rgba[i + 2], bb));
   };
   // The pieces' blocks, and their tiles' pixels.
   const pieces = [], blocks = [], tiles = [];
-  for (const [piece, [x, y, w, h]] of Object.entries(def.pieces)) {
+  for (const [piece, spec] of Object.entries(def.pieces)) {
+    // [x, y, w, h], or { rect: [x, y, w, h], overlay: [[sx, sy, w, h, dx, dy], ...] }:
+    // other parts of the sheet drawn over it (their transparent pixels let it show).
+    const [x, y, w, h] = Array.isArray(spec) ? spec : spec.rect;
     if (x % 8 || y % 8 || w % 16 || h % 16) throw new Error(`${name}.${piece}: x, y on the 8 px grid; w, h in 16s`);
-    pieces.push({ piece, first: blocks.length, w: w / 16, h: h / 16, x, y });
+    const over = new Map();
+    for (const [sx, sy, ow, oh, dx, dy] of spec.overlay || [])
+      for (let yy = 0; yy < oh; yy++)
+        for (let xx = 0; xx < ow; xx++)
+          if (img.rgba[((sy + yy) * img.width + sx + xx) * 4 + 3]) over.set((y + dy + yy) * img.width + x + dx + xx, [sx + xx, sy + yy]);
+    const pixel = (px, py) => {
+      const o = over.get(py * img.width + px);
+      return o ? sheetPixel(o[0], o[1]) : sheetPixel(px, py);
+    };
+    pieces.push({ piece, first: blocks.length, w: w / 16, h: h / 16, x, y, pixel });
     for (let by = 0; by < h / 16; by++)
       for (let bx = 0; bx < w / 16; bx++) {
         const q = [];
@@ -211,15 +223,22 @@ export function buildMaps(def, pieces) {
         if (!p) throw new Error(`legend '${ch}': no piece ${l.piece}`);
         // A variant now and then (by position, so the map looks the same every time).
         if (l.vary && (x * 7 + y * 13) % l.vary[1] === 0) p = byName[l.vary[0]];
+        type.push(l.solid ? 1 : 0);
+        // A block of another piece's run ("run": "R", a sign on a roof): itself, but
+        // counted as that character, so the run around it still lines up.
+        if (l.run) {
+          vis.push(p.first);
+          continue;
+        }
         // Where this block sits in its piece: from the start of its run of this character.
+        const same = (c) => c === ch || (c !== null && def.legend[c]?.run === ch);
         let x0 = x, y0 = y, x1 = x;
-        while (at(x0 - 1, y) === ch) x0--;
-        while (at(x, y0 - 1) === ch) y0--;
-        while (at(x1 + 1, y) === ch) x1++;
+        while (same(at(x0 - 1, y))) x0--;
+        while (same(at(x, y0 - 1))) y0--;
+        while (same(at(x1 + 1, y))) x1++;
         let bx = (x - x0) % p.w;
         if (l.stretch && p.w > 1) bx = x === x0 ? 0 : x === x1 ? p.w - 1 : Math.min(1, p.w - 1);
         const by = (y - y0) % p.h;
-        type.push(l.solid ? 1 : 0);
         vis.push(p.first + by * p.w + bx);
       }
     maps[map] = { w, h, type, vis };
@@ -308,8 +327,7 @@ function preview(ts) {
             for (let x = 0; x < 8; x++) {
               const ox = bx * 16 + (k & 1) * 8 + x, oy = by * 16 + (k >> 1) * 8 + y;
               put(cx + ox, cy + oy, pal[tile.idx[y * 8 + x]]);
-              const ai = ((p.y + oy) * img.width + p.x + ox) * 4, a = img.rgba[ai + 3];
-              put(cx + 48 + gap + ox, cy + oy, a ? pack(img.rgba[ai], img.rgba[ai + 1], img.rgba[ai + 2]) : pack(...def.backdrop));
+              put(cx + 48 + gap + ox, cy + oy, p.pixel(p.x + ox, p.y + oy));
             }
         });
       }
