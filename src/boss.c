@@ -169,6 +169,8 @@ void boss_room(void) BANKED {
     for (uint16_t i = 0; i < sizeof(room_map); i++) room_map[i] = BLK_SOLID;
     for (uint8_t y = 1; y < 7; y++)
         for (uint8_t x = 1; x < 9; x++) room_map[((uint16_t)y << 5) | x] = BLK_FLOOR;
+    room_vis_from_map();
+    room_randomize_floor();
 }
 
 static uint8_t machine(uint8_t x, uint8_t y, uint8_t hp, uint8_t frame) {

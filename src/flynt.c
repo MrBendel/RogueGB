@@ -117,72 +117,91 @@ static const char flynt_art[4][16][17] = {
      "0000000000000000"}
 };
 
-// Fiery CGB background palette for the erupting furnace vents (Palette 5)
-static const uint16_t fire_bg_palette[4] = {
-    RGB8(232, 220, 192), // Floor stone behind grate
-    RGB8(255, 230, 96),  // Intense yellow flame tip
-    RGB8(240, 100, 20),  // Roaring orange fire
-    RGB8(140, 20, 8)     // Deep burning red / iron rim
+// CGB background palette for rising floor spikes (Palette 5)
+static const uint16_t spike_bg_palette[4] = {
+    RGB8(232, 220, 192), // Floor stone base
+    RGB8(250, 250, 250), // Gleaming steel spike blade
+    RGB8(208, 32, 48),   // Crimson blood
+    RGB8(36, 28, 36)     // Deep hole / shadow
 };
 
-// 2x2 background tile graphics for furnace grates:
-// Tiles 144-147: Iron mesh grate (cool, harmless)
-// Tiles 148-151: Steaming grate (warning)
-// Tiles 152-155: Raging flame pillar (erupting, active fire hazard)
-static const char grate_art[3][16][17] = {
-    // Stage 0: Iron Grate
-    {"3333333333333333",
-     "3003003003003003",
-     "3003003003003003",
-     "3333333333333333",
-     "3003003003003003",
-     "3003003003003003",
-     "3333333333333333",
-     "3003003003003003",
-     "3003003003003003",
-     "3333333333333333",
-     "3003003003003003",
-     "3003003003003003",
-     "3333333333333333",
-     "3003003003003003",
-     "3003003003003003",
-     "3333333333333333"},
+// 2x2 background tile graphics for floor spike traps (4 stages = 16 tiles):
+// Stage 0 (Tiles 144-147): Retracted holes in stone plate with dried blood
+// Stage 1 (Tiles 148-151): Warning stage: silver tips peeking up inside holes
+// Stage 2 (Tiles 152-155): Extending stage: sharp triangular spikes rising halfway
+// Stage 3 (Tiles 156-159): Fully extended sharp blood-tipped spikes (active hazard)
+static const char spike_art[4][16][17] = {
+    // Stage 0: Retracted Holes with Blood
+    {"3000000000000003",
+     "0033300333003320",
+     "0033300333003220",
+     "0003000030000020",
+     "0000000000000000",
+     "0233300333003330",
+     "2233300333003330",
+     "0203000030000030",
+     "0000000000000000",
+     "0000000000000000",
+     "0033300333003320",
+     "0033300333003220",
+     "0003000030000020",
+     "0000000000000000",
+     "0000000000000000",
+     "3000000000000003"},
 
-    // Stage 1: Steaming Grate Warning
-    {"3333333333333333",
-     "3013003113003003",
-     "3113013113013103",
-     "3333333333333333",
-     "3013113003113013",
-     "3113113013113113",
-     "3333333333333333",
-     "3003013113003003",
-     "3013113113013003",
-     "3333333333333333",
-     "3113003013113013",
-     "3113013113113113",
-     "3333333333333333",
-     "3003113003013003",
-     "3013113013113003",
-     "3333333333333333"},
+    // Stage 1: Warning Tips Emerging
+    {"3000000000000003",
+     "0031300313003210",
+     "0031300313003220",
+     "0003000030000020",
+     "0000000000000000",
+     "0211300313003130",
+     "2211300313003130",
+     "0203000030000030",
+     "0000000000000000",
+     "0000000000000000",
+     "0031300313003210",
+     "0031300313003220",
+     "0003000030000020",
+     "0000000000000000",
+     "0000000000000000",
+     "3000000000000003"},
 
-    // Stage 2: Raging Flame Pillar
-    {"0011002222001100",
-     "0111122222211110",
-     "1111222332221111",
-     "1112233333322111",
-     "1122332222332211",
-     "1223322112233221",
-     "2233211111123322",
-     "2332111111112332",
-     "3321111111111233",
-     "3321111111111233",
-     "2332111111112332",
-     "2233211111123322",
-     "1223322112233221",
-     "1122332222332211",
-     "1112233333322111",
-     "3333333333333333"}
+    // Stage 2: Extending Halfway
+    {"3001000010000023",
+     "0011100111000220",
+     "0311133111303210",
+     "0033300333003330",
+     "0002000010000010",
+     "0222100111000110",
+     "2221133111303110",
+     "0033300333003330",
+     "0000000000000000",
+     "0001000010000020",
+     "0011100111000220",
+     "0311133111303210",
+     "0033300333003330",
+     "0000000000000000",
+     "0000000000000000",
+     "3000000000000003"},
+
+    // Stage 3: Fully Extended Razor Spikes with Blood
+    {"3001000010000023",
+     "0011100111000220",
+     "0011100111000210",
+     "0311133111303210",
+     "0002000010000010",
+     "0022200111000110",
+     "0221100111000110",
+     "2211133111303110",
+     "0033300333003330",
+     "0001000010000020",
+     "0011100111000220",
+     "0011100111000210",
+     "0311133111303210",
+     "0311133111303110",
+     "0033300333003330",
+     "3000000000000003"}
 };
 
 static void load_flynt_art(void) {
@@ -204,15 +223,15 @@ static void load_flynt_art(void) {
         set_sprite_data(MACHINE_VRAM + (f << 2), 4, tiles);
     }
 
-    // 2. Background tile art: 3 stages of furnace grates (4 tiles each = 12 tiles)
-    for (uint8_t s = 0; s < 3; s++) {
+    // 2. Background tile art: 4 stages of floor spike traps (4 tiles each = 16 tiles)
+    for (uint8_t s = 0; s < 4; s++) {
         for (uint8_t t = 0; t < 4; t++) {
             uint8_t t_row = (t >> 1) * 8;
             uint8_t t_col = (t & 1) * 8;
             for (uint8_t y = 0; y < 8; y++) {
                 uint8_t lo = 0, hi = 0;
                 for (uint8_t x = 0; x < 8; x++) {
-                    uint8_t c = grate_art[s][t_row + y][t_col + x] - '0';
+                    uint8_t c = spike_art[s][t_row + y][t_col + x] - '0';
                     lo = (lo << 1) | (c & 1);
                     hi = (hi << 1) | (c >> 1);
                 }
@@ -223,8 +242,8 @@ static void load_flynt_art(void) {
         }
     }
 
-    // Set background palette 5 to blazing fire colors
-    memcpy(&pal_base_bg[5 << 2], fire_bg_palette, 8);
+    // Set background palette 5 to steel spike & blood colors
+    memcpy(&pal_base_bg[5 << 2], spike_bg_palette, 8);
     gfx_set_fade(0);
 }
 
@@ -335,14 +354,14 @@ static void update_vent_graphics(void) {
     }
 }
 
-// Check player collision with erupting furnace vents
+// Check player collision with erupting floor spikes
 static void update_vent_hazards(void) {
-    if (!player_hittable() || player_z > 0) return; // JUMPING CLEARS FURNACE VENTS!
+    if (!player_hittable() || player_z > 0) return; // JUMPING CLEARS FLOOR SPIKES!
     uint16_t px = player_x + PLAYER_HB_X;
     uint16_t py = player_y + PLAYER_HB_Y;
 
     for (uint8_t i = 0; i < VENT_COUNT; i++) {
-        if (vent_stage[i] != 2) continue; // Only erupting fire deals damage
+        if (vent_stage[i] < 2) continue; // Stages 2 (extending) and 3 (full extended) deal damage
         uint16_t vx = (uint16_t)vent_tx[i] << 3;
         uint16_t vy = (uint16_t)vent_ty[i] << 3;
         if (px + PLAYER_HB_W > vx && px < vx + 16 &&
@@ -360,12 +379,12 @@ static void update_furnace_cycle(void) {
     if (!flynt_vent_timer) {
         flynt_vent_cycle = (flynt_vent_cycle + 1) % 3;
         switch (flynt_vent_cycle) {
-        case 0: // All vents cool
+        case 0: // All spikes retracted (safe)
             for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 0;
             flynt_vent_timer = (flynt_phase >= 2) ? 45 : 75;
             break;
-        case 1: // Warning hissing steam
-            if (flynt_phase == 1) { // In Flame Cloak: all 4 grates hiss!
+        case 1: // Warning: tips emerge from holes
+            if (flynt_phase == 1) { // In Flame Cloak: all 4 spike traps prime!
                 for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 1;
             } else { // Alternating diagonal pairs
                 static uint8_t alt = 0;
@@ -378,7 +397,7 @@ static void update_furnace_cycle(void) {
             flynt_vent_timer = 32;
             sfx_play(SFX_ENEMY_SHOT);
             break;
-        case 2: // Erupting fire jets!
+        case 2: // Erupting spikes burst out!
             for (uint8_t i = 0; i < VENT_COUNT; i++) {
                 if (vent_stage[i] == 1) vent_stage[i] = 2;
             }
@@ -386,6 +405,11 @@ static void update_furnace_cycle(void) {
             camera_shake(SHAKE_SMALL);
             sfx_play(SFX_SWORD);
             break;
+        }
+    } else if (flynt_vent_cycle == 2 && flynt_vent_timer == 34) {
+        // Transition from extending (stage 2) to fully extended (stage 3)
+        for (uint8_t i = 0; i < VENT_COUNT; i++) {
+            if (vent_stage[i] == 2) vent_stage[i] = 3;
         }
     }
     update_vent_hazards();

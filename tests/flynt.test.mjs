@@ -55,14 +55,26 @@ test('flynt furnace: grates cycle steam warning and active erupting fire', () =>
   // Initially vents are cool (cycle 0)
   assert.equal(e.v('flynt_vent_cycle'), 0);
 
-  // Advance to cycle 1 (steam warning)
+  // Verify floor tiles are randomized: room_vis contains multiple floor variants
+  const visAddr = at(e, 'room_vis');
+  let hasVaried = false;
+  for (let y = 1; y < 7; y++) {
+    for (let x = 1; x < 9; x++) {
+      const v = e.read8(visAddr + (y << 5) + x);
+      if (v >= 7 && v <= 11) hasVaried = true;
+    }
+  }
+  assert.ok(hasVaried, 'arena floor contains randomized visual floor block variants');
+
+  // Advance to cycle 1 (spike tip warning)
   e.until(x => x.v('flynt_vent_cycle') === 1, 90);
   assert.equal(e.v('flynt_vent_cycle'), 1);
   e.shot('flynt-vent-steam-warn');
 
-  // Advance to cycle 2 (erupting flame)
+  // Advance to cycle 2 (erupting spikes)
   e.until(x => x.v('flynt_vent_cycle') === 2, 40);
   assert.equal(e.v('flynt_vent_cycle'), 2);
+  e.idle(10); // allow full spike extension to stage 3 and redraw
   e.shot('flynt-vent-flame-erupt');
 });
 
@@ -75,20 +87,30 @@ test('flynt furnace: grounded player on active flame takes damage, jumping safel
   put(e, 'player_hp', 60);
   put(e, 'shield_hp', 40);
 
-  // Set grate 0 to erupting fire (stage 2)
+  // Set grate 0 to erupting spikes (stage 2)
   put(e, 'vent_stage', 2);
   e.idle(3);
-  assert.ok(e.v('shield_hp') < 40 || e.v('player_hp') < 60, 'standing on active flame hurts');
+  assert.ok(e.v('shield_hp') < 40 || e.v('player_hp') < 60, 'standing on extending spikes hurts');
   assert.equal(e.v('hurt_cause'), 15);
 
-  // Now jump (player_z > 0): jump safely over flame with no damage!
+  // Set grate 0 to fully extended razor spikes (stage 3)
+  put(e, 'vent_stage', 3);
+  put(e, 'shield_hp', 40);
+  put(e, 'player_hp', 60);
+  put(e, 'player_invuln', 0);
+  put(e, 'player_blink', 0);
+  e.idle(3);
+  assert.ok(e.v('shield_hp') < 40 || e.v('player_hp') < 60, 'standing on fully extended spikes hurts');
+  assert.equal(e.v('hurt_cause'), 15);
+
+  // Now jump (player_z > 0): jump safely over spikes with no damage!
   put(e, 'shield_hp', 40);
   put(e, 'player_hp', 60);
   put(e, 'player_invuln', 0);
   put(e, 'player_blink', 0);
   put16(e, 'player_z', 8 << 8); // in mid-air
   e.idle(5);
-  assert.equal(e.v('shield_hp'), 40, 'jumping avoids active furnace damage');
+  assert.equal(e.v('shield_hp'), 40, 'jumping avoids active spike damage');
   assert.equal(e.v('player_hp'), 60);
 });
 

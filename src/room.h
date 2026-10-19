@@ -64,6 +64,7 @@ void room_load_tiles(void) BANKED;
 // Each block's look from its type (one visual block per block type, for now:
 // visual rules per theme come later). Call after the map is built or changed.
 void room_vis_from_map(void) BANKED;
+void room_randomize_floor(void) BANKED;
 // The ice yard (room_yard.c): a test map in six palettes, with a walk-behind roof.
 void room_load_yard(void) BANKED;
 
