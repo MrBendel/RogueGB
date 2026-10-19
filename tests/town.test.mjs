@@ -70,7 +70,8 @@ test("Echo's first contact at the relay plays once per file", () => {
   assert.equal(emu.v('dlg_active'), 0);
 });
 
-const PAGE_SHOP = 4, GUNS = 18, GUN_SIZE = 9, GUN_NONE = 0xff;
+const PAGE_SHOP = 5, GUNS = 18, GUN_SIZE = 9, GUN_NONE = 0xff, PACK_SIZE = 89, PACK = 90;
+const PISTOL = [0, 0, 1, 0, 0, 0, 0, 0, 0];
 /** In town with credits, talking to Marro: his shop. */
 function atShop(credits) {
   const emu = newFileInTown();
@@ -111,12 +112,56 @@ test('not enough credits: nothing changes', () => {
   assert.equal(emu.v('guns_bought', 'u16'), 0);
 });
 
-test('a full loadout: buying trades in the held gun for a quarter of its price', () => {
+test('a full loadout and backpack: buying trades in the held gun for a quarter of its price', () => {
   const emu = atShop(5000);
-  // Three more pistols, the first one held.
-  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, [0, 0, 1, 0, 0, 0, 0, 0, 0]);
+  // Three more pistols, the first one held; the backpack full of them too.
+  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, PISTOL);
+  for (let s = 0; s < 4; s++) emu.writeBytes(A(emu, 'profile') + PACK + s * GUN_SIZE, PISTOL);
   const price = priceOf(emu, 0), held = (15 + 5 * 1) << 0;
   emu.tap('A').idle(2);
   assert.equal(prof(emu, CREDITS, 4), 5000 - price + (held >> 2));
   assert.equal(emu.read8(A(emu, 'profile') + GUNS), emu.read8(A(emu, 'shop_stock')), 'the held slot has it');
+});
+
+test('a full loadout: a bought gun goes into the backpack', () => {
+  const emu = atShop(5000);
+  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, PISTOL);
+  const price = priceOf(emu, 0), type = emu.read8(A(emu, 'shop_stock'));
+  emu.tap('A').idle(2);
+  assert.equal(prof(emu, CREDITS, 4), 5000 - price, 'no trade-in');
+  assert.equal(emu.read8(A(emu, 'profile') + PACK), type, 'in the backpack');
+  assert.equal(emu.read8(A(emu, 'profile') + GUNS), 0, 'the pistol still held');
+});
+
+test('a bigger backpack from Marro: 4 slots, 8 for 300, 12 for 800, then no more', () => {
+  const emu = atShop(1100);
+  assert.equal(prof(emu, PACK_SIZE), 4, 'a new file starts with 4');
+  for (let i = 0; i < 3; i++) emu.tap('DOWN');  // past the three guns
+  emu.idle(2).tap('A').idle(2);
+  assert.equal(prof(emu, PACK_SIZE), 8);
+  assert.equal(prof(emu, CREDITS, 4), 800);
+  emu.shot('shop-upgrade');
+  for (let i = 0; i < 3; i++) emu.tap('DOWN');
+  emu.idle(2).tap('A').idle(2);
+  assert.equal(prof(emu, PACK_SIZE), 12);
+  assert.equal(prof(emu, CREDITS, 4), 0);
+  for (let i = 0; i < 4; i++) emu.tap('DOWN');
+  emu.idle(2).tap('A').idle(2);
+  assert.equal(prof(emu, PACK_SIZE), 12, 'as big as it gets: the row is gone');
+});
+
+test("selling: RIGHT turns to the backpack's guns; A sells one for a quarter of its price", () => {
+  const emu = atShop(0);
+  emu.writeBytes(A(emu, 'profile') + PACK + GUN_SIZE, [1, 1, 3, 0, 0, 0, 0, 0, 0]);  // a green level-3 shotgun, second slot
+  emu.tap('RIGHT').idle(2);
+  assert.equal(emu.v('shop_mode'), 1);
+  emu.tap('A').idle(2);
+  assert.equal(prof(emu, CREDITS, 4), 0, 'an empty slot: nothing');
+  emu.tap('DOWN').idle(2);
+  emu.shot('shop-sell');
+  emu.tap('A').idle(2);
+  assert.equal(prof(emu, CREDITS, 4), ((15 + 5 * 3) << 1) >> 2);
+  assert.equal(emu.read8(A(emu, 'profile') + PACK + GUN_SIZE), GUN_NONE, 'gone');
+  emu.tap('LEFT').idle(2);
+  assert.equal(emu.v('shop_mode'), 0, 'back to buying');
 });

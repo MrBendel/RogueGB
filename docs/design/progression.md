@@ -80,8 +80,8 @@ Status: decided where marked; the rest is the working plan. Builds on
     few credits. Opened chests stay open for the expedition.
   - Credits are taken by walking over them. Standing on a gun shows a card at the
     top: name and level in its rarity's color, damage, fire rate, magazine and
-    reload against the gun held; A takes it, or swaps it for the held gun (which
-    drops in its place) when the loadout is full.
+    reload against the gun held; A takes it into a free loadout slot, else into
+    the backpack, else swaps it for the held gun (which drops in its place).
   - Enemies have a point more health a depth below the first, so better guns
     matter deeper down.
 
@@ -93,8 +93,15 @@ Status: decided where marked; the rest is the working plan. Builds on
 - **Marro's shop** (decided: guns first): talk to him in town. Three guns at your
   level (luckier the deeper you've been), new stock each time you come into town,
   each with its stats against the gun held. A price is (15 + 5 x level) credits,
-  doubled per rarity step. A buy goes into a free slot; with a full loadout it
-  trades in the held gun for a quarter of its price.
+  doubled per rarity step. A buy goes into a free slot, else the backpack; with
+  both full it trades in the held gun for a quarter of its price. LEFT/RIGHT turns
+  to selling: the backpack's guns for a quarter of their price.
+- **The backpack** (2026-10-18): guns carried but not in the loadout, saved with
+  the file. A new character has 4 slots; Marro sells two upgrades of 4 more each
+  (300, then 800 credits) up to 12. The pause menu's Gear page lists the loadout
+  and the backpack: A picks a gun up, A on another slot swaps them (the last gun
+  can't leave the loadout; B puts it back). Files grew to 256 bytes a copy for it
+  (save version 4; the options moved to 0xA600).
 
 ## Next
 

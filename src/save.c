@@ -1,7 +1,8 @@
 #pragma bank 255
 // Saving (save.h). Banked: it runs at map changes and on menus, never per frame.
 //
-// Cartridge RAM layout: slot s, copy c at 0xA000 + s * 256 + c * 128:
+// Cartridge RAM layout: slot s, copy c at 0xA000 + s * 512 + c * 256 (the
+// options follow the files, settings.c):
 //   0-1  'S' 'K'     (written last: a copy cut short has no magic)
 //   2    SAVE_VERSION
 //   3    sequence number (the newer copy wins; it wraps)
@@ -13,7 +14,7 @@
 #include "save.h"
 
 #define SRAM ((uint8_t *)0xA000)
-#define COPY_SIZE 128
+#define COPY_SIZE 256
 #define HEADER 8
 
 Profile profile;
@@ -30,7 +31,7 @@ static uint16_t checksum(const uint8_t *p, uint8_t n) {
 }
 
 static uint8_t *copy_at(uint8_t slot, uint8_t copy) {
-    return SRAM + ((uint16_t)slot << 8) + (copy ? COPY_SIZE : 0);
+    return SRAM + ((uint16_t)slot << 9) + (copy ? COPY_SIZE : 0);
 }
 
 static uint8_t valid(const uint8_t *r) {
@@ -68,6 +69,8 @@ static void new_profile(void) {
     // A plain pistol to start with; the rest of the loadout empty.
     for (uint8_t s = 1; s < LOADOUT; s++) profile.guns[s].type = GUN_NONE;
     gun_plain(&profile.guns[0], WEAPON_PISTOL);
+    profile.pack_size = PACK_START;
+    for (uint8_t s = 0; s < PACK_MAX; s++) profile.pack[s].type = GUN_NONE;
 }
 
 void save_new(uint8_t slot, uint8_t cls) BANKED {

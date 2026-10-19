@@ -1,13 +1,13 @@
 #pragma bank 255
 // Options (settings.h). Banked: read at boot, written from the pause menu.
 //
-// Cartridge RAM at 0xA300 (after the files' 3 x 256 bytes): 'O' 'P', a checksum,
+// Cartridge RAM at 0xA600 (after the files' 3 x 512 bytes): 'O' 'P', a checksum,
 // the Settings.
 #include <gb/gb.h>
 #include <string.h>
 #include "settings.h"
 
-#define AT ((uint8_t *)0xA300)
+#define AT ((uint8_t *)0xA600)
 #define HEADER 4
 
 Settings settings;

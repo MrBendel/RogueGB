@@ -17,7 +17,7 @@ function newFile(cls = 0) {
   return settle(emu.tap('A'), PLAY).idle(4);
 }
 /** Pause, on the skills page (B turns the pause menu's pages). */
-const skillsPage = (emu) => emu.tap('START').idle(2).tap('B').idle(2);
+const skillsPage = (emu) => emu.tap('START').idle(2).tap('B').idle(4).tap('B').idle(4);  // (past the gear page)
 
 test('a new file asks for a class; it is saved with the file', () => {
   const emu = newFile(2);
@@ -36,7 +36,7 @@ test('a skill point buys a first-tier skill; the next one in its branch opens; t
   const emu = newFile();
   setProf(emu, 'skill_points', 2);
   skillsPage(emu);
-  assert.equal(emu.v('menu_page'), 1);
+  assert.equal(emu.v('menu_page'), 2);
   emu.tap('A');  // Plated Mesh (branch 0, tier 0)
   assert.equal(prof(emu, 'skills', 2), 1);
   assert.equal(prof(emu, 'skill_points'), 1);

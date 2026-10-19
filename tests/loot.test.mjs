@@ -6,7 +6,7 @@ import { assert, matchGolden, boot, bootToTitle, settle, startDescent, TITLE, PL
 
 const SIDE = { 1: 0, 2: 1, 4: 2, 8: 3 };
 const DIR = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' };
-const GUN_SIZE = 9, GUNS = 18, GUN_SEL = 54, CREDITS = 7;  // Profile offsets (save.h)
+const GUN_SIZE = 9, GUNS = 18, GUN_SEL = 54, CREDITS = 7, PACK_SIZE = 89, PACK = 90;  // Profile offsets (save.h)
 const DROP_CREDITS = 1, DROP_GUN = 2, CARD_NONE = 0xff;
 
 const A = (emu, n) => emu.symbols.addr(n);
@@ -14,6 +14,14 @@ const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
 const words = (emu, n, len) => Array.from({ length: len }, (_, i) => emu.read16(A(emu, n) + i * 2));
 const credits = (emu) => emu.readBytes(A(emu, 'profile') + CREDITS, 4).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 const gunType = (emu, s) => emu.read8(A(emu, 'profile') + GUNS + s * GUN_SIZE);
+const PISTOL = [0, 0, 1, 0, 0, 0, 0, 0, 0];
+/** Pistols in every free loadout slot (pack too: the whole backpack). */
+function fillUp(emu, pack = true) {
+  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, PISTOL);
+  if (!pack) return;
+  const n = emu.read8(A(emu, 'profile') + PACK_SIZE);
+  for (let s = 0; s < n; s++) emu.writeBytes(A(emu, 'profile') + PACK + s * GUN_SIZE, PISTOL);
+}
 
 function leaveBy(emu, e) {
   const w = emu.v('room_w'), h = emu.v('room_h');
@@ -101,8 +109,7 @@ test('credits are taken by walking over them; standing on a gun shows its card; 
 
 test('a full loadout swaps: the held gun drops where the new one lay', () => {
   const emu = atCampChest();
-  // Fill the loadout with pistols.
-  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, [0, 0, 1, 0, 0, 0, 0, 0, 0]);
+  fillUp(emu);
   const x = emu.read16(A(emu, 'chest_x')), y = emu.read16(A(emu, 'chest_y'));
   w16(emu, 'player_x', x);
   w16(emu, 'player_y', y + 8);
@@ -127,7 +134,7 @@ test('the lab has no loot: kills drop nothing there', () => {
 
 test('swapping on a gun never flashes the window over the play area (it switches between frames)', () => {
   const emu = atCampChest();
-  for (let s = 1; s < 4; s++) emu.writeBytes(A(emu, 'profile') + GUNS + s * GUN_SIZE, [0, 0, 1, 0, 0, 0, 0, 0, 0]);
+  fillUp(emu);
   const x = emu.read16(A(emu, 'chest_x')), y = emu.read16(A(emu, 'chest_y'));
   w16(emu, 'player_x', x);
   w16(emu, 'player_y', y + 8);
@@ -153,4 +160,23 @@ test('swapping on a gun never flashes the window over the play area (it switches
   }
   assert.ok(emu.v('guns_taken', 'u16') >= 3, 'swapped');
   assert.notEqual(emu.v('card_drop'), CARD_NONE, 'the card stays up (the old gun lies here)');
+});
+
+test('a full loadout, room in the backpack: A stows the gun there and leaves the hands alone', () => {
+  const emu = atCampChest();
+  fillUp(emu, false);
+  const x = emu.read16(A(emu, 'chest_x')), y = emu.read16(A(emu, 'chest_y'));
+  w16(emu, 'player_x', x);
+  w16(emu, 'player_y', y + 8);
+  emu.idle(2);
+  const g = Array.from(emu.readBytes(A(emu, 'drop_kind'), 6)).indexOf(DROP_GUN);
+  const r = emu.read16(A(emu, 'drop_value') + g * 2);
+  const newType = emu.read8(A(emu, 'floor_gun') + r * GUN_SIZE);
+  w16(emu, 'player_x', words(emu, 'drop_x', 6)[g]);
+  w16(emu, 'player_y', words(emu, 'drop_y', 6)[g] - 4);
+  emu.idle(3).tap('A').idle(2);
+  assert.equal(emu.read8(A(emu, 'profile') + PACK), newType, 'in the backpack');
+  assert.equal(gunType(emu, 0), 0, 'still the pistol in hand');
+  assert.equal(emu.read8(A(emu, 'drop_kind') + g), 0, 'nothing left on the floor');
+  assert.equal(emu.v('card_drop'), CARD_NONE, 'the card goes');
 });

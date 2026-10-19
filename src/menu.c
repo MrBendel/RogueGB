@@ -46,7 +46,10 @@ uint8_t menu_page;
 uint8_t menu_skill;
 uint8_t menu_option;
 Gun shop_stock[SHOP_STOCK];
-uint8_t shop_sel, shop_sold;
+uint8_t shop_sel, shop_sold, shop_mode;
+uint8_t sell_top;    // the sell list's first row (it scrolls)
+uint8_t gear_sel, gear_pick = GEAR_NONE, gear_top;  // gear_top: the backpack list's first row
+uint8_t gear_tiles;  // the gear detail's 2 lines (redrawn in place)
 uint16_t guns_bought;
 uint8_t shop_tiles;  // where the detail lines are drawn (redrawn in place)
 uint8_t shop_marker; // the cursor's tile
@@ -134,9 +137,10 @@ void menu_tabs(void) BANKED {
     VBK_REG = 0;
     // (Each tab starts in its own tile: a tile is one palette.)
     say_c(8, 1, "CHARACTER", menu_page == PAGE_CHARACTER ? P_SEL : P_DIM);
-    say_c(52, 1, "SKILLS", menu_page == PAGE_SKILLS ? P_SEL : P_DIM);
-    say_c(84, 1, "OPTIONS", menu_page == PAGE_OPTIONS ? P_SEL : P_DIM);
-    if (save_slot == SAVE_NONE) say_c(120, 1, "TUNE", menu_page == PAGE_TUNE ? P_SEL : P_DIM);
+    say_c(48, 1, "GEAR", menu_page == PAGE_GEAR ? P_SEL : P_DIM);
+    say_c(72, 1, "SKILLS", menu_page == PAGE_SKILLS ? P_SEL : P_DIM);
+    say_c(104, 1, "OPTIONS", menu_page == PAGE_OPTIONS ? P_SEL : P_DIM);
+    if (save_slot == SAVE_NONE) say_c(136, 1, "TUNE", menu_page == PAGE_TUNE ? P_SEL : P_DIM);
 }
 
 void menu_open(void) BANKED {
@@ -378,6 +382,7 @@ static void repaint(uint8_t k) {
 
 static void clear_row(uint8_t row);
 static void draw_shop(void);
+static void draw_gear(void);
 
 void menu_draw(void) BANKED {
     clear_inside();
@@ -388,13 +393,199 @@ void menu_draw(void) BANKED {
     }
     menu_tabs();
     if (menu_page == PAGE_CHARACTER) draw_character();
+    else if (menu_page == PAGE_GEAR) draw_gear();
     else if (menu_page == PAGE_OPTIONS) draw_options();
     else draw_skills();
 }
 
-// --- Marro's shop ---
+// --- lists of guns (the gear page, the shop) ---
 
-#define SHOP_ROW0 4       // the stock's rows: 4, 6, 8 (name and price on one line)
+// A gun's name and level at pixel 16 of row ty (in its rarity's ink, or pal); "-": none.
+static void gun_row(uint8_t ty, const Gun *g, uint8_t pal) {
+    char line[TEXT_MAX + 1];
+    if (g->type == GUN_NONE) {
+        say_c(16, ty, "-", P_DIM);
+        return;
+    }
+    gun_name(line, g);
+    char *p = line;
+    while (*p) p++;
+    p = put(p, "  LV ");
+    p = put_num(p, g->level, 1);
+    *p = 0;
+    say(16, ty, line, pal == 0xFF ? rarity_pal[g->rarity] : pal, 0xFF);
+}
+
+// The cursor: an italic arrow in a row's first column. Returns its tile.
+static uint8_t arrow_at(uint8_t ty) {
+    uint8_t t = alloc(1);
+    char arrow[2] = ">";
+    text_on_window = 1;
+    text_draw(FONT_ITALIC, 8, ty, arrow, t, P_SEL | TEXT_BANK1);
+    text_on_window = 0;
+    return t;
+}
+
+static void move_arrow(uint8_t marker, uint8_t from, uint8_t to) {
+    set_win_tile_xy(1, from, FRAME_TILES + 4);
+    VBK_REG = 1;
+    set_win_tile_xy(1, from, P_INK);
+    set_win_tile_xy(1, to, P_SEL | TEXT_BANK1);
+    VBK_REG = 0;
+    set_win_tile_xy(1, to, marker);
+}
+
+// say_c into fixed tiles (redrawn in place).
+static void say_at(uint8_t x, uint8_t ty, const char *s, uint8_t pal, uint8_t at) {
+    char line[TEXT_MAX + 1];
+    uint8_t n = 0;
+    while (s[n] && n < TEXT_MAX) line[n] = s[n], n++;
+    line[n] = 0;
+    say(x, ty, line, pal, at);
+}
+
+// Arrows on the frame when a list has more above or below.
+static void scroll_marks(uint8_t row0, uint8_t rows, uint8_t top, uint8_t count) {
+    set_win_tile_xy(SCREEN_TW - 1, row0, top ? FONT_TILES + ('^' - ' ') : FRAME_TILES + 5);
+    set_win_tile_xy(SCREEN_TW - 1, row0 + rows - 1, top + rows < count ? FONT_TILES + ('V' - ' ') : FRAME_TILES + 5);
+}
+
+// --- the gear page: the loadout and the backpack ---
+
+#define GEAR_LOAD_ROW 3   // the loadout's rows: 3-6
+#define GEAR_PACK_HEAD 8
+#define GEAR_PACK_ROW 9   // the backpack's visible rows: 9-12
+#define GEAR_ROWS 4
+#define GEAR_DETAIL 14    // two lines, then the help line (16)
+
+uint8_t gear_marker;
+
+static Gun *gear_gun(uint8_t i) {
+    return i < LOADOUT ? &profile.guns[i] : &profile.pack[i - LOADOUT];
+}
+
+static uint8_t gear_row(uint8_t i) {
+    return i < LOADOUT ? GEAR_LOAD_ROW + i : GEAR_PACK_ROW + (i - LOADOUT - gear_top);
+}
+
+static void gear_detail(void) {
+    char l1[TEXT_MAX + 1], l2[TEXT_MAX + 1];
+    clear_row(GEAR_DETAIL);
+    clear_row(GEAR_DETAIL + 1);
+    const Gun *g = gear_gun(gear_sel);
+    if (g->type == GUN_NONE) {
+        say_at(8, GEAR_DETAIL, "Empty.", P_DIM, gear_tiles);
+        return;
+    }
+    gun_card_lines(g, l1, l2);  // (against the gun held)
+    say(8, GEAR_DETAIL, l1, P_INK, gear_tiles);
+    say(8, GEAR_DETAIL + 1, l2, P_INK, gear_tiles + 19);
+}
+
+static void draw_gear(void) {
+    char line[TEXT_MAX + 1];
+    char *p;
+    uint8_t total = LOADOUT + profile.pack_size;
+    if (gear_sel >= total) gear_sel = 0;
+    if (gear_pick >= total) gear_pick = GEAR_NONE;
+    gear_tiles = alloc(19 * 2);
+    say_c(8, 2, "LOADOUT", P_DIM);
+    uint8_t used = 0;
+    for (uint8_t s = 0; s < profile.pack_size; s++) if (profile.pack[s].type != GUN_NONE) used++;
+    p = put(line, "BACKPACK ");
+    p = put_num(p, used, 1);
+    p = put(p, " of ");
+    p = put_num(p, profile.pack_size, 1);
+    *p = 0;
+    say(8, GEAR_PACK_HEAD, line, P_DIM, 0xFF);
+    for (uint8_t i = 0; i < total; i++) {
+        if (i >= LOADOUT && (i - LOADOUT < gear_top || i - LOADOUT >= gear_top + GEAR_ROWS)) continue;
+        gun_row(gear_row(i), gear_gun(i), i == gear_pick ? P_SEL : 0xFF);
+        if (i == profile.gun_sel && save_slot != SAVE_NONE) say_c(128, gear_row(i), "held", P_DIM);
+    }
+    scroll_marks(GEAR_PACK_ROW, GEAR_ROWS, gear_top, profile.pack_size);
+    gear_marker = arrow_at(gear_row(gear_sel));
+    gear_detail();
+    say_c(8, 16, gear_pick == GEAR_NONE ? "A: move a gun    B: next page" : "A: swap with it    B: put back", P_DIM);
+}
+
+// Swap two slots' guns (loadout or backpack), keeping a gun in your hands.
+static void gear_swap(uint8_t a, uint8_t b) {
+    Gun *ga = gear_gun(a), *gb = gear_gun(b);
+    Gun t = *ga;
+    *ga = *gb;
+    *gb = t;
+    if (loadout_free() == 0 && profile.guns[1].type == GUN_NONE && profile.guns[2].type == GUN_NONE &&
+        profile.guns[3].type == GUN_NONE) {
+        *gb = *ga;  // that was the loadout's last gun: no
+        *ga = t;
+        sfx_play(SFX_RELOAD);
+        return;
+    }
+    // Magazines: loadout guns take theirs along; one out of the backpack comes loaded.
+    if (gun_mods) slot_ammo[profile.gun_sel] = weapon_ammo[weapon_cur];
+    if (a < LOADOUT && b < LOADOUT) {
+        uint8_t m = slot_ammo[a];
+        slot_ammo[a] = slot_ammo[b];
+        slot_ammo[b] = m;
+    } else {
+        slot_ammo[a < LOADOUT ? a : b] = 255;
+    }
+    // The held slot again (its gun may have changed); emptied: the next one.
+    gun_mods = 0;
+    if (profile.guns[profile.gun_sel].type == GUN_NONE) loadout_next();
+    else loadout_select(profile.gun_sel);
+    sfx_play(SFX_PICKUP);
+    save_write();
+}
+
+static void gear_update(void) {
+    uint8_t total = LOADOUT + profile.pack_size, old = gear_sel;
+    if ((joy_pressed & J_UP) && gear_sel) gear_sel--;
+    else if ((joy_pressed & J_DOWN) && gear_sel < total - 1) gear_sel++;
+    else if (joy_pressed & J_A) {
+        if (gear_pick == GEAR_NONE) {
+            if (gear_gun(gear_sel)->type == GUN_NONE) {
+                sfx_play(SFX_RELOAD);  // nothing there to move
+                return;
+            }
+            gear_pick = gear_sel;
+            sfx_play(SFX_TEXT);
+        } else {
+            if (gear_pick != gear_sel) gear_swap(gear_pick, gear_sel);
+            gear_pick = GEAR_NONE;
+        }
+        menu_draw();
+        return;
+    }
+    if (old == gear_sel) return;
+    // Scrolled the backpack: the page again; else just the arrow and the detail.
+    if (gear_sel >= LOADOUT) {
+        uint8_t j = gear_sel - LOADOUT;
+        if (j < gear_top || j >= gear_top + GEAR_ROWS) {
+            gear_top = j < gear_top ? j : j - GEAR_ROWS + 1;
+            menu_draw();
+            return;
+        }
+    }
+    move_arrow(gear_marker, gear_row(old), gear_row(gear_sel));
+    gear_detail();
+}
+
+uint8_t menu_back(void) BANKED {
+    if (menu_page != PAGE_GEAR || gear_pick == GEAR_NONE) return 0;
+    gear_pick = GEAR_NONE;
+    menu_draw();
+    return 1;
+}
+
+// --- Marro's shop ---
+// Buy: his stock (a row each, double-spaced), then the backpack upgrade.
+// Sell: your backpack's guns, for a quarter of his price (a scrolling list).
+
+#define SHOP_ROW0 4       // buy rows: 4, 6, 8, 10 (name and price on one line)
+#define SELL_ROWS 5       // sell rows: 4-8
+#define SHOP_DETAIL 12    // the row under the cursor: 2 lines, then what A does (15)
 #define SHOP_PRICE_X 112
 
 void shop_restock(void) BANKED {
@@ -402,6 +593,8 @@ void shop_restock(void) BANKED {
     for (uint8_t i = 0; i < SHOP_STOCK; i++) loot_roll(&shop_stock[i], profile.level, profile.best_depth * 3);
     shop_sold = 0;
     shop_sel = 0;
+    shop_mode = SHOP_BUY;
+    sell_top = 0;
 }
 
 static void clear_row(uint8_t row) {
@@ -411,43 +604,73 @@ static void clear_row(uint8_t row) {
     VBK_REG = 0;
 }
 
+static uint8_t shop_rows(void) {
+    return shop_mode == SHOP_SELL ? profile.pack_size : SHOP_STOCK + (pack_upgrade_price() ? 1 : 0);
+}
+
+static uint8_t shop_row(uint8_t i) {
+    return shop_mode == SHOP_SELL ? SHOP_ROW0 + i - sell_top : SHOP_ROW0 + (i << 1);
+}
+
+static uint16_t sell_price(const Gun *g) {
+    return gun_price(g) >> 2;
+}
+
 static void shop_credits(void) {
     char line[TEXT_MAX + 1];
     char *p = put(line, "CREDITS ");
     p = put_u32(p, profile.credits);
     *p = 0;
     clear_row(2);
-    say(8, 2, line, P_INK, shop_tiles + 76);
+    say(8, 2, line, P_INK, shop_tiles + 57);
 }
 
-// The gun under the cursor against the one held, and what A would do.
+// The row under the cursor: a gun against the one held, and what A would do.
 static void shop_detail(void) {
     char l1[TEXT_MAX + 1], l2[TEXT_MAX + 1];
-    for (uint8_t r = 11; r <= 14; r++) clear_row(r);
+    for (uint8_t r = SHOP_DETAIL; r <= SHOP_DETAIL + 3; r++) clear_row(r);
+    char *p;
+    uint8_t ok;
+    if (shop_mode == SHOP_SELL) {
+        const Gun *g = &profile.pack[shop_sel];
+        if (g->type == GUN_NONE) {
+            say_at(8, SHOP_DETAIL, "Empty.", P_DIM, shop_tiles);
+            return;
+        }
+        gun_card_lines(g, l1, l2);
+        say(8, SHOP_DETAIL, l1, P_INK, shop_tiles);
+        say(8, SHOP_DETAIL + 1, l2, P_INK, shop_tiles + 19);
+        p = put(l1, "A: sell it for ");
+        p = put_num(p, sell_price(g), 1);
+        p = put(p, " CR");
+        *p = 0;
+        say(8, SHOP_DETAIL + 3, l1, P_LIT, shop_tiles + 38);
+        return;
+    }
+    if (shop_sel == SHOP_STOCK) {  // the backpack upgrade
+        p = put(l1, "A bigger backpack: ");
+        p = put_num(p, profile.pack_size, 1);
+        p = put(p, " slots, then ");
+        p = put_num(p, profile.pack_size + PACK_STEP, 1);
+        *p = 0;
+        say(8, SHOP_DETAIL, l1, P_INK, shop_tiles);
+        ok = profile.credits >= pack_upgrade_price();
+        say_at(8, SHOP_DETAIL + 3, ok ? "A: buy" : "Not enough credits.", ok ? P_LIT : P_DIM, shop_tiles + 38);
+        return;
+    }
     const Gun *g = &shop_stock[shop_sel];
     uint16_t price = gun_price(g);
     gun_card_lines(g, l1, l2);
-    say(8, 11, l1, P_INK, shop_tiles);
-    say(8, 12, l2, P_INK, shop_tiles + 19);
-    uint8_t full = 1;
-    for (uint8_t s = 0; s < LOADOUT; s++) if (profile.guns[s].type == GUN_NONE) full = 0;
-    char *p;
+    say(8, SHOP_DETAIL, l1, P_INK, shop_tiles);
+    say(8, SHOP_DETAIL + 1, l2, P_INK, shop_tiles + 19);
     if (shop_sold & (1 << shop_sel)) p = put(l1, "Sold.");
     else if (profile.credits < price) p = put(l1, "Not enough credits.");
-    else if (full) p = put(l1, "A: buy, trading in yours");
-    else p = put(l1, "A: buy");
+    else if (loadout_free() < LOADOUT) p = put(l1, "A: buy");
+    else if (pack_free() != GUN_NONE) p = put(l1, "A: buy, into the backpack");
+    else p = put(l1, "A: buy, trading in yours");
     *p = 0;
-    uint8_t ok = !(shop_sold & (1 << shop_sel)) && profile.credits >= price;
-    say(8, 14, l1, ok ? P_LIT : P_DIM, shop_tiles + 38);
-}
-
-static void shop_cursor(uint8_t old) {
-    set_win_tile_xy(1, SHOP_ROW0 + (old << 1), FRAME_TILES + 4);
-    VBK_REG = 1;
-    set_win_tile_xy(1, SHOP_ROW0 + (old << 1), P_INK);
-    set_win_tile_xy(1, SHOP_ROW0 + (shop_sel << 1), P_SEL | TEXT_BANK1);
-    VBK_REG = 0;
-    set_win_tile_xy(1, SHOP_ROW0 + (shop_sel << 1), shop_marker);
+    ok = !(shop_sold & (1 << shop_sel)) && profile.credits >= price;
+    say(8, SHOP_DETAIL + 3, l1, ok ? P_LIT : P_DIM, shop_tiles + 38);
 }
 
 static void draw_shop(void) {
@@ -455,39 +678,62 @@ static void draw_shop(void) {
     tiles_b = 192;
     char line[TEXT_MAX + 1];
     char *p;
-    shop_tiles = alloc(19 * 4 + 12);  // the detail's 3 lines and the credits
+    shop_tiles = alloc(19 * 3 + 12);  // the detail's 3 lines and the credits
     say_c(8, 1, "MARRO'S SALVAGE", P_SEL);
+    say_c(104, 1, "BUY", shop_mode == SHOP_BUY ? P_SEL : P_DIM);
+    say_c(128, 1, "SELL", shop_mode == SHOP_SELL ? P_SEL : P_DIM);
     shop_credits();
-    for (uint8_t i = 0; i < SHOP_STOCK; i++) {
-        const Gun *g = &shop_stock[i];
-        gun_name(line, g);
-        p = line;
-        while (*p) p++;
-        p = put(p, "  LV ");
-        p = put_num(p, g->level, 1);
-        *p = 0;
-        uint8_t sold = shop_sold & (1 << i);
-        say(16, SHOP_ROW0 + (i << 1), line, sold ? P_DIM : rarity_pal[g->rarity], 0xFF);
-        if (sold) {
-            p = put(line, "SOLD");
+    uint8_t rows = shop_rows();
+    if (shop_sel >= rows) shop_sel = rows - 1;
+    for (uint8_t i = 0; i < rows; i++) {
+        if (shop_mode == SHOP_SELL) {
+            if (i < sell_top || i >= sell_top + SELL_ROWS) continue;
+            const Gun *g = &profile.pack[i];
+            gun_row(shop_row(i), g, 0xFF);
+            if (g->type == GUN_NONE) continue;
+            p = put_num(line, sell_price(g), 1);
+        } else if (i == SHOP_STOCK) {
+            p = put(line, "BACKPACK +");
+            p = put_num(p, PACK_STEP, 1);
+            p = put(p, " SLOTS");
+            *p = 0;
+            say(16, shop_row(i), line, P_INK, 0xFF);
+            p = put_num(line, pack_upgrade_price(), 1);
         } else {
+            const Gun *g = &shop_stock[i];
+            uint8_t sold = shop_sold & (1 << i);
+            gun_row(shop_row(i), g, sold ? P_DIM : 0xFF);
+            if (sold) {
+                say_c(SHOP_PRICE_X, shop_row(i), "SOLD", P_DIM);
+                continue;
+            }
             p = put_num(line, gun_price(g), 1);
-            p = put(p, " CR");
         }
+        p = put(p, " CR");
         *p = 0;
-        say(SHOP_PRICE_X, SHOP_ROW0 + (i << 1), line, sold ? P_DIM : P_INK, 0xFF);
+        say(SHOP_PRICE_X, shop_row(i), line, P_INK, 0xFF);
     }
-    // The cursor: an italic arrow, in the row's first column.
-    shop_marker = alloc(1);
-    text_on_window = 1;
-    char arrow[2] = ">";
-    text_draw(FONT_ITALIC, 8, SHOP_ROW0 + (shop_sel << 1), arrow, shop_marker, P_SEL | TEXT_BANK1);
-    text_on_window = 0;
+    if (shop_mode == SHOP_SELL) scroll_marks(SHOP_ROW0, SELL_ROWS, sell_top, profile.pack_size);
+    shop_marker = arrow_at(shop_row(shop_sel));
     shop_detail();
-    say_c(8, 16, "UP DOWN: choose    B: leave", P_DIM);
+    say_c(8, 16, "LEFT RIGHT: buy, sell    B: leave", P_DIM);
 }
 
 static void buy(void) {
+    if (shop_sel == SHOP_STOCK) {
+        uint16_t price = pack_upgrade_price();
+        if (profile.credits < price) {
+            sfx_play(SFX_RELOAD);
+            return;
+        }
+        profile.credits -= price;
+        profile.pack_size += PACK_STEP;
+        if (!pack_upgrade_price()) shop_sel = 0;  // (the row's gone)
+        sfx_play(SFX_PICKUP);
+        save_write();
+        menu_draw();
+        return;
+    }
     const Gun *g = &shop_stock[shop_sel];
     uint16_t price = gun_price(g);
     if ((shop_sold & (1 << shop_sel)) || profile.credits < price) {
@@ -495,17 +741,20 @@ static void buy(void) {
         return;
     }
     profile.credits -= price;
-    uint8_t s = 0;
-    while (s < LOADOUT && profile.guns[s].type != GUN_NONE) s++;
-    if (s == LOADOUT) {
-        // Full: Marro takes the held gun for a quarter of what he'd ask for it.
+    uint8_t s = loadout_free();
+    if (s == LOADOUT && pack_add(g)) {
+        s = GUN_NONE;  // into the backpack
+    } else if (s == LOADOUT) {
+        // Full up: Marro takes the held gun for a quarter of what he'd ask for it.
         s = profile.gun_sel;
         profile.credits += gun_price(&profile.guns[s]) >> 2;
         gun_mods = 0;  // (its magazine isn't kept for the new gun)
     }
-    profile.guns[s] = *g;
-    slot_ammo[s] = 255;
-    loadout_select(s);
+    if (s != GUN_NONE) {
+        profile.guns[s] = *g;
+        slot_ammo[s] = 255;
+        loadout_select(s);
+    }
     shop_sold |= 1 << shop_sel;
     guns_bought++;
     sfx_play(SFX_PICKUP);
@@ -513,18 +762,44 @@ static void buy(void) {
     menu_draw();
 }
 
-static void shop_update(void) {
-    uint8_t old = shop_sel;
-    if ((joy_pressed & J_UP) && shop_sel) shop_sel--;
-    else if ((joy_pressed & J_DOWN) && shop_sel < SHOP_STOCK - 1) shop_sel++;
-    else if (joy_pressed & J_A) {
-        buy();
+static void sell(void) {
+    Gun *g = &profile.pack[shop_sel];
+    if (g->type == GUN_NONE) {
+        sfx_play(SFX_RELOAD);
         return;
     }
-    if (old != shop_sel) {
-        shop_cursor(old);
-        shop_detail();
+    profile.credits += sell_price(g);
+    g->type = GUN_NONE;
+    sfx_play(SFX_PICKUP);
+    save_write();
+    menu_draw();
+}
+
+static void shop_update(void) {
+    uint8_t old = shop_sel, rows = shop_rows();
+    if (joy_pressed & (J_LEFT | J_RIGHT)) {
+        shop_mode ^= 1;
+        shop_sel = 0;
+        sell_top = 0;
+        sfx_play(SFX_TEXT);
+        menu_draw();
+        return;
     }
+    if ((joy_pressed & J_UP) && shop_sel) shop_sel--;
+    else if ((joy_pressed & J_DOWN) && shop_sel < rows - 1) shop_sel++;
+    else if (joy_pressed & J_A) {
+        if (shop_mode == SHOP_SELL) sell();
+        else buy();
+        return;
+    }
+    if (old == shop_sel) return;
+    if (shop_mode == SHOP_SELL && (shop_sel < sell_top || shop_sel >= sell_top + SELL_ROWS)) {
+        sell_top = shop_sel < sell_top ? shop_sel : shop_sel - SELL_ROWS + 1;
+        menu_draw();
+        return;
+    }
+    move_arrow(shop_marker, shop_row(old), shop_row(shop_sel));
+    shop_detail();
 }
 
 void menu_next_page(void) BANKED {
@@ -540,6 +815,10 @@ void menu_update(void) BANKED {
     }
     if (menu_page == PAGE_OPTIONS) {
         options_update();
+        return;
+    }
+    if (menu_page == PAGE_GEAR) {
+        gear_update();
         return;
     }
     if (menu_page != PAGE_SKILLS) return;

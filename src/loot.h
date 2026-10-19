@@ -11,6 +11,9 @@
 #include "weapon.h"
 
 #define LOADOUT 4
+#define PACK_START 4   // backpack slots a new character has ...
+#define PACK_STEP 4    // ... each upgrade from Marro adds ...
+#define PACK_MAX 12    // ... up to
 #define GUN_NONE 0xFF  // an empty loadout slot (its type)
 
 #define RARITY_COMMON 0     // white
@@ -57,5 +60,15 @@ void gun_name(char *dst, const Gun *g) BANKED;
 void gun_card_lines(const Gun *g, char *l1, char *l2) BANKED;
 // What Marro asks for it (credits): more for a higher level, double a rarity step.
 uint16_t gun_price(const Gun *g) BANKED;
+// The first free loadout slot (LOADOUT: none), the first free backpack slot (GUN_NONE: none).
+uint8_t loadout_free(void) BANKED;
+uint8_t pack_free(void) BANKED;
+// The first free loadout slot (LOADOUT: none); the first free backpack slot (GUN_NONE: none).
+uint8_t loadout_free(void) BANKED;
+uint8_t pack_free(void) BANKED;
+// Into the backpack's first free slot: 1, or 0 if it's full.
+uint8_t pack_add(const Gun *g) BANKED;
+// What the next backpack upgrade costs (0: it's as big as it gets).
+uint16_t pack_upgrade_price(void) BANKED;
 
 #endif

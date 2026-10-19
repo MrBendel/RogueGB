@@ -187,9 +187,7 @@ static void card_draw(void) {
     *p = 0;
     card_line(2, line, BG_PAL_HEALTH);
     // What A does: into a free slot, or a swap for the gun held.
-    uint8_t full = 1;
-    for (uint8_t i = 0; i < LOADOUT; i++) if (profile.guns[i].type == GUN_NONE) full = 0;
-    p = put(line, full ? "A: swap" : "A: take");
+    p = put(line, loadout_free() < LOADOUT ? "A: take" : pack_free() != GUN_NONE ? "A: stow" : "A: swap");
     *p = 0;
     text_on_window = 1;
     card_tile += text_draw(FONT_COMPACT, 112, 2, line, card_tile, BG_PAL_UI | TEXT_BANK1);
@@ -238,10 +236,16 @@ void pickups_take(void) BANKED {
     if (card_drop == CARD_NONE) return;
     uint8_t d = card_drop, r = drop_value[d];
     Gun g = floor_gun[r];
-    uint8_t s = 0;
-    while (s < LOADOUT && profile.guns[s].type != GUN_NONE) s++;
+    uint8_t s = loadout_free();
     if (s < LOADOUT) {
         drop_kind[d] = DROP_NONE;  // into a free slot
+    } else if (pack_add(&g)) {
+        drop_kind[d] = DROP_NONE;  // the loadout's full: into the backpack
+        guns_taken++;
+        sfx_play(SFX_PICKUP);
+        save_write();
+        card_hide();
+        return;
     } else {
         s = profile.gun_sel;       // swapped for the one held: it lies where this one was
         floor_gun[r] = profile.guns[s];

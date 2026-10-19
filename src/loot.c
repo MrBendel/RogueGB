@@ -156,6 +156,28 @@ void gun_card_lines(const Gun *g, char *l1, char *l2) BANKED {
     }
 }
 
+uint8_t loadout_free(void) BANKED {
+    uint8_t s = 0;
+    while (s < LOADOUT && profile.guns[s].type != GUN_NONE) s++;
+    return s;
+}
+
+uint8_t pack_free(void) BANKED {
+    for (uint8_t s = 0; s < profile.pack_size; s++) if (profile.pack[s].type == GUN_NONE) return s;
+    return GUN_NONE;
+}
+
+uint8_t pack_add(const Gun *g) BANKED {
+    uint8_t s = pack_free();
+    if (s == GUN_NONE) return 0;
+    profile.pack[s] = *g;
+    return 1;
+}
+
+uint16_t pack_upgrade_price(void) BANKED {
+    return profile.pack_size >= PACK_MAX ? 0 : profile.pack_size == PACK_START ? 300 : 800;
+}
+
 uint16_t gun_price(const Gun *g) BANKED {
     return (uint16_t)(15 + 5 * g->level) << g->rarity;
 }

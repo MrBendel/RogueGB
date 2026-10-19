@@ -47,7 +47,7 @@ test('a new file: the files screen offers three, the first one is saved as soon 
   assert.equal(emu.v('save_slot'), 0);
   assert.ok(emu.v('saves_written', 'u16') >= 1);
   const sram = emu.sram();
-  assert.ok(sram[0] === 0x53 && sram[1] === 0x4b || sram[128] === 0x53 && sram[129] === 0x4b, 'the slot has a copy');
+  assert.ok(sram[0] === 0x53 && sram[1] === 0x4b || sram[256] === 0x53 && sram[257] === 0x4b, 'the slot has a copy');
   assert.equal(prof(emu, 'level'), 1);
   assert.equal(emu.v('play_mode'), 6, 'a new character starts in the town');
   assert.equal(prof(emu, 'exp_active'), 0, 'no expedition yet');
@@ -71,13 +71,13 @@ test('a write cut short leaves the other copy: the file still loads', () => {
   const map = emu.v('level_map');
   const sram = emu.sram();
   // The newer copy (higher sequence number) loses its checksum: the older one, a map earlier, loads.
-  const newer = (sram[128 + 3] - sram[3]) << 24 >> 24 > 0 ? 128 : 0;
+  const newer = (sram[256 + 3] - sram[3]) << 24 >> 24 > 0 ? 256 : 0;
   sram[newer + 8 + 5] ^= 0xff;
   const again = settle(withSram(sram).tap('START').tap('A'), PLAY);
   assert.equal(again.v('save_slot'), 0);
   assert.notEqual(again.v('level_map'), map, 'the older save: the map before');
   // Both copies broken: the slot reads as new.
-  sram[(128 - newer) + 8 + 5] ^= 0xff;
+  sram[(256 - newer) + 8 + 5] ^= 0xff;
   const fresh = withSram(sram).tap('START');  // (a new file there would ask for a class)
   assert.equal(fresh.read8(A(fresh, 'slot_used')), 0);
 });

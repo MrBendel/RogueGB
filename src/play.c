@@ -419,8 +419,10 @@ void play_update(void) BANKED {
                 state_change(STATE_RUN_OVER);
             }
         } else if (joy_pressed & J_B) {
-            menu_next_page();
-            draw_page();
+            if (!menu_back()) {
+                menu_next_page();
+                draw_page();
+            }
         } else if (menu_page == PAGE_TUNE) tune_update();
         else menu_update();
         return;
