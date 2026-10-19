@@ -177,7 +177,7 @@ static void crash(uint8_t wall_hit) {
     actor_guard[boss_slot]=0;
     if(!wall_hit)return;
     drop_pool(); // keep the trail at the impact point before the body rebounds
-    camera_shake(SHAKE_MEDIUM); // exactly the shotgun shake preset
+    camera_shake(24); // sustained wall impact, decaying over 0.4 seconds
     scrap_rebound_timer=8;
     actor_vx[boss_slot]=-actor_vx[boss_slot];actor_vy[boss_slot]=-actor_vy[boss_slot];
     actor_xs[boss_slot]=actor_ys[boss_slot]=0;
