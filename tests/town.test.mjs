@@ -136,17 +136,18 @@ test('a full loadout: a bought gun goes into the backpack', () => {
 test('a bigger backpack from Marro: 4 slots, 8 for 300, 12 for 800, then no more', () => {
   const emu = atShop(1100);
   assert.equal(prof(emu, PACK_SIZE), 4, 'a new file starts with 4');
-  for (let i = 0; i < 3; i++) emu.tap('DOWN');  // past the three guns
-  emu.idle(2).tap('A').idle(2);
+  for (let i = 0; i < 3; i++) emu.tap('DOWN').idle(2);  // past the three guns
+  assert.equal(emu.v('shop_sel'), 3, 'the upgrade row');
+  emu.tap('A').idle(4);
   assert.equal(prof(emu, PACK_SIZE), 8);
   assert.equal(prof(emu, CREDITS, 4), 800);
   emu.shot('shop-upgrade');
-  for (let i = 0; i < 3; i++) emu.tap('DOWN');
-  emu.idle(2).tap('A').idle(2);
+  for (let i = 0; i < 3; i++) emu.tap('DOWN').idle(2);
+  emu.tap('A').idle(4);
   assert.equal(prof(emu, PACK_SIZE), 12);
   assert.equal(prof(emu, CREDITS, 4), 0);
-  for (let i = 0; i < 4; i++) emu.tap('DOWN');
-  emu.idle(2).tap('A').idle(2);
+  for (let i = 0; i < 4; i++) emu.tap('DOWN').idle(2);
+  emu.tap('A').idle(4);
   assert.equal(prof(emu, PACK_SIZE), 12, 'as big as it gets: the row is gone');
 });
 
