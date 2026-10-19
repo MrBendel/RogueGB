@@ -43,7 +43,7 @@ Status: first version 2026-10-19 (the town in the artist's ice art).
 ## The ice set (content/tilesets/ice.json)
 
 Ground: `snow`, `snow_specks`, `snow_dots` (the cliff's base), `cliff`, `fence`.
-Buildings: `roof` (the gradient-top panel), fronts `win_a` `door_a` `win_b`
+Buildings: `roof` (the middle cabin's, with the gradient top; the big rounded panels are floating ice sheets, for water later), fronts `win_a` `door_a` `win_b`
 `door_b` `win_c` `win_d` `door_d` `shutter` `win_e`, `hut`, house signs `sign_a`
 `sign_b`. Props: crate, rock, barrel, signpost, snowball, shelf, fire barrel, drum,
 ammo tub, vending machine, lockers, chest (and open), safe, gun box (and open).
