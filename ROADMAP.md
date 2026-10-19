@@ -324,7 +324,8 @@ Campaign and boss encounters retain their existing enemies.
 Scrapback is a new standalone 24x24 miniboss with continuous-angle charges and
 exposed wall-crash recovery windows, available under Minibosses.
 Its charges now leave warned acid patches that constrain the route to the exposed
-boss, can be jumped over, and fade before the next charge.
+boss, can be jumped over, and fade before the next charge. Acid bubbles through
+three animation frames and loses contrast through three floor-blended palettes.
 Wall impacts also rebound with shotgun-strength shake and briefly knock down
 grounded players; jumping at impact avoids the stun.
 See [enemy design](docs/design/enemies.md).

@@ -126,7 +126,7 @@ test('scrapback acid: full shot pool cannot hide hazards, and defeat restores th
  const e=trial();seededPool(e);const floor=e.read8(poolTile(e));
  put(e,'scrap_pool_age',30);put16(e,'player_x',112);e.idle(3);
  for(let n=0;n<16;n++)e.writeBytes(at(e,'shots')+13*n,[40,0,0,0,0,24,0,0,0,0,0,80,0]);
- put(e,'shot_count',16);e.idle(3);assert.equal(e.read8(poolTile(e)),148);
+ put(e,'shot_count',16);e.idle(3);assert.ok([148,152,156].includes(e.read8(poolTile(e))));
  assert.ok(e.lastFrameCycles<FRAME_LIMIT);e.shot('scrapback-acid-crowded');
  put(e,'actor_hp',0);put(e,'shots_killed',1);e.idle(8);
  assert.equal(e.v('boss_state'),5);assert.equal(e.read8(poolTile(e)),floor);
@@ -175,4 +175,36 @@ test('scrapback impact: leaving a stunned fight resets player control on the nex
  settle(e,RUN_OVER).idle(35).tap('START');settle(e,TITLE);
  settle(e.tap('SELECT'),PLAY).idle(3);assert.equal(e.v('player_stun'),0);
  const x=e.v('player_x','u16');e.hold('RIGHT',10);assert.ok(e.v('player_x','u16')>x);
+});
+
+
+test('scrapback acid: three bubbling frames loop, pause freezes animation, palettes fade toward floor',()=>{
+ const e=trial();seededPool(e);put(e,'scrap_pool_age',30);put16(e,'player_x',112);
+ const frames=new Set();let worst=0;
+ for(let n=0;n<32;n++) {
+  e.idle();if(n>3)frames.add(e.read8(poolTile(e)));
+  worst=Math.max(worst,e.lastFrameCycles);
+ }
+ assert.deepEqual([...frames].sort(),[148,152,156]);
+ // Distinct pixel data, not just different tile indices.
+ const art=[148,152,156].map(t=>Array.from({length:64},(_,i)=>e.read8(0x8000+t*16+i)).join(','));
+ assert.equal(new Set(art).size,3);
+ e.tap('START');const tick=e.v('scrap_acid_tick');e.idle(45);
+ assert.equal(e.v('scrap_acid_tick'),tick);e.tap('START');
+ for(const [timer,palette] of [[13,4],[9,3],[5,2]]) {
+  put(e,'boss_timer',timer);e.idle(2);
+  assert.equal(e.v('scrap_pool_visual')&7,palette);
+  assert.equal(e.v('scrap_pool_painted'),3);
+  e.shot(`scrapback-acid-fade-${palette}`);
+ }
+ const floor=e.v('pal_base_bg','u16');
+ const distance=c=>[0,5,10].reduce((n,shift)=>n+Math.abs(((c>>shift)&31)-((floor>>shift)&31)),0);
+ for(let color=1;color<4;color++) {
+  let previous=100;
+  for(const palette of [5,4,3,2]) {
+   const d=distance((e.read8(at(e,'pal_base_bg')+(palette*4+color)*2)|(e.read8(at(e,'pal_base_bg')+(palette*4+color)*2+1)<<8)));
+   assert.ok(d<previous);previous=d;
+  }
+ }
+ assert.ok(worst<FRAME_LIMIT);
 });

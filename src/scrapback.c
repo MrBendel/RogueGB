@@ -20,6 +20,7 @@ uint8_t scrap_rebound_timer;
 uint8_t scrap_pool_x[4],scrap_pool_y[4],scrap_pool_age[4],scrap_pool_painted[4];
 uint8_t scrap_pool_count,scrap_pool_cursor,scrap_last_x,scrap_last_y;
 uint16_t scrap_acid_hits;
+uint8_t scrap_acid_tick, scrap_pool_visual[4];
 static const uint8_t body_slots[6]={11,12,13,14,15,16};
 static const uint8_t body_x[6]={0,8,16,0,8,16};
 static const uint8_t body_y[6]={0,0,0,16,16,16};
@@ -59,17 +60,25 @@ static void load_art(void) {
         }
         set_sprite_data(96+facing*12+part*2,2,data);
     }
-    // BG 144..155 shares VRAM only with unused sprite tiles beyond the body.
-    for(uint8_t stage=0;stage<3;stage++)for(uint8_t tile=0;tile<4;tile++) {
+    // BG 144..159 shares VRAM only with unused sprite tiles beyond the body.
+    for(uint8_t stage=0;stage<4;stage++)for(uint8_t tile=0;tile<4;tile++) {
         for(uint8_t row=0;row<8;row++) {
             uint8_t lo=0,hi=0,y=(tile>>1)*8+row;
             for(uint8_t col=0;col<8;col++) {
                 uint8_t x=(tile&1)*8+col,c=0;
                 uint8_t edge=y<3 || y>12?5:y<5 || y>10?3:1;
                 if(y>0 && y<15 && x>=edge && x<=15-edge) {
-                    if(stage==1)c=x==edge || x==15-edge || y==1 || y==14?3:2;
+                    if(stage)c=x==edge || x==15-edge || y==1 || y==14?3:2;
                     else if((x+y)&1)c=1;
-                    if((x==5 && y==5)||(x==10 && y==9))c=stage==1?1:3;
+                    // Bubbles grow, open into rings, then pop in three frames.
+                    if(stage) {
+                        uint8_t bx=stage==3?9:5,by=stage==3?5:6;
+                        uint8_t dx=x>bx?x-bx:bx-x,dy=y>by?y-by:by-y;
+                        if(stage==1 && dx+dy<=1)c=1;
+                        if(stage==2 && dx+dy==2)c=1;
+                        if(stage==3 && dx<=1 && dy<=1)c=1;
+                        if(x==10 && y==10-stage)c=1;
+                    } else if((x==5 && y==5)||(x==10 && y==9))c=3;
                 }
                 lo=(lo<<1)|(c&1);hi=(hi<<1)|(c>>1);
             }
@@ -84,7 +93,7 @@ static void drop_pool(void) {
     // Do not layer duplicate patches on short or nearly stationary charges.
     for(uint8_t i=0;i<scrap_pool_count;i++)if(scrap_pool_x[i]==x && scrap_pool_y[i]==y)return;
     uint8_t i=scrap_pool_count++;
-    scrap_pool_x[i]=x;scrap_pool_y[i]=y;scrap_pool_age[i]=0;scrap_pool_painted[i]=0;
+    scrap_pool_x[i]=x;scrap_pool_y[i]=y;scrap_pool_age[i]=0;scrap_pool_painted[i]=0;scrap_pool_visual[i]=255;
     scrap_last_x=actor_x[boss_slot];scrap_last_y=actor_y[boss_slot];
 }
 static uint8_t pool_stage(uint8_t i) {
@@ -94,6 +103,7 @@ static uint8_t pool_stage(uint8_t i) {
     return scrap_pool_age[i]<20?1:2;
 }
 static void acid_update(void) {
+    if(++scrap_acid_tick==24)scrap_acid_tick=0;
     for(uint8_t i=0;i<scrap_pool_count;i++) {
         if(scrap_pool_age[i]<255)scrap_pool_age[i]++;
         // Only painted, active acid hurts. Warning/fade are always harmless.
@@ -113,14 +123,17 @@ static void acid_draw(void) {
         uint8_t i=scrap_pool_cursor;scrap_pool_cursor=(scrap_pool_cursor+1)&3;
         if(i>=scrap_pool_count)continue;
         uint8_t stage=pool_stage(i);
-        if(stage==scrap_pool_painted[i])continue;
+        uint8_t frame=stage>=2?1+(scrap_acid_tick>>3):0;
+        uint8_t palette=stage==3?(boss_timer>8?4:boss_timer>4?3:2):5;
+        uint8_t visual=stage?(frame<<3)|palette:0;
+        if(stage==scrap_pool_painted[i] && visual==scrap_pool_visual[i])continue;
         uint8_t tx=scrap_pool_x[i]>>3,ty=scrap_pool_y[i]>>3;
         for(uint8_t row=0;row<2;row++) {
             uint8_t *strip=gfx_strip_attr(tx,ty+row,0,2);
             for(uint8_t col=0;col<2;col++) {
                 if(stage) {
-                    strip[col]=144+(stage-1)*4+row*2+col;
-                    strip[STRIP_MAX_LEN+col]=5;
+                    strip[col]=144+frame*4+row*2+col;
+                    strip[STRIP_MAX_LEN+col]=palette;
                 } else {
                     uint8_t x=tx+col,y=ty+row;
                     uint8_t v=room_vis[((uint16_t)(y>>1)<<5)|(x>>1)];
@@ -129,7 +142,7 @@ static void acid_draw(void) {
                 }
             }
         }
-        scrap_pool_painted[i]=stage;return;
+        scrap_pool_painted[i]=stage;scrap_pool_visual[i]=visual;return;
     }
 }
 static void track(void) {
@@ -175,10 +188,21 @@ void scrapback_start(void) BANKED {
     actor_guard[boss_slot]=1;boss_state=BOSS_RETREAT;boss_timer=36;
     boss_phase=boss_reward=boss_relays=0;boss_attacks=boss_cycles=scrap_crashes=0;
     scrap_pool_count=scrap_pool_cursor=0;scrap_acid_hits=0;
-    scrap_rebound_timer=0;
+    scrap_rebound_timer=scrap_acid_tick=0;
     for(uint8_t i=0;i<4;i++)scrap_pool_painted[i]=scrap_pool_age[i]=0;
     pal_base_bg[5*4]=pal_base_bg[0];
     pal_base_bg[5*4+1]=RGB(24,29,9);pal_base_bg[5*4+2]=RGB(10,23,3);pal_base_bg[5*4+3]=RGB(2,8,1);
+    // This arena uses BG palette 0; 2..5 are acid, 6..7 remain HUD.
+    // Precompute progressively halved contrast against the floor. Runtime
+    // fading changes tile attributes through the normal vblank strip queue.
+    for(uint8_t p=4;p>=2;p--)for(uint8_t c=0;c<4;c++) {
+        uint16_t a=pal_base_bg[(p+1)*4+c],b=pal_base_bg[0];
+        uint8_t r=((a&31)+(b&31))>>1;
+        uint8_t g=(((a>>5)&31)+((b>>5)&31))>>1;
+        uint8_t blue=(((a>>10)&31)+((b>>10)&31))>>1;
+        pal_base_bg[p*4+c]=RGB(r,g,blue);
+    }
+    for(uint8_t i=0;i<4;i++)scrap_pool_visual[i]=255;
     // The ordinary actor emitter reserves two entries; draw replaces those
     // plus four prop slots with the six parts of the larger body.
     actor_t0[boss_slot]=96;actor_t1[boss_slot]=98;

@@ -73,9 +73,9 @@ remains ordinary walkable floor, with damage checked separately.
 Focused emulator checks cover arbitrary-angle aim, committed trajectories, all
 four corners, actual projectile protection/damage, pause, sprite cleanup, and
 normal-health pistol completion. Standing still holding fire loses. The moving
-updated timed-jump victory test peaks at 62,616/131,328 update cycles (48% of the
-frame budget). Trail checks cover safe warning/fade stages, grounded damage,
-jumping, pause, visibility with all player shot slots full, and floor restoration.
+updated timed-jump victory test stays within the 131,328-cycle frame budget. Trail checks cover safe warning/fade stages, grounded damage,
+jumping, pause, all three distinct animation frames, palette fade progression,
+visibility with all player shot slots full, and floor restoration.
 Impact tests cover recoil distance, shotgun shake, ground/air outcomes, locked
 controls and attacks, recovery, pause, charge contact, and encounter reset. Rare
 stun and pit-respawn handling live in player_setup.c to keep fixed ROM within its
