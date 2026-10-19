@@ -208,3 +208,25 @@ test('scrapback acid: three bubbling frames loop, pause freezes animation, palet
  }
  assert.ok(worst<FRAME_LIMIT);
 });
+
+
+test('scrapback impact: screen-sized arena visibly shakes and settles without moving world positions',()=>{
+ const e=trial();impact(e);
+ const px=e.v('player_x','u16'),py=e.v('player_y','u16');
+ const offsets=new Set();let moved=false;
+ for(let f=0;f<12;f++) {
+  const x=e.v('cam_x','u16'),y=e.v('cam_y','u16');
+  offsets.add(`${x},${y}`);moved ||= x!==0||y!==0;
+  assert.ok(x<=2&&y<=2,'shotgun shake stays within the drawn border');
+  assert.equal(e.v('scroll_x'),x);assert.equal(e.v('scroll_y'),y);
+  assert.equal(e.read8(e.symbols.addr('shadow_OAM')+3*4+1),px+8-x,'player shares background shake');
+  if(x||y)e.shot('scrapback-visible-shake');
+  e.idle();
+ }
+ assert.ok(moved,'impact actually offsets the rendered view');assert.ok(offsets.size>1);
+ assert.equal(e.v('cam_x','u16'),0);assert.equal(e.v('cam_y','u16'),0);
+ assert.equal(e.v('player_x','u16'),px);assert.equal(e.v('player_y','u16'),py);
+ // Respect the existing shake-strength option in compact arenas too.
+ put(e,'cam_shake_max',0);impact(e);e.idle(3);
+ assert.equal(e.v('cam_x','u16'),0);assert.equal(e.v('cam_y','u16'),0);
+});

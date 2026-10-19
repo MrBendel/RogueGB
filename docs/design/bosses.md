@@ -36,7 +36,8 @@ single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
 - Charge roughly three pixels per frame, using fractional motion and three wall
   checks per update. The whole 24x24 footprint remains inside the arena. A charge
   hit deals 20 damage; jumping or stepping sideways avoids it.
-- A wall crash uses the shotgun's eight-frame shake (`SHAKE_MEDIUM`), rebounds
+- A wall crash uses the shotgun's eight-frame shake (`SHAKE_MEDIUM`),
+  visibly offsets the floor and sprites even in this screen-sized arena, rebounds
   along the reverse charge vector for eight frames (roughly eight pixels), and
   opens the cyan back panel for 100 frames including the rebound.
   Grounded players anywhere in the arena are knocked down for 24 frames (0.4 s):
