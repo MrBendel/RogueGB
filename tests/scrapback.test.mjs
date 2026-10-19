@@ -143,9 +143,9 @@ function impact(e,air=false,near=false) {
  if(air)e.hold('B');else e.idle();
  assert.equal(e.v('boss_state'),0);
 }
-test('scrapback impact: shotgun shake, bounded recoil and grounded knockdown',()=>{
+test('scrapback impact: sustained shake, bounded recoil and grounded knockdown',()=>{
  const e=trial();impact(e);
- assert.ok(e.v('cam_shake')>=6&&e.v('cam_shake')<=8);
+ assert.ok(e.v('cam_shake')>=22&&e.v('cam_shake')<=24);
  assert.equal(e.v('scrap_rebound_timer'),8);assert.equal(e.v('player_stun'),24);
  const bx=e.v('actor_x','u16'),x=e.v('player_x','u16'),y=e.v('player_y','u16'),shots=e.v('shots_fired','u16');
  e.hold('RIGHT+A+B',8);
@@ -213,16 +213,18 @@ test('scrapback acid: three bubbling frames loop, pause freezes animation, palet
 test('scrapback impact: screen-sized arena visibly shakes and settles without moving world positions',()=>{
  const e=trial();impact(e);
  const px=e.v('player_x','u16'),py=e.v('player_y','u16');
- const offsets=new Set();let moved=false;
- for(let f=0;f<12;f++) {
+ const offsets=new Set();let moved=false,lateMovement=false;
+ for(let f=0;f<28;f++) {
   const x=e.v('cam_x','u16'),y=e.v('cam_y','u16');
   offsets.add(`${x},${y}`);moved ||= x!==0||y!==0;
-  assert.ok(x<=2&&y<=2,'shotgun shake stays within the drawn border');
+  if(f>=8 && (e.read8(0xff43)||e.read8(0xff42)))lateMovement=true;
+  assert.ok(x<=3&&y<=3,'impact shake stays within the drawn border');
   assert.equal(e.v('scroll_x'),x);assert.equal(e.v('scroll_y'),y);
   assert.equal(e.read8(e.symbols.addr('shadow_OAM')+3*4+1),px+8-x,'player shares background shake');
   if(x||y)e.shot('scrapback-visible-shake');
   e.idle();
  }
+ assert.ok(lateMovement,'hardware scroll keeps shaking beyond the old eight-frame duration');
  assert.ok(moved,'impact actually offsets the rendered view');assert.ok(offsets.size>1);
  assert.equal(e.v('cam_x','u16'),0);assert.equal(e.v('cam_y','u16'),0);
  assert.equal(e.v('player_x','u16'),px);assert.equal(e.v('player_y','u16'),py);

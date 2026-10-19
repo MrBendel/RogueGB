@@ -36,7 +36,7 @@ single-screen arena; 24 HP, starter pistol and the ordinary starting shield.
 - Charge roughly three pixels per frame, using fractional motion and three wall
   checks per update. The whole 24x24 footprint remains inside the arena. A charge
   hit deals 20 damage; jumping or stepping sideways avoids it.
-- A wall crash uses the shotgun's eight-frame shake (`SHAKE_MEDIUM`),
+- A wall crash uses a sustained 24-frame camera shake (0.4 seconds), decaying from three pixels,
   visibly offsets the floor and sprites even in this screen-sized arena, rebounds
   along the reverse charge vector for eight frames (roughly eight pixels), and
   opens the cyan back panel for 100 frames including the rebound.
@@ -77,7 +77,7 @@ normal-health pistol completion. Standing still holding fire loses. The moving
 updated timed-jump victory test stays within the 131,328-cycle frame budget. Trail checks cover safe warning/fade stages, grounded damage,
 jumping, pause, all three distinct animation frames, palette fade progression,
 visibility with all player shot slots full, and floor restoration.
-Impact tests cover recoil distance, shotgun shake, ground/air outcomes, locked
+Impact tests cover recoil distance, sustained shake, ground/air outcomes, locked
 controls and attacks, recovery, pause, charge contact, and encounter reset. Rare
 stun and pit-respawn handling live in player_setup.c to keep fixed ROM within its
 budget; the existing pit and movement tests still pass.
