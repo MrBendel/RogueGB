@@ -13,6 +13,7 @@
 #include "warden.h"
 #include "oam.h"
 #include "scrapback.h"
+#include "cragback.h"
 #include "flynt.h"
 
 #define MACHINE_VRAM 96
@@ -237,6 +238,9 @@ static void fire_direct_bullet(uint16_t x, uint16_t y, int16_t vx, int16_t vy) {
 }
 
 void boss_start(uint8_t kind) BANKED {
+    if (kind == BOSS_CRAGBACK) {
+        cragback_start();shown_hp=shown_state=shown_relays=shown_phase=0xFF;boss_status();return;
+    }
     if (kind == BOSS_SCRAPBACK) {
         scrapback_start();
         shown_hp = shown_state = shown_relays = shown_phase = 0xFF;
@@ -645,6 +649,7 @@ void boss_update(void) BANKED {
     }
     if (boss_kind == BOSS_GUNSHIP) { gunship_update(); return; }
     if (boss_kind == BOSS_SCRAPBACK) { scrapback_update(); return; }
+    if (boss_kind == BOSS_CRAGBACK) { cragback_update(); return; }
     if (boss_kind == BOSS_FLYNT) { flynt_update(); return; }
     if (boss_kind == BOSS_WARDEN) warden_update();
     actor_flash[boss_slot] = boss_state == BOSS_WARN && (boss_timer & 4);
@@ -829,6 +834,10 @@ void boss_status(void) BANKED {
         s = boss_state == BOSS_RECOVER ? "SHELL OPEN - FIRE!" :
             boss_state == BOSS_WARN ? "CHARGE INCOMING!" :
             boss_state == BOSS_CHARGE ? "DODGE SIDEWAYS!" : "BAIT A WALL CRASH";
+    }
+    if (boss_kind == BOSS_CRAGBACK && boss_state != BOSS_WON) {
+        s = boss_state == BOSS_WARN ? "ROCK INCOMING!" : boss_state == BOSS_CHARGE ? "DODGE THE ROCK!" :
+            boss_state == BOSS_RELAYS ? "SLAM - GET BACK!" : boss_state == BOSS_RECOVER ? "DIGGING - FIRE!" : "KEEP YOUR DISTANCE";
     }
     uint8_t *row = gfx_strip(1, 1, 0, 18);
     uint8_t n = 0;

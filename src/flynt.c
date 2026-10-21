@@ -2,6 +2,7 @@
 #include "flynt.h"
 #include <gb/cgb.h>
 #include <string.h>
+#include <rand.h>
 #include "boss.h"
 #include "actor_internal.h"
 #include "aim.h"
@@ -21,7 +22,7 @@
 uint8_t flynt_state, flynt_timer, flynt_phase;
 uint8_t flynt_vent_cycle, flynt_vent_timer;
 uint8_t flynt_minion_timer, flynt_z;
-uint8_t vent_stage[VENT_COUNT];   // 0: cool, 1: steam warn, 2: flame
+uint8_t vent_stage[VENT_COUNT];   // 0: cool/floor, 1: tip warn, 2: rising, 3: full blades
 uint16_t flynt_cleaves, flynt_slams, flynt_stuns;
 
 static uint8_t flynt_hp, flynt_hp_max;
@@ -32,10 +33,10 @@ static uint8_t flynt_minion_slot;
 static uint8_t flynt_cloak_used_24, flynt_cloak_used_12;
 static const char *flynt_status_msg;
 
-// 4 furnace grates in the four quadrants of the arena floor
-static const uint8_t vent_tx[VENT_COUNT] = {4, 14, 4, 14};
-static const uint8_t vent_ty[VENT_COUNT] = {4, 4, 10, 10};
-static uint8_t vent_painted[VENT_COUNT]; // stage currently in VRAM
+// Dynamic furnace/spike positions across arena floor
+uint8_t vent_tx[VENT_COUNT] = {4, 14, 4, 14};
+uint8_t vent_ty[VENT_COUNT] = {4, 4, 10, 10};
+static uint8_t vent_painted[VENT_COUNT]; // stage currently painted in VRAM
 static uint8_t vent_cursor;
 
 // 16x16 metasprite pixel art for Captain Flynt:
@@ -172,47 +173,10 @@ static const uint8_t spike_tiles_var0[4][64] = {
     },
 };
 
-static const uint8_t spike_tiles_var1[4][64] = {
-    // Stage 0
-    {
-        0x80, 0x80, 0x39, 0x79, 0x39, 0xF9, 0x10, 0x50, 0x00, 0x00, 0x39, 0x39, 0x39, 0x39, 0x10, 0x10,
-        0x01, 0x01, 0xCE, 0xCE, 0xCE, 0xCE, 0x82, 0x82, 0x00, 0x00, 0xCC, 0xCE, 0xC8, 0xCE, 0x80, 0x82,
-        0x00, 0x00, 0x00, 0x00, 0x39, 0x79, 0x39, 0xF9, 0x10, 0x50, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
-        0x00, 0x00, 0x00, 0x00, 0xCE, 0xCE, 0xCE, 0xCE, 0x82, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
-    },
-    // Stage 1
-    {
-        0x80, 0x80, 0x39, 0x49, 0x39, 0xC9, 0x10, 0x50, 0x00, 0x00, 0x39, 0x29, 0x39, 0x29, 0x10, 0x10,
-        0x01, 0x01, 0xCE, 0x4A, 0xCE, 0x4A, 0x82, 0x82, 0x00, 0x00, 0xCA, 0x4C, 0xC8, 0x4E, 0x80, 0x82,
-        0x00, 0x00, 0x00, 0x00, 0x39, 0x49, 0x39, 0xC9, 0x10, 0x50, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
-        0x00, 0x00, 0x00, 0x00, 0xCE, 0x4A, 0xCE, 0x4A, 0x82, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
-    },
-    // Stage 2
-    {
-        0x80, 0x90, 0x09, 0x70, 0x1F, 0xE6, 0x39, 0x39, 0x10, 0x00, 0x39, 0x00, 0x7F, 0x46, 0x39, 0x39,
-        0x83, 0x01, 0xC6, 0x00, 0xEE, 0x28, 0xCE, 0xCE, 0x80, 0x02, 0xC0, 0x06, 0xEA, 0x2C, 0xCE, 0xCE,
-        0x00, 0x00, 0x00, 0x10, 0x09, 0x70, 0x1F, 0xE6, 0x39, 0x39, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80,
-        0x00, 0x00, 0x82, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0xCE, 0xCE, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
-    },
-    // Stage 3
-    {
-        0x80, 0x90, 0x01, 0x38, 0x19, 0x60, 0x3F, 0xC6, 0x10, 0x00, 0x39, 0x00, 0x39, 0x00, 0x7F, 0x46,
-        0x83, 0x01, 0xC6, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0x80, 0x02, 0xC0, 0x06, 0xC2, 0x04, 0xEA, 0x2C,
-        0x39, 0x39, 0x00, 0x10, 0x01, 0x38, 0x19, 0x60, 0x3F, 0xC6, 0x7F, 0x46, 0x39, 0x39, 0x80, 0x80,
-        0xCE, 0xCE, 0x82, 0x00, 0xC6, 0x00, 0xC6, 0x00, 0xEE, 0x28, 0xEE, 0x28, 0xCE, 0xCE, 0x01, 0x01,
-    },
-};
-
 static void set_floor_palette(const uint16_t *c) {
     memcpy(&pal_base_bg[5 << 2], c, 8);
     memcpy(&pal_bg[5 << 2], c, 8);
     pal_dirty = 1;
-}
-
-static void flynt_set_spike_stage(uint8_t s) {
-    if (s > 3) s = 3;
-    set_bkg_data((uint8_t)VENT_TILE_BASE, 4, spike_tiles_var0[s]);
-    set_bkg_data((uint8_t)(VENT_TILE_BASE + 4u), 4, spike_tiles_var1[s]);
 }
 
 static void load_flynt_art(void) {
@@ -234,8 +198,10 @@ static void load_flynt_art(void) {
         set_sprite_data(MACHINE_VRAM + (f << 2), 4, tiles);
     }
 
-    // 2. Load initial retracted stage 0 for spike floor
-    flynt_set_spike_stage(0);
+    // 2. Load 4 spike stages into VRAM at VENT_TILE_BASE (tiles 144..159)
+    for (uint8_t s = 0; s < 4; s++) {
+        set_bkg_data((uint8_t)(VENT_TILE_BASE + (s << 2)), 4, spike_tiles_var0[s]);
+    }
 
     // Set background palette 5 to steel spike & blood colors
     set_floor_palette(spike_bg_palette);
@@ -284,27 +250,6 @@ static void aim_vector(uint16_t sx, uint16_t sy, uint16_t tx, uint16_t ty, uint8
 
 void flynt_room(void) BANKED {
     boss_room();
-    // 1. In VRAM Bank 1, map all arena floor cells (tx: 2..17, ty: 2..13) to Palette 5
-    VBK_REG = 1;
-    fill_bkg_rect(2, 2, 16, 12, 5);
-    VBK_REG = 0;
-
-    // 2. Map all floor visual blocks in room_tile_lut to the two spike trap variants at VENT_TILE_BASE:
-    // Variant 0 (tiles 144..147): blocks 0, 8, 10
-    // Variant 1 (tiles 148..151): blocks 7, 9, 11
-    for (uint8_t v = 0; v < VIS_BLOCKS; v++) {
-        if (v == 0 || v == 8 || v == 10) {
-            room_tile_lut[(v << 2) + 0] = (uint8_t)(VENT_TILE_BASE + 0u);
-            room_tile_lut[(v << 2) + 1] = (uint8_t)(VENT_TILE_BASE + 1u);
-            room_tile_lut[(v << 2) + 2] = (uint8_t)(VENT_TILE_BASE + 2u);
-            room_tile_lut[(v << 2) + 3] = (uint8_t)(VENT_TILE_BASE + 3u);
-        } else if (v == 7 || v == 9 || v == 11) {
-            room_tile_lut[(v << 2) + 0] = (uint8_t)(VENT_TILE_BASE + 4u);
-            room_tile_lut[(v << 2) + 1] = (uint8_t)(VENT_TILE_BASE + 5u);
-            room_tile_lut[(v << 2) + 2] = (uint8_t)(VENT_TILE_BASE + 6u);
-            room_tile_lut[(v << 2) + 3] = (uint8_t)(VENT_TILE_BASE + 7u);
-        }
-    }
 }
 
 void flynt_start(void) BANKED {
@@ -337,6 +282,10 @@ void flynt_start(void) BANKED {
 
     flynt_vent_cycle = 0;
     flynt_vent_timer = 90;
+    vent_tx[0] = 4;  vent_ty[0] = 4;
+    vent_tx[1] = 14; vent_ty[1] = 4;
+    vent_tx[2] = 4;  vent_ty[2] = 10;
+    vent_tx[3] = 14; vent_ty[3] = 10;
     for (uint8_t i = 0; i < VENT_COUNT; i++) {
         vent_stage[i] = 0;
         vent_painted[i] = 0;
@@ -348,26 +297,90 @@ void flynt_start(void) BANKED {
     flynt_shown_hp = flynt_shown_state = 0xFF;
 }
 
-// Redraw / strip sync hook
+// Select random 16x16 floor block positions anywhere across the arena floor
+static void pick_random_spike_locations(void) {
+    // Vent 0 targets near the player's current block to keep pressure high!
+    uint8_t p_bx = (player_x + 8) >> 4;
+    uint8_t p_by = (player_y + 8) >> 4;
+    if (p_bx < 1) p_bx = 1; else if (p_bx > 8) p_bx = 8;
+    if (p_by < 1) p_by = 1; else if (p_by > 6) p_by = 6;
+    vent_tx[0] = p_bx << 1;
+    vent_ty[0] = p_by << 1;
+
+    // Vents 1..VENT_COUNT-1: pick distinct random floor block positions across the entire arena (8 cols x 6 rows = 48 blocks)
+    for (uint8_t i = 1; i < VENT_COUNT; i++) {
+        uint8_t attempts = 0;
+        while (attempts++ < 30) {
+            uint8_t idx = (uint8_t)rand() % 48;
+            uint8_t bx = 1 + (idx & 7);
+            uint8_t by = 1 + (idx >> 3);
+            uint8_t tx = bx << 1;
+            uint8_t ty = by << 1;
+            uint8_t dup = 0;
+            for (uint8_t j = 0; j < i; j++) {
+                if (vent_tx[j] == tx && vent_ty[j] == ty) {
+                    dup = 1;
+                    break;
+                }
+            }
+            if (!dup) {
+                vent_tx[i] = tx;
+                vent_ty[i] = ty;
+                break;
+            }
+        }
+    }
+}
+
+// Redraw at most one vent patch per frame via queued strips
 static void update_vent_graphics(void) {
-    // Floor is mapped across all cells in room_tile_lut and VRAM bank 1;
-    // stage changes are applied instantaneously to VRAM tiles at VENT_TILE_BASE.
+    for (uint8_t n = 0; n < VENT_COUNT; n++) {
+        uint8_t i = vent_cursor;
+        vent_cursor = (vent_cursor + 1);
+        if (vent_cursor >= VENT_COUNT) vent_cursor = 0;
+
+        uint8_t stage = vent_stage[i];
+        if (stage == vent_painted[i]) continue;
+
+        uint8_t tx = vent_tx[i];
+        uint8_t ty = vent_ty[i];
+        for (uint8_t row = 0; row < 2; row++) {
+            uint8_t *strip = gfx_strip_attr(tx, ty + row, 0, 2);
+            for (uint8_t col = 0; col < 2; col++) {
+                if (stage == 0) {
+                    uint8_t x = tx + col, y = ty + row;
+                    uint8_t v = room_vis[((uint16_t)(y >> 1) << 5) | (x >> 1)];
+                    strip[col] = room_tile_at(x, y);
+                    strip[STRIP_MAX_LEN + col] = room_attr_lut[(v << 2) | ((y & 1) << 1) | (x & 1)];
+                } else {
+                    strip[col] = (uint8_t)(VENT_TILE_BASE + (stage << 2) + (row << 1) + col);
+                    strip[STRIP_MAX_LEN + col] = 5; // Palette 5: flashing spike palette
+                }
+            }
+        }
+        vent_painted[i] = stage;
+        return; // at most one vent patch per frame
+    }
 }
 
 // Check player collision with floor spikes
 static void update_vent_hazards(void) {
     if (!player_hittable() || player_z > 0) return; // JUMPING OVER SPIKES IS SAFE!
-    if (vent_stage[0] < 2 && flynt_vent_cycle != 2) return;
 
     uint16_t px = player_x + PLAYER_HB_X;
     uint16_t py = player_y + PLAYER_HB_Y;
 
-    // Entire arena floor area (x: 16..144, y: 16..112)
-    if (px + PLAYER_HB_W > 16 && px < 144 &&
-        py + PLAYER_HB_H > 16 && py < 112) {
-        hurt_cause = 15;
-        player_hurt(8, player_x + 8, player_y + 8);
-        camera_shake(SHAKE_SMALL);
+    for (uint8_t i = 0; i < VENT_COUNT; i++) {
+        if (vent_stage[i] < 2) continue; // Stages 2 (rising) and 3 (full razor) deal damage
+        uint16_t vx = (uint16_t)vent_tx[i] << 3;
+        uint16_t vy = (uint16_t)vent_ty[i] << 3;
+        if (px + PLAYER_HB_W > vx && px < vx + 16 &&
+            py + PLAYER_HB_H > vy && py < vy + 16) {
+            hurt_cause = 15;
+            player_hurt(8, vx + 8, vy + 8);
+            camera_shake(SHAKE_SMALL);
+            return;
+        }
     }
 }
 
@@ -376,41 +389,39 @@ static void update_furnace_cycle(void) {
     if (!flynt_vent_timer) {
         flynt_vent_cycle = (flynt_vent_cycle + 1) % 3;
         switch (flynt_vent_cycle) {
-        case 0: // All spikes retracted (safe window)
+        case 0: // All spikes retracted (safe window: 60-80 frames)
             for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 0;
-            flynt_set_spike_stage(0);
             set_floor_palette(spike_bg_palette);
-            flynt_vent_timer = (flynt_phase >= 2) ? 60 : 90;
+            flynt_vent_timer = (flynt_phase >= 2) ? 60 : 80;
             break;
 
-        case 1: // Warning telegraph: Palette flashes & tips emerge!
+        case 1: // Warning telegraph: Pick new random floor locations & tips emerge & palette flashes!
+            pick_random_spike_locations();
             for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 1;
-            flynt_set_spike_stage(1); // Tips poke up inside holes!
             flynt_vent_timer = 36;
             sfx_play(SFX_ENEMY_SHOT);
             break;
 
-        case 2: // Spikes burst out across the whole floor!
+        case 2: // Spikes burst out at the chosen tiles!
             for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 2;
-            flynt_set_spike_stage(2); // Spikes thrust halfway up!
             set_floor_palette(spike_bg_palette);
-            flynt_vent_timer = 24; // Spikes active for 24 frames (~0.4s) - jump duration is 28f!
+            flynt_vent_timer = 28; // Spikes active for 28 frames (~0.45s)
             camera_shake(SHAKE_SMALL);
             sfx_play(SFX_SWORD);
             break;
         }
     } else if (flynt_vent_cycle == 1) {
-        // Warning telegraph: Flash floor palette every 4 frames!
+        // Warning telegraph: Flash floor palette 5 every 4 frames!
+        // Only active spike tiles have Palette 5, so only they flash!
         if ((flynt_vent_timer & 4) != 0) {
             set_floor_palette(spike_warn_palette); // Intense burning danger flash!
         } else {
             set_floor_palette(spike_bg_palette);
         }
     } else if (flynt_vent_cycle == 2) {
-        // At frame 18 of eruption (6 frames in), snap to full razor spikes!
-        if (flynt_vent_timer == 18) {
+        // At frame 16 of eruption, extend to full razor blades (stage 3)
+        if (flynt_vent_timer == 16) {
             for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 3;
-            flynt_set_spike_stage(3);
         }
     }
 
@@ -485,8 +496,23 @@ void flynt_update(void) BANKED {
         boss_state = BOSS_WON;
         boss_reward = 1;
         enemies_killed++;
-        for (uint8_t i = 0; i < VENT_COUNT; i++) vent_stage[i] = 0;
-        update_vent_graphics();
+        for (uint8_t i = 0; i < VENT_COUNT; i++) {
+            vent_stage[i] = 0;
+            if (vent_painted[i]) {
+                uint8_t tx = vent_tx[i], ty = vent_ty[i];
+                for (uint8_t row = 0; row < 2; row++) {
+                    uint8_t *strip = gfx_strip_attr(tx, ty + row, 0, 2);
+                    for (uint8_t col = 0; col < 2; col++) {
+                        uint8_t x = tx + col, y = ty + row;
+                        uint8_t v = room_vis[((uint16_t)(y >> 1) << 5) | (x >> 1)];
+                        strip[col] = room_tile_at(x, y);
+                        strip[STRIP_MAX_LEN + col] = room_attr_lut[(v << 2) | ((y & 1) << 1) | (x & 1)];
+                    }
+                }
+                vent_painted[i] = 0;
+            }
+        }
+        set_floor_palette(spike_bg_palette);
         actors_clear();
         camera_shake(SHAKE_BIG);
         sfx_play(SFX_DEATH);

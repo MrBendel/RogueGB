@@ -23,6 +23,35 @@ Title → DOWN → Bosses → Captain Flynt. The Southern Shelf pirate commander
   - Uses 4 metasprite frames in `MACHINE_VRAM` (96–111) and background tiles 144–155 for furnace grates on background palette 5.
   - Leap shadow exclusively uses `OAM_PROP` (slots 11–12), preserving all player and combat sprite slots.
 
+## Cragback miniboss trial
+
+Title > DOWN > Minibosses > Cragback. A 32x32 mineral-plated brute with 32 HP.
+An original standalone combat prototype, not a campaign spawn.
+
+- Stalks at half running speed toward throwing range, moving on both axes.
+- Raises a rock overhead for 40 frames, locking the player's position at release.
+- One rock travels for 32 frames along a fixed path. Its shadow moves along the
+  ground while the sprite rises and falls; it cannot track a dodge after launch.
+- Landing deals 18 damage in a small area, shakes the camera, creates dust, and
+  breaks into three spreading fragments dealing 8 damage each. Jumping clears
+  landing damage. A 64-frame digging recovery gives an opportunity to attack.
+- Within 28 pixels on both axes it instead warns a ground slam for 28 frames.
+  Retreat or jump to avoid 16 damage within 32 pixels; recovery lasts 56 frames.
+- Mineral shell is guarded during stalking and attacks; digging recovery opens
+  projectile damage. The shared central 16x16 actor hitbox is the
+  aiming/damage target inside the larger silhouette for this prototype.
+- Pause freezes attacks. Defeat clears the body, rock and fragments and grants
+  the existing trial completion flag. No campaign rewards or spawn changes.
+
+Implementation: `src/cragback.c`, boss kind 11, scripted actor 13, death cause 16.
+Three body poses use OBJ tiles 96-143; rock, shadow and dust use 144-149.
+The body uses prop slots 12-14 and five dynamic actor-pool entries. Slot 11
+keeps the rock visibly in front of its thrower. Its banked emitter runs after the
+ordinary actor emitter and before shots, adding one dynamic slot for the shadow. `play_actor_oam`
+stays 15; player slots remain untouched. The body, rock/shadow, 16 player shots
+and three fragments fit the 40-entry budget. The hardware limit of ten sprites
+per scanline still applies to overlapping effects.
+
 ## Scrapback miniboss trial
 
 Title → DOWN → Minibosses → Scrapback. A 24x24 armored scavenger beast in a

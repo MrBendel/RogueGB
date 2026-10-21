@@ -21,6 +21,7 @@
 #define BOSS_WON 5
 #define BOSS_RETREAT 9
 #define BOSS_FLYNT 10
+#define BOSS_CRAGBACK 11
 extern uint8_t boss_kind, boss_slot, boss_state, boss_timer, boss_phase;
 extern uint8_t boss_hp, boss_hp_max, boss_relays, boss_reward;
 extern uint16_t boss_attacks, boss_cycles;

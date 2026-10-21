@@ -360,3 +360,11 @@ Working content scope, expanded in [story.md](docs/design/story.md):
 - Performance and timing checks in Emulicious/SameBoy and on real hardware
 - Stress tests: worst-case sprite and CPU frames
 - Credits, version number, release build and page
+
+
+### Cragback combat prototype
+
+A third Minibosses trial: a 32x32 rock-throwing brute with a committed arcing
+throw, moving shadow, three impact fragments, close-range warned slam, and
+digging recovery. This remains a standalone trial pending mixed encounters.
+See [boss design](docs/design/bosses.md#cragback-miniboss-trial).
