@@ -14,6 +14,8 @@
 #include "aim.h"
 #include "progress.h"
 #include "pickups.h"
+#include "boss.h"
+#include "cragback.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -318,6 +320,7 @@ void actors_update(uint8_t first_oam) {
     // they move (shots.s, bullets.s).
     oam_next = first_oam;
     if (actor_count) actors_emit();
+    if (boss_kind == BOSS_CRAGBACK) cragback_emit();
     // Warden reserves slots 15-22 for floor fields. Prioritize its enemy
     // volleys over player projectiles. Keep the ordinary path to one branch.
     if (first_oam == 23) {
