@@ -46,7 +46,30 @@ Generated as: open ground from the chunks; solid clusters become modules (roof
 over front, autotiled from their neighbours) or rock; pipes along some module
 edges; props in decoration slots.
 
-## The interior: proposed (the pack has no example)
+## Decals
+
+The decal sheet is white marks on transparency (digits 0-5, numbered plates,
+hazard stripes and chevrons, arrows, a warning triangle, a stop hand, icons): stamps
+for other tiles, as the example's "01" and stripes on a roof and "404" plate show.
+The Color can't layer background tiles, so a stamp is baked into the tile it sits
+on at build time (a tileset piece's `"stamp"`), costing a tile per combination.
+In use: a building's number on its roof's bottom-left block (one per building),
+hazard stripes mid-roof. (Digits span two tile
+rows of the sheet: stamp both.)
+
+## Walking behind buildings
+
+Roofs are walkable and drawn over sprites (`"behind"` pieces); only a building's
+front row is solid. Raised platforms use copies without it, so you're seen on top.
+
+## The interior: only inside buildings (the pack has no example)
+
+Decided 2026-10-21: interiors are the inside of buildings you walk into, not maps
+of their own in the area grid. Some modules get a door in their front row; through
+it, a small interior (a room or two, sized to the building) loads; leaving puts you
+back outside the door.
+
+A first mockup was a guess and needs work. The construction proposed:
 
 A 3/4 view like most Game Boy interiors (first mockup in the conversation of
 2026-10-21; to confirm with the artist):
@@ -61,17 +84,17 @@ A 3/4 view like most Game Boy interiors (first mockup in the conversation of
 
 ## The area
 
-- An area has exterior maps (most) and interior maps (some), linked like the
-  descent's maps now. An opening between an exterior and an interior map is a
-  module door on the outside and a corridor door inside.
-- Each map loads its own tileset and theme when it's entered.
+- An area's maps are all outdoors (the descent's grid of linked maps); interiors
+  hang off buildings' doors.
+- An interior loads its own tileset and theme when it's entered.
 
 ## Order
 
-1. Tileset tool: local-only sheets with placeholder fallback; pieces cut as any
-   4 tiles (the pack is built on 8x8 tiles, not 16x16 blocks).
-2. Themes: rules (data in the tileset file) that turn the generator's blocks into
-   looks from their neighbours, run when a map is built.
-3. The exterior theme (ground, modules, pipes, props), on today's chunks.
-4. Interior maps: a map kind, room-and-corridor chunks, the interior theme.
-5. Doors between exterior and interior maps; tuning; the area's place in the descent.
+1. Done: tileset tool: local-only sheets with stand-ins; pieces from 8x8 tiles; decals.
+2. Done: themes: rules that turn the generator's blocks into looks from neighbours.
+3. Done (first pass): the exterior theme (ground, modules, props, numbers) and lunar
+   chunks. Next: pipes, skylight modules, equipment banks with their ends, tanks.
+4. Doors in building fronts; entering and leaving an interior (the scene swap, the
+   way back out).
+5. Interiors: room-and-corridor chunks sized to the building, the interior theme,
+   dense props (lockers, consoles, crates, capsules).
