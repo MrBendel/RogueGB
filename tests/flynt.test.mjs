@@ -78,6 +78,24 @@ test('flynt furnace: grates cycle steam warning and active erupting fire', () =>
   e.shot('flynt-vent-flame-erupt');
 });
 
+test('flynt furnace: spikes spawn dynamically at random arena floor positions', () => {
+  const e = trial();
+  const txAddr = at(e, 'vent_tx');
+  const tyAddr = at(e, 'vent_ty');
+
+  // Advance to cycle 1 (spike tip warning where random positions are selected)
+  e.until(x => x.v('flynt_vent_cycle') === 1, 90);
+
+  // Verify all 4 spikes are within valid arena floor block coordinates:
+  // Arena floor: tx in 2..16 (even), ty in 2..12 (even)
+  for (let i = 0; i < 4; i++) {
+    const tx = e.read8(txAddr + i);
+    const ty = e.read8(tyAddr + i);
+    assert.ok(tx >= 2 && tx <= 16 && (tx & 1) === 0, `vent ${i} tx=${tx} is a valid floor block column`);
+    assert.ok(ty >= 2 && ty <= 12 && (ty & 1) === 0, `vent ${i} ty=${ty} is a valid floor block row`);
+  }
+});
+
 test('flynt furnace: grounded player on active flame takes damage, jumping safely clears it', () => {
   const e = trial();
   // Place player over top-left grate: (tx=4, ty=4) -> x=32, y=32.
