@@ -104,6 +104,10 @@ function writeGolden(name, hash) {
  * A PNG of the current frame is always written to build/test-output/.
  */
 export function matchGolden(emu, name) {
+  // A build without the local-only art packs (the public CI build) draws stand-ins:
+  // its screens are kept under their own names (tools/tileset.mjs, art-mode.json).
+  const mode = path.join(ROOT, 'build', 'gen', 'art-mode.json');
+  if (fs.existsSync(mode) && JSON.parse(fs.readFileSync(mode, 'utf8')).standIn.length) name += '~stand-in';
   const goldens = readGoldens();
   const hash = emu.frameHash();
   const png = emu.shot(name);

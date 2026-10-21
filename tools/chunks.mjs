@@ -55,6 +55,7 @@ export function buildChunks({ quiet = false } = {}) {
     ...CELL_NAMES.map((n, i) => `#define CELL_${n} ${i}`),
     ...Object.entries(TAGS).map(([n, b]) => `#define TAG_${n.toUpperCase()} ${b}`),
     `// Themes: ${themes.map((x, i) => `${i} ${x}`).join(', ')}`,
+    ...themes.map((x, i) => `#define CHUNK_THEME_${x.toUpperCase().replace(/[^A-Z0-9]/g, '_')} ${i}`),
     'extern const uint8_t chunk_count;',
     'extern const uint16_t tool_seed;  // 0; the chunk editor patches in a seed to play',
     'extern const uint8_t chunk_tags[CHUNK_MAX];',

@@ -91,9 +91,37 @@ const addHist = (a, b) => {
   return m;
 };
 
+// A stand-in for art that isn't here (a local-only sheet, docs/design/lunar-base.md),
+// by what the theme uses a piece for, so maps still read without the real tiles:
+// ground light with a speck, pits black, anything solid dark and outlined.
+function placeholderPixel(piece, role) {
+  let h = 0;
+  for (const ch of piece) h = (h * 31 + ch.charCodeAt(0)) & 0xffff;
+  if (role === 'floor') {
+    const fill = pack(200, 196, 176), speck = pack(150, 146, 130);
+    return (lx, ly) => ((lx & 15) === (h & 15) && (ly & 15) === ((h >> 4) & 15) ? speck : fill);
+  }
+  if (role === 'pit') return () => pack(16, 16, 16);
+  const fill = h & 1 ? pack(110, 110, 120) : pack(90, 90, 100), edge = pack(170, 170, 180), ink = pack(30, 30, 30);
+  return (lx, ly) => ((lx & 15) === 15 || (ly & 15) === 15 ? ink : (lx & 15) === 0 || (ly & 15) === 0 ? edge : fill);
+}
+
+// What a theme draws a piece as: 'floor', 'pit' or 'solid' (for stand-ins).
+function pieceRoles(def) {
+  const roles = {}, th = def.theme || {};
+  const names = (r) => (Array.isArray(r) ? r : r && typeof r === 'object' ? Object.entries(r).filter(([k]) => k !== 'style').flatMap(([, v]) => v) : []);
+  for (const [t, r] of Object.entries(th)) for (const n of names(r)) roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' ? 'floor' : t === 'pit' ? 'pit' : 'solid';
+  return roles;
+}
+
 export function convert(name) {
   const def = JSON.parse(fs.readFileSync(path.join(DIR, `${name}.json`), 'utf8'));
-  const img = decodePng(fs.readFileSync(path.join(ROOT, def.src)));
+  const srcPath = path.join(ROOT, def.src);
+  // (ROGUEGB_STANDIN_ART=1: build as if local-only sheets were missing, to record
+  // the stand-in screens the public build shows.)
+  const placeholder = !fs.existsSync(srcPath) || (def.local && !!process.env.ROGUEGB_STANDIN_ART);
+  if (placeholder && !def.local) throw new Error(`tileset ${name}: ${def.src} is missing`);
+  const img = placeholder ? null : decodePng(fs.readFileSync(srcPath));
   const [br, bg, bb] = def.backdrop;
   const sheetPixel = (x, y) => {
     const i = (y * img.width + x) * 4, a = img.rgba[i + 3] / 255;
@@ -101,28 +129,53 @@ export function convert(name) {
     return pack(mix(img.rgba[i], br), mix(img.rgba[i + 1], bg), mix(img.rgba[i + 2], bb));
   };
   // The pieces' blocks, and their tiles' pixels.
-  const pieces = [], blocks = [], tiles = [];
+  const pieces = [], blocks = [], tiles = [], roles = pieceRoles(def);
   for (const [piece, spec] of Object.entries(def.pieces)) {
-    // [x, y, w, h], or { rect: [x, y, w, h], overlay: [[sx, sy, w, h, dx, dy], ...] }:
-    // other parts of the sheet drawn over it (their transparent pixels let it show).
-    const [x, y, w, h] = Array.isArray(spec) ? spec : spec.rect;
-    if (x % 8 || y % 8 || w % 16 || h % 16) throw new Error(`${name}.${piece}: x, y on the 8 px grid; w, h in 16s`);
-    const over = new Map();
-    for (const [sx, sy, ow, oh, dx, dy] of spec.overlay || [])
-      for (let yy = 0; yy < oh; yy++)
-        for (let xx = 0; xx < ow; xx++)
-          if (img.rgba[((sy + yy) * img.width + sx + xx) * 4 + 3]) over.set((y + dy + yy) * img.width + x + dx + xx, [sx + xx, sy + yy]);
-    const pixel = (px, py) => {
-      const o = over.get(py * img.width + px);
-      return o ? sheetPixel(o[0], o[1]) : sheetPixel(px, py);
-    };
-    pieces.push({ piece, first: blocks.length, w: w / 16, h: h / 16, x, y, pixel });
+    // Each piece reads its pixels at piece-local (lx, ly). Three forms:
+    // [x, y, w, h]: a rectangle of the sheet.
+    // { rect: [x, y, w, h], overlay: [[sx, sy, w, h, dx, dy], ...] }: other parts of
+    //   the sheet drawn over it (their transparent pixels let it show).
+    // { tiles: ["00 10x", "20 00xy"] }: 8x8 sheet tiles by column and row (hex), each
+    //   optionally flipped (x, y); rows of codes, 2 per block across and down.
+    let w, h, pixel, x = 0, y = 0;
+    if (spec.tiles) {
+      const rows = spec.tiles.map((r) => r.trim().split(/\s+/));
+      h = rows.length * 8;
+      w = rows[0].length * 8;
+      if (w % 16 || h % 16 || rows.some((r) => r.length * 8 !== w)) throw new Error(`${name}.${piece}: tiles rows of one length, an even number of tiles each way`);
+      const codes = rows.map((r) => r.map((c) => {
+        if (!/^[0-9a-f]{2}(x|y|xy)?$/i.test(c)) throw new Error(`${name}.${piece}: bad tile code ${c}`);
+        return { tx: parseInt(c[0], 16), ty: parseInt(c[1], 16), fx: c.includes('x'), fy: c.slice(2).includes('y') };
+      }));
+      pixel = placeholder ? placeholderPixel(piece, roles[piece]) : (lx, ly) => {
+        const t = codes[ly >> 3][lx >> 3];
+        const ix = lx & 7, iy = ly & 7;
+        return sheetPixel(t.tx * 8 + (t.fx ? 7 - ix : ix), t.ty * 8 + (t.fy ? 7 - iy : iy));
+      };
+    } else {
+      [x, y, w, h] = Array.isArray(spec) ? spec : spec.rect;
+      if (x % 8 || y % 8 || w % 16 || h % 16) throw new Error(`${name}.${piece}: x, y on the 8 px grid; w, h in 16s`);
+      if (placeholder) {
+        pixel = placeholderPixel(piece, roles[piece]);
+      } else {
+        const over = new Map();
+        for (const [sx, sy, ow, oh, dx, dy] of spec.overlay || [])
+          for (let yy = 0; yy < oh; yy++)
+            for (let xx = 0; xx < ow; xx++)
+              if (img.rgba[((sy + yy) * img.width + sx + xx) * 4 + 3]) over.set((dy + yy) * 4096 + dx + xx, [sx + xx, sy + yy]);
+        pixel = (lx, ly) => {
+          const o = over.get(ly * 4096 + lx);
+          return o ? sheetPixel(o[0], o[1]) : sheetPixel(x + lx, y + ly);
+        };
+      }
+    }
+    pieces.push({ piece, first: blocks.length, w: w / 16, h: h / 16, pixel });
     for (let by = 0; by < h / 16; by++)
       for (let bx = 0; bx < w / 16; bx++) {
         const q = [];
         for (let ty = 0; ty < 2; ty++)
           for (let tx = 0; tx < 2; tx++) {
-            const ox = x + bx * 16 + tx * 8, oy = y + by * 16 + ty * 8, px = [];
+            const ox = bx * 16 + tx * 8, oy = by * 16 + ty * 8, px = [];
             for (let yy = 0; yy < 8; yy++) for (let xx = 0; xx < 8; xx++) px.push(pixel(ox + xx, oy + yy));
             q.push(tiles.length);
             tiles.push(px);
@@ -198,13 +251,14 @@ export function convert(name) {
     }
     out.push({ ...found, pal: best.k, idx });
   }
-  return { name, def, pieces, blocks, palettes, tiles: out, stored, art, totalErr, img, maps: buildMaps(def, pieces) };
+  return { name, def, pieces, blocks, palettes, tiles: out, stored, art, totalErr, img, placeholder, maps: buildMaps(def, pieces), theme: buildTheme(def, pieces) };
 }
 
 const hex = (b) => '0x' + b.toString(16).toUpperCase().padStart(2, '0');
 const rgb555 = (c) => (R(c) >> 3) | ((G(c) >> 3) << 5) | ((B(c) >> 3) << 10);
 
-const rowsOf = (d, a) => Array.from({ length: d.h }, (_, y) => '    ' + a.slice(y * d.w, (y + 1) * d.w).join(', ') + ',');
+const chunk = (a, n = 32) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => '    ' + a.slice(i * n, (i + 1) * n).join(', ') + ',');
+const rowsOf =(d, a) => Array.from({ length: d.h }, (_, y) => '    ' + a.slice(y * d.w, (y + 1) * d.w).join(', ') + ',');
 
 // --- maps: rows of legend characters -> each block's type (BLK_*) and look ---
 export function buildMaps(def, pieces) {
@@ -246,6 +300,152 @@ export function buildMaps(def, pieces) {
   return maps;
 }
 
+// --- themes: how generated maps look (docs/design/level-generation.md, "Visuals") ---
+//
+// The generator places block types (room.h BLK_*); a theme says which of the
+// tileset's blocks draws each one, from its neighbours. In the tileset file:
+//   "theme": {
+//     "floor": ["ground_a", "ground_a", "crater"],   a list: variants (repeats weigh)
+//     "solid": { "style": "module", "roof_c": [...], "face_l": [...], ... },
+//     "raised": "solid",                                 the same rules as another type
+//   }
+// Missing types draw as floor. Styles:
+//   module: buildings seen from the front: roof rows (roof_tl roof_t roof_tr / roof_l
+//     roof_c roof_r / roof_bl roof_b roof_br, the bottom row carrying the roof's lower
+//     edge), then one row of front (face_l face_c face_r) where the block below
+//     isn't solid. A lone block, or a one-block-wide column, is a prop.
+// A piece's blocks are named piece (its first) or piece.n (the nth, row-major).
+// Compiled per type to 32 entries by neighbour mask: N 1, E 2, S 4, W 8, and 16
+// for the block two below being the same type (the roof's bottom row knows it's
+// the bottom).
+// room.h's BLK_* in order, then "edge": solid blocks on the map's rim (the theme's
+// "solid" rules unless it gives the edge its own).
+export const BLOCK_TYPES = ['floor', 'solid', 'pit', 'raised', 'prop', 'stairs', 'deck', 'edge'];
+const EDGE = BLOCK_TYPES.indexOf('edge');
+const MODULE_FALLBACK = {
+  roof_tl: 'roof_l', roof_tr: 'roof_r', roof_t: 'roof_c', roof_bl: 'roof_l', roof_br: 'roof_r', roof_b: 'roof_c',
+  roof_l: 'roof_c', roof_r: 'roof_c', face_l: 'face_c', face_r: 'face_c', column: 'prop', face_c: 'roof_c', roof_c: 'prop',
+};
+
+function moduleRole(m) {
+  const N = m & 1, E = m & 2, S = m & 4, W = m & 8, S2 = m & 16;
+  if (!E && !W) return !N && !S ? 'prop' : 'column';
+  if (!S) return !W ? 'face_l' : !E ? 'face_r' : 'face_c';
+  if (!S2) return !W ? 'roof_bl' : !E ? 'roof_br' : 'roof_b';
+  if (!N) return !W ? 'roof_tl' : !E ? 'roof_tr' : 'roof_t';
+  return !W ? 'roof_l' : !E ? 'roof_r' : 'roof_c';
+}
+
+export function buildTheme(def, pieces) {
+  if (!def.theme) return null;
+  const byName = Object.fromEntries(pieces.map((p) => [p.piece, p]));
+  const block = (ref) => {
+    const [name, n] = ref.split('.');
+    const p = byName[name];
+    if (!p) throw new Error(`theme: no piece ${name}`);
+    const i = n === undefined ? 0 : +n;
+    if (i >= p.w * p.h) throw new Error(`theme: ${ref} is past the piece's ${p.w * p.h} blocks`);
+    return p.first + i;
+  };
+  const rulesOf = (t, seen = []) => {
+    let r = def.theme[t];
+    if (r === undefined) r = t === 'floor' ? null : t === 'edge' ? 'solid' : 'floor';
+    if (typeof r === 'string') {
+      if (seen.includes(r)) throw new Error(`theme: ${t} refers back to itself`);
+      return rulesOf(r, [...seen, t]);
+    }
+    if (r === null) throw new Error('theme: needs "floor"');
+    return r;
+  };
+  const lists = [];  // [type * 32 + mask] -> block list
+  for (const t of BLOCK_TYPES) {
+    const r = rulesOf(t);
+    for (let m = 0; m < 32; m++) {
+      let list;
+      if (Array.isArray(r)) {
+        list = r;
+      } else if (r.style === 'module') {
+        let role = moduleRole(m);
+        while (!r[role]) {
+          role = MODULE_FALLBACK[role];
+          if (!role) throw new Error(`theme ${t}: a module style needs "prop" at least`);
+        }
+        list = r[role];
+      } else {
+        throw new Error(`theme ${t}: a list of pieces, or { style: "module", ... }`);
+      }
+      lists.push(list.map(block));
+    }
+  }
+  // One flat list; each entry a start and a count into it (shared where equal).
+  const flat = [], start = [], count = [], seenAt = new Map();
+  for (const l of lists) {
+    const key = l.join(',');
+    if (!seenAt.has(key)) {
+      seenAt.set(key, flat.length);
+      flat.push(...l);
+    }
+    if (flat.length > 255) throw new Error('theme: more than 255 entries in all');
+    start.push(seenAt.get(key));
+    count.push(l.length);
+  }
+  return { flat, start, count };
+}
+
+// The generated loader and look-filler (in the tileset's own bank, beside its tables).
+function themeSource(id, NAME) {
+  return `
+// Load this theme: its tiles, palettes and blocks (the display off, or in a fade).
+void ${id}_load(void) BANKED {
+    set_bkg_data(SCENE_TILES, TILES_${NAME}_TILE_COUNT, ${id}_tiles);
+    memcpy(pal_base_bg, ${id}_pals, TILES_${NAME}_PALETTES * 4 * sizeof(uint16_t));
+    for (uint16_t i = 0; i < VIS_BLOCKS * 4; i++) {
+        uint8_t b = i < TILES_${NAME}_BLOCKS * 4 ? i : 0;
+        room_tile_lut[i] = SCENE_TILES + ${id}_blocks[b];
+        room_attr_lut[i] = ${id}_attrs[b];
+    }
+    room_attr_uniform = 0;
+}
+
+// A block's type for the rules: solid on the map's rim (and off the map) is the
+// edge, its own kind, so a building against the rim keeps its own edges.
+static uint8_t ${id}_type(uint8_t x, uint8_t y) {
+    if (x >= room_w || y >= room_h) return ${EDGE};  // (off the left or top wraps to 255)
+    uint8_t t = room_map[((uint16_t)y << 5) | x] & 0x7F;
+    if (t >= ${EDGE}) return 0;
+    if (t == BLK_SOLID && (!x || !y || x == room_w - 1 || y == room_h - 1)) return ${EDGE};
+    return t;
+}
+
+// Each block's look from its type and its neighbours' (tools/tileset.mjs, themes).
+void ${id}_apply(void) BANKED {
+    for (uint8_t y = 0; y < room_h; y++) {
+        for (uint8_t x = 0; x < room_w; x++) {
+            uint16_t k = ((uint16_t)y << 5) | x;
+            uint8_t t = ${id}_type(x, y), m = 0;
+            if (${id}_type(x, y - 1) == t) m |= 1;
+            if (${id}_type(x + 1, y) == t) m |= 2;
+            if (${id}_type(x, y + 1) == t) m |= 4;
+            if (${id}_type(x - 1, y) == t) m |= 8;
+            if (${id}_type(x, y + 2) == t) m |= 16;
+            uint8_t r = (t << 5) | m, n = ${id}_rule_count[r], v = 0;
+            if (n > 1) {
+                // (A mixing hash: neighbours mustn't fall into rows or diagonals.)
+                uint16_t z = (uint16_t)x * 0x9E37u ^ (uint16_t)y * 0x7F4Bu;
+                z ^= z >> 7;
+                z *= 0x2C1Bu;
+                z ^= z >> 9;
+                uint8_t h = (uint8_t)z;
+                while (h >= n) h -= n;
+                v = h;
+            }
+            room_vis[k] = ${id}_rule_list[${id}_rule_start[r] + v];
+        }
+    }
+}
+`;
+}
+
 function emit(ts) {
   const { name, blocks, palettes, tiles, stored, pieces } = ts;
   const NAME = name.toUpperCase(), id = `tiles_${name}`;
@@ -268,6 +468,7 @@ function emit(ts) {
     `#define TILES_${NAME}_TILE_COUNT ${stored.length}`,
     `#define TILES_${NAME}_BLOCKS ${blocks.length}`,
     `#define TILES_${NAME}_PALETTES ${palettes.length}`,
+    `#define TILES_${NAME}_STAND_IN ${ts.placeholder ? 1 : 0}  // 1: the sheet wasn't here (a local-only pack): plain stand-in tiles`,
     ...pieces.flatMap((p) => [
       `#define TS_${NAME}_${p.piece.toUpperCase()} ${p.first}`,
       ...(p.w > 1 || p.h > 1 ? [`#define TS_${NAME}_${p.piece.toUpperCase()}_W ${p.w}`, `#define TS_${NAME}_${p.piece.toUpperCase()}_H ${p.h}`] : []),
@@ -279,12 +480,16 @@ function emit(ts) {
       `extern const uint8_t ${id}_${m}_type[];  // each block's BLK_* (row-major)`,
       `extern const uint8_t ${id}_${m}_vis[];   // ... and its look (a block of this tileset)`,
     ]),
+    ...(ts.theme ? [
+      `void ${id}_load(void) BANKED;   // tiles, palettes and blocks, for a generated map`,
+      `void ${id}_apply(void) BANKED;  // each block's look from the theme's rules (after a map is built)`,
+    ] : []),
     '#endif', '',
   ].join('\n');
   const c = [
     '#pragma bank 255',
     `// Generated by tools/tileset.mjs from content/tilesets/${name}.json. Do not edit.`,
-    '#include <gb/gb.h>', `#include "${id}.h"`, `BANKREF(${id})`,
+    '#include <gb/gb.h>', '#include <string.h>', '#include "room.h"', '#include "gfx.h"', `#include "${id}.h"`, `BANKREF(${id})`,
     `const uint8_t ${id}_tiles[] = {`, ...bytes.map((t) => '    ' + t.map(hex).join(', ') + ','), '};',
     `const uint16_t ${id}_pals[] = {`, ...palettes.map((p) => '    ' + p.map((c) => '0x' + rgb555(c).toString(16).padStart(4, '0')).join(', ') + ','), '};',
     `const uint8_t ${id}_blocks[] = {`, ...blocks.map((q) => '    ' + q.map((t) => tiles[t].t).join(', ') + ','), '};',
@@ -295,6 +500,12 @@ function emit(ts) {
       `const uint8_t ${id}_${m}_type[] = {`, ...rowsOf(d, d.type), '};',
       `const uint8_t ${id}_${m}_vis[] = {`, ...rowsOf(d, d.vis), '};',
     ]),
+    ...(ts.theme ? [
+      `static const uint8_t ${id}_rule_start[] = {`, ...chunk(ts.theme.start), '};',
+      `static const uint8_t ${id}_rule_count[] = {`, ...chunk(ts.theme.count), '};',
+      `static const uint8_t ${id}_rule_list[] = {`, ...chunk(ts.theme.flat), '};',
+      themeSource(id, NAME),
+    ] : []),
     '',
   ].join('\n');
   fs.mkdirSync(GEN_DIR, { recursive: true });
@@ -327,7 +538,7 @@ function preview(ts) {
             for (let x = 0; x < 8; x++) {
               const ox = bx * 16 + (k & 1) * 8 + x, oy = by * 16 + (k >> 1) * 8 + y;
               put(cx + ox, cy + oy, pal[tile.idx[y * 8 + x]]);
-              put(cx + 48 + gap + ox, cy + oy, p.pixel(p.x + ox, p.y + oy));
+              put(cx + 48 + gap + ox, cy + oy, p.pixel(ox, oy));
             }
         });
       }
@@ -363,19 +574,26 @@ function preview(ts) {
 /** Every tileset whose json or sheet is newer than its output. */
 export function buildTilesets({ quiet = false } = {}) {
   if (!fs.existsSync(DIR)) return [];
-  const self = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs, out = [];
+  const self = fs.statSync(fileURLToPath(import.meta.url)).mtimeMs, out = [], standIn = [];
   for (const f of fs.readdirSync(DIR).filter((f) => f.endsWith('.json'))) {
-    const name = f.slice(0, -5), c = path.join(GEN_DIR, `tiles_${name}.c`);
+    const name = f.slice(0, -5), c = path.join(GEN_DIR, `tiles_${name}.c`), h = path.join(GEN_DIR, `tiles_${name}.h`);
     out.push(c);
     const def = JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8'));
-    const newest = Math.max(self, fs.statSync(path.join(DIR, f)).mtimeMs, fs.statSync(path.join(ROOT, def.src)).mtimeMs);
-    if (fs.existsSync(c) && fs.statSync(c).mtimeMs > newest) continue;
+    const src = path.join(ROOT, def.src);
+    const missing = !fs.existsSync(src) || (def.local && !!process.env.ROGUEGB_STANDIN_ART);
+    if (missing) standIn.push(name);
+    const newest = Math.max(self, fs.statSync(path.join(DIR, f)).mtimeMs, missing ? 0 : fs.statSync(src).mtimeMs);
+    // (Rebuilt too when the art came or went since the last build.)
+    const was = fs.existsSync(h) && /_STAND_IN 1/.test(fs.readFileSync(h, 'utf8'));
+    if (fs.existsSync(c) && fs.statSync(c).mtimeMs > newest && was === missing) continue;
     const ts = convert(name);
     if (ts.stored.length > MAX_TILES) throw new Error(`tileset ${name}: ${ts.stored.length} tiles; a scene has ${MAX_TILES} (cut pieces, or make more of them repeat)`);
     emit(ts);
     const png = preview(ts);
-    if (!quiet) console.log(`[tileset] ${name}: ${ts.blocks.length} blocks, ${ts.stored.length}/${MAX_TILES} tiles, ${ts.art.size} colours in ${ts.palettes.length} palettes -> ${path.relative(ROOT, png)}`);
+    if (!quiet) console.log(`[tileset] ${name}: ${ts.blocks.length} blocks, ${ts.stored.length}/${MAX_TILES} tiles, ${ts.art.size} colours in ${ts.palettes.length} palettes${missing ? ' (stand-in art: the local-only sheet is missing)' : ''} -> ${path.relative(ROOT, png)}`);
   }
+  // Which tilesets are stand-ins in this build (the tests keep separate screens for them).
+  fs.writeFileSync(path.join(GEN_DIR, 'art-mode.json'), JSON.stringify({ standIn }) + '\n');
   return out;
 }
 

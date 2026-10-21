@@ -11,6 +11,7 @@
 #include "descent.h"
 #include "level.h"
 #include "room.h"
+#include "tiles_lunar_ext.h"
 #include "player.h"
 #include "camera.h"
 #include "actor.h"
@@ -113,7 +114,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_build_map(map);
     if (area_type[map] == MAP_EXIT) {
         dig_shaft();
-        room_vis_from_map();
+        tiles_lunar_ext_apply();
     }
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)

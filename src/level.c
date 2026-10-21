@@ -4,6 +4,7 @@
 #include <gb/gb.h>
 #include "level.h"
 #include "room.h"
+#include "tiles_lunar_ext.h"
 #include "gfx.h"
 #include "chunks.h"
 
@@ -143,6 +144,8 @@ uint8_t chunk_count_ram;
 // watchable, for the chunk editor's preview and survey.
 uint8_t level_picks[64];
 uint8_t chunk_tables_loaded;
+// The area's chunk theme (content/chunks/*.json "theme"): only its chunks are picked.
+uint8_t area_theme = CHUNK_THEME_LUNAR;
 
 // A chunk for this role tag, by weight.
 static uint8_t pick_chunk(uint8_t tag) {
@@ -275,6 +278,12 @@ void level_build_map(uint8_t i) BANKED {
         banked_memcpy(&chunk_count_ram, &chunk_count, 1, BANK(chunks));
         banked_memcpy(chunk_tag_ram, chunk_tags, chunk_count_ram, BANK(chunks));
         banked_memcpy(chunk_weight_ram, chunk_weight, chunk_count_ram, BANK(chunks));
+        // Other themes' chunks weigh nothing here.
+        for (uint8_t k = 0; k < chunk_count_ram; k++) {
+            uint8_t t;
+            banked_memcpy(&t, &chunk_theme[k], 1, BANK(chunks));
+            if (t != area_theme) chunk_weight_ram[k] = 0;
+        }
         chunk_tables_loaded = 1;
     }
     level_rng = area_seed[i];
@@ -379,5 +388,5 @@ void level_build_map(uint8_t i) BANKED {
         level_carved = 1;
         carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
-    room_vis_from_map();  // the look: one visual block per type for now (visual rules come here)
+    tiles_lunar_ext_apply();  // the look: the theme's rules (content/tilesets/lunar_ext.json)
 }

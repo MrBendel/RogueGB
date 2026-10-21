@@ -1,0 +1,22 @@
+{
+  "theme": "lunar",
+  "about": "The LunarBase outpost's exterior (docs/design/lunar-base.md). Drawn by content/tilesets/lunar_ext.json: a solid cluster becomes a hull module (two or more rows of riveted roof, then a row of front where the ground starts below), a lone solid block or a one-wide column a prop (crate, generator, boulder), raised blocks a module you can stand on. So clusters here are at least 2 wide and 3 tall, and props come scattered. Legend as in test.json.",
+  "chunks": [
+    { "name": "regolith", "tags": ["open", "start", "exit"], "weight": 5, "rows": [".....", ".....", ".....", "....."] },
+    { "name": "crates", "tags": ["open"], "weight": 4, "rows": [".?...", "...?.", "?....", "..?.."] },
+    { "name": "supply-drop", "tags": ["open"], "weight": 3, "rows": [".....", ".#.#.", ".....", "..?.."] },
+    { "name": "hut", "tags": ["open"], "weight": 3, "rows": [".....", ".##..", ".##..", ".##.?"] },
+    { "name": "hut-east", "tags": ["open"], "weight": 2, "rows": ["?....", "..###", "..###", "..###"] },
+    { "name": "landing-pad", "tags": ["open"], "weight": 2, "rows": [".....", ".===.", ".===.", "....."] },
+    { "name": "module", "tags": ["rock"], "weight": 4, "rows": [".....", ".###.", ".###.", ".###."] },
+    { "name": "complex", "tags": ["rock"], "weight": 3, "rows": ["#####", "#####", "#####", "....."] },
+    { "name": "twin-modules", "tags": ["rock"], "weight": 3, "rows": ["##.##", "##.##", "##.##", "....."] },
+    { "name": "depot", "tags": ["rock"], "weight": 2, "rows": ["###..", "###.?", "###..", "....?"] },
+    { "name": "deck", "tags": ["rock"], "weight": 2, "rows": ["+===+", "=====", "=====", "....."] },
+    { "name": "camp-depot", "tags": ["camp"], "weight": 3, "rows": ["e...e", ".?*?.", "..e..", "....."] },
+    { "name": "camp-yard", "tags": ["camp"], "weight": 3, "rows": [".e.e.", "##*##", "##.##", "##e##"] },
+    { "name": "camp-deck", "tags": ["camp"], "weight": 2, "rows": [".e=e.", "..*..", ".e.e.", "....."] },
+    { "name": "stash", "tags": ["cache"], "weight": 3, "rows": [".....", ".#*#.", ".#.#.", "....."] },
+    { "name": "backlot", "tags": ["cache"], "weight": 2, "rows": ["###..", "###*.", "###..", "....."] }
+  ]
+}
