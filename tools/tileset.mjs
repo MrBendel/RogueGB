@@ -137,6 +137,8 @@ export function convert(name) {
     //   the sheet drawn over it (their transparent pixels let it show).
     // { tiles: ["00 10x", "20 00xy"] }: 8x8 sheet tiles by column and row (hex), each
     //   optionally flipped (x, y); rows of codes, 2 per block across and down.
+    // Any form can add "behind": true: drawn over sprites, and walkable in a generated
+    // map (a roof you walk behind).
     let w, h, pixel, x = 0, y = 0;
     if (spec.tiles) {
       const rows = spec.tiles.map((r) => r.trim().split(/\s+/));
@@ -312,8 +314,9 @@ export function buildMaps(def, pieces) {
 // Missing types draw as floor. Styles:
 //   module: buildings seen from the front: roof rows (roof_tl roof_t roof_tr / roof_l
 //     roof_c roof_r / roof_bl roof_b roof_br, the bottom row carrying the roof's lower
-//     edge), then one row of front (face_l face_c face_r) where the block below
-//     isn't solid. A lone block, or a one-block-wide column, is a prop.
+//     edge; roof_sl roof_s roof_sr for a roof only one row deep, both edges), then one
+//     row of front (face_l face_c face_r) where the block below isn't solid. A lone
+//     block, or a one-block-wide column, is a prop.
 // A piece's blocks are named piece (its first) or piece.n (the nth, row-major).
 // Compiled per type to 32 entries by neighbour mask: N 1, E 2, S 4, W 8, and 16
 // for the block two below being the same type (the roof's bottom row knows it's
@@ -323,6 +326,7 @@ export function buildMaps(def, pieces) {
 export const BLOCK_TYPES = ['floor', 'solid', 'pit', 'raised', 'prop', 'stairs', 'deck', 'edge'];
 const EDGE = BLOCK_TYPES.indexOf('edge');
 const MODULE_FALLBACK = {
+  roof_sl: 'roof_bl', roof_sr: 'roof_br', roof_s: 'roof_b',
   roof_tl: 'roof_l', roof_tr: 'roof_r', roof_t: 'roof_c', roof_bl: 'roof_l', roof_br: 'roof_r', roof_b: 'roof_c',
   roof_l: 'roof_c', roof_r: 'roof_c', face_l: 'face_c', face_r: 'face_c', column: 'prop', face_c: 'roof_c', roof_c: 'prop',
 };
@@ -331,7 +335,11 @@ function moduleRole(m) {
   const N = m & 1, E = m & 2, S = m & 4, W = m & 8, S2 = m & 16;
   if (!E && !W) return !N && !S ? 'prop' : 'column';
   if (!S) return !W ? 'face_l' : !E ? 'face_r' : 'face_c';
-  if (!S2) return !W ? 'roof_bl' : !E ? 'roof_br' : 'roof_b';
+  if (!S2) {
+    // One roof row (the front below it): its top edge and its bottom edge in one block.
+    if (!N) return !W ? 'roof_sl' : !E ? 'roof_sr' : 'roof_s';
+    return !W ? 'roof_bl' : !E ? 'roof_br' : 'roof_b';
+  }
   if (!N) return !W ? 'roof_tl' : !E ? 'roof_tr' : 'roof_t';
   return !W ? 'roof_l' : !E ? 'roof_r' : 'roof_c';
 }
@@ -442,12 +450,24 @@ void ${id}_apply(void) BANKED {
             room_vis[k] = ${id}_rule_list[${id}_rule_start[r] + v];
         }
     }
+    // Blocks you walk behind (a building's roof, drawn over sprites): floor to walk
+    // on, once every look is chosen (the rules read the solid shapes). Not the rim.
+    for (uint8_t y = 1; y + 1 < room_h; y++) {
+        for (uint8_t x = 1; x + 1 < room_w; x++) {
+            uint16_t k = ((uint16_t)y << 5) | x;
+            if (room_map[k] == BLK_SOLID && ${id}_walk[room_vis[k]]) room_map[k] = BLK_FLOOR;
+        }
+    }
 }
 `;
 }
 
 function emit(ts) {
   const { name, blocks, palettes, tiles, stored, pieces } = ts;
+  // Blocks of "behind" pieces: drawn over sprites (the attribute's priority bit), and
+  // walkable in a generated map (the theme's apply).
+  const behind = new Array(blocks.length).fill(0);
+  for (const p of pieces) if (ts.def.pieces[p.piece].behind) for (let b = 0; b < p.w * p.h; b++) behind[p.first + b] = 1;
   const NAME = name.toUpperCase(), id = `tiles_${name}`;
   const bytes = stored.map((idx) => {
     const t = [];
@@ -494,7 +514,7 @@ function emit(ts) {
     `const uint16_t ${id}_pals[] = {`, ...palettes.map((p) => '    ' + p.map((c) => '0x' + rgb555(c).toString(16).padStart(4, '0')).join(', ') + ','), '};',
     `const uint8_t ${id}_blocks[] = {`, ...blocks.map((q) => '    ' + q.map((t) => tiles[t].t).join(', ') + ','), '};',
     `const uint8_t ${id}_attrs[] = {`,
-    ...blocks.map((q) => '    ' + q.map((t) => hex(tiles[t].pal | (tiles[t].fx ? 0x20 : 0) | (tiles[t].fy ? 0x40 : 0))).join(', ') + ','),
+    ...blocks.map((q, b) => '    ' + q.map((t) => hex(tiles[t].pal | (tiles[t].fx ? 0x20 : 0) | (tiles[t].fy ? 0x40 : 0) | (behind[b] ? 0x80 : 0))).join(', ') + ','),
     '};',
     ...Object.entries(ts.maps).flatMap(([m, d]) => [
       `const uint8_t ${id}_${m}_type[] = {`, ...rowsOf(d, d.type), '};',
@@ -504,6 +524,7 @@ function emit(ts) {
       `static const uint8_t ${id}_rule_start[] = {`, ...chunk(ts.theme.start), '};',
       `static const uint8_t ${id}_rule_count[] = {`, ...chunk(ts.theme.count), '};',
       `static const uint8_t ${id}_rule_list[] = {`, ...chunk(ts.theme.flat), '};',
+      `static const uint8_t ${id}_walk[] = {`, ...chunk(behind), '};',
       themeSource(id, NAME),
     ] : []),
     '',
