@@ -196,6 +196,7 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[serve] playtest page: ${url}`);
   console.log(`[serve] sprite studio: ${url}web/studio.html`);
   console.log(`[serve] chunk editor: ${url}web/chunks.html`);
+  console.log(`[serve] world viewer: ${url}web/world.html`);
   console.log('[serve] editing files in src/ rebuilds and reloads automatically. Ctrl+C to stop.');
   if (argv.includes('--open')) {
     const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';

@@ -146,6 +146,13 @@ test lab.
   - "Survey" builds 100 areas and reports how often each chunk is used, camps and chests a map, and how
     often a path had to be carved;
   - "Play seed" opens the playtest page on that ROM, with the seed patched in (`tool_seed`).
+- **The world viewer** (`web/world.html`, 🗺️ World): a seed's whole area, every map drawn as in
+  the game (the ROM builds them, including the theme's looks; the blocks come from the tileset's
+  atlas, `build/gen/atlas-<tileset>.png`). Pick a seed (arrow keys step through them), a depth and a
+  chunk theme; overlays for enemies, chests, the chunk grid (with each cell's picked chunk and role
+  in the close-up) and links. "Survey" runs many seeds: buildings, props, camps, enemies, chests a
+  area, and which areas needed paths carved (click a seed to look). Chunk weights can be changed
+  live and saved to `content/chunks/` (the server rebuilds). Links take `?seed=`.
 - **Areas** (`src/level.c`) are 6–9 maps on a 4×3 grid, grown from the start with one
   or two extra links for loops; the exit is the map farthest from the start.
 - **Maps** are rebuilt from their seed each time they're entered. Sizes:

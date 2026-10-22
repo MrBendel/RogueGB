@@ -3,9 +3,11 @@
 **Where we are (2026-10-21):** the descent's generated maps are drawn as the LunarBase
 outpost (theme rules in content/tilesets/lunar_ext.json, chunks in
 content/chunks/lunar.json): hull modules you walk behind, numbered roofs, crates,
-craters. Next, in order: a **world viewer** web page (proposed, waiting on a yes:
-the real ROM in the browser like the chunk editor, a seed's whole area drawn with
-the theme, overlays, live tweaks), then doors and interiors, then pipes and set
+craters. The **world viewer** (web/world.html, 2026-10-22) shows whole areas by
+seed. Its first survey: **38 of 50 areas needed paths carved** (the generator cuts
+a straight corridor where chunks wall a part off, through buildings): the lunar
+chunks' shapes need tuning (lowering "complex" and "camp-yard" to 1 only brought
+it to 27). Next: that tuning, then doors and interiors, then pipes and set
 pieces. What each sprite is: [lunarbase-sprites.md](lunarbase-sprites.md).
 
 Status: direction agreed 2026-10-21 (generated, not hand-authored); details are

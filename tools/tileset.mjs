@@ -560,6 +560,41 @@ function emit(ts) {
   return path.join(GEN_DIR, `${id}.c`);
 }
 
+/** For the web tools (web/world.html): every block in a row of 16x16 cells, as the
+ * Color draws it, and atlas-<name>.json: each block's name and whether you walk
+ * behind it. */
+function writeAtlas(ts) {
+  const { name, blocks, palettes, tiles, pieces, def } = ts;
+  const W = blocks.length * 16, rgb = Buffer.alloc(W * 16 * 3);
+  blocks.forEach((q, b) => q.forEach((t, k) => {
+    const tile = tiles[t], pal = palettes[tile.pal];
+    for (let y = 0; y < 8; y++)
+      for (let x = 0; x < 8; x++) {
+        const c = pal[tile.idx[y * 8 + x]], i = ((((k >> 1) * 8 + y) * W) + b * 16 + (k & 1) * 8 + x) * 3;
+        rgb[i] = R(c); rgb[i + 1] = G(c); rgb[i + 2] = B(c);
+      }
+  }));
+  const names = [], behind = [];
+  for (const p of pieces)
+    for (let b = 0; b < p.w * p.h; b++) {
+      names[p.first + b] = p.w * p.h > 1 ? `${p.piece}.${b}` : p.piece;
+      behind[p.first + b] = def.pieces[p.piece].behind ? 1 : 0;
+    }
+  const raw = Buffer.alloc((W * 3 + 1) * 16);
+  for (let y = 0; y < 16; y++) rgb.copy(raw, y * (W * 3 + 1) + 1, y * W * 3, (y + 1) * W * 3);
+  const chunkOf = (type, data) => {
+    const len = Buffer.alloc(4), crc = Buffer.alloc(4), td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    len.writeUInt32BE(data.length);
+    crc.writeUInt32BE(zlib.crc32(td));
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(16, 4); ihdr[8] = 8; ihdr[9] = 2;
+  fs.writeFileSync(path.join(GEN_DIR, `atlas-${name}.png`), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunkOf('IHDR', ihdr), chunkOf('IDAT', zlib.deflateSync(raw)), chunkOf('IEND', Buffer.alloc(0))]));
+  fs.writeFileSync(path.join(GEN_DIR, `atlas-${name}.json`), JSON.stringify({ name, standIn: ts.placeholder, names, behind }) + '\n');
+}
+
 /** The pieces as the Color draws them (left) beside the art (right), 3x. */
 function preview(ts) {
   const { pieces, blocks, palettes, tiles, img, def } = ts;
@@ -635,6 +670,7 @@ export function buildTilesets({ quiet = false } = {}) {
     const ts = convert(name);
     if (ts.stored.length > MAX_TILES) throw new Error(`tileset ${name}: ${ts.stored.length} tiles; a scene has ${MAX_TILES} (cut pieces, or make more of them repeat)`);
     emit(ts);
+    writeAtlas(ts);
     const png = preview(ts);
     if (!quiet) console.log(`[tileset] ${name}: ${ts.blocks.length} blocks, ${ts.stored.length}/${MAX_TILES} tiles, ${ts.art.size} colours in ${ts.palettes.length} palettes${missing ? ' (stand-in art: the local-only sheet is missing)' : ''} -> ${path.relative(ROOT, png)}`);
   }
@@ -650,6 +686,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (only && only !== name) continue;
     const ts = convert(name);
     emit(ts);
+    writeAtlas(ts);
     const png = preview(ts);
     console.log(`${name}: ${ts.blocks.length}/${MAX_BLOCKS} blocks, ${ts.stored.length}/${MAX_TILES} tiles (of ${ts.tiles.length}), ${ts.art.size} colours -> ${ts.palettes.length} palettes`);
     ts.palettes.forEach((p, k) => console.log(`  palette ${k}: ${p.map((c) => '#' + c.toString(16).padStart(6, '0')).join(' ')}`));

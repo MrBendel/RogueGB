@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161816">
+<title>RogueGB World Viewer</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  #app { max-width: 1800px; }
+  .wv > main, .wv > aside { display: block; min-width: 0; }
+  .wv { display: grid !important; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+  @media (max-width: 1000px) { .wv { grid-template-columns: minmax(0, 1fr); } }
+  .wv-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 0; margin-bottom: 12px; }
+  .wv-card h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .wv-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  .wv button, .wv select, .wv input { background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; color: inherit; }
+  .wv button:hover { background: var(--btn-hover); }
+  .wv input[type=number] { width: 84px; }
+  .wv label { font-size: 13px; display: inline-flex; gap: 4px; align-items: center; }
+  #wv-area-wrap { overflow: auto; max-height: 78vh; border-radius: 6px; background: #101210; }
+  #wv-area { image-rendering: pixelated; display: block; cursor: pointer; }
+  #wv-map { image-rendering: pixelated; display: block; max-width: 100%; }
+  .wv table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .wv td, .wv th { padding: 2px 4px; text-align: left; border-bottom: 1px solid var(--line); }
+  .wv td.n, .wv th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .wv .muted { color: var(--muted); font-size: 12px; }
+  .wv .warn { color: #e0a040; }
+  .wv a.seed { cursor: pointer; text-decoration: underline; }
+  #wv-weights { max-height: 40vh; overflow: auto; }
+</style>
+</head>
+<body>
+<div id="app" class="wv">
+  <header style="grid-column: 1 / -1">
+    <div class="row">
+      <div class="brand">RogueGB <span>world viewer</span></div>
+      <span id="wv-pill" class="pill">loading…</span>
+    </div>
+    <div class="row">
+      <label>Seed <input id="wv-seed" type="number" min="0" max="65535" value="1"></label>
+      <button id="wv-prev" title="Previous seed">◀</button>
+      <button id="wv-next" title="Next seed">▶</button>
+      <button id="wv-rand" title="A random seed">🎲</button>
+      <label>Depth <select id="wv-depth"></select></label>
+      <label>Theme <select id="wv-theme"></select></label>
+      <label>Zoom <select id="wv-zoom"><option value="0.25">¼</option><option value="0.5" selected>½</option><option value="1">1×</option></select></label>
+      <a href="chunks.html" class="filebtn" style="text-decoration:none">🧱 Chunks</a>
+      <a href="index.html" class="filebtn" style="text-decoration:none">🎮 Playtest</a>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="wv-art" checked> Art</label>
+      <label><input type="checkbox" id="wv-enemies" checked> Enemies</label>
+      <label><input type="checkbox" id="wv-chests" checked> Chests</label>
+      <label><input type="checkbox" id="wv-grid"> Chunk grid</label>
+      <label><input type="checkbox" id="wv-links" checked> Links</label>
+      <span class="muted" id="wv-artnote"></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="wv-card">
+      <h3>The area <span class="muted" id="wv-areainfo"></span></h3>
+      <div id="wv-area-wrap"><canvas id="wv-area"></canvas></div>
+      <p class="muted">Click a map to look closer. The maps are built by the game itself: the ROM runs in this page (the same generator and theme rules as the descent).</p>
+    </div>
+    <div class="wv-card">
+      <h3>The map <span class="muted" id="wv-mapinfo"></span></h3>
+      <canvas id="wv-map"></canvas>
+      <div id="wv-picks" class="muted"></div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="wv-card">
+      <h3>Survey</h3>
+      <div class="wv-row">
+        <label>Seeds <input id="wv-survey-n" type="number" min="5" max="500" value="50"></label>
+        <button id="wv-survey-run">Run from this seed</button>
+      </div>
+      <div id="wv-survey" class="muted">How a run of seeds turns out: maps, buildings, props, camps, chests, and which maps needed paths carved.</div>
+    </div>
+    <div class="wv-card">
+      <h3>Chunk weights <span class="muted" id="wv-wfile"></span></h3>
+      <p class="muted">How often each chunk is picked for its role. Changes show at once; Save writes them to content/chunks (the dev server rebuilds).</p>
+      <div id="wv-weights"></div>
+      <div class="wv-row" style="margin-top:8px">
+        <button id="wv-save" class="primary" disabled>💾 Save weights</button>
+        <button id="wv-revert" disabled>Revert</button>
+      </div>
+    </div>
+  </aside>
+</div>
+<script type="module" src="world.js"></script>
+</body>
+</html>
