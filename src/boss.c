@@ -836,7 +836,7 @@ void boss_status(void) BANKED {
             boss_state == BOSS_CHARGE ? "DODGE SIDEWAYS!" : "BAIT A WALL CRASH";
     }
     if (boss_kind == BOSS_CRAGBACK && boss_state != BOSS_WON) {
-        s = boss_state == BOSS_WARN ? "ROCK INCOMING!" : boss_state == BOSS_CHARGE ? "DODGE THE ROCK!" :
+        s = boss_state == BOSS_REINFORCE ? "HOPPING - MOVE!" : boss_state == BOSS_WARN ? "ROCK INCOMING!" : boss_state == BOSS_CHARGE ? "DODGE THE ROCK!" :
             boss_state == BOSS_RELAYS ? "SLAM - GET BACK!" : boss_state == BOSS_RECOVER ? "DIGGING - FIRE!" : "KEEP YOUR DISTANCE";
     }
     uint8_t *row = gfx_strip(1, 1, 0, 18);

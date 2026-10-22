@@ -29,6 +29,12 @@ Title > DOWN > Minibosses > Cragback. A 32x32 mineral-plated brute with 32 HP.
 An original standalone combat prototype, not a campaign spawn.
 
 - Stalks at half running speed toward throwing range, moving on both axes.
+- After digging recovery, crouches for ten frames then makes two diagonal hops
+  toward alternating sides of the player. Each hop commits its destination at
+  takeoff, lasts 16 frames, rises eight pixels above a moving ground shadow, and
+  pauses eight frames on landing. The full body stays within arena bounds.
+  The shell is guarded during repositioning; airborne contact is disabled.
+  After the second landing pause, a full 40-frame rock warning begins.
 - Raises a rock overhead for 40 frames, locking the player's position at release.
 - One rock travels for 32 frames along a fixed path. Its shadow moves along the
   ground while the sprite rises and falls; it cannot track a dodge after launch.

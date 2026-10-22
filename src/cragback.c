@@ -15,6 +15,10 @@ uint8_t crag_target_x,crag_target_y,crag_rock_timer,crag_rock_z,crag_dust;
 int16_t crag_rock_fx,crag_rock_fy,crag_rock_vx,crag_rock_vy;
 uint8_t crag_rock_x,crag_rock_y;
 uint16_t crag_throws,crag_slams,crag_impacts;
+uint8_t crag_hop_timer,crag_hop_z,crag_hops_left,crag_hop_side;
+uint16_t crag_hops;
+int16_t crag_hop_fx,crag_hop_fy,crag_hop_vx,crag_hop_vy;
+static const uint8_t hop_arc[16]={2,3,5,6,7,8,8,8,8,7,6,5,3,2,1,0};
 static const uint8_t arc[32]={12,15,18,21,23,25,27,28,29,30,30,30,30,29,28,27,26,24,22,20,18,16,14,12,10,8,6,4,3,2,1,0};
 
 // Three 32x32 poses: walking, overhead wind-up, crouched digging recovery.
@@ -86,12 +90,25 @@ static void launch(void) {
  crag_rock_timer=32;crag_rock_z=12;crag_throws++;boss_attacks++;
  boss_state=BOSS_CHARGE;boss_timer=32;
 }
+static void hop_launch(void) {
+ int16_t x=actor_x[boss_slot],y=actor_y[boss_slot];
+ int16_t tx=x+(player_x>x?16:-16)+(crag_hop_side?32:-32);
+ int16_t ty=y+(player_y>y?24:-24)+(crag_hop_side?-12:12);
+ if(tx<24)tx=24;if(tx>120)tx=120;
+ if(ty<40)ty=40;if(ty>96)ty=96;
+ if(tx==x && ty==y){tx=72;ty=68;}
+ crag_hop_side^=1;crag_hops_left--;crag_hops++;
+ crag_hop_fx=x<<4;crag_hop_fy=y<<4;
+ crag_hop_vx=tx-x;crag_hop_vy=ty-y;
+ crag_hop_timer=16;actor_state[boss_slot]=STATE_HOP;
+}
 void cragback_start(void) BANKED {
  load_art();boss_kind=BOSS_CRAGBACK;boss_slot=actor_spawn(ACTOR_PEASHOOTER,72,40);
  actor_hp[boss_slot]=boss_hp=boss_hp_max=32;actor_scripted[boss_slot]=13;
  actor_guard[boss_slot]=1;actor_t0[boss_slot]=104;actor_t1[boss_slot]=106;
  boss_state=BOSS_RETREAT;boss_timer=36;boss_phase=boss_reward=boss_relays=0;boss_cycles=boss_attacks=0;
  crag_rock_timer=crag_rock_z=crag_dust=0;crag_throws=crag_slams=crag_impacts=0;
+ crag_hop_timer=crag_hop_z=crag_hops_left=crag_hop_side=0;crag_hops=0;
  bullet_vram=144;enemy_bullet_damage=8;enemy_bullet_cause=16;
  pal_base_obj[SPR_PAL_SHOOTER*4+1]=RGB(24,30,13);
  pal_base_obj[SPR_PAL_SHOOTER*4+2]=RGB(8,18,13);
@@ -105,7 +122,18 @@ void cragback_start(void) BANKED {
 void cragback_update(void) BANKED {
  if(crag_dust)crag_dust--;
  if(boss_timer)boss_timer--;
- if(boss_state==BOSS_RETREAT) {
+ if(boss_state==BOSS_REINFORCE) {
+  if(crag_hop_timer) {
+   crag_hop_fx+=crag_hop_vx;crag_hop_fy+=crag_hop_vy;
+   uint16_t x=crag_hop_fx>>4,y=crag_hop_fy>>4;
+   if(enemy_box_free(x,y)){actor_x[boss_slot]=x;actor_y[boss_slot]=y;}
+   crag_hop_z=hop_arc[16-crag_hop_timer];crag_hop_timer--;
+   if(!crag_hop_timer){actor_state[boss_slot]=STATE_REST;boss_timer=8;camera_shake(SHAKE_SMALL);}
+  } else if(!boss_timer) {
+   if(crag_hops_left)hop_launch();
+   else {boss_state=BOSS_WARN;boss_timer=40;}
+  }
+ } else if(boss_state==BOSS_RETREAT) {
   int16_t dx=(int16_t)player_x-actor_x[boss_slot],dy=(int16_t)player_y-actor_y[boss_slot];
   if(dx>-28&&dx<28&&dy>-28&&dy<28){boss_state=BOSS_RELAYS;boss_timer=28;}
   else {
@@ -135,7 +163,7 @@ void cragback_update(void) BANKED {
    hit(crag_rock_x,crag_rock_y,32,16);camera_shake(SHAKE_BIG);
    actor_guard[boss_slot]=0;crag_dust=12;crag_slams++;boss_state=BOSS_RECOVER;boss_timer=56;boss_cycles++;
   }
- } else if(boss_state==BOSS_RECOVER && !boss_timer){actor_guard[boss_slot]=1;boss_state=BOSS_RETREAT;boss_timer=32;}
+ } else if(boss_state==BOSS_RECOVER && !boss_timer){actor_guard[boss_slot]=1;boss_state=BOSS_REINFORCE;boss_timer=10;crag_hops_left=2;}
 }
 static void sprite(uint8_t slot,uint8_t x,uint8_t y,uint8_t tile,uint8_t pal) {
  shadow_OAM[slot].x=x-cam_x+8;shadow_OAM[slot].y=y-cam_y+16;
@@ -146,14 +174,17 @@ static void sprite(uint8_t slot,uint8_t x,uint8_t y,uint8_t tile,uint8_t pal) {
 // keeps the rock in front of its thrower; the shadow uses one dynamic entry.
 void cragback_emit(void) BANKED {
  for(uint8_t i=11;i<15;i++)shadow_OAM[i].y=0;
- if(boss_state==BOSS_WON || !actor_type[boss_slot]){crag_rock_timer=crag_dust=0;return;}
+ if(boss_state==BOSS_WON || !actor_type[boss_slot]){crag_rock_timer=crag_dust=crag_hop_timer=crag_hop_z=0;return;}
  uint8_t base=oam_next-2;oam_next+=3;
- uint8_t pose=(boss_state==BOSS_WARN||boss_state==BOSS_RELAYS)?1:boss_state==BOSS_RECOVER?2:0;
+ uint8_t pose=(boss_state==BOSS_WARN||boss_state==BOSS_RELAYS)?1:(boss_state==BOSS_RECOVER || (boss_state==BOSS_REINFORCE && !crag_hop_timer))?2:0;
  uint8_t pal=(actor_hurt[boss_slot] || (boss_state==BOSS_RELAYS && (boss_timer&4)))?SPR_PAL_SHOT:SPR_PAL_SHOOTER;
  uint8_t bob=boss_state==BOSS_RETREAT?((uint8_t)frame_count>>3)&1:0;
  for(uint8_t p=0;p<8;p++)sprite(p<3?12+p:base+p-3,
-  actor_x[boss_slot]-8+(p&3)*8,actor_y[boss_slot]-16+(p>>2)*16-bob,96+pose*16+p*2,pal);
- if(crag_rock_timer) {
+  actor_x[boss_slot]-8+(p&3)*8,actor_y[boss_slot]-16+(p>>2)*16-bob-crag_hop_z,96+pose*16+p*2,pal);
+ if(crag_hop_z) {
+  sprite(11,actor_x[boss_slot],actor_y[boss_slot]+1,146,SPR_PAL_SHOOTER);
+  sprite(oam_next++,actor_x[boss_slot]+8,actor_y[boss_slot]+1,146,SPR_PAL_SHOOTER);
+ } else if(crag_rock_timer) {
   sprite(oam_next++,crag_rock_x-4,crag_rock_y-8,146,SPR_PAL_SHOOTER);
   sprite(11,crag_rock_x-4,crag_rock_y-8-crag_rock_z,144,SPR_PAL_BULLET);
  } else if(boss_state==BOSS_WARN) {

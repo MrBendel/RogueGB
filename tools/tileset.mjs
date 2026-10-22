@@ -158,7 +158,7 @@ export function convert(name) {
       const stamp = spec.stamp && spec.stamp.map((r) => r.trim().split(/\s+/).map((c) => (c === '..' ? null : {
         tx: parseInt(c[0], 16), ty: parseInt(c[1], 16), fx: c.slice(2).includes('x'), fy: c.slice(2).includes('y'),
       })));
-      if (stamp && !decals) throw new Error(`${name}.${piece}: a stamp needs "decals" (a sheet)`);
+      if (!placeholder && stamp && !decals) throw new Error(`${name}.${piece}: a stamp needs "decals" (a sheet)`);
       pixel = placeholder ? placeholderPixel(piece, roles[piece]) : (lx, ly) => {
         const ix = lx & 7, iy = ly & 7, d = stamp && stamp[ly >> 3] && stamp[ly >> 3][lx >> 3];
         if (d) {
