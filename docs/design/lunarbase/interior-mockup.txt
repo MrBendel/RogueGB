@@ -1,7 +1,7 @@
 # The first interior mockup (interior sheet; a guess at the construction, needs work:
 # see ../lunarbase-sprites.md, Interior). The orange container is mirrored here, as the
 # artist suggested.
-# Render: node tools/sheet-codes.mjs compose artwork/tiles/lunarbase/LunarBase_Tiles_Interior_Standard.png docs/design/lunarbase/interior-mockup.txt build/interior-mockup.png
+# Render: node tools/sheet-codes.mjs compose "G:/My Drive/Artwork/Assets/LunarBase/Tiles/LunarBase_Tiles_Interior_Standard.png" docs/design/lunarbase/interior-mockup.txt build/interior-mockup.png
 01 11 d2 e2 e2 f2 d2 e2 e2 f2 11x 01x 01 11 d2 e2 f2 11x 01x 01
 02 12 c4 d4 e4 f4 c4 d4 e4 f4 12x 02x 02 12 c5 d5 f5 12x 02x 02
 63 73 83 93 63 73 83 93 63 73 83 93 63 73 83 93 63 73 83 93

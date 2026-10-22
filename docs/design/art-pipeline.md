@@ -27,6 +27,16 @@ Status: first version 2026-10-19 (the town in the artist's ice art).
      piece as the Color draws it, beside the original, with the palettes. Check it
      after changing the sheet.
 
+## Art packs (bought art: local only)
+
+The repository is public, so bought packs never go in it. A tileset names a pack's
+file as `"pack:<folder>/<file>"` (e.g. `pack:LunarBase/Tiles/...`) and sets
+`"local": true`; the build looks for it in `$ROGUEGB_ART_PACKS`, then the artist's
+synced Drive at `G:\My Drive\Artwork\Assets`, then `artwork/packs/` (gitignored).
+Where it's missing (CI, the public Pages build) the tool draws stand-ins by role,
+and the tests keep separate `~stand-in` screens (record them with
+`ROGUEGB_STANDIN_ART=1`).
+
 ## Limits (the build fails past them)
 
 - **176 tiles** per scene (background tiles 80-255). The ice town uses 139.

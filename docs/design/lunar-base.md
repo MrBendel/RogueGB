@@ -15,7 +15,9 @@ sheets, an exterior example scene).
 ## The licence and the files
 
 The repository is public and the pack's licence doesn't clearly allow sharing its
-files, so the pack is **local only**: `artwork/tiles/lunarbase/` is gitignored.
+files, so the pack is **local only**: the build reads it from the artist's synced
+Google Drive (`G:\My Drive\Artwork\Assets\LunarBase`; tileset sources `pack:...`),
+never from the repository.
 Builds on a machine with the files use the art. Builds without it (the CI and Pages
 build, other worktrees) need a fallback:
 - **Placeholder art:** the tileset tool draws a plain stand-in for each piece when

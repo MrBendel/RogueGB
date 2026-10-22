@@ -10,3 +10,4 @@ node_modules/
 
 # Purchased art packs: their licences may not allow redistributing the files (the repo is public).
 artwork/tiles/lunarbase/
+artwork/packs/

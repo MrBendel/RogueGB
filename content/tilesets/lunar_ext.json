@@ -1,7 +1,7 @@
 {
   "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, hull modules (riveted roofs over a front row) where the generator puts solid blocks, props for lone blocks. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs are drawn over sprites and can be walked behind (\"behind\": the block is walkable floor and its tiles have the background priority flag); fronts and the map's rim stay solid. Decals (the pack's white marks) are stamped onto some pieces: building numbers and hazard stripes on roofs.",
-  "src": "artwork/tiles/lunarbase/LunarBase_Tiles_Exterior_Standard.png",
-  "decals": "artwork/tiles/lunarbase/LunarBase_Tiles_Decals_Standard.png",
+  "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Exterior_Standard.png",
+  "decals": "pack:LunarBase/Tiles/LunarBase_Tiles_Decals_Standard.png",
   "local": true,
   "backdrop": [0, 0, 0],
   "palettes": 6,

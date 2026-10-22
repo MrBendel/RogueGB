@@ -29,7 +29,18 @@ import { decodePng, GEN_DIR } from './assets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = path.join(ROOT, 'content', 'tilesets');
-export const MAX_TILES = 176;  // background tiles 80-255 (gfx.h SCENE_TILES)
+export const MAX_TILES = 176;
+
+// Art packs (bought, not ours to publish: never in the repository) are named
+// "pack:<folder>/<file>" and found in the first of: $ROGUEGB_ART_PACKS, the
+// artist's Google Drive on this PC, artwork/packs/ (gitignored). Missing: stand-ins.
+const PACK_ROOTS = [process.env.ROGUEGB_ART_PACKS, 'G:/My Drive/Artwork/Assets', path.join(ROOT, 'artwork', 'packs')].filter(Boolean);
+export function artPath(src) {
+  if (!src.startsWith('pack:')) return path.join(ROOT, src);
+  const rel = src.slice(5);
+  for (const r of PACK_ROOTS) if (fs.existsSync(path.join(r, rel))) return path.join(r, rel);
+  return path.join(PACK_ROOTS[PACK_ROOTS.length - 1], rel);  // (missing: the stand-in path reports it)
+}  // background tiles 80-255 (gfx.h SCENE_TILES)
 const MAX_BLOCKS = 64;         // room.h VIS_BLOCKS
 
 // --- colours: 0xRRGGBB, rounded to 5 bits a channel ---
@@ -116,14 +127,14 @@ function pieceRoles(def) {
 
 export function convert(name) {
   const def = JSON.parse(fs.readFileSync(path.join(DIR, `${name}.json`), 'utf8'));
-  const srcPath = path.join(ROOT, def.src);
+  const srcPath = artPath(def.src);
   // (ROGUEGB_STANDIN_ART=1: build as if local-only sheets were missing, to record
   // the stand-in screens the public build shows.)
   const placeholder = !fs.existsSync(srcPath) || (def.local && !!process.env.ROGUEGB_STANDIN_ART);
   if (placeholder && !def.local) throw new Error(`tileset ${name}: ${def.src} is missing`);
   const img = placeholder ? null : decodePng(fs.readFileSync(srcPath));
   // A second sheet of decals to stamp over pieces (optional; local like the main one).
-  const decals = !placeholder && def.decals ? decodePng(fs.readFileSync(path.join(ROOT, def.decals))) : null;
+  const decals = !placeholder && def.decals ? decodePng(fs.readFileSync(artPath(def.decals))) : null;
   const [br, bg, bb] = def.backdrop;
   const sheetPixel = (x, y) => {
     const i = (y * img.width + x) * 4, a = img.rgba[i + 3] / 255;
@@ -614,7 +625,7 @@ export function buildTilesets({ quiet = false } = {}) {
     const name = f.slice(0, -5), c = path.join(GEN_DIR, `tiles_${name}.c`), h = path.join(GEN_DIR, `tiles_${name}.h`);
     out.push(c);
     const def = JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8'));
-    const src = path.join(ROOT, def.src);
+    const src = artPath(def.src);
     const missing = !fs.existsSync(src) || (def.local && !!process.env.ROGUEGB_STANDIN_ART);
     if (missing) standIn.push(name);
     const newest = Math.max(self, fs.statSync(path.join(DIR, f)).mtimeMs, missing ? 0 : fs.statSync(src).mtimeMs);

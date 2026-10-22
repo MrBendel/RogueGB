@@ -8,10 +8,12 @@ sheet and still to be checked. The plan for the area itself is
 
 ## The files
 
-- **Where:** Google Drive, `Artwork/Assets/LunarBase/` (sub-folders for tiles,
-  sprites and examples). On this PC: `artwork/tiles/lunarbase/`, **gitignored**:
-  the repository is public and the licence doesn't clearly allow sharing the files.
-  Builds without them draw stand-ins (docs: lunar-base.md, "The licence").
+- **Where:** the artist's Google Drive, `Artwork/Assets/LunarBase/` (`Tiles/`,
+  `Sprites/`, `Examples/`), synced on their PC at `G:\My Drive\Artwork\Assets`. The
+  build reads it there (tileset sources `pack:LunarBase/Tiles/...`; see
+  art-pipeline.md, "Art packs"). **Never copied into the repository:** it's public,
+  and the licence doesn't clearly allow sharing the files. Builds without it (CI,
+  the Pages build) draw stand-ins.
 - **Sheets** (128x128 px, 16x16 tiles of 8x8 each), each in two versions:
   `_Standard` (full colour: what we use) and `_GBS` (GB Studio's 4 shades).
   - `LunarBase_Tiles_Exterior_Standard.png`: the moon surface and hull modules.
@@ -21,8 +23,8 @@ sheet and still to be checked. The plan for the area itself is
     exterior sheet. There is no interior example.
   - `LunarBase_Sprite_*`: wall screens (A, B, C) and a desk screen: small animated
     sprites for interiors (not looked at yet).
-- **Getting them again:** download from Drive into `artwork/tiles/lunarbase/` (the
-  Standard sheets, the decals, the example). They're small (5-8 KB each).
+- **Elsewhere:** set `ROGUEGB_ART_PACKS` to a folder laid out like `Artwork/Assets`,
+  or put the packs in `artwork/packs/` (gitignored).
 
 ## Reading a sheet: tile codes
 
@@ -33,7 +35,7 @@ left to right), `y` (upside down) or `xy`. Tileset pieces use these codes
 block, two codes per row), and so does `tools/sheet-codes.mjs`:
 
 ```bash
-node tools/sheet-codes.mjs label artwork/tiles/lunarbase/LunarBase_Tiles_Exterior_Standard.png
+node tools/sheet-codes.mjs label "G:/My Drive/Artwork/Assets/LunarBase/Tiles/LunarBase_Tiles_Exterior_Standard.png"
 ```
 
 writes `build/codes-<sheet>.png`: the sheet enlarged with every tile's code on it.
