@@ -19,7 +19,10 @@ if (!b.ok) {
   console.error('[test] build failed, not running tests');
   process.exit(1);
 }
-const nodeArgs = ['--test', '--test-reporter=spec'];
+// At most 4 test files at once (TEST_JOBS to change it): each runs its own emulators,
+// and one per CPU core (node's default) ran this PC out of memory.
+const jobs = Math.max(1, parseInt(process.env.TEST_JOBS || '4', 10) || 4);
+const nodeArgs = ['--test', '--test-reporter=spec', `--test-concurrency=${jobs}`];
 if (filter) nodeArgs.push('--test-name-pattern', filter);
 nodeArgs.push('tests/**/*.test.mjs');
 // A crashed ROM can hang the emulator inside a test, so the whole run has a limit.
