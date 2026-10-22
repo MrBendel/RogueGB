@@ -368,3 +368,6 @@ A third Minibosses trial: a 32x32 rock-throwing brute with a committed arcing
 throw, moving shadow, three impact fragments, close-range warned slam, and
 digging recovery. This remains a standalone trial pending mixed encounters.
 See [boss design](docs/design/bosses.md#cragback-miniboss-trial).
+
+Cragback now makes two committed diagonal hops between recovery and its next
+throw, with crouch/landing pauses and a moving ground shadow.

@@ -288,6 +288,7 @@ void actors_update(uint8_t first_oam) {
     if (actor_count) {
         uint16_t px = player_x + PLAYER_HB_X, py = player_y + PLAYER_HB_Y;
         uint8_t hittable = player_hittable();
+        if (boss_kind == BOSS_CRAGBACK && actor_state[boss_slot] == STATE_HOP) hittable = 0;
         // Each enemy thinks and checks contact with the player on alternate frames
         // (half the slots each frame). At these speeds a touch registering one
         // frame later is imperceptible, and it halves the cost of this loop.

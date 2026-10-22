@@ -81,3 +81,40 @@ test('cragback: movement and timed jumps can win with starter pistol, camping lo
  for(let f=0;f<3600&&camp.v('player_hp')&&camp.v('boss_state')!==5;f++)camp.hold('A');
  assert.equal(camp.v('player_hp'),0,'standing still must lose');
 });
+
+
+test('cragback: two bounded diagonal hops with altitude, shadow, pause and a full throw warning',()=>{
+ for(const [x,y] of [[72,64],[24,40],[120,96]]) {
+  const e=trial();put16(e,'actor_x',x);put16(e,'actor_y',y);
+  put(e,'boss_state',0);put(e,'boss_timer',1);e.idle();
+  assert.equal(e.v('boss_state'),4);assert.equal(e.v('crag_hops_left'),2);
+  e.until(t=>t.v('crag_hop_timer')===16,20);
+  const vx=e.v('crag_hop_vx','i16'),vy=e.v('crag_hop_vy','i16');
+  e.hold('LEFT',5);assert.equal(e.v('crag_hop_vx','i16'),vx);assert.equal(e.v('crag_hop_vy','i16'),vy);
+  assert.ok(e.v('crag_hop_z')>0);assert.ok(e.v('actor_x','u16')!==x||e.v('actor_y','u16')!==y);
+  assert.equal(e.read8(at(e,'shadow_OAM')+11*4+2),146);e.shot('cragback-hopping');
+  e.tap('START');const t=e.v('crag_hop_timer'),bx=e.v('actor_x','u16');e.idle(30);
+  assert.equal(e.v('crag_hop_timer'),t);assert.equal(e.v('actor_x','u16'),bx);e.tap('START');
+  for(let f=0;f<70&&e.v('boss_state')===4;f++) {
+   e.idle();assert.ok(e.v('actor_x','u16')>=24&&e.v('actor_x','u16')<=120);
+   assert.ok(e.v('actor_y','u16')>=40&&e.v('actor_y','u16')<=96);
+   assert.ok(e.lastFrameCycles<FRAME_LIMIT);
+  }
+  assert.equal(e.v('crag_hops','u16'),2);assert.equal(e.v('crag_hop_z'),0);
+  assert.equal(e.v('boss_state'),1);assert.equal(e.v('boss_timer'),40);
+ }
+});
+
+
+test('cragback: airborne body does not deal invisible ground contact damage and defeat clears hop',()=>{
+ const e=trial();put(e,'boss_state',0);put(e,'boss_timer',1);e.idle();
+ e.until(t=>t.v('crag_hop_timer')===16,20);put(e,'shield_hp',40);
+ for(let f=0;f<8;f++) {
+  put16(e,'player_x',e.v('actor_x','u16'));put16(e,'player_y',e.v('actor_y','u16'));
+  put(e,'player_invuln',0);put(e,'player_blink',0);e.idle();
+  assert.equal(e.v('shield_hp'),40);
+ }
+ put(e,'actor_hp',0);put(e,'shots_killed',1);e.idle(4);
+ assert.equal(e.v('boss_state'),5);assert.equal(e.v('crag_hop_z'),0);assert.equal(e.v('crag_hop_timer'),0);
+ for(let i=11;i<21;i++)assert.equal(e.read8(at(e,'shadow_OAM')+i*4),0);
+});
