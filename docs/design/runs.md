@@ -1,6 +1,6 @@
 # What makes a good run
 
-Status: proposal (2026-10-22), for discussion. Builds on the expedition loop
+Status: direction decided 2026-10-22 (see "Decided"); numbers are proposals. Builds on the expedition loop
 ([play-loop.md](play-loop.md)), the generator ([level-generation.md](level-generation.md)),
 the trials ([bosses.md](bosses.md), [enemies.md](enemies.md)) and progression
 ([progression.md](progression.md)). The world viewer (web/world.html) is how we'll
@@ -18,7 +18,35 @@ measure it.
 - **Scaling:** +1 enemy health per depth, bigger camps deeper, luckier chests; guns
   roll at your level. Nothing scales with your power, and nothing ends a run but you.
 
-## The shape (proposed)
+## Decided (2026-10-22)
+
+- **The shape: missions, some of which end in a boss.** A blend of "a few areas then a
+  boss" and missions from town: the mission picks the destination, the goal and how
+  many areas it takes (not always three). Scouting or retrieval missions can be one
+  or two areas; a boss mission runs several areas to its boss. See "Missions" below.
+- **Minibosses are mandatory:** one guards each area's way down.
+- **Scaling:** enemies are the area's level, never more than 2 below the player's.
+- **Vending machines in the descent: ammo and health only.** Gun and shield vending
+  machines are in **town** (beside Marro), not in the descent.
+
+## Missions
+
+The board in town (a terminal or an NPC) offers a few missions at a time; each says
+where, what and how far:
+
+| Kind | Goal | Length | Ends |
+|---|---|---|---|
+| Scout | reach an area's exit map | 1-2 areas | its miniboss, then extraction |
+| Retrieve | find a marked item (a relic, a log, a part) | 1-3 areas | the item's map; extraction |
+| Bounty | kill a named elite somewhere in the areas | 2-3 areas | the elite; extraction |
+| Boss | reach and beat the region's boss | 3-5 areas | the boss arena; extraction; the next region opens |
+
+- Every area still ends in its miniboss (the way down). A mission that's done calls
+  the extraction ship at the next lift or the current area's exit, so you can go home
+  with everything (or keep going, for more risk and loot, until you lift out).
+- The areas, their levels and the boss come from the mission's region and depth.
+
+## The shape (first proposal, before the decisions)
 
 A run is an **expedition**: a few areas that build to a boss, then a way home.
 
@@ -95,10 +123,11 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
 - **Beacons** (the lifts): each area's start map. Reaching one unlocks it in town: the
   next expedition can start at area 2 or 3 (but not past the boss you haven't beaten).
   Beating the boss unlocks the next expedition. This is the "checkpoint" that matters.
-- **Vending machines** (one sprite, recoloured per kind, as the artist planned): ammo,
-  shields, guns, health. Placement rules: the start map always has ammo; the vendor
-  post has one or two others; one before every miniboss and boss; never two of the
-  same kind in an area. Prices scale with the area's level.
+- **Vending machines** (one sprite, recoloured per kind, as the artist planned).
+  In the descent: **ammo and health** only. Placement: the start map always has ammo;
+  the vendor post has health (and maybe ammo); one of each before every miniboss and
+  boss arena; never two of the same kind in one map. Prices scale with the area's
+  level. **Guns and shields** are sold by vending machines in town (and Marro).
 
 ## Scaling: the player gets stronger, and so does the world
 
@@ -119,21 +148,20 @@ skills). Proposed, Borderlands-style:
 
 The lab and the trials stay at level 1, for tuning.
 
-## To decide
+## Still open
 
-1. The expedition shape: three areas and a boss (proposed), or endless with a boss every
-   N areas?
-2. Minibosses mandatory (the way down) or optional (better loot)?
-3. Scaling: enemies at the area's level with the "no more than 2 below you" floor
-   (proposed), or fully scaled to the player, or fixed by depth only?
-4. The vending kinds: ammo, shields, guns, health: any others (skins, upgrades)?
+- How missions are offered (a board, Echo, NPCs) and how many at once.
+- Extraction: a ship at the next lift, or anywhere once the goal is met?
+- Whether "deep space" endless diving exists, and what it rewards.
 
 ## Order (once agreed)
 
 1. Landmark maps in the generator (vendor post, miniboss arena, cache) and the viewer's
    checks for them.
-2. Vending machines (one sprite, recoloured; the shop page, stocked by kind).
+2. Vending machines (one sprite, recoloured; the shop page, stocked by kind): ammo and
+   health in the descent, guns and shields in town.
 3. Minibosses in the descent: the trials' arenas as landmark maps, the shaft gated.
 4. Enemy levels and the scaling tables; squad templates; elites.
-5. Expedition structure: beacons in town, the boss arena after area 3, extraction.
+5. Missions: the board in town, mission kinds and lengths, beacons, the boss arena,
+   extraction.
 6. More roles (tank, support) and the lunar re-skins.
