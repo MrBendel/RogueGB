@@ -1,5 +1,13 @@
 # LunarBase: a generated outpost area (exterior and interior)
 
+**Where we are (2026-10-21):** the descent's generated maps are drawn as the LunarBase
+outpost (theme rules in content/tilesets/lunar_ext.json, chunks in
+content/chunks/lunar.json): hull modules you walk behind, numbered roofs, crates,
+craters. Next, in order: a **world viewer** web page (proposed, waiting on a yes:
+the real ROM in the browser like the chunk editor, a seed's whole area drawn with
+the theme, overlays, live tweaks), then doors and interiors, then pipes and set
+pieces. What each sprite is: [lunarbase-sprites.md](lunarbase-sprites.md).
+
 Status: direction agreed 2026-10-21 (generated, not hand-authored); details are
 proposals. Art: the purchased LunarBase pack (exterior, interior and decal tile
 sheets, an exterior example scene).

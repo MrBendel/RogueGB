@@ -1,0 +1,14 @@
+# A hull module as the theme builds it (exterior sheet; see ../lunarbase-sprites.md).
+# Roof: a 9-slice plate; its bottom row carries the lower edge (04 14 24).
+# Front: two tile rows (05/06 end caps, flipped for the right end).
+# Render: node tools/sheet-codes.mjs compose artwork/tiles/lunarbase/LunarBase_Tiles_Exterior_Standard.png docs/design/lunarbase/module.txt build/module.png artwork/tiles/lunarbase/LunarBase_Tiles_Decals_Standard.png
+00 10 00 10 00 10 00 10 00 10 00 10
+20 02 12 12 12 12 12 12 12 12 22 00
+00 03 13 a4 a4x 13 13 13 13 13 23 10
+20 03 13+00 13+30 13 13 13 13+a0 13+b0 13 23 00
+00 03 13+01 13+31 13 13 13 13+a1 13+b1 13 23 10
+20 04 14 14 14 14 14 14 14 14 24 00
+00 05 15 15 75 85 65 65 15 15 05x 10
+20 06 16 16 76 86 67 67 16 16 06x 00
+00 10 30 40 00 10 b9 b9x 00 10 2f 2fx
+20 00x 31 41 20 00x ba bax 20 00x 2f 2fx
