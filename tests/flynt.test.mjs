@@ -6,7 +6,7 @@ const put = (e, n, v) => e.write8(at(e, n), v);
 const put16 = (e, n, v) => e.writeBytes(at(e, n), [v & 255, (v >> 8) & 255]);
 
 function trial() {
-  const e = bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
+  const e = bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('DOWN').tap('DOWN').tap('DOWN').idle(9);
   assert.equal(e.v('title_choice'), 3);
   e.shot('flynt-menu');
   return settle(e.tap('A'), PLAY).idle(3);
