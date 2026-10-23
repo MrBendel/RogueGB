@@ -919,3 +919,26 @@ void aim_update(void) BANKED {
     }
     draw_gun();
 }
+
+// OAM y coordinates all carry the same +16 bias, so interval comparisons need
+// no screen-coordinate conversion. Count the whole boss band conservatively:
+// body/shadow first, then paired gun pieces, reticle/reload bar, muzzle flash.
+static uint8_t overlay_in_band(uint8_t slot,uint8_t top,uint8_t bottom) {
+ uint8_t y=shadow_OAM[slot].y;
+ return y && y<bottom && (uint16_t)y+16>top;
+}
+void aim_limit_overlays(uint8_t top,uint8_t bottom,uint8_t budget) BANKED {
+ static const uint8_t required[]={OAM_PLAYER,OAM_PLAYER+1,OAM_SHADOW,OAM_SHADOW+1};
+ static const uint8_t pairs[]={OAM_GUN_FRONT,OAM_GUN_BACK,OAM_RETICLE};
+ uint8_t used=0;
+ for(uint8_t i=0;i<4;i++)used+=overlay_in_band(required[i],top,bottom);
+ for(uint8_t i=0;i<3;i++) {
+  uint8_t slot=pairs[i];
+  uint8_t count=overlay_in_band(slot,top,bottom)+overlay_in_band(slot+1,top,bottom);
+  if(used+count>budget) {
+   // Both halves yield together; don't leave a visibly broken gun or reticle.
+   shadow_OAM[slot].y=shadow_OAM[slot+1].y=0;
+  } else used+=count;
+ }
+ if(used>=budget && overlay_in_band(OAM_FLASH,top,bottom))shadow_OAM[OAM_FLASH].y=0;
+}

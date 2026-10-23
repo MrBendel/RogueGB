@@ -318,3 +318,11 @@ compile to 142 tiles and at most 17 simultaneous body sprites. Four body parts
 use prop OAM 11-14; the rest begin at 15. Enemy splashes draw before player shots.
 The prototype retains the shared central actor hitbox at the slime's base; the
 entire large silhouette is not yet a bullet target. This is a playtest limitation.
+
+Globfather's large form reserves six sprite columns per scanline. After the
+player and weapon render, the aim system limits its own optional overlays in
+that vertical band to the remaining four slots, counting the player body and
+jump shadow first. Gun/reticle pairs yield together, then the muzzle flash;
+body and shadow remain intact. This prevents the lower-right body slice from
+being dropped by the hardware's ten-sprites-per-line limit. Splits use the
+normal overlay rendering again.
