@@ -73,3 +73,12 @@ them).
 
 Art that would help next: shore edges and corners where water meets snow (it's a
 hard step now), and paths (worn snow).
+
+### Local asset library and slime conversion
+
+The user's art library is `G:\My Drive\Artwork\Assets`. SGQ slime source PNGs
+remain there. Run `node tools/slime-art.mjs` (or pass an alternate SGQ_Enemies
+folder) to regenerate `src/globfather_art.inc`. Builds use this committed tile
+array and do not require the Drive mount. The converter drops transparent
+8x16 parts and merges the two greens into one GBC sprite color, retaining cream
+highlights and brown outlines. No AI generation is needed for these sheets.

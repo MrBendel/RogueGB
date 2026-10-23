@@ -42,7 +42,7 @@ test('playtest menu: adding a mercenary preserves the third boss entry', () => {
 });
 
 test('playtest menu: fourth boss entry launches Captain Flynt', () => {
-  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);
+  const e=bootToTitle().tap('DOWN').tap('DOWN').tap('A').tap('DOWN').tap('DOWN').tap('DOWN').idle(9);
   assert.equal(e.v('title_choice'),3);
   settle(e.tap('A'),PLAY).idle(3);
   assert.equal(e.v('boss_kind'),10);

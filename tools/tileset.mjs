@@ -130,7 +130,7 @@ export function convert(name) {
   const srcPath = artPath(def.src);
   // (ROGUEGB_STANDIN_ART=1: build as if local-only sheets were missing, to record
   // the stand-in screens the public build shows.)
-  const placeholder = !fs.existsSync(srcPath) || (def.local && !!process.env.ROGUEGB_STANDIN_ART);
+  const placeholder = !fs.existsSync(srcPath) || (!!def.local && !!process.env.ROGUEGB_STANDIN_ART);
   if (placeholder && !def.local) throw new Error(`tileset ${name}: ${def.src} is missing`);
   const img = placeholder ? null : decodePng(fs.readFileSync(srcPath));
   // A second sheet of decals to stamp over pieces (optional; local like the main one).
@@ -661,7 +661,7 @@ export function buildTilesets({ quiet = false } = {}) {
     out.push(c);
     const def = JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8'));
     const src = artPath(def.src);
-    const missing = !fs.existsSync(src) || (def.local && !!process.env.ROGUEGB_STANDIN_ART);
+    const missing = !fs.existsSync(src) || (!!def.local && !!process.env.ROGUEGB_STANDIN_ART);
     if (missing) standIn.push(name);
     const newest = Math.max(self, fs.statSync(path.join(DIR, f)).mtimeMs, missing ? 0 : fs.statSync(src).mtimeMs);
     // (Rebuilt too when the art came or went since the last build.)

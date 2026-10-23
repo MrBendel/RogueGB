@@ -14,6 +14,7 @@
 #include "oam.h"
 #include "scrapback.h"
 #include "cragback.h"
+#include "globfather.h"
 #include "flynt.h"
 
 #define MACHINE_VRAM 96
@@ -238,6 +239,9 @@ static void fire_direct_bullet(uint16_t x, uint16_t y, int16_t vx, int16_t vy) {
 }
 
 void boss_start(uint8_t kind) BANKED {
+    if (kind == BOSS_GLOBFATHER) {
+        globfather_start();shown_hp=shown_state=shown_relays=shown_phase=0xFF;boss_status();return;
+    }
     if (kind == BOSS_CRAGBACK) {
         cragback_start();shown_hp=shown_state=shown_relays=shown_phase=0xFF;boss_status();return;
     }
@@ -630,6 +634,7 @@ static void update_duo(void) {
 void boss_update(void) BANKED {
     if (!boss_kind || boss_state == BOSS_WON) return;
 
+    if (boss_kind == BOSS_GLOBFATHER) { globfather_update(); return; }
     if (boss_kind == BOSS_DUO) {
         update_duo();
         return;
@@ -838,6 +843,10 @@ void boss_status(void) BANKED {
     if (boss_kind == BOSS_CRAGBACK && boss_state != BOSS_WON) {
         s = boss_state == BOSS_REINFORCE ? "HOPPING - MOVE!" : boss_state == BOSS_WARN ? "ROCK INCOMING!" : boss_state == BOSS_CHARGE ? "DODGE THE ROCK!" :
             boss_state == BOSS_RELAYS ? "SLAM - GET BACK!" : boss_state == BOSS_RECOVER ? "DIGGING - FIRE!" : "KEEP YOUR DISTANCE";
+    }
+    if (boss_kind == BOSS_GLOBFATHER && boss_state != BOSS_WON) {
+        s=boss_state==BOSS_WARN?"HOP INCOMING!":boss_state==BOSS_CHARGE?"JUMP THE SPLASH!":
+          boss_phase==3?"RESTING - FIRE!":boss_phase==2?"SPLIT - FIRE!":"FINISH THE SLIMES!";
     }
     uint8_t *row = gfx_strip(1, 1, 0, 18);
     uint8_t n = 0;

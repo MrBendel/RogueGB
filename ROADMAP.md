@@ -372,3 +372,9 @@ See [boss design](docs/design/bosses.md#cragback-miniboss-trial).
 
 Cragback now makes two committed diagonal hops between recovery and its next
 throw, with crouch/landing pauses and a moving ground shadow.
+
+- Globfather boss playtest: imported local SGQ slime family, with independent
+  large -> two medium -> four small splitting. Warned hops, landing splashes,
+  spawn grace, and a health meter covering the complete family. Available from
+  Combat -> Bosses -> Globfather. See docs/design/bosses.md for sprite budgets
+  and the current central-hitbox limitation.
