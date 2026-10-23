@@ -262,7 +262,7 @@ void play_enter(void) BANKED {
         boss_start(play_mode == MODE_MINIBOSS ? (enemy_trial_kind==2 ? BOSS_CRAGBACK : enemy_trial_kind==1 ? BOSS_SCRAPBACK : BOSS_CLAIMJAW) :
                    play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
                    enemy_trial_kind == 2 ? BOSS_DUO :
-                   enemy_trial_kind == 3 ? BOSS_FLYNT : BOSS_WARDEN);
+                   enemy_trial_kind == 4 ? BOSS_GLOBFATHER : enemy_trial_kind == 3 ? BOSS_FLYNT : BOSS_WARDEN);
     }
     sfx_watch_reset();
     waves_init();

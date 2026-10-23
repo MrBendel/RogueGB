@@ -297,3 +297,24 @@ damage by attack, failed dodges, aiming frustration, and weapon preference. Tune
 timings and safe space, then try an arena-hazard boss before expanding the roster.
 Campaign rewards/dialogue, full boss health bars, unique music, reconstruction,
 and larger multi-part artwork remain future work.
+
+## Globfather slime boss prototype
+
+Combat playtests -> Bosses -> Globfather uses the local SGQ slime family. Defeating
+one large slime releases two medium slimes; each medium independently releases
+two small slimes. Clear all seven enemies to finish. The health bar includes the
+unspawned descendants (60 total HP), so splitting never refills progress.
+
+The large slime swells before a committed hop toward the player and releases six
+projectiles on landing. Medium slimes hop farther and release three shots; small
+slimes hop without a projectile splash. Only one slime begins an attack at a time.
+Move during the wind-up, jump over landing damage, then shoot during recovery.
+New children briefly flash and cannot hurt the player during their spawn grace.
+Existing enemy projectiles clear at each split to keep the transition readable.
+
+Art: SGQ_Enemies/bosses/slime_king.png has 48x64 frame cells; the descendants
+use normal/32x32/medium_slime.png and normal/16x16/slime.png. Selected poses
+compile to 142 tiles and at most 17 simultaneous body sprites. Four body parts
+use prop OAM 11-14; the rest begin at 15. Enemy splashes draw before player shots.
+The prototype retains the shared central actor hitbox at the slime's base; the
+entire large silhouette is not yet a bullet target. This is a playtest limitation.

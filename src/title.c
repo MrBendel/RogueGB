@@ -33,7 +33,7 @@ uint8_t title_menu, title_category;
 static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "MOVEMENT LAB"};
 static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY", "ACID WOLF"};
 static const char *const minibosses[] = {"CLAIMJAW", "SCRAPBACK", "CRAGBACK"};
-static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST", "CAPTAIN FLYNT"};
+static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST", "CAPTAIN FLYNT", "GLOBFATHER"};
 
 // Text from this bank's constants (text.h: copied to RAM for text.c).
 static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t tile, uint8_t pal) {
@@ -154,17 +154,20 @@ static void show_classes(void) {
     draw_class();
 }
 
+static uint8_t choice_row(uint8_t i) {
+    return FILE_ROW0 + (title_menu==2 && title_category==1 ? i : i<<1);
+}
 static void move_cursor(uint8_t to) {
-    set_bkg_tile_xy(CURSOR_X >> 3, FILE_ROW0 + (title_choice << 1), 0);
+    set_bkg_tile_xy(CURSOR_X >> 3, choice_row(title_choice), 0);
     title_choice = to;
-    set_bkg_tile_xy(CURSOR_X >> 3, FILE_ROW0 + (title_choice << 1), title_cursor_tile);
+    set_bkg_tile_xy(CURSOR_X >> 3, choice_row(title_choice), title_cursor_tile);
     VBK_REG = 1;
-    set_bkg_tile_xy(CURSOR_X >> 3, FILE_ROW0 + (title_choice << 1), TITLE_PAL_TEXT);
+    set_bkg_tile_xy(CURSOR_X >> 3, choice_row(title_choice), TITLE_PAL_TEXT);
     VBK_REG = 0;
 }
 
 static uint8_t choice_count(void) {
-    return title_menu == 1 || title_category == 1 ? 4 : title_category == 2 ? 3 : title_category == 0 ? 3 : 1;
+    return title_menu == 1 ? 4 : title_category == 1 ? 5 : title_category == 2 ? 3 : title_category == 0 ? 3 : 1;
 }
 
 // The playtest menu: a heading and its choices (rows 10, 12, ...), the cursor at one.
@@ -174,7 +177,7 @@ static void draw_playtests(void) {
     t += draw(FONT_COMPACT, TEXT_CENTER, 9, title_menu == 1 ? "COMBAT PLAYTESTS" : categories[title_category], t, TITLE_PAL_HINT);
     for (uint8_t i = 0; i < choice_count(); i++) {
         const char *s = title_menu == 1 ? categories[i] : title_category == 2 ? enemies[i] : title_category == 0 ? minibosses[i] : bosses[i];
-        t += draw(FONT_COMPACT, 20, FILE_ROW0 + (i << 1), s, t, TITLE_PAL_TEXT);
+        t += draw(FONT_COMPACT, 20, choice_row(i), s, t, TITLE_PAL_TEXT);
     }
     t += draw(FONT_COMPACT, TEXT_CENTER, 17, "A: GO     B: BACK", t, TITLE_PAL_HINT);
     title_cursor_tile = t;
