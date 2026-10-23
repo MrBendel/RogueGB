@@ -54,6 +54,16 @@ jobs:
           cp web/manifest.webmanifest build/pages/manifest.webmanifest
           cp web/sw.js build/pages/sw.js
 
+      - name: Add the world viewer (web/world.html, reading world-data/)
+        run: |
+          node tools/world-data.mjs
+          mkdir -p build/pages/web build/pages/harness/vendor/boytacean
+          cp web/world.html web/world.js web/chunk-format.js web/style.css build/pages/web/
+          cp build/icon-192.png build/pages/web/icon-192.png
+          cp harness/emu.mjs build/pages/harness/emu.mjs
+          cp harness/vendor/boytacean/boytacean.js harness/vendor/boytacean/boytacean_bg.wasm build/pages/harness/vendor/boytacean/
+          cp -r build/world-data build/pages/web/world-data
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 

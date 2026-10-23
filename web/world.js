@@ -5,6 +5,8 @@
 // looks the theme chose (room_vis) drawn from the tileset's block atlas
 // (build/gen/atlas-<tileset>.png, written by tools/tileset.mjs). Chunk weights can
 // be tweaked live (patched into a copy of the ROM) and saved through the dev server.
+// Without one (GitHub Pages) it reads world-data/ beside the page (tools/world-data.mjs),
+// and saving downloads the chunk file instead.
 import initCore, * as B from '../harness/vendor/boytacean/boytacean.js';
 import { Emu, Symbols, BTN } from '../harness/emu.mjs';
 import { parseChunkDoc, encodeChunkTables, checkChunkSet, tagNames, cellsToRows } from './chunk-format.js';
@@ -26,13 +28,16 @@ let files = [];        // chunk files: { file, doc, chunks, saved (weights as lo
 let baseRom = null, symbols = null, bootState = null, emu = null;
 let atlas = null;      // { img, names, behind, standIn } for the current theme
 let area = null, sel = -1, themeIdx = 0;
+let devServer = false;  // the dev server (npm run play): live files, saving; else world-data/
 const mapCanvas = new Map();  // cache: map index -> canvas at 1 px per px
 
 // ---------------------------------------------------------------------------
 // Files and the ROM
 async function loadFiles() {
-  const r = await fetch('/api/chunks', { cache: 'no-store' }).catch(() => null);
-  if (!r?.ok) throw new Error('No chunk files: open this page from the dev server (npm run play).');
+  let r = await fetch('/api/chunks', { cache: 'no-store' }).catch(() => null);
+  devServer = !!r?.ok;
+  if (!devServer) r = await fetch('world-data/chunks.json', { cache: 'no-store' }).catch(() => null);
+  if (!r?.ok) throw new Error('No chunk files: open this page from the dev server (npm run play), or the published site.');
   files = (await r.json()).map(({ file, doc }) => {
     const chunks = parseChunkDoc(doc, file).chunks;
     return { file, doc, chunks, saved: chunks.map((c) => c.weight) };
@@ -57,7 +62,8 @@ function patchRom() {
 }
 
 async function bootRom() {
-  const [r, s] = await Promise.all([fetch('/build/roguegb.gb', { cache: 'no-store' }), fetch('/build/roguegb.noi', { cache: 'no-store' })]);
+  const at = devServer ? '/build/' : 'world-data/';
+  const [r, s] = await Promise.all([fetch(at + 'roguegb.gb', { cache: 'no-store' }), fetch(at + 'roguegb.noi', { cache: 'no-store' })]);
   if (!r.ok || !s.ok) throw new Error('No ROM yet: run "npm run build" (or fix the build errors).');
   baseRom = new Uint8Array(await r.arrayBuffer());
   symbols = new Symbols(await s.text());
@@ -92,8 +98,8 @@ async function loadAtlas() {
   $('wv-artnote').textContent = ts ? '' : '(no tileset for this theme: block types only)';
   if (!ts) return;
   const [j, img] = await Promise.all([
-    fetch(`/build/gen/atlas-${ts}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
-    new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = `/build/gen/atlas-${ts}.png?${Date.now()}`; }),
+    fetch(`${devServer ? '/build/gen/' : 'world-data/'}atlas-${ts}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
+    new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = `${devServer ? '/build/gen/' : 'world-data/'}atlas-${ts}.png?${Date.now()}`; }),
   ]);
   if (!j || !img) { $('wv-artnote').textContent = '(no atlas: rebuild)'; return; }
   atlas = { img, ...j };
@@ -402,6 +408,15 @@ $('wv-revert').addEventListener('click', () => {
 $('wv-save').addEventListener('click', async () => {
   const f = files[themeIdx];
   const doc = { ...f.doc, chunks: f.chunks.map((c) => ({ name: c.name, tags: tagNames(c.tags), weight: c.weight, rows: cellsToRows(c.cells) })) };
+  if (!devServer) {  // (a static site can't write files: hand it over instead)
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(doc, null, 2) + '\n'], { type: 'application/json' }));
+    a.download = f.file;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    pill(`downloaded ${f.file}: put it in content/chunks/`, 'ok');
+    return;
+  }
   try {
     const r = await fetch('/api/chunks/' + encodeURIComponent(f.file), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(doc) });
     if (!r.ok) throw new Error(await r.text());
@@ -418,10 +433,12 @@ $('wv-save').addEventListener('click', async () => {
 (async () => {
   try {
     await loadFiles();
+    if (!devServer) $('wv-save').textContent = '⬇ Download chunk file';
     files.forEach((f, i) => $('wv-theme').add(new Option(f.doc.theme || f.file, i)));
     themeIdx = Math.max(0, files.findIndex((f) => f.doc.theme === 'lunar'));
     $('wv-theme').value = themeIdx;
     for (let d = 1; d <= 9; d++) $('wv-depth').add(new Option(d, d));
+    if (innerWidth < 700) $('wv-zoom').value = '0.25';  // (a phone: more of the area at once)
     const q = new URLSearchParams(location.search);
     if (q.get('seed')) $('wv-seed').value = q.get('seed');
     pill('booting the ROM…');
@@ -437,7 +454,7 @@ $('wv-save').addEventListener('click', async () => {
 })();
 
 // The dev server announces new builds: follow them (a saved chunk file, a theme change).
-try {
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') try {
   const es = new EventSource('/events');
   es.onmessage = async (e) => {
     const ev = JSON.parse(e.data);
