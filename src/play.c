@@ -49,6 +49,7 @@
 #include "acid_wolf.h"
 #include "scrapback.h"
 #include "flynt.h"
+#include "globfather.h"
 
 // HUD: one block row (2 tile rows) on the window layer under the 10x8-block room.
 #define HUD_WY VIEW_H
@@ -555,6 +556,7 @@ void play_update(void) BANKED {
         else if (boss_kind == BOSS_DUO) duo_draw();
         else if (boss_kind == BOSS_SCRAPBACK) scrapback_draw();
         else if (boss_kind == BOSS_FLYNT) flynt_draw();
+        else if (boss_kind == BOSS_GLOBFATHER) globfather_draw();
     }
     sfx_watch();
     if (!player_hp) {

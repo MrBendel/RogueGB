@@ -16,6 +16,7 @@ extern uint8_t oam_next;
 // parent after the ordinary shot reaper frees its actor slot.
 uint8_t glob_size[ACTOR_MAX],glob_state[ACTOR_MAX],glob_timer[ACTOR_MAX],glob_z[ACTOR_MAX];
 uint8_t glob_attacker,glob_alive,glob_defeated;
+uint8_t glob_draw_top,glob_draw_bottom;
 uint16_t glob_splits,glob_hops,glob_landings;
 static const uint8_t hop_z[16]={1,2,4,6,7,8,8,8,8,7,6,4,3,2,1,0};
 static uint8_t bound_x(int16_t x,uint8_t size) {
@@ -129,6 +130,7 @@ void globfather_update(void) BANKED {
  if(!glob_alive){boss_state=BOSS_WON;boss_reward=1;glob_attacker=0xff;}
 }
 void globfather_emit(void) BANKED {
+ glob_draw_top=glob_draw_bottom=0;
  for(uint8_t i=11;i<15;i++)shadow_OAM[i].y=0;
  uint8_t prop=11;
  // Draw in actor slot order. All descendants together need at
@@ -139,6 +141,10 @@ void globfather_emit(void) BANKED {
   if(size==3 && state==1)frame=6;
   uint8_t pal=actor_hurt[i] || ((state==3 || state==1) && (glob_timer[i]&4))?SPR_PAL_FLASH:SPR_PAL_SHOOTER;
   uint8_t end=glob_first[frame]+glob_count[frame];
+  if(size==3) {
+   glob_draw_top=actor_y[i]+32+glob_parts[glob_first[frame]][1]-glob_z[i]-cam_y;
+   glob_draw_bottom=actor_y[i]+48+glob_parts[end-1][1]-glob_z[i]-cam_y;
+  }
   for(uint8_t p=glob_first[frame];p<end;p++) {
    uint8_t slot=prop<15?prop++:oam_next++;
    shadow_OAM[slot].x=actor_x[i]+16+glob_parts[p][0]-cam_x;
@@ -146,4 +152,9 @@ void globfather_emit(void) BANKED {
    shadow_OAM[slot].tile=glob_parts[p][2];shadow_OAM[slot].prop=pal;
   }
  }
+}
+void globfather_draw(void) BANKED {
+ // Six body columns leave four hardware sprites for player/weapon overlays.
+ // Called after aim_update and player_draw so the budget sees this frame's OAM.
+ if(glob_draw_bottom)aim_limit_overlays(glob_draw_top,glob_draw_bottom,4);
 }

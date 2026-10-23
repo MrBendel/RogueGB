@@ -78,3 +78,26 @@ test('globfather: leaving a split fight and restarting resets the family',()=>{
  assert.equal(e.v('glob_alive'),1);assert.equal(e.v('glob_defeated'),0);assert.equal(e.v('glob_splits','u16'),0);
  assert.equal(e.v('boss_hp'),60);assert.equal(e.v('boss_reward'),0);assert.equal(e.v('bullet_count'),0);
 });
+
+test('globfather: complete king silhouette survives player, weapon and jump-shadow scanline overlap',()=>{
+ let checked=0;
+ for(const pose of [0,1,2])for(const airborne of [false,true]) {
+  const e=trial();
+  put(e,'glob_state',pose);put(e,'glob_timer',pose===2?16:200);put(e,'actor_guard',1);
+  e.writeBytes(at(e,'player_x'),[76,0]);e.writeBytes(at(e,'player_y'),[76,0]);
+  if(airborne)e.tap('B');
+  for(let f=0;f<8;f++) {
+   put(e,'glob_timer',pose===2?16:200);put(e,'player_invuln',30);e.hold('A');
+   const oam=Array.from({length:40},(_,i)=>({y:e.read8(at(e,'shadow_OAM')+i*4),tile:e.read8(at(e,'shadow_OAM')+i*4+2)}));
+   for(let i=11;i<28;i++)if(oam[i].y)for(let y=Math.max(0,oam[i].y-16);y<Math.min(128,oam[i].y);y++) {
+    const earlier=oam.slice(0,i).filter(s=>s.y&&y>=s.y-16&&y<s.y).length;
+    assert.ok(earlier<10,`pose=${pose}, jump=${airborne}, frame=${f}, body slot=${i}, line=${y}, earlier=${earlier}`);checked++;
+   }
+   assert.ok(e.read8(at(e,'shadow_OAM')+3*4));assert.ok(e.read8(at(e,'shadow_OAM')+4*4));
+   if(e.v('player_z'))for(const slot of [7,8])assert.ok(e.read8(at(e,'shadow_OAM')+slot*4),'jump shadow preserved');
+   assert.ok(e.lastFrameCycles<FRAME_LIMIT);
+  }
+  e.shot('globfather-overlap-fixed-'+pose+'-'+airborne);
+ }
+ assert.ok(checked>1000);
+});

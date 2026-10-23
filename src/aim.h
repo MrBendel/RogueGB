@@ -59,6 +59,9 @@ void aim_init(uint8_t vram) BANKED;
 // Score one enemy, pick the target, fire if A is held, draw the reticle. Call
 // after actors_update (enemies have moved and drawn for this frame).
 void aim_update(void) BANKED;
+// After player_draw: reserve a wide boss's scanlines, yielding only aim-owned
+// overlays. Player body and jump shadows are never modified.
+void aim_limit_overlays(uint8_t top, uint8_t bottom, uint8_t budget) BANKED;
 
 // Bank 0, from actors_update: move, collide and draw the shots (shots.s), and
 // its inputs and outputs.
