@@ -83,10 +83,9 @@ pack's props assembled). What they showed:
 
 | Piece | Tiles | Notes |
 |---|---|---|
-| Floor plates `floor_a`-`floor_d` | `5a 6a / 5b 6b`, `7a 8a / 7b 8b`, `5c 6c / 5d 6d`, `7c 8c / 7d 8d` | a 2x2-block pattern by position |
+| Floor `floor`, `floor_shadow` | ours: `artwork/tiles/lunar_int_extra.png` `00` studs, `10` studs in shadow, `20` shine (not used yet) | the reference's floor isn't in the sheet: drawn in the pack's colours (white, lilac, grey, dark grey: one palette), stamped over. Shadow: the top half of a floor block under a wall (the theme's `shade` style) or under the monitor |
 | North/south wall `wall_n` | `60 70 / 61 71` | the white band's top, then its lilac face |
-| West wall `wall_w_a` `_b` | `51` + the floor's edge column (`6a 6b`, `6c 6d`) | it takes turns down the side to match the floor |
-| East wall `wall_e_a` `_b` | the floor's column (`7a 7b`, `7c 7d`) + `51x` | |
+| West / east wall `wall_w` `wall_e` | `51` (`51x`) + a column of floor | |
 | Corners | `50` (a band's rounded corner), its flips; `30` black below the south corners | |
 | Band end caps | `53` (and flips) | the jambs beside a doorway |
 | North/south doorway `door_ns` | `48 48x / 49 49x` | the slats |

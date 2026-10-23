@@ -37,6 +37,13 @@ Where it's missing (CI, the public Pages build) the tool draws stand-ins by role
 and the tests keep separate `~stand-in` screens (record them with
 `ROGUEGB_STANDIN_ART=1`).
 
+## Our own tiles beside a pack
+
+Where a pack lacks something (the LunarBase interior's studded floor, its shadows),
+draw it in the pack's colours on a small sheet of ours in `artwork/tiles/` and name it
+as the tileset's `"decals"`: a piece's `"stamp"` draws it over the pack's tiles (an
+opaque tile replaces them). Ours can be committed; it's only used where the pack is.
+
 ## Limits (the build fails past them)
 
 - **176 tiles** per scene (background tiles 80-255). The ice town uses 139.

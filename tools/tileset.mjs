@@ -345,6 +345,8 @@ export function buildMaps(def, pieces) {
 //     edge; roof_sl roof_s roof_sr for a roof only one row deep, both edges), then one
 //     row of front (face_l face_c face_r) where the block below isn't solid. A lone
 //     block, or a one-block-wide column, is a prop.
+//   shade: { style: "shade", blocks, under }: under where the block above isn't the
+//     same type (a wall's shadow on the floor below it), else blocks.
 //   pattern: { style: "pattern", w, h, blocks }: blocks in a w x h grid (powers of two)
 //     by map position, row by row (a floor of plates that must line up).
 // A piece's blocks are named piece (its first) or piece.n (the nth, row-major).
@@ -410,6 +412,8 @@ export function buildTheme(def, pieces) {
       let list;
       if (Array.isArray(r)) {
         list = r;
+      } else if (r.style === 'shade') {
+        list = m & 1 ? r.blocks : r.under;  // (N: the block above is the same type)
       } else if (pattern) {
         list = r.blocks;  // (picked by position, not by the neighbours)
       } else if (r.style === 'module') {
@@ -420,7 +424,7 @@ export function buildTheme(def, pieces) {
         }
         list = r[role];
       } else {
-        throw new Error(`theme ${t}: a list of pieces, { style: "module", ... } or { style: "pattern", ... }`);
+        throw new Error(`theme ${t}: a list of pieces, or { style: "module" | "pattern" | "shade", ... }`);
       }
       lists.push(list.map(block));
     }

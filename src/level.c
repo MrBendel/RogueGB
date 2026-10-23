@@ -427,5 +427,7 @@ void level_build_map(uint8_t i) BANKED {
             room_map[k] = BLK_PROP;
             room_vis[k] = TS_LUNAR_INT_MONITOR + b;
         }
+        for (uint8_t b = 0; b < 2; b++)  // its shadow on the floor below
+            room_vis[((uint16_t)(COMMS_Y + 2) << 5) | (COMMS_X + b)] = TS_LUNAR_INT_FLOOR_SHADOW;
     } else tiles_lunar_ext_apply();
 }
