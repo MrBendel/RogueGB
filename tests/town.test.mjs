@@ -1,8 +1,8 @@
 // The town (the hub): a file starts there; its lift goes down into the descent,
-// an area's start map has one back up; a run that ends returns you there; Echo's
+// an area's entrance room's south door leads back up; a run that ends returns you there; Echo's
 // first contact plays once per file.
 import { test } from 'node:test';
-import { assert, bootToTitle, settle, startDescent, takeLiftDown, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
+import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
 
 const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
@@ -26,17 +26,10 @@ test('a new file starts in the town; its lift goes down into a new expedition', 
   assert.equal(prof(emu, EXP_ACTIVE), 1);
 });
 
-test("the start map's lift goes back up with everything: no fee, the expedition over", () => {
+test("the entrance room's south door goes back up with everything: no fee, the expedition over", () => {
   const emu = startDescent().idle(4);
   emu.writeBytes(A(emu, 'profile') + CREDITS, [200, 0, 0, 0]);
-  // The lift stands in the start map's middle; step beside it and press A.
-  const w = emu.v('room_w'), h = emu.v('room_h');
-  w16(emu, 'player_x', (w >> 1) * 16 - 16);
-  w16(emu, 'player_y', (h >> 1) * 16 - 2);
-  emu.idle(2);
-  assert.notEqual(emu.v('talk_near'), 0xff, 'the lift is in reach');
-  emu.tap('A');
-  arrive(emu, MODE_TOWN);
+  leaveToTown(emu);
   assert.equal(prof(emu, CREDITS, 4), 200, 'no fee');
   assert.equal(prof(emu, EXP_ACTIVE), 0);
 });
@@ -59,11 +52,7 @@ test("Echo's first contact at the relay plays once per file", () => {
   assert.equal(prof(emu, STORY) & 1, 1, 'remembered');
   // Down and back up: the town again, and she doesn't repeat herself.
   takeLiftDown(emu);
-  const w = emu.v('room_w'), h = emu.v('room_h');
-  w16(emu, 'player_x', (w >> 1) * 16 - 16);
-  w16(emu, 'player_y', (h >> 1) * 16 - 2);
-  emu.idle(2).tap('A');
-  arrive(emu, MODE_TOWN);
+  leaveToTown(emu);
   w16(emu, 'player_x', 8 * 16);
   w16(emu, 'player_y', 4 * 16);
   emu.idle(4);

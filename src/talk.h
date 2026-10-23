@@ -25,6 +25,7 @@
 #define TALK_MARRO 2  // the scrap broker
 #define TALK_LIFT 3   // the lift: town <-> descent
 #define TALK_KINDS 4
+#define TALK_COMMS 7  // drawn by the map (the entrance room's monitor): only its bubble
 // Actions in place of a script.
 #define TALK_DO 0x80
 #define TALK_DO_SHOP 0x80  // Marro's shop

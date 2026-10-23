@@ -25,7 +25,8 @@ function fillUp(emu, pack = true) {
 
 function leaveBy(emu, e) {
   const w = emu.v('room_w'), h = emu.v('room_h');
-  const o = (emu.readBytes(A(emu, 'level_open'), 4)[SIDE[e]] + 1) * 16;
+  const inset = emu.v('level_map') === emu.v('area_start') ? 0 : 1;  // (an entrance room's doorways are one block)
+  const o = (emu.readBytes(A(emu, 'level_open'), 4)[SIDE[e]] + inset) * 16;
   const at = { 1: [o, 2 * 16 - 8], 4: [o, h * 16 - 3 * 16 + 4], 8: [2 * 16, o - 4], 2: [w * 16 - 3 * 16, o - 4] }[e];
   w16(emu, 'player_x', at[0]);
   w16(emu, 'player_y', at[1]);

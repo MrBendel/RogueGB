@@ -220,7 +220,6 @@ void play_enter(void) BANKED {
     saved_seconds = 0;  // (run_start began the clock again)
     pickups_init();  // a descent map loads its chests (descent.c)
     if (play_mode == MODE_DESCENT) {
-        tiles_lunar_ext_load();  // the descent's theme (docs/design/lunar-base.md)
         player_init(0, 0);
         // A file (save.h): its expedition, if one is under way.
         if (save_slot != SAVE_NONE && profile.exp_active) descent_resume();
@@ -513,7 +512,15 @@ void play_update(void) BANKED {
         waves_update();
     } else if (play_mode == MODE_DESCENT) {
         uint8_t door = descent_door();
-        if (door) descent_change_room(door);
+        if (door == DESCENT_TOWN) {
+            if (save_slot != SAVE_NONE) {  // (a file's: the lab's descents have no town)
+                profile.exp_active = 0;    // back with everything: the expedition is over (no fee)
+                go(MODE_YARD);
+                return;
+            }
+        } else if (door) {
+            descent_change_room(door);
+        }
         descent_update();
     } else if (play_mode == MODE_ENEMY) {
         enemy_trial_update();

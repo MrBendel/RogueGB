@@ -1,0 +1,44 @@
+{
+  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room for now, after the artist's reference shots: thick white walls seen from above (the band tiles the sheet's 'pipes' are) with a lilac face, the door jambs where a band turns or ends at a doorway, the plate floor as a 2x2-block pattern (the side walls carry the floor's edge column, so they take turns to match it), and the comms device: the framed wall monitor, a 2x2-block prop (level.c puts it in the middle). Without the sheet the build uses plain stand-ins.",
+  "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Interior_Standard.png",
+  "local": true,
+  "backdrop": [0, 0, 0],
+  "palettes": 6,
+  "pieces": {
+    "floor_a": { "tiles": ["5a 6a", "5b 6b"] },
+    "floor_b": { "tiles": ["7a 8a", "7b 8b"] },
+    "floor_c": { "tiles": ["5c 6c", "5d 6d"] },
+    "floor_d": { "tiles": ["7c 8c", "7d 8d"] },
+    "wall_n": { "tiles": ["60 70", "61 71"] },
+    "wall_w_a": { "tiles": ["51 6a", "51 6b"] },
+    "wall_w_b": { "tiles": ["51 6c", "51 6d"] },
+    "wall_e_a": { "tiles": ["7a 51x", "7b 51x"] },
+    "wall_e_b": { "tiles": ["7c 51x", "7d 51x"] },
+    "corner_nw": { "tiles": ["50 70", "51 71"] },
+    "corner_ne": { "tiles": ["60 50x", "61 51x"] },
+    "corner_sw": { "tiles": ["50y 70", "30 71"] },
+    "corner_se": { "tiles": ["60 50xy", "61 30"] },
+    "door_ns": { "tiles": ["48 48x", "49 49x"] },
+    "jamb_ns_l": { "tiles": ["60 50x", "61 53x"] },
+    "jamb_ns_r": { "tiles": ["50 70", "53 71"] },
+    "door_w": { "tiles": ["19 6c", "19 6d"] },
+    "jamb_w_up": { "tiles": ["51 6a", "53 6b"] },
+    "jamb_w_down": { "tiles": ["53y 6a", "51 6b"] },
+    "door_e": { "tiles": ["7c 19x", "7d 19x"] },
+    "jamb_e_up": { "tiles": ["7a 51x", "7b 53x"] },
+    "jamb_e_down": { "tiles": ["7a 53xy", "7b 51x"] },
+    "monitor": { "tiles": ["c0 d0 d0x c0x", "c1 d7 d7 c1x", "c1 d8 f9 c1x", "c0y d0y d0y c0xy"] }
+  },
+  "theme": {
+    "floor": { "style": "pattern", "w": 2, "h": 2, "blocks": ["floor_a", "floor_b", "floor_c", "floor_d"] },
+    "solid": ["wall_n"],
+    "frame": {
+      "n": ["wall_n"], "s": ["wall_n"], "e": ["wall_e_a", "wall_e_b"], "w": ["wall_w_a", "wall_w_b"],
+      "nw": ["corner_nw"], "ne": ["corner_ne"], "sw": ["corner_sw"], "se": ["corner_se"]
+    },
+    "door_n": ["door_ns", "jamb_ns_l", "jamb_ns_r"],
+    "door_s": ["door_ns", "jamb_ns_l", "jamb_ns_r"],
+    "door_w": ["door_w", "jamb_w_up", "jamb_w_down"],
+    "door_e": ["door_e", "jamb_e_up", "jamb_e_down"]
+  }
+}

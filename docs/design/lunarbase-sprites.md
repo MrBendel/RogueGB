@@ -70,6 +70,41 @@ and stripes on a roof, the "404" plate). Flips are used everywhere.
 | Equipment bank | `72 82 / 73 83` | repeats in a run; its end pieces aren't found yet: don't use it alone |
 | Poles | `f5 f6 f7` | a post with an orange box |
 
+## Interior: the entrance room (in use, `content/tilesets/lunar_int.json`)
+
+Built 2026-10-22 after the artist's reference shots (a finished interior, and the
+pack's props assembled). What they showed:
+
+- **Walls are the thick white bands** (the tiles this page called "big white
+  pipes"), seen from above, with a lilac face below the top band.
+- **A doorway** is a gap in a band, with the band turning or ending beside it (the
+  jambs) and horizontal slats across it.
+- **The comms device** is the framed wall monitor with its blue screen.
+
+| Piece | Tiles | Notes |
+|---|---|---|
+| Floor plates `floor_a`-`floor_d` | `5a 6a / 5b 6b`, `7a 8a / 7b 8b`, `5c 6c / 5d 6d`, `7c 8c / 7d 8d` | a 2x2-block pattern by position |
+| North/south wall `wall_n` | `60 70 / 61 71` | the white band's top, then its lilac face |
+| West wall `wall_w_a` `_b` | `51` + the floor's edge column (`6a 6b`, `6c 6d`) | it takes turns down the side to match the floor |
+| East wall `wall_e_a` `_b` | the floor's column (`7a 7b`, `7c 7d`) + `51x` | |
+| Corners | `50` (a band's rounded corner), its flips; `30` black below the south corners | |
+| Band end caps | `53` (and flips) | the jambs beside a doorway |
+| North/south doorway `door_ns` | `48 48x / 49 49x` | the slats |
+| Side doorways | `19` + the floor's column | stand-in: no side-on doorway in the sheet |
+| Comms monitor `monitor` (2x2 blocks) | `c0 d0 d0x c0x / c1 d7 d7 c1x / c1 d8 f9 c1x / c0y d0y d0y c0xy` | the frame is `c0 d0 c1` and flips; `d7` the screen's top, `d8` its middle, `f9` the window icon |
+
+Props in the reference (not used yet):
+
+| Prop | Tiles |
+|---|---|
+| Riveted plate | `96 a6 / 97 a7` |
+| Orange container | `77 87 87x 77x / 78 88 88x 78x / 79 89 89x 79x` |
+| Chair or capsule (white) | `a8 b8 / a9 b9 / aa ba / ab bb` |
+| Small screen with glare | `cb db / cc dc` (the pack's DeskScreen and WallScreen sprites animate screens like it) |
+| Orange crates | `bd cd dd / be ce de` |
+| Starfield window | `b5`-`f5` stars, frame `d2`-`f3` |
+| Screen icon lines | `e7 f7 / e8 f8 / e9 ea` (cyan lines that join the `f9` icon) |
+
 ## Interior (proposed: no example in the pack)
 
 A 3/4 view like most Game Boy interiors. First mockup in the conversation of

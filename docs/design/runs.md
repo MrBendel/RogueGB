@@ -29,6 +29,28 @@ measure it.
 - **Vending machines in the descent: ammo and health only.** Gun and shield vending
   machines are in **town** (beside Marro), not in the descent.
 
+## The entrance room (built 2026-10-22)
+
+Every area begins in a **one-screen entrance room**, like the entrance of a Zelda
+dungeon: you arrive through its **south door** (the way back to town: walk out of it
+to leave, with everything), **doors on 2 or 3 of its other sides** lead into the area,
+and a **comms device** in the middle gives the objective when you talk to it (for now
+a general briefing from Meridian dispatch; with missions, the mission's own). The
+generator puts it on the area grid's bottom row, so nothing lies south of it.
+
+It's **indoors**: drawn with the LunarBase interior tileset (`content/tilesets/lunar_int.json`)
+while the area's other maps use the exterior one (descent.c loads the tileset by map,
+level.c applies its theme). It follows the artist's reference:
+- thick white walls seen from above, on a plate floor;
+- doorways one block (16 px) wide, with the wall ending in jambs either side and
+  slats across;
+- the **comms device** is the framed monitor, a 2x2-block prop in the middle
+  (`COMMS_X`, `COMMS_Y` in level.h). It's drawn by the map. Its four blocks are each
+  a talker (`TALK_COMMS`, with no sprite), so you can talk to it from any side.
+
+The side doorways are stand-ins: the sheet has no side-on doorway. Doors that open
+and close need the artist's art.
+
 ## Missions
 
 The board in town (a terminal or an NPC) offers a few missions at a time; each says

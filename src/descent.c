@@ -12,6 +12,7 @@
 #include "level.h"
 #include "room.h"
 #include "tiles_lunar_ext.h"
+#include "tiles_lunar_int.h"
 #include "player.h"
 #include "camera.h"
 #include "actor.h"
@@ -20,6 +21,7 @@
 #include "save.h"
 #include "pickups.h"
 #include "talk.h"
+#include "dialogue.h"
 #include "progress.h"
 #include "run.h"
 #include "weapon.h"
@@ -57,7 +59,7 @@ void descent_start(uint16_t seed) BANKED {
     saved_seconds = 0;
     area_seed_base = seed;
     start_area();
-    descent_enter(area_start, DESCENT_NO_DOOR);
+    descent_enter(area_start, EDGE_S);  // in through the entrance room's south door
 }
 
 // The expedition saved in the profile (save.h): its area rebuilt from the seed,
@@ -71,7 +73,7 @@ void descent_resume(void) BANKED {
     start_area();
     memcpy(area_camps_cleared, profile.exp_camps, sizeof(area_camps_cleared));
     memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
-    uint8_t map = profile.exp_map, links = area_links[map], side = DESCENT_NO_DOOR;
+    uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     descent_enter(map, side);
 }
@@ -95,7 +97,8 @@ static void autosave(void) {
 // map: just inside it.
 static void place_player(uint8_t side) {
     uint8_t s = side == EDGE_N ? 0 : side == EDGE_E ? 1 : side == EDGE_S ? 2 : 3;
-    uint16_t at = (uint16_t)(level_open[s] + 1) * BLOCK_SIZE;  // the opening's middle, less half the player
+    // The opening's middle, less half the player (an entrance room's doorways are one block).
+    uint16_t at = (uint16_t)(level_open[s] + (level_map == area_start ? 0 : 1)) * BLOCK_SIZE;
     switch (side) {
     case EDGE_N: player_x = at; player_y = 2 * BLOCK_SIZE - 8; break;
     case EDGE_S: player_x = at; player_y = room_px_h - 3 * BLOCK_SIZE + 4; break;
@@ -111,6 +114,9 @@ static void place_player(uint8_t side) {
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
+    // Each map's tileset (the display is off): the entrance room is indoors.
+    if (map == area_start) tiles_lunar_int_load();
+    else tiles_lunar_ext_load();
     level_build_map(map);
     if (area_type[map] == MAP_EXIT) {
         dig_shaft();
@@ -118,10 +124,12 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     }
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
-    // An area's start map has the lift back up to town (a file's only).
+    // An area's entrance room has the comms device in its middle: the briefing
+    // (the way back to town is its south door: descent_door).
     talk_clear();
-    if (map == area_start && save_slot != SAVE_NONE) {
-        talk_add(room_w >> 1, room_h >> 1, TALK_LIFT, TALK_DO_UP);
+    if (map == area_start) {
+        for (uint8_t b = 0; b < 4; b++)  // (any side of it)
+            talk_add(COMMS_X + (b & 1), COMMS_Y + (b >> 1), TALK_COMMS, DLG_AREA_BRIEFING);
         talk_init();
     }
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
@@ -194,6 +202,7 @@ uint8_t descent_door(void) BANKED {
     else if (cx > (int16_t)room_px_w - BLOCK_SIZE) d = EDGE_E;
     else if (fy < BLOCK_SIZE) d = EDGE_N;
     else if (fy > (int16_t)room_px_h - BLOCK_SIZE) d = EDGE_S;
+    if (d == EDGE_S && level_map == area_start) return DESCENT_TOWN;  // the entrance's way out
     if (!(area_links[level_map] & d)) return 0;
     return d;
 }
@@ -207,7 +216,7 @@ void descent_change_room(uint8_t d) BANKED {
         // Down the shaft: a new area, one deeper, from its start map.
         layer_depth++;
         start_area();
-        descent_enter(area_start, DESCENT_NO_DOOR);
+        descent_enter(area_start, EDGE_S);
         player_fall_timer = 0;
         player_z = 0;
         char t[8] = "DEPTH  ";
