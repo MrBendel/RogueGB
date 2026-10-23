@@ -147,14 +147,16 @@ uint8_t talk_draw(uint8_t oam) BANKED {
         // Screen position (hardware: +8, +16); skip those off the view.
         uint16_t sx = ((uint16_t)talk_bx[i] << 4) - cam_x + 8, sy = ((uint16_t)talk_by[i] << 4) - cam_y + 16;
         if (sx >= 168 + 8 || sy >= VIEW_H + 16 + 16) continue;
-        const uint8_t *f = &talk_frames[talk_kind[i] << 2];
-        uint8_t v = TALK_VRAM + (talk_kind[i] << 2), pal = kind_pal[talk_kind[i]];
-        set_sprite_tile(oam, v + (f[0] << 1));
-        set_sprite_prop(oam, f[1] | pal);
-        move_sprite(oam++, (uint8_t)sx, (uint8_t)sy);
-        set_sprite_tile(oam, v + (f[2] << 1));
-        set_sprite_prop(oam, f[3] | pal);
-        move_sprite(oam++, (uint8_t)sx + 8, (uint8_t)sy);
+        if (talk_kind[i] != TALK_COMMS) {  // (the comms device is the map's)
+            const uint8_t *f = &talk_frames[talk_kind[i] << 2];
+            uint8_t v = TALK_VRAM + (talk_kind[i] << 2), pal = kind_pal[talk_kind[i]];
+            set_sprite_tile(oam, v + (f[0] << 1));
+            set_sprite_prop(oam, f[1] | pal);
+            move_sprite(oam++, (uint8_t)sx, (uint8_t)sy);
+            set_sprite_tile(oam, v + (f[2] << 1));
+            set_sprite_prop(oam, f[3] | pal);
+            move_sprite(oam++, (uint8_t)sx + 8, (uint8_t)sy);
+        }
         if (i == talk_near && sy >= BUBBLE_UP + 16) {
             // The bubble bobs a pixel, every 16 frames.
             bubble_oam = oam;

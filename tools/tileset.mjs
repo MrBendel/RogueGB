@@ -121,7 +121,10 @@ function placeholderPixel(piece, role) {
 function pieceRoles(def) {
   const roles = {}, th = def.theme || {};
   const names = (r) => (Array.isArray(r) ? r : r && typeof r === 'object' ? Object.entries(r).filter(([k]) => !['style', 'w', 'h'].includes(k)).flatMap(([, v]) => (Array.isArray(v) ? v : [])) : []);
-  for (const [t, r] of Object.entries(th)) for (const n of names(r)) roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' || t.startsWith('door') ? 'floor' : t === 'pit' ? 'pit' : 'solid';
+  for (const [t, r] of Object.entries(th))
+    names(r).forEach((n, i) => {  // (a door list's doorway is floor; its jambs are wall)
+      roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' || (t.startsWith('door') && !i) ? 'floor' : t === 'pit' ? 'pit' : 'solid';
+    });
   return roles;
 }
 
@@ -423,12 +426,19 @@ export function buildTheme(def, pieces) {
     }
   }
   // Doorways: a one-block gap in the map's outer wall, by the side it's on (an
-  // entrance room's doors): "door_n" "door_e" "door_s" "door_w", lists like floor's.
+  // entrance room's doors): "door_n" "door_e" "door_s" "door_w": [the doorway, and
+  // optionally the wall blocks either side of it (its jambs): left then right, or
+  // above then below].
   for (const side of ['door_n', 'door_e', 'door_s', 'door_w']) lists.push((def.theme[side] || []).map(block));
   // A frame for the rim (an interior's walls): the look by where on the rim a block
   // is, over the edge rules: "frame": { "n", "s", "e", "w", "nw", "ne", "sw", "se" }.
+  // A side with 2 or 4 blocks takes them in turn along it (to line up with a pattern).
   const FRAME = ['n', 'e', 's', 'w', 'nw', 'ne', 'sw', 'se'];
-  for (const side of FRAME) lists.push(((def.theme.frame || {})[side] || []).map(block));
+  for (const side of FRAME) {
+    const l = (def.theme.frame || {})[side] || [];
+    if (![0, 1, 2, 4].includes(l.length)) throw new Error(`theme frame.${side}: 1, 2 or 4 blocks`);
+    lists.push(l.map(block));
+  }
   // One flat list; each entry a start and a count into it (shared where equal).
   const flat = [], start = [], count = [], seenAt = new Map();
   for (const l of lists) {
@@ -508,7 +518,8 @@ void ${id}_apply(void) BANKED {
             if (!(top | bottom | left | right)) continue;
             if (${id}_type(x, y) != ${EDGE}) continue;
             s = top ? (left ? 4 : right ? 5 : 0) : bottom ? (left ? 6 : right ? 7 : 2) : right ? 1 : 3;
-            if (${id}_frame_count[s]) room_vis[((uint16_t)y << 5) | x] = ${id}_rule_list[${id}_frame_start[s]];
+            uint8_t n = ${id}_frame_count[s];
+            if (n) room_vis[((uint16_t)y << 5) | x] = ${id}_rule_list[${id}_frame_start[s] + (((s == 1 || s == 3) ? y : x) & (n - 1))];
         }
     }
     // Doorways: a floor block on the rim with the rim solid to either side, drawn
@@ -522,7 +533,13 @@ void ${id}_apply(void) BANKED {
             uint8_t a, b;  // the blocks either side along the wall
             if (s & 1) a = ${id}_type(x, y - 1), b = ${id}_type(x, y + 1);
             else a = ${id}_type(x - 1, y), b = ${id}_type(x + 1, y);
-            if (a == ${EDGE} && b == ${EDGE}) room_vis[k] = ${id}_rule_list[${id}_door_start[s]];
+            if (a != ${EDGE} || b != ${EDGE}) continue;
+            uint8_t d = ${id}_door_start[s];
+            room_vis[k] = ${id}_rule_list[d];
+            if (${id}_door_count[s] < 3) continue;
+            uint8_t step = s & 1 ? 32 : 1;  // the jambs: along the wall
+            room_vis[k - step] = ${id}_rule_list[d + 1];
+            room_vis[k + step] = ${id}_rule_list[d + 2];
         }
     }
     // Blocks you walk behind (a building's roof, drawn over sprites): floor to walk

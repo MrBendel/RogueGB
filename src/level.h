@@ -16,6 +16,8 @@
 #define AREA_W 4
 #define AREA_H 3
 #define AREA_CELLS (AREA_W * AREA_H)
+#define COMMS_X 4  // the entrance room's comms device: its top-left block (2x2)
+#define COMMS_Y 3
 
 // Map types (0: no map in that slot).
 #define MAP_NONE 0

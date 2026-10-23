@@ -128,7 +128,8 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     // (the way back to town is its south door: descent_door).
     talk_clear();
     if (map == area_start) {
-        talk_add(room_w >> 1, (room_h >> 1) - 1, TALK_RELAY, DLG_AREA_BRIEFING);
+        for (uint8_t b = 0; b < 4; b++)  // (any side of it)
+            talk_add(COMMS_X + (b & 1), COMMS_Y + (b >> 1), TALK_COMMS, DLG_AREA_BRIEFING);
         talk_init();
     }
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down

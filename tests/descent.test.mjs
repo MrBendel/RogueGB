@@ -120,7 +120,8 @@ test('every map: open edges only at its openings, and openings, camps and chests
         const mid = o + (wide >> 1);
         points.push([[mid, 2], [m.w - 3, mid], [mid, m.h - 3], [2, mid]][s]);
       }
-      points.push(...m.camps, ...m.chests, [m.w >> 1, m.h >> 1]);
+      points.push(...m.camps, ...m.chests);
+      if (i !== L.start) points.push([m.w >> 1, m.h >> 1]);  // (the entrance room's middle is its comms device)
       const [sx, sy] = points[0];
       const seen = new Set([`${sx},${sy}`]), q = [[sx, sy]];
       while (q.length) {

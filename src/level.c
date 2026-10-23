@@ -418,6 +418,14 @@ void level_build_map(uint8_t i) BANKED {
         carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
-    if (area_type[i] == MAP_START) tiles_lunar_int_apply();
-    else tiles_lunar_ext_apply();
+    if (area_type[i] == MAP_START) {
+        tiles_lunar_int_apply();
+        // The comms device in its middle: the wall monitor, a 2x2-block prop
+        // (descent.c talks to it).
+        for (uint8_t b = 0; b < 4; b++) {
+            uint16_t k = ((uint16_t)(COMMS_Y + (b >> 1)) << 5) | (COMMS_X + (b & 1));
+            room_map[k] = BLK_PROP;
+            room_vis[k] = TS_LUNAR_INT_MONITOR + b;
+        }
+    } else tiles_lunar_ext_apply();
 }
