@@ -97,7 +97,8 @@ test('every map: open edges only at its openings, and openings, camps and chests
       assert.equal(m.w, L.cw[i] * 5);
       assert.equal(m.h, L.ch[i] * 4);
       // Edges: wall, except an opening OPENING_W wide on each linked side.
-      const gap = (side, k) => m.open[side] !== 255 && k >= m.open[side] && k < m.open[side] + OPENING_W;
+      const wide = i === L.start ? 1 : OPENING_W;  // (the entrance room's doorways are one block)
+      const gap = (side, k) => m.open[side] !== 255 && k >= m.open[side] && k < m.open[side] + wide;
       for (let x = 0; x < m.w; x++) {
         if (!gap(0, x)) assert.notEqual(m.at(x, 0), BLK_FLOOR, `seed ${seed} map ${i}: hole in the top edge at ${x}`);
         if (!gap(2, x)) assert.notEqual(m.at(x, m.h - 1), BLK_FLOOR, `seed ${seed} map ${i}: hole in the bottom edge at ${x}`);
@@ -116,7 +117,7 @@ test('every map: open edges only at its openings, and openings, camps and chests
       const points = [];
       for (const [s, o] of m.open.entries()) {
         if (o === 255) continue;
-        const mid = o + (OPENING_W >> 1);
+        const mid = o + (wide >> 1);
         points.push([[mid, 2], [m.w - 3, mid], [mid, m.h - 3], [2, mid]][s]);
       }
       points.push(...m.camps, ...m.chests, [m.w >> 1, m.h >> 1]);
@@ -158,12 +159,17 @@ test('the same seed gives the same area and maps', () => {
 // --- Playing a descent ---
 
 /** Walk out of the current map through its opening on side e. */
-function leaveBy(emu, e) {
+/** Stand just inside the opening on side e (an entrance room's are one block wide). */
+function toOpening(emu, e) {
   const w = emu.v('room_w'), h = emu.v('room_h');
-  const o = (bytes(emu, 'level_open', 4)[SIDE[e]] + 1) * 16;
+  const inset = emu.v('level_map') === emu.v('area_start') ? 0 : 1;
+  const o = (bytes(emu, 'level_open', 4)[SIDE[e]] + inset) * 16;
   const at = { 1: [o, 2 * 16 - 8], 4: [o, h * 16 - 3 * 16 + 4], 8: [2 * 16, o - 4], 2: [w * 16 - 3 * 16, o - 4] }[e];
   w16(emu, 'player_x', at[0]);
   w16(emu, 'player_y', at[1]);
+}
+function leaveBy(emu, e) {
+  toOpening(emu, e);
   const dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e];
   const before = emu.v('maps_entered', 'u16');
   for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) emu.hold(dir, 1);
@@ -209,14 +215,11 @@ test('after a map change no sprite is left where it was on the old screen (the g
   const links = emu.read8(addr(emu, 'area_links') + start);
   const e = [1, 2, 4, 8].find((x) => links & x);
   // Leave, then look at the sprites on each frame of the fade-in.
-  const w = emu.v('room_w'), h = emu.v('room_h');
-  const o = (bytes(emu, 'level_open', 4)[SIDE[e]] + 1) * 16;
-  const at = { 1: [o, 2 * 16 - 8], 4: [o, h * 16 - 3 * 16 + 4], 8: [2 * 16, o - 4], 2: [w * 16 - 3 * 16, o - 4] }[e];
-  w16(emu, 'player_x', at[0]);
-  w16(emu, 'player_y', at[1]);
+  toOpening(emu, e);
   const dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e];
   const before = emu.v('maps_entered', 'u16');
-  while (emu.v('maps_entered', 'u16') === before) emu.hold(dir, 1);
+  for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) emu.hold(dir, 1);
+  assert.notEqual(emu.v('maps_entered', 'u16'), before, 'left the map');
   for (let f = 0; f < 20; f++) {
     // Player on screen (OAM 3) vs the gun's sprites (1-2 in front, 5-6 behind).
     const oam = emu.readBytes(0xfe00, 40 * 4);
@@ -303,8 +306,15 @@ test('every area starts in a one-screen entrance room: doors on 2 or 3 of N, E, 
   generate(emu, 1234, L.start);
   const m = built(emu);
   assert.deepEqual([m.w, m.h], [10, 8]);
-  assert.equal(m.open[2], 3, 'the south door, centred');
-  for (const [e, mid] of [[1, 3], [2, 2], [8, 2]]) if (L.links[L.start] & e) assert.equal(m.open[SIDE[e]], mid);
+  assert.equal(m.open[2], 4, 'the south door, centred');
+  for (const [e, mid] of [[1, 4], [2, 3], [8, 3]]) if (L.links[L.start] & e) assert.equal(m.open[SIDE[e]], mid);
+  // One block wide: the wall either side of each doorway.
+  for (const [e, x, y, dx, dy] of [[1, 4, 0, 1, 0], [4, 4, 7, 1, 0], [2, 9, 3, 0, 1], [8, 0, 3, 0, 1]]) {
+    if (e !== 4 && !(L.links[L.start] & e)) continue;
+    assert.equal(m.at(x, y), BLK_FLOOR, `door ${e}`);
+    assert.notEqual(m.at(x - dx, y - dy), BLK_FLOOR, `door ${e}: wall before it`);
+    assert.notEqual(m.at(x + dx, y + dy), BLK_FLOOR, `door ${e}: wall after it`);
+  }
 });
 
 test("the entrance room's comms device gives the briefing; you arrive through the south door", () => {

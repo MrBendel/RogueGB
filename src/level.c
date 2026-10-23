@@ -384,9 +384,11 @@ void level_build_map(uint8_t i) BANKED {
         level_open[s] = 0xFF;
         if (!(links & edge_bit[s])) continue;
         uint8_t len = s & 1 ? h : w;  // E and W run down the side
-        uint8_t at = entrance ? (len - OPENING_W) >> 1 : 3 + below(len - 6 - OPENING_W + 1);
+        // (The entrance room's are doorways, one block wide; elsewhere OPENING_W.)
+        uint8_t wide = entrance ? 1 : OPENING_W;
+        uint8_t at = entrance ? (len - 1) >> 1 : 3 + below(len - 6 - OPENING_W + 1);
         level_open[s] = at;
-        for (uint8_t a = 0; a < OPENING_W; a++) {
+        for (uint8_t a = 0; a < wide; a++) {
             for (uint8_t d = 0; d < 3; d++) {
                 if (s == 0) MAP(at + a, d) = BLK_FLOOR;
                 else if (s == 2) MAP(at + a, h - 1 - d) = BLK_FLOOR;
@@ -394,7 +396,7 @@ void level_build_map(uint8_t i) BANKED {
                 else MAP(d, at + a) = BLK_FLOOR;
             }
         }
-        uint8_t mid = at + (OPENING_W >> 1);
+        uint8_t mid = at + (wide >> 1);
         if (s == 0) must(mid, 2);
         else if (s == 2) must(mid, h - 3);
         else if (s == 1) must(w - 3, mid);

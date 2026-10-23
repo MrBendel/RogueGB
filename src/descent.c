@@ -96,7 +96,8 @@ static void autosave(void) {
 // map: just inside it.
 static void place_player(uint8_t side) {
     uint8_t s = side == EDGE_N ? 0 : side == EDGE_E ? 1 : side == EDGE_S ? 2 : 3;
-    uint16_t at = (uint16_t)(level_open[s] + 1) * BLOCK_SIZE;  // the opening's middle, less half the player
+    // The opening's middle, less half the player (an entrance room's doorways are one block).
+    uint16_t at = (uint16_t)(level_open[s] + (level_map == area_start ? 0 : 1)) * BLOCK_SIZE;
     switch (side) {
     case EDGE_N: player_x = at; player_y = 2 * BLOCK_SIZE - 8; break;
     case EDGE_S: player_x = at; player_y = room_px_h - 3 * BLOCK_SIZE + 4; break;

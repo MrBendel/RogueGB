@@ -121,7 +121,7 @@ function placeholderPixel(piece, role) {
 function pieceRoles(def) {
   const roles = {}, th = def.theme || {};
   const names = (r) => (Array.isArray(r) ? r : r && typeof r === 'object' ? Object.entries(r).filter(([k]) => k !== 'style').flatMap(([, v]) => v) : []);
-  for (const [t, r] of Object.entries(th)) for (const n of names(r)) roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' ? 'floor' : t === 'pit' ? 'pit' : 'solid';
+  for (const [t, r] of Object.entries(th)) for (const n of names(r)) roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' || t.startsWith('door') ? 'floor' : t === 'pit' ? 'pit' : 'solid';
   return roles;
 }
 
@@ -410,6 +410,9 @@ export function buildTheme(def, pieces) {
       lists.push(list.map(block));
     }
   }
+  // Doorways: a one-block gap in the map's outer wall, by the side it's on (an
+  // entrance room's doors): "door_n" "door_e" "door_s" "door_w", lists like floor's.
+  for (const side of ['door_n', 'door_e', 'door_s', 'door_w']) lists.push((def.theme[side] || []).map(block));
   // One flat list; each entry a start and a count into it (shared where equal).
   const flat = [], start = [], count = [], seenAt = new Map();
   for (const l of lists) {
@@ -422,7 +425,8 @@ export function buildTheme(def, pieces) {
     start.push(seenAt.get(key));
     count.push(l.length);
   }
-  return { flat, start, count };
+  const types = BLOCK_TYPES.length * 32;
+  return { flat, start: start.slice(0, types), count: count.slice(0, types), doorStart: start.slice(types), doorCount: count.slice(types) };
 }
 
 // The generated loader and look-filler (in the tileset's own bank, beside its tables).
@@ -473,6 +477,20 @@ void ${id}_apply(void) BANKED {
                 v = h;
             }
             room_vis[k] = ${id}_rule_list[${id}_rule_start[r] + v];
+        }
+    }
+    // Doorways: a floor block on the rim with the rim solid to either side, drawn
+    // with its side's look (if the theme has one).
+    for (uint8_t y = 0; y < room_h; y++) {
+        for (uint8_t x = 0; x < room_w; x++) {
+            uint8_t s;
+            if (!y) s = 0; else if (x + 1 == room_w) s = 1; else if (y + 1 == room_h) s = 2; else if (!x) s = 3; else continue;
+            uint16_t k = ((uint16_t)y << 5) | x;
+            if (room_map[k] != BLK_FLOOR || !${id}_door_count[s]) continue;
+            uint8_t a, b;  // the blocks either side along the wall
+            if (s & 1) a = ${id}_type(x, y - 1), b = ${id}_type(x, y + 1);
+            else a = ${id}_type(x - 1, y), b = ${id}_type(x + 1, y);
+            if (a == ${EDGE} && b == ${EDGE}) room_vis[k] = ${id}_rule_list[${id}_door_start[s]];
         }
     }
     // Blocks you walk behind (a building's roof, drawn over sprites): floor to walk
@@ -550,6 +568,8 @@ function emit(ts) {
       `static const uint8_t ${id}_rule_count[] = {`, ...chunk(ts.theme.count), '};',
       `static const uint8_t ${id}_rule_list[] = {`, ...chunk(ts.theme.flat), '};',
       `static const uint8_t ${id}_walk[] = {`, ...chunk(behind), '};',
+      `static const uint8_t ${id}_door_start[] = {${ts.theme.doorStart.join(', ')}};  // N E S W`,
+      `static const uint8_t ${id}_door_count[] = {${ts.theme.doorCount.join(', ')}};`,
       themeSource(id, NAME),
     ] : []),
     '',
