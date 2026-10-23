@@ -512,7 +512,15 @@ void play_update(void) BANKED {
         waves_update();
     } else if (play_mode == MODE_DESCENT) {
         uint8_t door = descent_door();
-        if (door) descent_change_room(door);
+        if (door == DESCENT_TOWN) {
+            if (save_slot != SAVE_NONE) {  // (a file's: the lab's descents have no town)
+                profile.exp_active = 0;    // back with everything: the expedition is over (no fee)
+                go(MODE_YARD);
+                return;
+            }
+        } else if (door) {
+            descent_change_room(door);
+        }
         descent_update();
     } else if (play_mode == MODE_ENEMY) {
         enemy_trial_update();

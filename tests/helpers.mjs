@@ -177,3 +177,15 @@ export function takeLiftDown(emu) {
   emu.until((e) => e.v('in_transition'), 60, 'the scene change');  // (play is still the town's until it starts)
   return settle(emu, PLAY, 'the descent');
 }
+
+/** In an area's entrance room: walk out of its south door, back to town. */
+export function leaveToTown(emu) {
+  const open = emu.readBytes(emu.symbols.addr('level_open'), 4);
+  const x = (open[2] + 1) * 16, y = emu.v('room_px_h', 'u16') - 40;
+  emu.writeBytes(emu.symbols.addr('player_x'), [x & 255, x >> 8]);
+  emu.writeBytes(emu.symbols.addr('player_y'), [y & 255, y >> 8]);
+  for (let f = 0; f < 120 && emu.v('play_mode') !== MODE_TOWN; f++) emu.hold('DOWN', 1);
+  emu.until((e) => e.v('play_mode') === MODE_TOWN, 60, 'back to town');
+  emu.until((e) => e.v('in_transition'), 60, 'the scene change');
+  return settle(emu, PLAY, 'the town');
+}

@@ -7,6 +7,7 @@
 
 #define DESCENT_NO_DOOR 0  // descent_enter: arrive in the map's middle
 #define DESCENT_SHAFT 0x10 // descent_door: down the exit map's shaft
+#define DESCENT_TOWN 0x20  // descent_door: out of the entrance room's south door, to town
 
 #define CAMP_ASLEEP 0
 #define CAMP_AWAKE 1

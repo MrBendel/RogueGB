@@ -1,26 +1,86 @@
 {
   "about": "Speakers and scripts for the dialogue box (tools/dialogue.mjs). Lines here are the sample dialogue from docs/design/story.md: placeholders, not the final script.",
   "speakers": {
-    "echo": { "name": "ECHO", "color": "#1c7a84", "sound": "relay", "portrait": "echo.png" },
-    "ceo": { "name": "THE CEO", "color": "#a8401c", "sound": "chime", "portrait": "meridian.png" },
-    "you": { "name": "YOU", "color": "#181425", "portrait": "you.png" },
-    "meridian": { "name": "MERIDIAN", "color": "#a8401c", "sound": "chime", "portrait": "meridian.png" }
+    "echo": {
+      "name": "ECHO",
+      "color": "#1c7a84",
+      "sound": "relay",
+      "portrait": "echo.png"
+    },
+    "ceo": {
+      "name": "THE CEO",
+      "color": "#a8401c",
+      "sound": "chime",
+      "portrait": "meridian.png"
+    },
+    "you": {
+      "name": "YOU",
+      "color": "#181425",
+      "portrait": "you.png"
+    },
+    "meridian": {
+      "name": "MERIDIAN",
+      "color": "#a8401c",
+      "sound": "chime",
+      "portrait": "meridian.png"
+    },
+    "dispatch": {
+      "name": "DISPATCH",
+      "color": "#a8401c",
+      "sound": "chime",
+      "portrait": "meridian.png"
+    }
   },
   "scripts": [
     {
       "id": "relay_first_contact",
       "lines": [
-        { "who": "echo", "text": "Don't take the lift. The cables are intact. The thing beneath it isn't." },
-        { "who": "echo", "text": "I wanted to know you were safe." },
-        { "who": "you", "text": "How are you reaching this channel?" },
-        { "who": "ceo", "text": "Who gave you access to that channel?" },
-        { "who": "echo", "text": "Disconnect. Now." }
+        {
+          "who": "echo",
+          "text": "Don't take the lift. The cables are intact. The thing beneath it isn't."
+        },
+        {
+          "who": "echo",
+          "text": "I wanted to know you were safe."
+        },
+        {
+          "who": "you",
+          "text": "How are you reaching this channel?"
+        },
+        {
+          "who": "ceo",
+          "text": "Who gave you access to that channel?"
+        },
+        {
+          "who": "echo",
+          "text": "Disconnect. Now."
+        }
       ]
     },
     {
       "id": "service_receipt",
       "lines": [
-        { "who": "meridian", "text": "Body restored. Personal effects retained. Thank you for your continued business." }
+        {
+          "who": "meridian",
+          "text": "Body restored. Personal effects retained. Thank you for your continued business."
+        }
+      ]
+    },
+    {
+      "id": "area_briefing",
+      "lines": [
+        {
+          "who": "dispatch",
+          "text": "Uplink established. Objective: find the shaft down out of this sector."
+        },
+        {
+          "who": "dispatch",
+          "text": "Sensors read a security unit near the shaft. Neutralize it."
+        },
+        {
+          "who": "dispatch",
+          "text": "The south door leads back to the lift. Meridian thanks you for your service."
+        }
       ]
     }
   ]

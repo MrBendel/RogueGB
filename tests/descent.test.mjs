@@ -106,7 +106,9 @@ test('every map: open edges only at its openings, and openings, camps and chests
         if (!gap(3, y)) assert.notEqual(m.at(0, y), BLK_FLOOR, `seed ${seed} map ${i}: hole in the left edge at ${y}`);
         if (!gap(1, y)) assert.notEqual(m.at(m.w - 1, y), BLK_FLOOR, `seed ${seed} map ${i}: hole in the right edge at ${y}`);
       }
-      for (const e of [1, 2, 4, 8]) assert.equal(m.open[SIDE[e]] !== 255, !!(L.links[i] & e), `seed ${seed} map ${i}: opening ${e}`);
+      // (The entrance room also has its south door, the way back to town.)
+      const doors = L.links[i] | (i === L.start ? 4 : 0);
+      for (const e of [1, 2, 4, 8]) assert.equal(m.open[SIDE[e]] !== 255, !!(doors & e), `seed ${seed} map ${i}: opening ${e}`);
       camps += m.camps.length;
       chests += m.chests.length;
       if (L.type[i] !== MAP_FIELD) assert.equal(m.camps.length, 0, 'camps only in fields');
@@ -282,4 +284,42 @@ test('the exit map has a shaft: dropping in leads to a new area, one deeper', ()
   assert.equal(emu.v('level_map'), emu.v('area_start'), 'at the start of the new area');
   assert.ok(emu.v('player_hp') >= hp, "no fall damage (the shaft's XP can level you up: health only goes up)");
   assert.notDeepEqual(bytes(emu, 'area_links'), firstLinks, 'a different area');
+});
+
+test('every area starts in a one-screen entrance room: doors on 2 or 3 of N, E, W; south to town', () => {
+  const emu = startRun().idle(2);
+  for (let n = 1; n <= 200; n++) {
+    const seed = (n * 7907) & 0xffff;
+    const L = generate(emu, seed);
+    assert.equal(L.type[L.start], MAP_START);
+    assert.equal(Math.floor(L.start / W), 2, `seed ${seed}: on the bottom row (south of it is out)`);
+    assert.deepEqual([L.cw[L.start], L.ch[L.start]], [2, 2], 'one screen: 10 x 8 blocks');
+    const doors = [1, 2, 8].filter((e) => L.links[L.start] & e).length;
+    assert.ok(doors >= 2 && doors <= 3, `seed ${seed}: ${doors} doors in`);
+    assert.equal(L.links[L.start] & 4, 0, 'no map south of it');
+  }
+  // Its doors sit in the middle of its walls, the south one too.
+  const L = generate(emu, 1234);
+  generate(emu, 1234, L.start);
+  const m = built(emu);
+  assert.deepEqual([m.w, m.h], [10, 8]);
+  assert.equal(m.open[2], 3, 'the south door, centred');
+  for (const [e, mid] of [[1, 3], [2, 2], [8, 2]]) if (L.links[L.start] & e) assert.equal(m.open[SIDE[e]], mid);
+});
+
+test("the entrance room's comms device gives the briefing; you arrive through the south door", () => {
+  const emu = startDescent().idle(4);
+  assert.equal(emu.v('level_map'), emu.v('area_start'));
+  const h = emu.v('room_h'), w = emu.v('room_w');
+  assert.ok(emu.v('player_y', 'u16') >= (h - 3) * 16, 'by the south door');
+  matchGolden(emu, 'entrance-room');
+  // Up to the device in the middle, and A.
+  w16(emu, 'player_x', (w >> 1) * 16 - 16);
+  w16(emu, 'player_y', (h >> 1) * 16 - 4);
+  emu.idle(2);
+  assert.notEqual(emu.v('talk_near'), 0xff, 'the device is in reach');
+  emu.tap('A').idle(3);
+  assert.equal(emu.v('dlg_active'), 1, 'the briefing');
+  for (let i = 0; i < 60 && emu.v('dlg_active'); i++) emu.tap('A');
+  assert.equal(emu.v('dlg_active'), 0);
 });

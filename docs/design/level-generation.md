@@ -155,8 +155,12 @@ test lab.
   live and saved to `content/chunks/` (the server rebuilds). Links take `?seed=`.
 - **Areas** (`src/level.c`) are 6–9 maps on a 4×3 grid, grown from the start with one
   or two extra links for loops; the exit is the map farthest from the start.
+- **The entrance room** (the start map) is one screen (2×2 chunks, plain floor) on the
+  grid's bottom row, with doors centred on 2 or 3 of its north, east and west walls, a
+  south door back to town, and the comms device (the briefing) in the middle
+  ([runs](runs.md)).
 - **Maps** are rebuilt from their seed each time they're entered. Sizes:
-  - start and exit: 4×4 chunks;
+  - the exit: 4×4 chunks;
   - fields: 6×4 to 6×8 chunks.
 
   The build:

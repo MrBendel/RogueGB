@@ -29,6 +29,15 @@ measure it.
 - **Vending machines in the descent: ammo and health only.** Gun and shield vending
   machines are in **town** (beside Marro), not in the descent.
 
+## The entrance room (built 2026-10-22)
+
+Every area begins in a **one-screen entrance room**, like the entrance of a Zelda
+dungeon: you arrive through its **south door** (the way back to town: walk out of it
+to leave, with everything), **doors on 2 or 3 of its other sides** lead into the area,
+and a **comms device** in the middle gives the objective when you talk to it (for now
+a general briefing from Meridian dispatch; with missions, the mission's own). The
+generator puts it on the area grid's bottom row, so nothing lies south of it.
+
 ## Missions
 
 The board in town (a terminal or an NPC) offers a few missions at a time; each says
