@@ -219,7 +219,6 @@ void play_enter(void) BANKED {
     saved_seconds = 0;  // (run_start began the clock again)
     pickups_init();  // a descent map loads its chests (descent.c)
     if (play_mode == MODE_DESCENT) {
-        tiles_lunar_ext_load();  // the descent's theme (docs/design/lunar-base.md)
         player_init(0, 0);
         // A file (save.h): its expedition, if one is under way.
         if (save_slot != SAVE_NONE && profile.exp_active) descent_resume();

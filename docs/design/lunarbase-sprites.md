@@ -70,6 +70,18 @@ and stripes on a roof, the "404" plate). Flips are used everywhere.
 | Equipment bank | `72 82 / 73 83` | repeats in a run; its end pieces aren't found yet: don't use it alone |
 | Poles | `f5 f6 f7` | a post with an orange box |
 
+## Interior: the entrance room (in use, `content/tilesets/lunar_int.json`)
+
+| Piece | Tiles | Notes |
+|---|---|---|
+| Floor plates `floor_a`-`floor_d` | `5a 6a / 5b 6b`, `7a 8a / 7b 8b`, `5c 6c / 5d 6d`, `7c 8c / 7d 8d` | a 2x2-block pattern by position |
+| North wall `wall_n` | `63 73 / 64 74` | the machinery face |
+| West / east wall | `0b 1b` (east mirrored) | panelled, both rows the same |
+| South wall `wall_s` | `2b 3b / 2c 3c` | riveted plates |
+| North door `door_shutter` | `c9 d9 / ca da` | stand-in until the artist's doors |
+| East / west door `door_side` | `b6 b6x / b7 b7x` | stand-in |
+| South door `door_grate` | `e6 e6x` both rows | the threshold back to town |
+
 ## Interior (proposed: no example in the pack)
 
 A 3/4 view like most Game Boy interiors. First mockup in the conversation of

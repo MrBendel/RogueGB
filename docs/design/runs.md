@@ -38,6 +38,14 @@ and a **comms device** in the middle gives the objective when you talk to it (fo
 a general briefing from Meridian dispatch; with missions, the mission's own). The
 generator puts it on the area grid's bottom row, so nothing lies south of it.
 
+It's **indoors**: drawn with the LunarBase interior tileset (`content/tilesets/lunar_int.json`)
+while the area's other maps use the exterior one (descent.c loads the tileset by map,
+level.c applies its theme). The plate floor is a 2x2-block pattern; the walls are a
+**frame** on the rim (machinery face north, panelled sides, riveted plates south);
+the doorways are one block (16 px) wide: a slatted shutter north, a side door east and
+west, a grated threshold south. These are stand-ins from the sheet until the artist
+draws real doors (closed and open, so they can open and close).
+
 ## Missions
 
 The board in town (a terminal or an NPC) offers a few missions at a time; each says

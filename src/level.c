@@ -5,6 +5,7 @@
 #include "level.h"
 #include "room.h"
 #include "tiles_lunar_ext.h"
+#include "tiles_lunar_int.h"
 #include "gfx.h"
 #include "chunks.h"
 
@@ -416,5 +417,7 @@ void level_build_map(uint8_t i) BANKED {
         level_carved = 1;
         carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
-    tiles_lunar_ext_apply();  // the look: the theme's rules (content/tilesets/lunar_ext.json)
+    // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
+    if (area_type[i] == MAP_START) tiles_lunar_int_apply();
+    else tiles_lunar_ext_apply();
 }

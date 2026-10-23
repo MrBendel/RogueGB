@@ -21,12 +21,14 @@ const EDGES = [1, 2, 4, 8];         // N E S W (level.h EDGE_*), the order of le
 const TYPE_COL = ['#cfd8dc', '#3a4048', '#0e1114', '#9a8466', '#d9a52b', '#8aa0aa', '#aaa088'];
 const ROLE_NAMES = ['open', 'rock', 'camp', 'cache', 'mark'];
 const ROLE_COL = ['rgba(0,0,0,0)', 'rgba(80,120,255,.18)', 'rgba(255,60,40,.18)', 'rgba(255,200,40,.22)', 'rgba(120,255,120,.2)'];
-const THEME_TILESET = { lunar: 'lunar_ext' };  // a chunk theme and the tileset that draws it
+// A chunk theme and the tilesets that draw it: its maps, and the entrance room (indoors).
+const THEME_TILESET = { lunar: { main: 'lunar_ext', start: 'lunar_int' } };
 const PROPS = new Set(['crate', 'crate_stack', 'boulder']);
 
 let files = [];        // chunk files: { file, doc, chunks, saved (weights as loaded) }
 let baseRom = null, symbols = null, bootState = null, emu = null;
-let atlas = null;      // { img, names, behind, standIn } for the current theme
+let atlases = {};      // { main, start }: each { img, names, behind, standIn }
+const atlasOf = (m) => (m.isStart && atlases.start) || atlases.main || null;
 let area = null, sel = -1, themeIdx = 0;
 let devServer = false;  // the dev server (npm run play): live files, saving; else world-data/
 const mapCanvas = new Map();  // cache: map index -> canvas at 1 px per px
@@ -93,17 +95,20 @@ function reloadEmu() {
 }
 
 async function loadAtlas() {
-  atlas = null;
-  const ts = THEME_TILESET[files[themeIdx].doc.theme];
-  $('wv-artnote').textContent = ts ? '' : '(no tileset for this theme: block types only)';
-  if (!ts) return;
-  const [j, img] = await Promise.all([
-    fetch(`${devServer ? '/build/gen/' : 'world-data/'}atlas-${ts}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
-    new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = `${devServer ? '/build/gen/' : 'world-data/'}atlas-${ts}.png?${Date.now()}`; }),
-  ]);
-  if (!j || !img) { $('wv-artnote').textContent = '(no atlas: rebuild)'; return; }
-  atlas = { img, ...j };
-  $('wv-artnote').textContent = j.standIn ? '(stand-in art: the pack isn\'t on this machine)' : '';
+  atlases = {};
+  const sets = THEME_TILESET[files[themeIdx].doc.theme];
+  $('wv-artnote').textContent = sets ? '' : '(no tileset for this theme: block types only)';
+  if (!sets) return;
+  const at = devServer ? '/build/gen/' : 'world-data/';
+  for (const [role, ts] of Object.entries(sets)) {
+    const [j, img] = await Promise.all([
+      fetch(`${at}atlas-${ts}.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)),
+      new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = `${at}atlas-${ts}.png?${Date.now()}`; }),
+    ]);
+    if (j && img) atlases[role] = { img, ...j };
+  }
+  if (!atlases.main) { $('wv-artnote').textContent = '(no atlas: rebuild)'; return; }
+  $('wv-artnote').textContent = atlases.main.standIn ? '(stand-in art: the pack isn\'t on this machine)' : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +150,7 @@ function buildArea(areaSeed) {
     if (!a.type[i]) continue;
     generate(areaSeed, i);
     a.maps[i] = readMap();
+    a.maps[i].isStart = i === a.start;  // (drawn with the entrance room's tileset)
   }
   return a;
 }
@@ -154,7 +160,7 @@ function mapStats(m) {
   let buildings = 0, props = 0, solid = 0;
   for (let y = 0; y < m.h; y++)
     for (let x = 0; x < m.w; x++) {
-      const k = y * 32 + x, name = atlas?.names[m.vis[k]] || '';
+      const k = y * 32 + x, name = atlasOf(m)?.names[m.vis[k]] || '';
       if (/^roof_(bl|sl)/.test(name)) buildings++;   // one bottom-left corner a building
       if (PROPS.has(name)) props++;
       if ((m.map[k] & 0x7f) === 1 && x && y && x < m.w - 1 && y < m.h - 1) solid++;
@@ -171,7 +177,7 @@ const opt = (id) => $(id).checked;
 function drawMap(i) {
   const key = i + (opt('wv-art') ? 'a' : 't');
   if (mapCanvas.has(key)) return mapCanvas.get(key);
-  const m = area.maps[i], c = document.createElement('canvas');
+  const m = area.maps[i], c = document.createElement('canvas'), atlas = atlasOf(m);
   c.width = m.w * BLK; c.height = m.h * BLK;
   const g = c.getContext('2d');
   for (let y = 0; y < m.h; y++)

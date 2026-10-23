@@ -12,6 +12,7 @@
 #include "level.h"
 #include "room.h"
 #include "tiles_lunar_ext.h"
+#include "tiles_lunar_int.h"
 #include "player.h"
 #include "camera.h"
 #include "actor.h"
@@ -113,6 +114,9 @@ static void place_player(uint8_t side) {
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
+    // Each map's tileset (the display is off): the entrance room is indoors.
+    if (map == area_start) tiles_lunar_int_load();
+    else tiles_lunar_ext_load();
     level_build_map(map);
     if (area_type[map] == MAP_EXIT) {
         dig_shaft();

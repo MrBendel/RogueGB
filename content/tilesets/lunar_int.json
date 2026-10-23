@@ -1,0 +1,33 @@
+{
+  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room for now: the plate floor as a 2x2-block pattern, the walls as a frame (machinery face north, panelled sides, riveted plates south, seen from above), doorways (a slatted shutter north, a side door east and west, a grated threshold south: candidates until the artist's door art). Without the sheet the build uses plain stand-ins.",
+  "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Interior_Standard.png",
+  "local": true,
+  "backdrop": [0, 0, 0],
+  "palettes": 6,
+  "pieces": {
+    "floor_a": { "tiles": ["5a 6a", "5b 6b"] },
+    "floor_b": { "tiles": ["7a 8a", "7b 8b"] },
+    "floor_c": { "tiles": ["5c 6c", "5d 6d"] },
+    "floor_d": { "tiles": ["7c 8c", "7d 8d"] },
+    "wall_n": { "tiles": ["63 73", "64 74"] },
+    "wall_w": { "tiles": ["0b 1b", "0b 1b"] },
+    "wall_e": { "tiles": ["1bx 0bx", "1bx 0bx"] },
+    "wall_s": { "tiles": ["2b 3b", "2c 3c"] },
+    "door_shutter": { "tiles": ["c9 d9", "ca da"] },
+    "door_side": { "tiles": ["b6 b6x", "b7 b7x"] },
+    "door_grate": { "tiles": ["e6 e6x", "e6 e6x"] }
+  },
+  "theme": {
+    "floor": { "style": "pattern", "w": 2, "h": 2, "blocks": ["floor_a", "floor_b", "floor_c", "floor_d"] },
+    "solid": ["wall_s"],
+    "pit": ["door_grate"],
+    "frame": {
+      "n": ["wall_n"], "s": ["wall_s"], "e": ["wall_e"], "w": ["wall_w"],
+      "nw": ["wall_w"], "ne": ["wall_e"], "sw": ["wall_w"], "se": ["wall_e"]
+    },
+    "door_n": ["door_shutter"],
+    "door_e": ["door_side"],
+    "door_w": ["door_side"],
+    "door_s": ["door_grate"]
+  }
+}

@@ -96,7 +96,8 @@ A 3/4 view like most Game Boy interiors (first mockup in the conversation of
 
 ## The area
 
-- An area's maps are all outdoors (the descent's grid of linked maps); interiors
+- The one exception: an area's entrance room is indoors (`lunar_int`, docs/design/runs.md).
+- An area's other maps are all outdoors (the descent's grid of linked maps); interiors
   hang off buildings' doors.
 - An interior loads its own tileset and theme when it's entered.
 
