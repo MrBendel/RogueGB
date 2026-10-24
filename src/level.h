@@ -16,8 +16,12 @@
 #define AREA_W 4
 #define AREA_H 3
 #define AREA_CELLS (AREA_W * AREA_H)
-#define COMMS_X 4  // the entrance room's comms device: its top-left block (2x2)
-#define COMMS_Y 3
+// The entrance room (made by hand: content/tilesets/lunar_int.json, map "entrance"):
+// two rooms deep, 2 x 3 chunks. Its comms device (the monitor, 2x2 blocks) is on the
+// upper room's back wall, so its north door is beside it, not in the middle.
+#define COMMS_X 4  // the monitor's top-left block
+#define COMMS_Y 1
+#define ENTRANCE_DOOR_N 7
 
 // Map types (0: no map in that slot).
 #define MAP_NONE 0

@@ -147,7 +147,7 @@ void level_generate(uint16_t seed) BANKED {
             area_cw[i] = field_w[k];
             area_ch[i] = field_h[k];
         } else if (area_type[i] == MAP_START) {
-            area_cw[i] = area_ch[i] = 2;  // the entrance room: one screen
+            area_cw[i] = 2, area_ch[i] = 3;  // the entrance room: two rooms deep
         } else {
             area_cw[i] = area_ch[i] = 4;
         }
@@ -251,8 +251,8 @@ static void must(uint8_t x, uint8_t y) {
 }
 
 // The entrance room is made by hand (content/tilesets/lunar_int.json, its map
-// "entrance": the comms monitor in the middle, COMMS_X/Y) with its doors closed;
-// this opens the ones the area's links ask for, where the generator put them.
+// "entrance": level.h) with its outer doors closed; this opens the ones the area's
+// links ask for, where the generator put them.
 static void open_door(uint16_t k, uint8_t step, uint8_t door, uint8_t before, uint8_t after) {
     room_map[k] = BLK_FLOOR;
     room_vis[k] = door;
@@ -269,8 +269,10 @@ static void entrance_room(void) {
     }
     if (level_open[0] != 0xFF) {  // north: through the wall's face below it too
         open_door(level_open[0], 1, TS_LUNAR_INT_DOOR_NS, TS_LUNAR_INT_JAMB_NS_L, TS_LUNAR_INT_JAMB_NS_R);
-        room_map[32 + level_open[0]] = BLK_FLOOR;
-        room_vis[32 + level_open[0]] = TS_LUNAR_INT_DOOR_NS;
+        for (uint8_t y = 1; y <= 2; y++) {
+            room_map[((uint16_t)y << 5) + level_open[0]] = BLK_FLOOR;
+            room_vis[((uint16_t)y << 5) + level_open[0]] = TS_LUNAR_INT_DOOR_NS;
+        }
     }
     if (level_open[1] != 0xFF)
         open_door(((uint16_t)level_open[1] << 5) | (room_w - 1), 32, TS_LUNAR_INT_DOOR_E, TS_LUNAR_INT_JAMB_E_UP, TS_LUNAR_INT_JAMB_E_DOWN);
@@ -417,7 +419,7 @@ void level_build_map(uint8_t i) BANKED {
         uint8_t len = s & 1 ? h : w;  // E and W run down the side
         // (The entrance room's are doorways, one block wide; elsewhere OPENING_W.)
         uint8_t wide = entrance ? 1 : OPENING_W;
-        uint8_t at = entrance ? (len - 1) >> 1 : 3 + below(len - 6 - OPENING_W + 1);
+        uint8_t at = entrance ? (s ? (len - 1) >> 1 : ENTRANCE_DOOR_N) : 3 + below(len - 6 - OPENING_W + 1);
         level_open[s] = at;
         for (uint8_t a = 0; a < wide; a++) {
             for (uint8_t d = 0; d < 3; d++) {

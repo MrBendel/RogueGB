@@ -124,12 +124,12 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     }
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
-    // An area's entrance room has the comms device in its middle: the briefing
+    // An area's entrance room has the comms device on its upper back wall: the briefing
     // (the way back to town is its south door: descent_door).
     talk_clear();
     if (map == area_start) {
-        for (uint8_t b = 0; b < 4; b++)  // (any side of it)
-            talk_add(COMMS_X + (b & 1), COMMS_Y + (b >> 1), TALK_COMMS, DLG_AREA_BRIEFING);
+        for (uint8_t b = 0; b < 2; b++)  // (on the wall: from below)
+            talk_add(COMMS_X + b, COMMS_Y + 1, TALK_COMMS, DLG_AREA_BRIEFING);
         talk_init();
     }
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down

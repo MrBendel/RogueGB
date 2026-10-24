@@ -6,7 +6,7 @@
   "class-picker": "8108efae",
   "descent-camp": "821816d7",
   "descent-combat": "dcceaea5",
-  "descent-start": "00888b81",
+  "descent-start": "5ae5525e",
   "dialog-receipt": "49ee499c",
   "dialog-typing": "2b4375bd",
   "files-empty": "94248e3e",
@@ -95,9 +95,9 @@
   "arena~stand-in": "de2d140a",
   "sword-swing~stand-in": "77f7ae18",
   "sword-smear~stand-in": "4f09ad6a",
-  "descent-start~stand-in": "6c5b03f4",
+  "descent-start~stand-in": "c2bcb768",
   "descent-camp~stand-in": "dfc91fec",
   "reload-bar~stand-in": "778ac563",
-  "entrance-room": "00888b81",
-  "entrance-room~stand-in": "6c5b03f4"
+  "entrance-room": "5ae5525e",
+  "entrance-room~stand-in": "c2bcb768"
 }

@@ -290,27 +290,28 @@ test('the exit map has a shaft: dropping in leads to a new area, one deeper', ()
   assert.notDeepEqual(bytes(emu, 'area_links'), firstLinks, 'a different area');
 });
 
-test('every area starts in a one-screen entrance room: doors on 2 or 3 of N, E, W; south to town', () => {
+test('every area starts in an entrance room, two rooms deep: doors on 2 or 3 of N, E, W; south to town', () => {
   const emu = startRun().idle(2);
   for (let n = 1; n <= 200; n++) {
     const seed = (n * 7907) & 0xffff;
     const L = generate(emu, seed);
     assert.equal(L.type[L.start], MAP_START);
     assert.equal(Math.floor(L.start / W), 2, `seed ${seed}: on the bottom row (south of it is out)`);
-    assert.deepEqual([L.cw[L.start], L.ch[L.start]], [2, 2], 'one screen: 10 x 8 blocks');
+    assert.deepEqual([L.cw[L.start], L.ch[L.start]], [2, 3], '10 x 12 blocks');
     const doors = [1, 2, 8].filter((e) => L.links[L.start] & e).length;
     assert.ok(doors >= 2 && doors <= 3, `seed ${seed}: ${doors} doors in`);
     assert.equal(L.links[L.start] & 4, 0, 'no map south of it');
   }
-  // Its doors sit in the middle of its walls, the south one too.
+  // Its doors sit in the middle of its walls, the south one too; the north one beside
+  // the comms monitor (ENTRANCE_DOOR_N).
   const L = generate(emu, 1234);
   generate(emu, 1234, L.start);
   const m = built(emu);
-  assert.deepEqual([m.w, m.h], [10, 8]);
+  assert.deepEqual([m.w, m.h], [10, 12]);
   assert.equal(m.open[2], 4, 'the south door, centred');
-  for (const [e, mid] of [[1, 4], [2, 3], [8, 3]]) if (L.links[L.start] & e) assert.equal(m.open[SIDE[e]], mid);
+  for (const [e, mid] of [[1, 7], [2, 5], [8, 5]]) if (L.links[L.start] & e) assert.equal(m.open[SIDE[e]], mid);
   // One block wide: the wall either side of each doorway.
-  for (const [e, x, y, dx, dy] of [[1, 4, 0, 1, 0], [4, 4, 7, 1, 0], [2, 9, 3, 0, 1], [8, 0, 3, 0, 1]]) {
+  for (const [e, x, y, dx, dy] of [[1, 7, 0, 1, 0], [4, 4, 11, 1, 0], [2, 9, 5, 0, 1], [8, 0, 5, 0, 1]]) {
     if (e !== 4 && !(L.links[L.start] & e)) continue;
     assert.equal(m.at(x, y), BLK_FLOOR, `door ${e}`);
     assert.notEqual(m.at(x - dx, y - dy), BLK_FLOOR, `door ${e}: wall before it`);
@@ -321,12 +322,12 @@ test('every area starts in a one-screen entrance room: doors on 2 or 3 of N, E, 
 test("the entrance room's comms device gives the briefing; you arrive through the south door", () => {
   const emu = startDescent().idle(4);
   assert.equal(emu.v('level_map'), emu.v('area_start'));
-  const h = emu.v('room_h'), w = emu.v('room_w');
+  const h = emu.v('room_h');
   assert.ok(emu.v('player_y', 'u16') >= (h - 3) * 16, 'by the south door');
   matchGolden(emu, 'entrance-room');
-  // Up to the device in the middle, and A.
-  w16(emu, 'player_x', (w >> 1) * 16 - 16);
-  w16(emu, 'player_y', (h >> 1) * 16 - 4);
+  // Up to the device (on the upper room's back wall, blocks 4-5 of rows 1-2), and A.
+  w16(emu, 'player_x', 4 * 16);
+  w16(emu, 'player_y', 3 * 16);
   emu.idle(2);
   assert.notEqual(emu.v('talk_near'), 0xff, 'the device is in reach');
   emu.tap('A').idle(3);

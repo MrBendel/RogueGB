@@ -34,7 +34,7 @@ function build(emu, seed) {
     emu.run(1);
   };
   run(0);
-  run(emu.read8(emu.symbols.addr('area_exit')));  // (4 x 4 chunks: the entrance room is only 2 x 2)
+  run(emu.read8(emu.symbols.addr('area_exit')));  // (4 x 4 chunks: the entrance room is only 2 x 3)
   return Array.from(emu.readBytes(0xd400, 1024));
 }
 

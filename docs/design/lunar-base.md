@@ -81,18 +81,20 @@ of their own in the area grid. Some modules get a door in their front row; throu
 it, a small interior (a room or two, sized to the building) loads; leaving puts you
 back outside the door.
 
-A first mockup was a guess and needs work. The construction proposed:
+**The look is settled** (2026-10-23): the artist's reference shot of a finished
+interior, rebuilt as the entrance room (docs/design/runs.md, the map `entrance` in
+`content/tilesets/lunar_int.json`; its pieces in docs/design/lunarbase-sprites.md).
+It's the density to aim for in generated interiors:
+- **Every back wall is full**: lights, screens, plates, a vent, windows; no bare
+  stretch. A back wall is a white band (its top, seen from above) with a face below.
+- **Each room has its own floor**: shiny square plates in one, studs in the next.
+- **Furniture in mirrored pairs** (couches, counters behind them), with a clear
+  walkway down the middle that lines up with the doorways.
+- **Walls cast a shadow** on the floor below them; cyan floor lights here and there.
 
-A 3/4 view like most Game Boy interiors (first mockup in the conversation of
-2026-10-21; to confirm with the artist):
-- **Floor:** the dark plate pattern (tiles 5a-9e as one repeating 5x5 pattern);
-  light grated panels for a second room type.
-- **Walls:** a light bevelled cap along the top, then a face of dark machinery where
-  a wall meets the floor below (the same rule as cliffs in town). Starfield windows
-  in some north walls.
-- **Props:** orange containers, capsules, monitors and consoles as solid blocks;
-  blue coolant grating as a hazard (pits).
-- **Shape:** rooms joined by corridors, not open ground: a second chunk set.
+To generate them: wall-face strips (a run of face pieces to fill a back wall),
+furniture groups (a couch and a counter, a pair either side of the walkway) and a
+floor per room, put together by the interior's chunks.
 
 ## The area
 

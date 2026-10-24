@@ -31,26 +31,30 @@ measure it.
 
 ## The entrance room (built 2026-10-22)
 
-Every area begins in a **one-screen entrance room**, like the entrance of a Zelda
-dungeon: you arrive through its **south door** (the way back to town: walk out of it
-to leave, with everything), **doors on 2 or 3 of its other sides** lead into the area,
-and a **comms device** in the middle gives the objective when you talk to it (for now
-a general briefing from Meridian dispatch; with missions, the mission's own). The
-generator puts it on the area grid's bottom row, so nothing lies south of it.
+Every area begins in an **entrance room**, like the entrance of a Zelda dungeon: you
+arrive through its **south door** (the way back to town: walk out of it to leave, with
+everything), **doors on 2 or 3 of its other sides** lead into the area, and a **comms
+device** gives the objective when you talk to it (for now a general briefing from
+Meridian dispatch; with missions, the mission's own). The generator puts it on the
+area grid's bottom row, so nothing lies south of it.
 
-It's **indoors**: drawn with the LunarBase interior tileset (`content/tilesets/lunar_int.json`)
-while the area's other maps use the exterior one (descent.c loads the tileset by map,
-made by hand: the map `entrance` in that tileset). It follows the artist's reference:
-- thick white walls seen from above; under the north wall, a machinery face (orange
-  lights, riveted plates, screens, a vent) and a row of shiny square plates;
-- the studded floor with cyan floor lights, orange benches, black-topped counters
-  along the south wall;
-- doorways one block (16 px) wide. The map has them all closed: level.c opens the
-  ones the area links to (the doorway, the jambs either side; the north one cuts
-  through the wall face too);
-- the **comms device** is the framed monitor, a 2x2-block prop in the middle
-  (`COMMS_X`, `COMMS_Y` in level.h), with its shadow below. Its four blocks are each
-  a talker (`TALK_COMMS`, with no sprite), so you can talk to it from any side.
+It's **indoors**, drawn with the LunarBase interior tileset
+(`content/tilesets/lunar_int.json`), while the area's other maps use the exterior one
+(descent.c loads the tileset by map). It's **made by hand**: the map `entrance` in
+that tileset, 10x12 blocks (2x3 chunks: it scrolls a little), two rooms deep after
+the artist's reference (2026-10-23):
+- **The lower room** (you arrive here): the studded floor with cyan floor lights,
+  orange couches, black-topped counters along the south wall. Its back wall is a white
+  wall across the room with a doorway in the middle, and a machinery face below it
+  (orange lights, riveted plates, screens, a vent) casting a shadow on the floor.
+- **The upper room**: a floor of shiny square plates. On its back wall, the **comms
+  device** (the framed monitor, 2x2 blocks: `COMMS_X`, `COMMS_Y` in level.h) between a
+  starfield window and orange lights. You talk to it from below: the two blocks under
+  it are talkers (`TALK_COMMS`, with no sprite). The east and west doors open off
+  this room.
+- **Doorways** are one block (16 px) wide. The map has the outer ones closed: level.c
+  opens the ones the area links to (the doorway, the jambs either side). The north
+  one is beside the monitor (`ENTRANCE_DOOR_N`) and cuts through the wall face.
 
 The side doorways are stand-ins: the sheet has no side-on doorway. Doors that open
 and close need the artist's art.

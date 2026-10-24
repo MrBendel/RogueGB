@@ -93,7 +93,9 @@ pack's props assembled). What they showed:
 | Wall face `face_lights` `face_plate` `face_screen` `face_vent` | `ed fd / ee fe`, `96 a6 / 97 a7`, `cb db / cc dc`, `c9 d9 / ca da` | the row under the north wall: orange lights, riveted plate, screen with glare, vent |
 | Shiny square plates `plates` | `04 14 / 05 15` | the floor under the wall face |
 | Counters `counter` `counter_l` `counter_r` | `f0 f0 / f1 f1`, ends `f2 f3` (and mirrored) | black-topped, along the south wall |
-| Orange bench `bench` (2 blocks) | `bd cd cd dd / be ce ce de` | |
+| Orange couch `couch` (2 blocks) | `bd cd cd dd / be ce ce de` | |
+| Starfield window `window` (2x2 blocks) | `f6 c6 e6 f6x / f6 c4 d5 f6x / f6 30 e4 f6x / f6 c6y e6y f6x` | pillars `f6`, the vented frame `c6 e6` (flipped for the bottom), stars `b4`-`f5` on black |
+| Wall tee, plates beside walls | `51 70 / 51 71`, `51 14 / 51 15` (and mirrored) | where an inner wall meets a side wall; a side wall in a room of plates |
 | Cyan floor light `floor_light` | ours: `lunar_int_extra.png` `30` | the studs round it lose their shadow (4 colours a tile) |
 | Comms monitor `monitor` (2x2 blocks) | `c0 d0 d0x c0x / c1 d7 d7 c1x / c1 d8 f9 c1x / c0y d0y d0y c0xy` | the frame is `c0 d0 c1` and flips; `d7` the screen's top, `d8` its middle, `f9` the window icon |
 
@@ -107,7 +109,6 @@ rules; level.c opens its doors. Props in the reference not used yet:
 | Chair or capsule (white) | `a8 b8 / a9 b9 / aa ba / ab bb` |
 | Small screen with glare | `cb db / cc dc` (the pack's DeskScreen and WallScreen sprites animate screens like it) |
 | Orange crates | `bd cd dd / be ce de` |
-| Starfield window | `b5`-`f5` stars, frame `d2`-`f3` |
 | Screen icon lines | `e7 f7 / e8 f8 / e9 ea` (cyan lines that join the `f9` icon) |
 
 ## Interior (proposed: no example in the pack)
