@@ -11,7 +11,8 @@
 #include "state.h"
 #include "globfather_art.inc"
 
-extern uint8_t oam_next;
+extern uint8_t oam_next,draw_rotation;
+void actors_emit(void);
 // Size 3: king, 2: medium, 1: small. A nonzero size also remembers a killed
 // parent after the ordinary shot reaper frees its actor slot.
 uint8_t glob_size[ACTOR_MAX],glob_state[ACTOR_MAX],glob_timer[ACTOR_MAX],glob_z[ACTOR_MAX];
@@ -28,8 +29,15 @@ static uint8_t bound_y(int16_t y,uint8_t size) {
  return y<lo?lo:y>hi?hi:y;
 }
 static void spawn(uint8_t size,int16_t x,int16_t y,uint8_t delay) {
- uint8_t i=actor_spawn(ACTOR_PEASHOOTER,bound_x(x,size),bound_y(y,size));
- if(i==0xff)return; // At most four living descendants; the pool has eight.
+ uint8_t i=0;
+ while(i<ACTOR_MAX && actor_type[i])i++;
+ if(i==ACTOR_MAX)return; // Two mediums each release four small slimes: eight maximum.
+ // Scripted slime art never uses the peashooter's frame cache or AI timers.
+ // Avoid that banked setup work when eight children arrive on the same frame.
+ actor_type[i]=ACTOR_PEASHOOTER;actor_count++;
+ actor_x[i]=bound_x(x,size);actor_y[i]=bound_y(y,size);
+ actor_xs[i]=actor_ys[i]=actor_hurt[i]=actor_flash[i]=0;
+ actor_state[i]=actor_frame[i]=0;aim_score[i]=AIM_NONE;
  glob_size[i]=size;glob_state[i]=3;glob_timer[i]=delay;glob_z[i]=0;
  actor_hp[i]=size==3?20:size==2?10:5;actor_scripted[i]=14;actor_guard[i]=1;
  actor_vx[i]=actor_vy[i]=0;
@@ -65,7 +73,7 @@ static void hop(uint8_t i) {
 void globfather_start(void) BANKED {
  set_sprite_data(96,sizeof(glob_art)/16,glob_art);
  boss_kind=BOSS_GLOBFATHER;boss_state=BOSS_RETREAT;boss_timer=0;
- boss_hp=boss_hp_max=60;boss_phase=3;boss_reward=boss_relays=0;boss_attacks=boss_cycles=0;
+ boss_hp=boss_hp_max=80;boss_phase=3;boss_reward=boss_relays=0;boss_attacks=boss_cycles=0;
  glob_attacker=0xff;glob_alive=1;glob_defeated=0;glob_splits=glob_hops=glob_landings=0;
  for(uint8_t i=0;i<ACTOR_MAX;i++)glob_size[i]=glob_state[i]=glob_timer[i]=glob_z[i]=0;
  spawn(3,72,76,24);boss_slot=0;
@@ -79,7 +87,7 @@ void globfather_start(void) BANKED {
 void globfather_update(void) BANKED {
  // Collect ALL dead parents before spawning: their freed slots can be reused
  // by children, even when both medium slimes die on the same frame.
- uint8_t dead_size[4],dead_x[4],dead_y[4],dead=0;
+ uint8_t dead_size[ACTOR_MAX],dead_x[ACTOR_MAX],dead_y[ACTOR_MAX],dead=0;
  for(uint8_t i=0;i<ACTOR_MAX;i++)if(glob_size[i] && (!actor_type[i] || !actor_hp[i])) {
   dead_size[dead]=glob_size[i];dead_x[dead]=actor_x[i];dead_y[dead]=actor_y[i];dead++;
   glob_size[i]=glob_z[i]=0;glob_defeated++;
@@ -91,16 +99,23 @@ void globfather_update(void) BANKED {
   bullet_count=0;
   for(uint8_t d=0;d<dead;d++)if(dead_size[d]>1) {
    uint8_t size=dead_size[d]-1;int8_t offset=size==2?22:12;
-   spawn(size,(int16_t)dead_x[d]-offset,dead_y[d]-6,24);
-   spawn(size,(int16_t)dead_x[d]+offset,dead_y[d]+6,40);glob_splits++;
+   spawn(size,(int16_t)dead_x[d]-offset,dead_y[d]-10,24);
+   spawn(size,(int16_t)dead_x[d]+offset,dead_y[d]+10,40);
+   if(size==1) {
+    spawn(size,(int16_t)dead_x[d]+offset,dead_y[d]-10,32);
+    spawn(size,(int16_t)dead_x[d]-offset,dead_y[d]+10,48);
+   }
+   glob_splits++;
   }
   camera_shake(SHAKE_MEDIUM);
  }
  glob_alive=0;boss_hp=0;boss_phase=0;
  for(uint8_t i=0;i<ACTOR_MAX;i++)if(glob_size[i] && actor_type[i]) {
   uint8_t size=glob_size[i];glob_alive++;
-  actor_x[i]=bound_x(actor_x[i],size);actor_y[i]=bound_y(actor_y[i],size);
-  boss_hp+=actor_hp[i]+(size==3?40:size==2?10:0);
+  // Spawn and hop targets are already bounded; only weapon knockback can
+  // push a resting slime outside the arena between updates.
+  if(actor_hurt[i]){actor_x[i]=bound_x(actor_x[i],size);actor_y[i]=bound_y(actor_y[i],size);}
+  boss_hp+=actor_hp[i]+(size==3?60:size==2?20:0);
   if(size>boss_phase)boss_phase=size;
   if(dead)continue; // Children get a full, harmless split telegraph.
   if(glob_timer[i])glob_timer[i]--;
@@ -132,23 +147,42 @@ void globfather_update(void) BANKED {
 void globfather_emit(void) BANKED {
  glob_draw_top=glob_draw_bottom=0;
  for(uint8_t i=11;i<15;i++)shadow_OAM[i].y=0;
+ if(boss_phase==1) {
+  // Small slimes are ordinary two-part 16x16 sprites. Use the fast assembly
+  // renderer and its rotating priority; collision coordinates stay on the floor.
+  for(uint8_t i=0;i<ACTOR_MAX;i++)if(actor_type[i]) {
+   uint8_t state=glob_state[i];
+   actor_t0[i]=glob_parts[glob_first[state==2?1:0]][2];
+   actor_t1[i]=actor_t0[i]+2;
+   actor_p0[i]=actor_p1[i]=SPR_PAL_SHOOTER;
+   actor_flash[i]=actor_hurt[i] || ((state==3 || state==1) && (glob_timer[i]&4));
+  }
+  uint8_t jumping=glob_attacker;
+  if(jumping!=0xff)actor_y[jumping]-=glob_z[jumping];
+  actors_emit();
+  if(jumping!=0xff)actor_y[jumping]+=glob_z[jumping];
+  return;
+ }
  uint8_t prop=11;
- // Draw in actor slot order. All descendants together need at
- // most 17 body sprites; four prop slots leave room for six visible splashes.
- for(uint8_t i=0;i<ACTOR_MAX;i++)if(glob_size[i] && actor_type[i] && actor_hp[i]) {
+ // Rotate descendants so a crowded scanline cannot keep hiding the same slime.
+ // Eight small slimes still use only 16 sprites (the king uses 17).
+ for(uint8_t n=0;n<ACTOR_MAX;n++) {
+  uint8_t i=(n+draw_rotation)&(ACTOR_MAX-1);
+  if(!glob_size[i] || !actor_type[i] || !actor_hp[i])continue;
   uint8_t size=glob_size[i],state=glob_state[i];
   uint8_t frame=(size-1)*2+(state==2?1:0);
   if(size==3 && state==1)frame=6;
   uint8_t pal=actor_hurt[i] || ((state==3 || state==1) && (glob_timer[i]&4))?SPR_PAL_FLASH:SPR_PAL_SHOOTER;
   uint8_t end=glob_first[frame]+glob_count[frame];
+  uint8_t sx=actor_x[i]+16-cam_x,sy=actor_y[i]+32-glob_z[i]-cam_y;
   if(size==3) {
-   glob_draw_top=actor_y[i]+32+glob_parts[glob_first[frame]][1]-glob_z[i]-cam_y;
-   glob_draw_bottom=actor_y[i]+48+glob_parts[end-1][1]-glob_z[i]-cam_y;
+   glob_draw_top=sy+glob_parts[glob_first[frame]][1];
+   glob_draw_bottom=sy+16+glob_parts[end-1][1];
   }
   for(uint8_t p=glob_first[frame];p<end;p++) {
    uint8_t slot=prop<15?prop++:oam_next++;
-   shadow_OAM[slot].x=actor_x[i]+16+glob_parts[p][0]-cam_x;
-   shadow_OAM[slot].y=actor_y[i]+32+glob_parts[p][1]-glob_z[i]-cam_y;
+   shadow_OAM[slot].x=sx+glob_parts[p][0];
+   shadow_OAM[slot].y=sy+glob_parts[p][1];
    shadow_OAM[slot].tile=glob_parts[p][2];shadow_OAM[slot].prop=pal;
   }
  }

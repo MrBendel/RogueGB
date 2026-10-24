@@ -8,23 +8,24 @@ function trial(e=bootToTitle()){
  return settle(e.tap('A'),PLAY).idle(3);
 }
 const living=e=>Array.from({length:8},(_,i)=>i).filter(i=>get(e,'glob_size',i)&&get(e,'actor_type',i));
-function kill(e,ids){for(const i of ids)put(e,'actor_hp',0,i);put(e,'shots_killed',1);e.idle(3);}
+function kill(e,ids){for(const i of ids)put(e,'actor_hp',0,i);put(e,'shots_killed',1);for(let f=0;f<3;f++){e.idle();assert.ok(e.lastFrameCycles<FRAME_LIMIT,'split/death frame: '+e.lastFrameCycles);}}
 test('globfather: independent splits preserve remaining family HP and reward only final kill',()=>{
- const e=trial();assert.equal(e.v('boss_kind'),12);assert.equal(e.v('boss_hp'),60);assert.equal(e.v('glob_alive'),1);
+ const e=trial();assert.equal(e.v('boss_kind'),12);assert.equal(e.v('boss_hp'),80);assert.equal(e.v('glob_alive'),1);
  e.idle(25).shot('globfather-king');kill(e,living(e));
- assert.equal(e.v('glob_alive'),2);assert.equal(e.v('boss_hp'),40);assert.equal(e.v('boss_reward'),0);e.idle(25).shot('globfather-medium');
- kill(e,[living(e)[0]]);assert.equal(e.v('glob_alive'),3);assert.equal(e.v('boss_hp'),30);
- assert.deepEqual(living(e).map(i=>get(e,'glob_size',i)).sort(),[1,1,2]);e.idle(25).shot('globfather-mixed');
- kill(e,living(e).filter(i=>get(e,'glob_size',i)===2));assert.equal(e.v('glob_alive'),4);assert.equal(e.v('boss_hp'),20);
+ assert.equal(e.v('glob_alive'),2);assert.equal(e.v('boss_hp'),60);assert.equal(e.v('boss_reward'),0);e.idle(25).shot('globfather-medium');
+ kill(e,[living(e)[0]]);assert.equal(e.v('glob_alive'),5);assert.equal(e.v('boss_hp'),50);
+ assert.deepEqual(living(e).map(i=>get(e,'glob_size',i)).sort(),[1,1,1,1,2]);e.idle(25).shot('globfather-mixed');
+ kill(e,living(e).filter(i=>get(e,'glob_size',i)===2));assert.equal(e.v('glob_alive'),8);assert.equal(e.v('boss_hp'),40);
  e.idle(25).shot('globfather-small');assert.equal(e.v('glob_splits','u16'),3);
  while(living(e).length>1){kill(e,[living(e)[0]]);assert.equal(e.v('boss_reward'),0);}
- kill(e,living(e));assert.equal(e.v('boss_state'),5);assert.equal(e.v('boss_reward'),1);assert.equal(e.v('glob_defeated'),7);
+ kill(e,living(e));assert.equal(e.v('boss_state'),5);assert.equal(e.v('boss_reward'),1);assert.equal(e.v('glob_defeated'),11);
  for(let i=11;i<40;i++)assert.equal(e.read8(at(e,'shadow_OAM')+4*i),0);
 });
-test('globfather: simultaneous medium kills produce all four children without slot reuse loss',()=>{
+test('globfather: simultaneous medium kills produce all eight children without slot reuse loss',()=>{
  const e=trial();kill(e,living(e));kill(e,living(e));
- assert.equal(e.v('glob_alive'),4);assert.equal(e.v('actor_count'),4);assert.equal(e.v('glob_defeated'),3);
- assert.deepEqual(living(e).map(i=>get(e,'glob_size',i)),[1,1,1,1]);assert.equal(e.v('boss_hp'),20);
+ assert.equal(e.v('glob_alive'),8);assert.equal(e.v('actor_count'),8);assert.equal(e.v('glob_defeated'),3);
+ assert.deepEqual(living(e).map(i=>get(e,'glob_size',i)),[1,1,1,1,1,1,1,1]);assert.equal(e.v('boss_hp'),40);
+ kill(e,living(e));assert.equal(e.v('glob_defeated'),11);assert.equal(e.v('boss_reward'),1);assert.equal(e.v('actor_count'),0);
 });
 test('globfather: warned committed hop, pause freezes motion, landing opens damage window',()=>{
  const e=trial();e.until(t=>t.v('glob_state')===1,100);e.shot('globfather-warning');assert.equal(e.v('actor_guard'),1);
@@ -59,16 +60,21 @@ test('globfather: jumping clears landing damage; smaller forms reduce splash siz
  e.until(t=>t.v('glob_landings','u16')>landed,150);assert.equal(e.v('bullets_fired','u16'),fired);
 });
 test('globfather: mobile starter pistol can clear the whole family within hardware budget',()=>{
- const e=trial();let peak=0;
+ const e=trial();let peak=0,peakInfo,waypoint=0;
+ const route=[[120,96],[120,40],[24,40],[24,96]];
  for(let f=0;f<5000&&e.v('boss_state')!==5&&e.v('player_hp');f++) {
   const keys=['A'],x=e.v('player_x','u16');
-  if((f/65|0)&1){if(x>24)keys.push('LEFT');}else if(x<120)keys.push('RIGHT');
+  const y=e.v('player_y','u16'),[tx,ty]=route[waypoint];
+  if(Math.abs(x-tx)<5&&Math.abs(y-ty)<5)waypoint=(waypoint+1)%route.length;
+  if(x<tx-3)keys.push('RIGHT');else if(x>tx+3)keys.push('LEFT');
+  if(y<ty-3)keys.push('DOWN');else if(y>ty+3)keys.push('UP');
   const i=e.v('glob_attacker');
-  if(i!==255&&!e.v('player_air')&&get(e,'glob_state',i)===2&&get(e,'glob_timer',i)<12)keys.push('B');
-  e.hold(keys);peak=Math.max(peak,e.lastFrameCycles);
+  const close=living(e).some(j=>get(e,'glob_state',j)===0&&Math.abs(e.read16(at(e,'actor_x')+j*2)-x)<24&&Math.abs(e.read16(at(e,'actor_y')+j*2)-e.v('player_y','u16'))<24);
+  if(!e.v('player_air')&&(close||(i!==255&&get(e,'glob_state',i)===2&&get(e,'glob_timer',i)<12)))keys.push('B');
+  e.hold(keys);if(e.lastFrameCycles>peak){peak=e.lastFrameCycles;peakInfo={f,peak,phase:e.v('boss_phase'),alive:e.v('glob_alive'),state:e.v('boss_state'),shots:e.v('shot_count'),bullets:e.v('bullet_count'),hops:e.v('glob_hops','u16')};}
  }
  assert.equal(e.v('boss_state'),5,`player=${e.v('player_hp')} family=${e.v('boss_hp')}`);
- assert.equal(e.v('glob_defeated'),7);assert.ok(peak<FRAME_LIMIT);e.shot('globfather-victory');
+ assert.equal(e.v('glob_defeated'),11);assert.ok(peak<FRAME_LIMIT,JSON.stringify(peakInfo));e.shot('globfather-victory');
  console.log(`Globfather victory peak ${peak}/${FRAME_LIMIT}`);
 });
 test('globfather: leaving a split fight and restarting resets the family',()=>{
@@ -76,7 +82,7 @@ test('globfather: leaving a split fight and restarting resets the family',()=>{
  settle(e.tap('START').tap('SELECT'),RUN_OVER).idle(40);
  settle(e.tap('START'),TITLE);trial(e);
  assert.equal(e.v('glob_alive'),1);assert.equal(e.v('glob_defeated'),0);assert.equal(e.v('glob_splits','u16'),0);
- assert.equal(e.v('boss_hp'),60);assert.equal(e.v('boss_reward'),0);assert.equal(e.v('bullet_count'),0);
+ assert.equal(e.v('boss_hp'),80);assert.equal(e.v('boss_reward'),0);assert.equal(e.v('bullet_count'),0);
 });
 
 test('globfather: complete king silhouette survives player, weapon and jump-shadow scanline overlap',()=>{
@@ -100,4 +106,25 @@ test('globfather: complete king silhouette survives player, weapon and jump-shad
   e.shot('globfather-overlap-fixed-'+pose+'-'+airborne);
  }
  assert.ok(checked>1000);
+});
+
+test('globfather: eight crowded small slimes rotate visibility within the sprite and frame budgets',()=>{
+ const e=trial();kill(e,living(e));kill(e,living(e));
+ const hidden=Array(8).fill(0);let drops=0,worst=0,peak=0;
+ for(let f=0;f<32;f++) {
+  for(let i=0;i<8;i++) {
+   e.writeBytes(at(e,'actor_x')+i*2,[16+i*14,0]);e.writeBytes(at(e,'actor_y')+i*2,[64,0]);
+   put(e,'glob_state',0,i);put(e,'glob_timer',200,i);
+  }
+  e.idle();peak=Math.max(peak,e.lastFrameCycles);
+  const oam=Array.from({length:40},(_,i)=>({x:e.read8(at(e,'shadow_OAM')+i*4+1),y:e.read8(at(e,'shadow_OAM')+i*4)}));
+  const line=64-e.v('cam_y','u16'),visible=oam.filter(s=>s.y&&line>=s.y-16&&line<s.y).slice(0,10);
+  for(let i=0;i<8;i++) {
+   const x=16+i*14+8-e.v('cam_x','u16'),seen=visible.some(s=>s.x===x||s.x===x+8);
+   hidden[i]=seen?0:hidden[i]+1;if(!seen)drops++;worst=Math.max(worst,hidden[i]);
+  }
+  assert.ok(e.v('sprites_used')<=40);assert.equal(e.v('glob_alive'),8);
+ }
+ assert.ok(drops>0);assert.ok(worst<=2,`hidden for ${worst} frames`);assert.ok(peak<FRAME_LIMIT,`peak ${peak}`);
+ e.shot('globfather-eight-crowded');
 });

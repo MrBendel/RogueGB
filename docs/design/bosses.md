@@ -302,8 +302,8 @@ and larger multi-part artwork remain future work.
 
 Combat playtests -> Bosses -> Globfather uses the local SGQ slime family. Defeating
 one large slime releases two medium slimes; each medium independently releases
-two small slimes. Clear all seven enemies to finish. The health bar includes the
-unspawned descendants (60 total HP), so splitting never refills progress.
+four small slimes. Clear all eleven enemies to finish (eight small slimes maximum).
+The health bar includes the unspawned descendants (80 total HP), so splitting never refills progress.
 
 The large slime swells before a committed hop toward the player and releases six
 projectiles on landing. Medium slimes hop farther and release three shots; small
@@ -314,8 +314,10 @@ Existing enemy projectiles clear at each split to keep the transition readable.
 
 Art: SGQ_Enemies/bosses/slime_king.png has 48x64 frame cells; the descendants
 use normal/32x32/medium_slime.png and normal/16x16/slime.png. Selected poses
-compile to 142 tiles and at most 17 simultaneous body sprites. Four body parts
-use prop OAM 11-14; the rest begin at 15. Enemy splashes draw before player shots.
+compile to 142 tiles and at most 17 simultaneous body sprites. Large/medium forms
+use prop OAM 11-14 for four body parts; the rest begin at 15. The eight-small
+phase uses the fast two-part actor renderer from slot 15, rotating priority so
+crowded rows do not keep hiding the same slime. Enemy splashes draw before player shots.
 The prototype retains the shared central actor hitbox at the slime's base; the
 entire large silhouette is not yet a bullet target. This is a playtest limitation.
 
