@@ -160,3 +160,12 @@ one-row roofs `roof_sl roof_s roof_sr`, numbered corners `roof_bl1`-`roof_bl5`,
 striped `roof_cst`, vent `roof_v`; fronts `face_l face_c face_c2 face_c3 face_r`;
 raised platforms `deck_*` (the roof without walk-behind); props `crate`,
 `crate_stack`, `boulder`; pits `pit` (the vent, for now).
+
+Building bases (level.c `building_bases`, after the theme's rules): `face_door`
+(`65 65 / d6 e6`: the front with the door's grate) with `step` below it (`fe fex /
+ff ffx`, the orange step out on the ground), and `vents` (`3a 5a`, two black ground
+vents) under some of the rest of a front. Read from the example: under its big
+module the grate runs on down (`d7 e7`) to the step; pipes (`29 89 99`, `39`, `6a
+7a`, `17 17x`), canister racks (`f5 f6 f7`), posts (`2f`) and solar panels (`8b 9b /
+8c 9c / 8d 9d`, base `8e`) sit around the modules: not used yet (the 64-block
+limit).

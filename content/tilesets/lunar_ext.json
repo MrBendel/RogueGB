@@ -1,5 +1,5 @@
 {
-  "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, hull modules (riveted roofs over a front row) where the generator puts solid blocks, props for lone blocks. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs are drawn over sprites and can be walked behind (\"behind\": the block is walkable floor and its tiles have the background priority flag); fronts and the map's rim stay solid. Decals (the pack's white marks) are stamped onto some pieces: building numbers and hazard stripes on roofs. Doorways (one-block gaps in a map's outer wall: an entrance room's doors): the orange hatch in the north wall, a grated threshold elsewhere, until door art for those views exists. The map's rim (the edge) is plain wall plate all round, with its lower lip on the inside: no building fronts, and nothing drawn over the player.",
+  "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, hull modules (riveted roofs over a front row) where the generator puts solid blocks, props for lone blocks. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs are drawn over sprites and can be walked behind (\"behind\": the block is walkable floor and its tiles have the background priority flag); fronts and the map's rim stay solid. A building's front gets its base where it meets the ground (level.c): a door (its grate and the orange step out front) and ground vents. Decals (the pack's white marks) are stamped onto some pieces: building numbers and hazard stripes on roofs. Doorways (one-block gaps in a map's outer wall: an entrance room's doors): the orange hatch in the north wall, a grated threshold elsewhere, until door art for those views exists. The map's rim (the edge) is plain wall plate all round, with its lower lip on the inside: no building fronts, and nothing drawn over the player.",
   "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Exterior_Standard.png",
   "decals": "pack:LunarBase/Tiles/LunarBase_Tiles_Decals_Standard.png",
   "local": true,
@@ -53,11 +53,14 @@
     "deck_sl": { "tiles": ["02 12", "04 14"] },
     "deck_s": { "tiles": ["12 12", "14 14"] },
     "deck_sr": { "tiles": ["12 22", "14 24"] },
+    "face_door": { "tiles": ["65 65", "d6 e6"] },
+    "step": { "tiles": ["fe fex", "ff ffx"] },
+    "vents": { "tiles": ["3a 5a", "3a 5a"] },
     "door_hatch": { "tiles": ["fe fex", "ff ffx"] },
     "door_grate": { "tiles": ["d6 e6", "d7 e7"] }
   },
   "theme": {
-    "floor": ["g_a", "g_a", "g_a", "g_a", "g_b", "g_b", "g_b", "g_c", "g_c", "g_d", "g_d", "rocks", "rocks", "crater"],
+    "floor": ["g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_b", "g_b", "g_b", "g_b", "g_b", "g_c", "g_d", "rocks", "crater"],
     "solid": {
       "style": "module",
       "roof_tl": ["roof_tl"],

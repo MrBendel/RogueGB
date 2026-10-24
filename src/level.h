@@ -63,5 +63,6 @@ extern uint8_t level_carved;  // the last build had to carve paths
 void level_generate(uint16_t seed) BANKED;
 // Build map i into the room map (and set room_w/room_h).
 void level_build_map(uint8_t i) BANKED;
+void level_look_exterior(void) BANKED;  // an exterior map's look: the theme's rules, then buildings' bases
 
 #endif

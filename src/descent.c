@@ -120,7 +120,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_build_map(map);
     if (area_type[map] == MAP_EXIT) {
         dig_shaft();
-        tiles_lunar_ext_apply();
+        level_look_exterior();
     }
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)

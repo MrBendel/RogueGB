@@ -250,6 +250,32 @@ static void must(uint8_t x, uint8_t y) {
     }
 }
 
+// Solid blocks tidied before the look: a spur one block wide sticking out of a
+// building (or a pair of lone blocks) would be drawn as a crate stuck to its side,
+// so it goes; a lone block (a prop) right beside a building goes too. Only floor is
+// added, so nothing gets cut off.
+static uint8_t solid_at(uint8_t x, uint8_t y) {
+    return MAP(x, y) == BLK_SOLID;
+}
+
+static void tidy(uint8_t w, uint8_t h) {
+    for (uint8_t pass = 0; pass < 4; pass++) {
+        uint8_t changed = 0;
+        for (uint8_t y = 1; y + 1 < h; y++)
+            for (uint8_t x = 1; x + 1 < w; x++) {
+                if (!solid_at(x, y)) continue;
+                uint8_t n = solid_at(x, y - 1) + solid_at(x + 1, y) + solid_at(x, y + 1) + solid_at(x - 1, y);
+                uint8_t near = n;
+                if (!n) near = solid_at(x - 1, y - 1) + solid_at(x + 1, y - 1) + solid_at(x - 1, y + 1) + solid_at(x + 1, y + 1);
+                if (n == 1 || (!n && near)) {
+                    MAP(x, y) = BLK_FLOOR;
+                    changed = 1;
+                }
+            }
+        if (!changed) break;
+    }
+}
+
 // The entrance room is made by hand (content/tilesets/lunar_int.json, its map
 // "entrance": level.h) with its outer doors closed; this opens the ones the area's
 // links ask for, where the generator put them.
@@ -436,6 +462,7 @@ void level_build_map(uint8_t i) BANKED {
         else must(2, mid);
     }
     must(w >> 1, h >> 1);  // the middle (the start or exit mark)
+    tidy(w, h);
     // Everything that must connect does: fill from the first point; carve from
     // any point the fill didn't reach back to the first.
     level_carved = 0;
@@ -451,5 +478,41 @@ void level_build_map(uint8_t i) BANKED {
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
     if (area_type[i] == MAP_START) entrance_room();
-    else tiles_lunar_ext_apply();
+    else level_look_exterior();
+}
+
+// Where a building's front meets the ground, its base (as the pack's example draws
+// them): a door in the middle of a front three blocks or wider, its orange step out
+// on the ground below; ground vents under some of the rest. All walkable: nothing
+// it adds can block a way through.
+static void building_bases(void) {
+    for (uint8_t y = 1; y + 2 < room_h; y++) {
+        uint16_t row = (uint16_t)y << 5;
+        for (uint8_t x = 1; x + 1 < room_w;) {
+            // A front: a run of face blocks on a building (not a deck), ground below.
+            uint8_t x1 = x;
+            while (x1 + 1 < room_w && room_map[row | x1] == BLK_SOLID && room_map[row + 32 + x1] == BLK_FLOOR
+                   && room_vis[row | x1] >= TS_LUNAR_EXT_FACE_L && room_vis[row | x1] <= TS_LUNAR_EXT_FACE_R)
+                x1++;
+            if (x1 == x) {
+                x++;
+                continue;
+            }
+            uint8_t door = x1 - x >= 3 ? (uint8_t)((x + x1 - 1) >> 1) : 0xFF;
+            for (uint8_t bx = x; bx < x1; bx++) {
+                if (bx == door) {
+                    room_vis[row | bx] = TS_LUNAR_EXT_FACE_DOOR;
+                    room_vis[row + 32 + bx] = TS_LUNAR_EXT_STEP;
+                } else if (bx + 1 != door && bx != door + 1 && !((bx * 7 + y * 13) & 3)) {
+                    room_vis[row + 32 + bx] = TS_LUNAR_EXT_VENTS;
+                }
+            }
+            x = x1;
+        }
+    }
+}
+
+void level_look_exterior(void) BANKED {
+    tiles_lunar_ext_apply();
+    building_bases();
 }

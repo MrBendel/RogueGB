@@ -58,6 +58,18 @@ Generated as: open ground from the chunks; solid clusters become modules (roof
 over front, autotiled from their neighbours) or rock; pipes along some module
 edges; props in decoration slots.
 
+Done (2026-10-24, after the artist's notes on the generated maps): a tidy pass
+before the look (a one-block spur off a building, or a lone prop right beside one,
+is cleared: it was drawn as a crate stuck to the building); buildings' bases (a door
+with its step in the middle of each front three blocks or wider, ground vents under
+some of the rest); calmer ground (mostly plain regolith, few patches and craters).
+
+Next, to reach the example's density: **pipes** joining neighbouring buildings,
+**props in groups against buildings** (canister racks, crate stacks, posts, solar
+panels) instead of lone crates in the open, and the **64-block limit** raised (the
+look-up tables in room.h are a 256-byte page each; 128 blocks needs two pages each
+and room_fill.s changed), since the example's vocabulary doesn't fit in 64.
+
 ## Decals
 
 The decal sheet is white marks on transparency (digits 0-5, numbered plates,
