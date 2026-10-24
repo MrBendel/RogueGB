@@ -1,5 +1,5 @@
 {
-  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room for now, after the artist's reference shots: thick white walls seen from above (the band tiles the sheet's 'pipes' are) with a lilac face, the door jambs where a band turns or ends at a doorway, the studded floor with a wall's shadow below it (our own tiles in the pack's colours: artwork/tiles/lunar_int_extra.png, stamped over), and the comms device: the framed wall monitor, a 2x2-block prop (level.c puts it in the middle). Without the sheet the build uses plain stand-ins.",
+  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room, a map made by hand after the artist's reference shot: thick white walls seen from above with a lilac face, a machinery wall face (orange lights, riveted plates, screens, a vent), shiny square plates below it, the studded floor (our own tiles in the pack's colours: artwork/tiles/lunar_int_extra.png, stamped over) with cyan floor lights and a shadow under the comms monitor, orange benches, black-topped counters. Its doors are closed walls in the map; level.c opens the ones the area's links ask for (the door pieces and their jambs). Without the sheet the build uses plain stand-ins.",
   "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Interior_Standard.png",
   "decals": "artwork/tiles/lunar_int_extra.png",
   "local": true,
@@ -8,6 +8,8 @@
   "pieces": {
     "floor": { "tiles": ["30 30", "30 30"], "stamp": ["00 00", "00 00"] },
     "floor_shadow": { "tiles": ["30 30", "30 30"], "stamp": ["10 10", "00 00"] },
+    "floor_light": { "tiles": ["30 30", "30 30"], "stamp": ["00 30", "00 00"] },
+    "plates": { "tiles": ["04 14", "05 15"] },
     "wall_n": { "tiles": ["60 70", "61 71"] },
     "wall_w": { "tiles": ["51 30", "51 30"], "stamp": [".. 00", ".. 00"] },
     "wall_e": { "tiles": ["30 51x", "30 51x"], "stamp": ["00 ..", "00 .."] },
@@ -15,6 +17,15 @@
     "corner_ne": { "tiles": ["60 50x", "61 51x"] },
     "corner_sw": { "tiles": ["50y 70", "30 71"] },
     "corner_se": { "tiles": ["60 50xy", "61 30"] },
+    "face_lights": { "tiles": ["ed fd", "ee fe"] },
+    "face_plate": { "tiles": ["96 a6", "97 a7"] },
+    "face_screen": { "tiles": ["cb db", "cc dc"] },
+    "face_vent": { "tiles": ["c9 d9", "ca da"] },
+    "counter": { "tiles": ["f0 f0", "f1 f1"] },
+    "counter_l": { "tiles": ["f0 f0", "f2 f3"] },
+    "counter_r": { "tiles": ["f0 f0", "f3x f2x"] },
+    "bench": { "tiles": ["bd cd cd dd", "be ce ce de"] },
+    "monitor": { "tiles": ["c0 d0 d0x c0x", "c1 d7 d7 c1x", "c1 d8 f9 c1x", "c0y d0y d0y c0xy"] },
     "door_ns": { "tiles": ["48 48x", "49 49x"] },
     "jamb_ns_l": { "tiles": ["60 50x", "61 53x"] },
     "jamb_ns_r": { "tiles": ["50 70", "53 71"] },
@@ -23,19 +34,44 @@
     "jamb_w_down": { "tiles": ["53y 30", "51 30"], "stamp": [".. 00", ".. 00"] },
     "door_e": { "tiles": ["30 19x", "30 19x"], "stamp": ["00 ..", "00 .."] },
     "jamb_e_up": { "tiles": ["30 51x", "30 53x"], "stamp": ["00 ..", "00 .."] },
-    "jamb_e_down": { "tiles": ["30 53xy", "30 51x"], "stamp": ["00 ..", "00 .."] },
-    "monitor": { "tiles": ["c0 d0 d0x c0x", "c1 d7 d7 c1x", "c1 d8 f9 c1x", "c0y d0y d0y c0xy"] }
+    "jamb_e_down": { "tiles": ["30 53xy", "30 51x"], "stamp": ["00 ..", "00 .."] }
+  },
+  "legend": {
+    ".": { "piece": "floor" },
+    ",": { "piece": "floor_shadow" },
+    "o": { "piece": "floor_light" },
+    "q": { "piece": "plates" },
+    "-": { "piece": "wall_n", "solid": true },
+    "[": { "piece": "wall_w", "solid": true },
+    "]": { "piece": "wall_e", "solid": true },
+    "1": { "piece": "corner_nw", "solid": true },
+    "2": { "piece": "corner_ne", "solid": true },
+    "3": { "piece": "corner_sw", "solid": true },
+    "4": { "piece": "corner_se", "solid": true },
+    "L": { "piece": "face_lights", "solid": true },
+    "P": { "piece": "face_plate", "solid": true },
+    "S": { "piece": "face_screen", "solid": true },
+    "V": { "piece": "face_vent", "solid": true },
+    "c": { "piece": "counter", "solid": true },
+    "s": { "piece": "counter_l", "solid": true },
+    "t": { "piece": "counter_r", "solid": true },
+    "B": { "piece": "bench", "solid": true },
+    "M": { "piece": "monitor", "solid": true }
+  },
+  "maps": {
+    "entrance": [
+      "1--------2",
+      "[LPSPVPSL]",
+      "[qqqqqqqq]",
+      "[.o.MM.o.]",
+      "[...MM...]",
+      "[BB.,,.BB]",
+      "[scc..cct]",
+      "3--------4"
+    ]
   },
   "theme": {
-    "floor": { "style": "shade", "blocks": ["floor"], "under": ["floor_shadow"] },
-    "solid": ["wall_n"],
-    "frame": {
-      "n": ["wall_n"], "s": ["wall_n"], "e": ["wall_e"], "w": ["wall_w"],
-      "nw": ["corner_nw"], "ne": ["corner_ne"], "sw": ["corner_sw"], "se": ["corner_se"]
-    },
-    "door_n": ["door_ns", "jamb_ns_l", "jamb_ns_r"],
-    "door_s": ["door_ns", "jamb_ns_l", "jamb_ns_r"],
-    "door_w": ["door_w", "jamb_w_up", "jamb_w_down"],
-    "door_e": ["door_e", "jamb_e_up", "jamb_e_down"]
+    "floor": ["floor"],
+    "solid": ["wall_n"]
   }
 }

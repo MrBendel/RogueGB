@@ -250,6 +250,36 @@ static void must(uint8_t x, uint8_t y) {
     }
 }
 
+// The entrance room is made by hand (content/tilesets/lunar_int.json, its map
+// "entrance": the comms monitor in the middle, COMMS_X/Y) with its doors closed;
+// this opens the ones the area's links ask for, where the generator put them.
+static void open_door(uint16_t k, uint8_t step, uint8_t door, uint8_t before, uint8_t after) {
+    room_map[k] = BLK_FLOOR;
+    room_vis[k] = door;
+    room_vis[k - step] = before;  // the jambs, along the wall
+    room_vis[k + step] = after;
+}
+
+static void entrance_room(void) {
+    uint8_t bank = BANK(tiles_lunar_int);
+    for (uint8_t y = 0; y < TS_LUNAR_INT_MAP_ENTRANCE_H; y++) {
+        uint16_t k = (uint16_t)y << 5, from = (uint16_t)y * TS_LUNAR_INT_MAP_ENTRANCE_W;
+        banked_memcpy(room_map + k, tiles_lunar_int_entrance_type + from, TS_LUNAR_INT_MAP_ENTRANCE_W, bank);
+        banked_memcpy(room_vis + k, tiles_lunar_int_entrance_vis + from, TS_LUNAR_INT_MAP_ENTRANCE_W, bank);
+    }
+    if (level_open[0] != 0xFF) {  // north: through the wall's face below it too
+        open_door(level_open[0], 1, TS_LUNAR_INT_DOOR_NS, TS_LUNAR_INT_JAMB_NS_L, TS_LUNAR_INT_JAMB_NS_R);
+        room_map[32 + level_open[0]] = BLK_FLOOR;
+        room_vis[32 + level_open[0]] = TS_LUNAR_INT_DOOR_NS;
+    }
+    if (level_open[1] != 0xFF)
+        open_door(((uint16_t)level_open[1] << 5) | (room_w - 1), 32, TS_LUNAR_INT_DOOR_E, TS_LUNAR_INT_JAMB_E_UP, TS_LUNAR_INT_JAMB_E_DOWN);
+    if (level_open[2] != 0xFF)
+        open_door(((uint16_t)(room_h - 1) << 5) | level_open[2], 1, TS_LUNAR_INT_DOOR_NS, TS_LUNAR_INT_JAMB_NS_L, TS_LUNAR_INT_JAMB_NS_R);
+    if (level_open[3] != 0xFF)
+        open_door((uint16_t)level_open[3] << 5, 32, TS_LUNAR_INT_DOOR_W, TS_LUNAR_INT_JAMB_W_UP, TS_LUNAR_INT_JAMB_W_DOWN);
+}
+
 // Lay out the chunk roles: a rock cluster or two, camps (fields only), maybe a
 // cache along an edge, and the start/exit mark in the middle.
 static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
@@ -418,16 +448,6 @@ void level_build_map(uint8_t i) BANKED {
         carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
-    if (area_type[i] == MAP_START) {
-        tiles_lunar_int_apply();
-        // The comms device in its middle: the wall monitor, a 2x2-block prop
-        // (descent.c talks to it).
-        for (uint8_t b = 0; b < 4; b++) {
-            uint16_t k = ((uint16_t)(COMMS_Y + (b >> 1)) << 5) | (COMMS_X + (b & 1));
-            room_map[k] = BLK_PROP;
-            room_vis[k] = TS_LUNAR_INT_MONITOR + b;
-        }
-        for (uint8_t b = 0; b < 2; b++)  // its shadow on the floor below
-            room_vis[((uint16_t)(COMMS_Y + 2) << 5) | (COMMS_X + b)] = TS_LUNAR_INT_FLOOR_SHADOW;
-    } else tiles_lunar_ext_apply();
+    if (area_type[i] == MAP_START) entrance_room();
+    else tiles_lunar_ext_apply();
 }

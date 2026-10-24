@@ -40,12 +40,16 @@ generator puts it on the area grid's bottom row, so nothing lies south of it.
 
 It's **indoors**: drawn with the LunarBase interior tileset (`content/tilesets/lunar_int.json`)
 while the area's other maps use the exterior one (descent.c loads the tileset by map,
-level.c applies its theme). It follows the artist's reference:
-- thick white walls seen from above, on a plate floor;
-- doorways one block (16 px) wide, with the wall ending in jambs either side and
-  slats across;
+made by hand: the map `entrance` in that tileset). It follows the artist's reference:
+- thick white walls seen from above; under the north wall, a machinery face (orange
+  lights, riveted plates, screens, a vent) and a row of shiny square plates;
+- the studded floor with cyan floor lights, orange benches, black-topped counters
+  along the south wall;
+- doorways one block (16 px) wide. The map has them all closed: level.c opens the
+  ones the area links to (the doorway, the jambs either side; the north one cuts
+  through the wall face too);
 - the **comms device** is the framed monitor, a 2x2-block prop in the middle
-  (`COMMS_X`, `COMMS_Y` in level.h). It's drawn by the map. Its four blocks are each
+  (`COMMS_X`, `COMMS_Y` in level.h), with its shadow below. Its four blocks are each
   a talker (`TALK_COMMS`, with no sprite), so you can talk to it from any side.
 
 The side doorways are stand-ins: the sheet has no side-on doorway. Doors that open

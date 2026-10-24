@@ -90,9 +90,15 @@ pack's props assembled). What they showed:
 | Band end caps | `53` (and flips) | the jambs beside a doorway |
 | North/south doorway `door_ns` | `48 48x / 49 49x` | the slats |
 | Side doorways | `19` + the floor's column | stand-in: no side-on doorway in the sheet |
+| Wall face `face_lights` `face_plate` `face_screen` `face_vent` | `ed fd / ee fe`, `96 a6 / 97 a7`, `cb db / cc dc`, `c9 d9 / ca da` | the row under the north wall: orange lights, riveted plate, screen with glare, vent |
+| Shiny square plates `plates` | `04 14 / 05 15` | the floor under the wall face |
+| Counters `counter` `counter_l` `counter_r` | `f0 f0 / f1 f1`, ends `f2 f3` (and mirrored) | black-topped, along the south wall |
+| Orange bench `bench` (2 blocks) | `bd cd cd dd / be ce ce de` | |
+| Cyan floor light `floor_light` | ours: `lunar_int_extra.png` `30` | the studs round it lose their shadow (4 colours a tile) |
 | Comms monitor `monitor` (2x2 blocks) | `c0 d0 d0x c0x / c1 d7 d7 c1x / c1 d8 f9 c1x / c0y d0y d0y c0xy` | the frame is `c0 d0 c1` and flips; `d7` the screen's top, `d8` its middle, `f9` the window icon |
 
-Props in the reference (not used yet):
+The room is a map made by hand (`maps.entrance` in the tileset), not the theme's
+rules; level.c opens its doors. Props in the reference not used yet:
 
 | Prop | Tiles |
 |---|---|

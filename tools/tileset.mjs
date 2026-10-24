@@ -125,6 +125,7 @@ function pieceRoles(def) {
     names(r).forEach((n, i) => {  // (a door list's doorway is floor; its jambs are wall)
       roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' || (t.startsWith('door') && !i) ? 'floor' : t === 'pit' ? 'pit' : 'solid';
     });
+  for (const l of Object.values(def.legend || {})) roles[l.piece] ??= l.solid ? 'solid' : 'floor';  // (pieces only maps use)
   return roles;
 }
 
