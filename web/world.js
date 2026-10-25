@@ -133,7 +133,7 @@ function readMap() {
   const slots = bytes('camp_slots', 2), sx = words('camp_slot_x', 10), sy = words('camp_slot_y', 10);
   return {
     w, h, map: Array.from(emu.readBytes(ROOM_MAP, 1024)), vis: Array.from(emu.readBytes(ROOM_VIS, 1024)),
-    open: bytes('level_open', 4), picks: bytes('level_picks', 64), roles: bytes('roles', 64), carved: emu.read8(A('level_carved')),
+    open: bytes('level_open', 4), picks: bytes('level_picks', 48), roles: bytes('roles', 48), carved: emu.read8(A('level_carved')),
     camps: Array.from({ length: camps }, (_, c) => Array.from({ length: slots[c] }, (_, s) => [sx[c * 5 + s], sy[c * 5 + s]])),
     chests: Array.from({ length: chests }, (_, c) => [emu.read16(A('chest_x') + c * 2), emu.read16(A('chest_y') + c * 2)]),
   };

@@ -63,6 +63,10 @@ extern uint8_t level_carved;  // the last build had to carve paths
 void level_generate(uint16_t seed) BANKED;
 // Build map i into the room map (and set room_w/room_h).
 void level_build_map(uint8_t i) BANKED;
-void level_look_exterior(void) BANKED;  // an exterior map's look: the theme's rules, then buildings' bases
+void level_look_exterior(void) BANKED;
+// The set pieces stamped on the current map (level.c, plan_set_pieces).
+#define PF_MAX 20
+extern uint8_t pf_count, pf_xid[PF_MAX], pf_y[PF_MAX];  // x | set piece << 5, and y
+#define CHUNK_ROWS 6  // the most chunks down a map (24 blocks: room.h ROOM_MAX_H)  // an exterior map's look: the theme's rules, then buildings' bases
 
 #endif

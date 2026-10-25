@@ -64,6 +64,23 @@ is cleared: it was drawn as a crate stuck to the building); buildings' bases (a 
 with its step in the middle of each front three blocks or wider, ground vents under
 some of the rest); calmer ground (mostly plain regolith, few patches and craters).
 
+**Set pieces** (2026-10-24): parts of the pack's example cut out whole, as
+`"prefab"` pieces in `content/tilesets/lunar_ext.json` (a grid of block types: `.`
+ground, `#` solid, `r` a roof you walk behind): the "01" hab module with its door
+step, the solar station on its legs, the tank, the grilled machine, orange
+canisters on checker plates, a canister rack, a solar panel stand. level.c
+(`plan_set_pieces`), once a map's connections are made:
+- each building the chunks left (a solid rectangle clear of the rim) is packed:
+  the biggest set piece that fits along its front, smaller ones in the rest, any
+  leftover block ground;
+- then on open ground, about one big set piece (hab, solar, tank) per 120 blocks
+  of map, with small ones beside its front; each is kept only if every point that
+  must connect still does (a flood fill), and none goes on a camp's slot, a chest
+  or a doorway's approach;
+- lone crates are thinned to about one in three.
+They're stamped over the theme's look each time it's drawn (`pf_xid`/`pf_y`: two
+bytes a piece, 20 at most; work RAM is nearly full).
+
 Next, to reach the example's density: **pipes** joining neighbouring buildings,
 **props in groups against buildings** (canister racks, crate stacks, posts, solar
 panels) instead of lone crates in the open. The block limit is now 128 (2026-10-24:

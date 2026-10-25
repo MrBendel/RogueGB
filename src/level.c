@@ -162,7 +162,7 @@ uint8_t chunk_tag_ram[CHUNK_MAX], chunk_weight_ram[CHUNK_MAX];
 uint8_t chunk_count_ram;
 // The chunk picked for each chunk cell of the last map built (cy * 8 + cx);
 // watchable, for the chunk editor's preview and survey.
-uint8_t level_picks[64];
+uint8_t level_picks[CHUNK_ROWS * 8];
 uint8_t chunk_tables_loaded;
 // The area's chunk theme (content/chunks/*.json "theme"): only its chunks are picked.
 uint8_t area_theme = CHUNK_THEME_LUNAR;
@@ -236,7 +236,7 @@ static void carve(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 #define ROLE_CAMP 2
 #define ROLE_CACHE 3
 #define ROLE_MARK 4  // start or exit: the map's middle
-uint8_t roles[8 * 8];  // [cy * 8 + cx]
+uint8_t roles[CHUNK_ROWS * 8];  // [cy * 8 + cx]
 
 static const uint8_t role_tag[5] = {TAG_OPEN, TAG_ROCK, TAG_CAMP, TAG_CACHE, TAG_START};
 
@@ -274,6 +274,160 @@ static void tidy(uint8_t w, uint8_t h) {
                 }
             }
         if (!changed) break;
+    }
+}
+
+// Set pieces (content/tilesets/lunar_ext.json "prefab" pieces, cut from the pack's
+// example: the hab module, the solar station, the tank, racks...). Each building
+// the chunks left (a solid rectangle clear of the rim) is packed with them: the
+// biggest that fits along its front, then smaller ones in what's left, and any
+// block still unclaimed becomes ground. A set piece only turns solid blocks into
+// ground, so it can't cut a way off. They're stamped over the theme's look
+// (level_look_exterior), from this list, each time it's drawn.
+uint8_t pf_count, pf_xid[PF_MAX], pf_y[PF_MAX];
+static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
+#define CLAIMED 0x40  // (while planning: a block a set piece has taken)
+#define PF_BIG 3  // the first three (hab, solar, tank) go on open ground; the rest beside them
+#if TILES_LUNAR_EXT_PREFABS > 8
+#error "pf_xid keeps a set piece's index in 3 bits"
+#endif
+
+static void stamp_set_pieces(void) {
+    for (uint8_t k = 0; k < pf_count; k++) tiles_lunar_ext_stamp(pf_xid[k] >> 5, pf_xid[k] & 31, pf_y[k]);
+}
+
+// Are the w x h blocks at x, y all unclaimed blocks of the building?
+static uint8_t pf_room(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t x1, uint8_t y1) {
+    if (x + w > x1 || y + h > y1) return 0;
+    for (uint8_t j = 0; j < h; j++)
+        for (uint8_t i = 0; i < w; i++)
+            if (MAP(x + i, y + j) != BLK_SOLID) return 0;
+    return 1;
+}
+
+static void pf_place(uint8_t pf, uint8_t x, uint8_t y) {
+    if (pf_count >= PF_MAX) return;
+    pf_xid[pf_count] = x | (pf << 5);
+    pf_y[pf_count++] = y;
+    for (uint8_t j = 0; j < pf_size[pf * 2 + 1]; j++)
+        for (uint8_t i = 0; i < pf_size[pf * 2]; i++) MAP(x + i, y + j) = BLK_SOLID | CLAIMED;
+}
+
+// Open ground for a set piece: all floor, none of it a camp's slot, a chest or a
+// point that must stay reachable.
+static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
+    for (uint8_t j = 0; j < h; j++)
+        for (uint8_t i = 0; i < w; i++)
+            if (MAP(x + i, y + j) != BLK_FLOOR) return 0;
+    for (uint8_t k = 0; k < musts; k++)
+        if ((uint8_t)(must_x[k] - x) < w && (uint8_t)(must_y[k] - y) < h) return 0;  // (left or above wraps big)
+    for (uint8_t c = 0; c < level_camps; c++)
+        for (uint8_t s = 0; s < camp_slots[c]; s++)
+            if ((uint8_t)((camp_slot_x[c][s] >> 4) - x) < w && (uint8_t)((camp_slot_y[c][s] >> 4) - y) < h) return 0;
+    for (uint8_t c = 0; c < level_chests; c++)
+        if ((uint8_t)((chest_x[c] >> 4) - x) < w && (uint8_t)((chest_y[c] >> 4) - y) < h) return 0;
+    return 1;
+}
+
+// Stamp a set piece on open ground and keep it if everything that must connect
+// still does; otherwise put the ground back.
+static uint8_t try_place(uint8_t pf, uint8_t x, uint8_t y) {
+    if (pf_count >= PF_MAX) return 0;
+    tiles_lunar_ext_stamp(pf, x, y);
+    flood(must_x[0], must_y[0]);
+    uint8_t ok = 1;
+    for (uint8_t k = 1; k < musts; k++)
+        if (!(MAP(must_x[k], must_y[k]) & VISITED)) ok = 0;
+    unvisit();
+    uint8_t w = pf_size[pf * 2], h = pf_size[pf * 2 + 1];
+    if (!ok) {
+        for (uint8_t j = 0; j < h; j++)
+            for (uint8_t i = 0; i < w; i++) MAP(x + i, y + j) = BLK_FLOOR;
+        return 0;
+    }
+    pf_xid[pf_count] = x | (pf << 5);
+    pf_y[pf_count++] = y;
+    return 1;
+}
+
+static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
+    // The biggest set piece that fits, on the front (the bottom row), anywhere along it.
+    uint8_t best = 0xFF, area = 0;
+    for (uint8_t pf = 0; pf < TILES_LUNAR_EXT_PREFABS; pf++) {
+        uint8_t w = pf_size[pf * 2], h = pf_size[pf * 2 + 1];
+        if (w > x1 - x0 || h > y1 - y0 || w * h <= area) continue;
+        best = pf;
+        area = w * h;
+    }
+    if (best == 0xFF) return;  // too small for any: the theme draws it
+    uint8_t w = pf_size[best * 2], h = pf_size[best * 2 + 1];
+    pf_place(best, x0 + below(x1 - x0 - w + 1), y1 - h);
+    // The rest: the first set piece (from a random one on) that fits at each free block.
+    for (uint8_t y = y0; y < y1; y++)
+        for (uint8_t x = x0; x < x1; x++) {
+            if (MAP(x, y) != BLK_SOLID) continue;
+            uint8_t from = below(TILES_LUNAR_EXT_PREFABS);
+            for (uint8_t n = 0; n < TILES_LUNAR_EXT_PREFABS; n++) {
+                uint8_t pf = from + n < TILES_LUNAR_EXT_PREFABS ? from + n : from + n - TILES_LUNAR_EXT_PREFABS;
+                if (!pf_room(x, y, pf_size[pf * 2], pf_size[pf * 2 + 1], x1, y1)) continue;
+                pf_place(pf, x, y);
+                break;
+            }
+        }
+    for (uint8_t y = y0; y < y1; y++)
+        for (uint8_t x = x0; x < x1; x++)
+            if (MAP(x, y) == BLK_SOLID) MAP(x, y) = BLK_FLOOR;
+}
+
+static void plan_set_pieces(uint8_t w, uint8_t h) {
+    pf_count = 0;
+    // Lone blocks (the theme's crates) thinned to about one in three: props come
+    // in groups now, beside the set pieces.
+    for (uint8_t y = 1; y + 1 < h; y++)
+        for (uint8_t x = 1; x + 1 < w; x++)
+            if (MAP(x, y) == BLK_SOLID && MAP(x - 1, y) != BLK_SOLID && MAP(x + 1, y) != BLK_SOLID
+                && MAP(x, y - 1) != BLK_SOLID && MAP(x, y + 1) != BLK_SOLID && (uint8_t)(x * 7 + y * 5) % 3)
+                MAP(x, y) = BLK_FLOOR;
+    for (uint8_t y = 1; y + 1 < h; y++)
+        for (uint8_t x = 1; x + 1 < w; x++) {
+            if (MAP(x, y) != BLK_SOLID) continue;
+            // A building's top left (nothing solid above or left of it): its extent.
+            if (MAP(x - 1, y) == BLK_SOLID || MAP(x, y - 1) == BLK_SOLID) continue;
+            uint8_t x1 = x, y1 = y;
+            while (MAP(x1, y) == BLK_SOLID) x1++;
+            while (MAP(x, y1) == BLK_SOLID) y1++;
+            // Only a solid rectangle clear of the rim, with nothing solid touching it.
+            if (x1 >= w - 1 || y1 >= h - 1 || x1 - x < 1 || (x1 - x) * (y1 - y) < 2) continue;
+            uint8_t ok = 1;
+            for (uint8_t j = y - 1; j <= y1; j++)
+                for (uint8_t i = x - 1; i <= x1; i++) {
+                    uint8_t edge_x = i == x - 1 || i == x1, edge_y = j == y - 1 || j == y1;
+                    if (edge_x && edge_y) continue;  // (corners: a diagonal neighbour is fine)
+                    uint8_t solid = (MAP(i, j) & ~CLAIMED) == BLK_SOLID;
+                    if (solid == (edge_x || edge_y)) ok = 0;  // solid inside, clear around
+                }
+            if (ok) pack_building(x, y, x1, y1);
+        }
+    // The claimed blocks back to plain solid; the stamps set their types.
+    for (uint8_t y = 0; y < h; y++)
+        for (uint8_t x = 0; x < w; x++) MAP(x, y) &= ~CLAIMED;
+    stamp_set_pieces();
+    // Then on open ground, for the density of the pack's example: a big set piece
+    // now and then (about one per 120 blocks of map), each with small ones beside
+    // its front.
+    uint8_t want = (uint8_t)(((uint16_t)w * h) / 120);
+    for (uint8_t tries = 0; want && tries < 24; tries++) {
+        uint8_t big = below(PF_BIG), pw = pf_size[big * 2], ph = pf_size[big * 2 + 1];
+        if (pw + 4 > w || ph + 4 > h) continue;
+        uint8_t x = 2 + below(w - pw - 3), y = 2 + below(h - ph - 3);
+        if (!open_ground(x - 1, y - 1, pw + 2, ph + 2) || !try_place(big, x, y)) continue;
+        want--;
+        for (uint8_t side = 0; side < 2; side++) {
+            uint8_t small = PF_BIG + below(TILES_LUNAR_EXT_PREFABS - PF_BIG);
+            uint8_t sw = pf_size[small * 2], sh = pf_size[small * 2 + 1];
+            uint8_t sx = side ? x + pw : x - sw, sy = y + ph - sh;
+            if (sx >= 2 && sx + sw + 2 <= w && sy >= 2 && open_ground(sx, sy, sw, sh)) try_place(small, sx, sy);
+        }
     }
 }
 
@@ -478,8 +632,13 @@ void level_build_map(uint8_t i) BANKED {
         carve(must_x[k], must_y[k], must_x[0], must_y[0]);
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
-    if (area_type[i] == MAP_START) entrance_room();
-    else level_look_exterior();
+    if (area_type[i] == MAP_START) {
+        pf_count = 0;
+        entrance_room();
+    } else {
+        plan_set_pieces(w, h);
+        level_look_exterior();
+    }
 }
 
 // Where a building's front meets the ground, its base (as the pack's example draws
@@ -515,5 +674,6 @@ static void building_bases(void) {
 
 void level_look_exterior(void) BANKED {
     tiles_lunar_ext_apply();
+    stamp_set_pieces();
     building_bases();
 }

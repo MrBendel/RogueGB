@@ -126,7 +126,24 @@ function pieceRoles(def) {
       roles[n.split('.')[0]] ??= t === 'floor' || t === 'prop' || (t.startsWith('door') && !i) ? 'floor' : t === 'pit' ? 'pit' : 'solid';
     });
   for (const l of Object.values(def.legend || {})) roles[l.piece] ??= l.solid ? 'solid' : 'floor';  // (pieces only maps use)
+  for (const [n, p] of Object.entries(def.pieces)) if (p.prefab) roles[n] ??= 'solid';  // (set pieces)
   return roles;
+}
+
+// A set piece ("prefab": rows of block types, one character a block: "." ground,
+// "#" solid, "r" a roof you walk behind) is a piece the generator stamps whole
+// (level.c: buildings become set pieces). Its "r" blocks are walk-behind.
+const PREFAB_TYPE = { '.': 0, '#': 1, r: 0 };  // room.h BLK_*
+function blockBehind(spec, b, w) {
+  if (spec.prefab) return spec.prefab[Math.floor(b / w)][b % w] === 'r';
+  return !!spec.behind;
+}
+function prefabsOf(def, pieces) {
+  return pieces.filter((p) => def.pieces[p.piece].prefab).map((p) => {
+    const rows = def.pieces[p.piece].prefab;
+    if (rows.length !== p.h || rows.some((r) => r.length !== p.w || /[^.#r]/.test(r))) throw new Error(`prefab ${p.piece}: ${p.w} x ${p.h} blocks of . # r`);
+    return { ...p, types: rows.join('').split('').map((c) => PREFAB_TYPE[c]) };
+  });
 }
 
 export function convert(name) {
@@ -565,8 +582,8 @@ function emit(ts) {
   // Blocks of "behind" pieces: drawn over sprites (the attribute's priority bit), and
   // walkable in a generated map (the theme's apply).
   const behind = new Array(blocks.length).fill(0);
-  for (const p of pieces) if (ts.def.pieces[p.piece].behind) for (let b = 0; b < p.w * p.h; b++) behind[p.first + b] = 1;
-  const NAME = name.toUpperCase(), id = `tiles_${name}`;
+  for (const p of pieces) for (let b = 0; b < p.w * p.h; b++) if (blockBehind(ts.def.pieces[p.piece], b, p.w)) behind[p.first + b] = 1;
+  const NAME = name.toUpperCase(), id = `tiles_${name}`, prefabs = prefabsOf(ts.def, pieces);
   const bytes = stored.map((idx) => {
     const t = [];
     for (let y = 0; y < 8; y++) {
@@ -598,6 +615,11 @@ function emit(ts) {
       `extern const uint8_t ${id}_${m}_type[];  // each block's BLK_* (row-major)`,
       `extern const uint8_t ${id}_${m}_vis[];   // ... and its look (a block of this tileset)`,
     ]),
+    ...(prefabs.length ? [
+      `#define TILES_${NAME}_PREFABS ${prefabs.length}`,
+      `#define TILES_${NAME}_PF_SIZES {${prefabs.map((p) => `${p.w}, ${p.h}`).join(', ')}}  // w, h in blocks, by preference`,
+      `void ${id}_stamp(uint8_t pf, uint8_t x, uint8_t y) BANKED;  // a set piece's blocks and types, its top left at x, y`,
+    ] : []),
     ...(ts.theme ? [
       `void ${id}_load(void) BANKED;   // tiles, palettes and blocks, for a generated map`,
       `void ${id}_apply(void) BANKED;  // each block's look from the theme's rules (after a map is built)`,
@@ -618,6 +640,24 @@ function emit(ts) {
       `const uint8_t ${id}_${m}_type[] = {`, ...rowsOf(d, d.type), '};',
       `const uint8_t ${id}_${m}_vis[] = {`, ...rowsOf(d, d.vis), '};',
     ]),
+    ...(prefabs.length ? [
+      `static const uint8_t ${id}_pf_first[] = {${prefabs.map((p) => p.first).join(', ')}};`,
+      `static const uint8_t ${id}_pf_w[] = {${prefabs.map((p) => p.w).join(', ')}};`,
+      `static const uint16_t ${id}_pf_at[] = {${prefabs.map((p, i) => prefabs.slice(0, i).reduce((n, q) => n + q.types.length, 0)).join(', ')}};`,
+      `static const uint8_t ${id}_pf_h[] = {${prefabs.map((p) => p.h).join(', ')}};`,
+      `static const uint8_t ${id}_pf_types[] = {`, ...chunk(prefabs.flatMap((p) => p.types)), '};',
+      `void ${id}_stamp(uint8_t pf, uint8_t x, uint8_t y) BANKED {`,
+      `    const uint8_t *t = ${id}_pf_types + ${id}_pf_at[pf];`,
+      `    uint8_t v = ${id}_pf_first[pf];`,
+      `    for (uint8_t j = 0; j < ${id}_pf_h[pf]; j++) {`,
+      `        uint16_t k = ((uint16_t)(y + j) << 5) | x;`,
+      `        for (uint8_t i = 0; i < ${id}_pf_w[pf]; i++, k++) {`,
+      `            room_map[k] = *t++;`,
+      `            room_vis[k] = v++;`,
+      `        }`,
+      `    }`,
+      `}`,
+    ] : []),
     ...(ts.theme ? [
       `static const uint8_t ${id}_rule_start[] = {`, ...chunk(ts.theme.start), '};',
       `static const uint8_t ${id}_rule_count[] = {`, ...chunk(ts.theme.count), '};',
@@ -657,7 +697,7 @@ function writeAtlas(ts) {
   for (const p of pieces)
     for (let b = 0; b < p.w * p.h; b++) {
       names[p.first + b] = p.w * p.h > 1 ? `${p.piece}.${b}` : p.piece;
-      behind[p.first + b] = def.pieces[p.piece].behind ? 1 : 0;
+      behind[p.first + b] = blockBehind(def.pieces[p.piece], b, p.w) ? 1 : 0;
     }
   const raw = Buffer.alloc((W * 3 + 1) * 16);
   for (let y = 0; y < 16; y++) rgb.copy(raw, y * (W * 3 + 1) + 1, y * W * 3, (y + 1) * W * 3);

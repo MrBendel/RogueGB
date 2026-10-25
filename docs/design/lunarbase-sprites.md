@@ -161,6 +161,18 @@ striped `roof_cst`, vent `roof_v`; fronts `face_l face_c face_c2 face_c3 face_r`
 raised platforms `deck_*` (the roof without walk-behind); props `crate`,
 `crate_stack`, `boulder`; pits `pit` (the vent, for now).
 
+Set pieces (`pf_*`, cut from the example; level.c stamps them whole):
+
+| Set piece | Size (blocks) | From the example |
+|---|---|---|
+| `pf_hab` | 4x5 | the "01" module (widened by a column to an even width): roof with `a4` vents, the "01" and stripes as decals, the front with the door's grate `d6 e6`, the step `fe ff` and ground vents below |
+| `pf_solar` | 3x4 | the solar station: frame `ca da cb cc cd`, panels `db`-`fd`, front `05 07 27 65`, legs `09 17 79` |
+| `pf_tank` | 2x3 | the tank `0a 2a 2ax 0ax` down to its hatch `3e 4e` |
+| `pf_grill` | 3x1 | the grilled machine `c7 17 19 19 17x c7` |
+| `pf_pads` | 2x1 | orange canisters on checker plates `72 82` |
+| `pf_rack` | 1x2 | the canister rack `f5 f6 f7` |
+| `pf_panel` | 1x2 | a solar panel stand `8b 9b`-`8e` |
+
 Building bases (level.c `building_bases`, after the theme's rules): `face_door`
 (`65 65 / d6 e6`: the front with the door's grate) with `step` below it (`fe fex /
 ff ffx`, the orange step out on the ground), and `vents` (`3a 5a`, two black ground
