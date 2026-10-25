@@ -1,6 +1,7 @@
 #pragma bank 255
 #include "globfather.h"
 #include <gb/cgb.h>
+#include <gb/metasprites.h>
 #include "boss.h"
 #include "aim.h"
 #include "actor_internal.h"
@@ -12,6 +13,8 @@
 #include "globfather_art.inc"
 
 extern uint8_t oam_next,draw_rotation;
+extern uint16_t pal_obj[PAL_COUNT*4];
+extern volatile uint8_t pal_dirty;
 void actors_emit(void);
 // Size 3: king, 2: medium, 1: small. A nonzero size also remembers a killed
 // parent after the ordinary shot reaper frees its actor slot.
@@ -77,9 +80,13 @@ void globfather_start(void) BANKED {
  glob_attacker=0xff;glob_alive=1;glob_defeated=0;glob_splits=glob_hops=glob_landings=0;
  for(uint8_t i=0;i<ACTOR_MAX;i++)glob_size[i]=glob_state[i]=glob_timer[i]=glob_z[i]=0;
  spawn(3,72,76,24);boss_slot=0;
- pal_base_obj[SPR_PAL_SHOOTER*4+1]=RGB(26,26,19);
- pal_base_obj[SPR_PAL_SHOOTER*4+2]=RGB(15,20,13);
- pal_base_obj[SPR_PAL_SHOOTER*4+3]=RGB(11,8,4);
+ pal_base_obj[SPR_PAL_SHOOTER*4+1]=RGB(31,31,20);
+ pal_base_obj[SPR_PAL_SHOOTER*4+2]=RGB(22,31,3);
+ pal_base_obj[SPR_PAL_SHOOTER*4+3]=RGB(7,2,12);
+ // The king and mediums never coexist, so they share one palette slot.
+ pal_base_obj[SPR_PAL_SLIME*4+1]=RGB(31,24,30);
+ pal_base_obj[SPR_PAL_SLIME*4+2]=RGB(31,5,20);
+ pal_base_obj[SPR_PAL_SLIME*4+3]=RGB(7,2,12);
  enemy_bullet_damage=8;enemy_bullet_cause=17;
  health_give_shield(SHIELD_START_CAP,SHIELD_START_DELAY,SHIELD_START_RATE);
  bkg_text(1,0,"GLOBFATHER");
@@ -99,6 +106,11 @@ void globfather_update(void) BANKED {
   bullet_count=0;
   for(uint8_t d=0;d<dead;d++)if(dead_size[d]>1) {
    uint8_t size=dead_size[d]-1;int8_t offset=size==2?22:12;
+   if(size==2) {
+    pal_obj[SPR_PAL_SHOOTER*4+1]=pal_base_obj[SPR_PAL_SHOOTER*4+1]=RGB(23,31,30);
+    pal_obj[SPR_PAL_SHOOTER*4+2]=pal_base_obj[SPR_PAL_SHOOTER*4+2]=RGB(2,27,24);
+    pal_dirty=1;
+   }
    spawn(size,(int16_t)dead_x[d]-offset,dead_y[d]-10,24);
    spawn(size,(int16_t)dead_x[d]+offset,dead_y[d]+10,40);
    if(size==1) {
@@ -154,7 +166,7 @@ void globfather_emit(void) BANKED {
    uint8_t state=glob_state[i];
    actor_t0[i]=glob_parts[glob_first[state==2?1:0]][2];
    actor_t1[i]=actor_t0[i]+2;
-   actor_p0[i]=actor_p1[i]=SPR_PAL_SHOOTER;
+   actor_p0[i]=actor_p1[i]=SPR_PAL_SLIME;
    actor_flash[i]=actor_hurt[i] || ((state==3 || state==1) && (glob_timer[i]&4));
   }
   uint8_t jumping=glob_attacker;
@@ -163,32 +175,43 @@ void globfather_emit(void) BANKED {
   if(jumping!=0xff)actor_y[jumping]+=glob_z[jumping];
   return;
  }
- uint8_t prop=11;
+ uint8_t slot=11;
+ uint8_t tops[5],ends[5],widths[5],accepted=0;
  // Rotate descendants so a crowded scanline cannot keep hiding the same slime.
  // Eight small slimes still use only 16 sprites (the king uses 17).
  for(uint8_t n=0;n<ACTOR_MAX;n++) {
-  uint8_t i=(n+draw_rotation)&(ACTOR_MAX-1);
+  uint8_t i=draw_rotation&1?ACTOR_MAX-1-n:n;
   if(!glob_size[i] || !actor_type[i] || !actor_hp[i])continue;
   uint8_t size=glob_size[i],state=glob_state[i];
   uint8_t frame=(size-1)*2+(state==2?1:0);
   if(size==3 && state==1)frame=6;
-  uint8_t pal=actor_hurt[i] || ((state==3 || state==1) && (glob_timer[i]&4))?SPR_PAL_FLASH:SPR_PAL_SHOOTER;
+  uint8_t pal=actor_hurt[i] || ((state==3 || state==1) && (glob_timer[i]&4))?SPR_PAL_FLASH:size==1?SPR_PAL_SLIME:SPR_PAL_SHOOTER;
   uint8_t end=glob_first[frame]+glob_count[frame];
   uint8_t sx=actor_x[i]+16-cam_x,sy=actor_y[i]+32-glob_z[i]-cam_y;
-  if(size==3) {
-   glob_draw_top=sy+glob_parts[glob_first[frame]][1];
-   glob_draw_bottom=sy+16+glob_parts[end-1][1];
+  if(size>=1) {
+   uint8_t top=sy+glob_parts[glob_first[frame]][1],bottom=sy+16+glob_parts[end-1][1];
+   if(!glob_draw_bottom || top<glob_draw_top)glob_draw_top=top;
+   if(bottom>glob_draw_bottom)glob_draw_bottom=bottom;
   }
-  for(uint8_t p=glob_first[frame];p<end;p++) {
-   uint8_t slot=prop<15?prop++:oam_next++;
-   shadow_OAM[slot].x=sx+glob_parts[p][0];
-   shadow_OAM[slot].y=sy+glob_parts[p][1];
-   shadow_OAM[slot].tile=glob_parts[p][2];shadow_OAM[slot].prop=pal;
+  uint8_t fits=1;
+  if(boss_phase==2) {
+   uint8_t top=sy+glob_parts[glob_first[frame]][1],bottom=top+(size==2?32:16);
+   uint8_t width=size==2?4:2,used=width;
+   for(uint8_t j=0;j<accepted;j++)if(top<ends[j] && bottom>tops[j])used+=widths[j];
+   fits=used<=6;
+   if(fits){tops[accepted]=top;ends[accepted]=bottom;widths[accepted]=width;accepted++;}
   }
+  uint8_t count=glob_count[frame];
+  if(fits)move_metasprite_ex(glob_meta[frame],0,pal,slot,sx,sy);
+  else for(uint8_t p=0;p<count;p++) {
+   shadow_OAM[slot+p].y=0;shadow_OAM[slot+p].tile=glob_parts[glob_first[frame]+p][2];
+  }
+  slot+=count;
+
  }
+ if(slot>15)oam_next=slot;
 }
 void globfather_draw(void) BANKED {
- // Six body columns leave four hardware sprites for player/weapon overlays.
- // Called after aim_update and player_draw so the budget sees this frame's OAM.
+ // Reserve four columns for the player/shadow and paired weapon overlays.
  if(glob_draw_bottom)aim_limit_overlays(glob_draw_top,glob_draw_bottom,4);
 }

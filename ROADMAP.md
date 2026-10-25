@@ -375,6 +375,7 @@ throw, with crouch/landing pauses and a moving ground shadow.
 
 - Globfather boss playtest: imported local SGQ slime family, with independent
   large -> two medium -> eight small splitting (four per medium). Warned hops, landing splashes,
-  spawn grace, and a health meter covering the complete family. Available from
+  spawn grace, and a health meter covering the complete family. Lime/turquoise/pink
+  generations and whole-body visibility budgeting for crowded medium stages. Available from
   Combat -> Bosses -> Globfather. See docs/design/bosses.md for sprite budgets
   and the current central-hitbox limitation.

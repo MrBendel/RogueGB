@@ -318,6 +318,13 @@ compile to 142 tiles and at most 17 simultaneous body sprites. Large/medium form
 use prop OAM 11-14 for four body parts; the rest begin at 15. The eight-small
 phase uses the fast two-part actor renderer from slot 15, rotating priority so
 crowded rows do not keep hiding the same slime. Enemy splashes draw before player shots.
+The family uses a candy palette: electric-lime king with pale-yellow highlights,
+turquoise mediums with icy highlights, and hot-pink small slimes with pale-pink
+highlights, all outlined in deep purple. King and mediums share one palette slot
+(they never coexist); small slimes use a separate slot, including mixed stages.
+Medium-stage rendering budgets complete bodies against the ten-sprites-per-row
+limit. Optional weapon overlays yield first; crowded bodies alternate visibility
+as whole sprites instead of losing corners. Player and jump shadows remain intact.
 The prototype retains the shared central actor hitbox at the slime's base; the
 entire large silhouette is not yet a bullet target. This is a playtest limitation.
 
