@@ -67,9 +67,10 @@ static void link(uint8_t a, uint8_t d) {
     area_links[neighbour(a, d)] |= edge_bit[(d + 2) & 3];
 }
 
-// Field map sizes in chunks (w, h): 3x2 to 3x4 screens.
-static const uint8_t field_w[5] = {6, 6, 4, 6, 5};
-static const uint8_t field_h[5] = {4, 6, 6, 8, 6};
+// Field map sizes in chunks (w, h): 2x3 to 3x3 screens (at most 24 blocks tall:
+// room.h ROOM_MAX_H).
+static const uint8_t field_w[5] = {6, 6, 4, 5, 5};
+static const uint8_t field_h[5] = {4, 6, 6, 4, 6};
 
 void level_generate(uint16_t seed) BANKED {
     level_rng = seed ? seed : 0xACE1;

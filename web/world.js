@@ -15,7 +15,7 @@ const $ = (id) => document.getElementById(id);
 const AREA_W = 4, AREA_H = 3, CELLS = AREA_W * AREA_H;
 const MAP_START = 1, MAP_EXIT = 3;
 const DEPTH_STEP = 7919;            // descent.c: an area's seed is the run seed + depth * 7919
-const ROOM_MAP = 0xd400, ROOM_VIS = 0xd800;  // room.h
+const ROOM_MAP = 0xd400, ROOM_VIS = 0xd700;  // room.h
 const BLK = 16, GAP = 3;            // px a block; blocks between maps in the area view
 const EDGES = [1, 2, 4, 8];         // N E S W (level.h EDGE_*), the order of level_open
 const TYPE_COL = ['#cfd8dc', '#3a4048', '#0e1114', '#9a8466', '#d9a52b', '#8aa0aa', '#aaa088'];

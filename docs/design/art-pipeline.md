@@ -47,7 +47,7 @@ opaque tile replaces them). Ours can be committed; it's only used where the pack
 ## Limits (the build fails past them)
 
 - **176 tiles** per scene (background tiles 80-255). The ice town uses 139.
-- **64 blocks** per tileset (the block look-up tables). The ice set has 54.
+- **128 blocks** per tileset (the block look-up tables: room.h; 64 until 2026-10-24). The ice set has 54.
 - **4 colours per 8x8 tile**, 6 palettes. Art that keeps to shared ramps (one
   outline colour, one snow white, a ramp per material) converts without loss.
 
@@ -74,7 +74,7 @@ the roof's lower row).
 Props: crate, barrel, signpost, fire barrel, drum, ammo tub, vending machine,
 lockers, chest, gun box.
 
-The town uses 63 of the 64 blocks: the open chest and gun box, the safe, the shelf
+The town used 63 of the then 64 blocks: the open chest and gun box, the safe, the shelf
 and the second ice sheet are out for now (a second tileset, or interiors, can take
 them).
 

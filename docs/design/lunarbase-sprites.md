@@ -167,5 +167,4 @@ ff ffx`, the orange step out on the ground), and `vents` (`3a 5a`, two black gro
 vents) under some of the rest of a front. Read from the example: under its big
 module the grate runs on down (`d7 e7`) to the step; pipes (`29 89 99`, `39`, `6a
 7a`, `17 17x`), canister racks (`f5 f6 f7`), posts (`2f`) and solar panels (`8b 9b /
-8c 9c / 8d 9d`, base `8e`) sit around the modules: not used yet (the 64-block
-limit).
+8c 9c / 8d 9d`, base `8e`) sit around the modules: not used yet.

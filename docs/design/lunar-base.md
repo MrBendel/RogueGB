@@ -66,9 +66,9 @@ some of the rest); calmer ground (mostly plain regolith, few patches and craters
 
 Next, to reach the example's density: **pipes** joining neighbouring buildings,
 **props in groups against buildings** (canister racks, crate stacks, posts, solar
-panels) instead of lone crates in the open, and the **64-block limit** raised (the
-look-up tables in room.h are a 256-byte page each; 128 blocks needs two pages each
-and room_fill.s changed), since the example's vocabulary doesn't fit in 64.
+panels) instead of lone crates in the open. The block limit is now 128 (2026-10-24:
+room.h's LUT is a page per quadrant; maps went to 24 rows to make room), since the
+example's vocabulary doesn't fit in 64.
 
 ## Decals
 

@@ -144,7 +144,7 @@ and shop contents, mission types. Details in [level-generation.md](level-generat
 
 **Agreed:** expeditions are explored, not cleared room by room. An **area** is a
 handful of linked **maps**; each map is open ground you roam freely (up to about
-3×4 screens), and its edges open onto neighbouring maps. Progression feels like
+3×3 screens; 3×4 until 2026-10-24, when maps went to 24 rows for 128 visual blocks), and its edges open onto neighbouring maps. Progression feels like
 Borderlands: **guns are the real level-up mechanic**, and play is about roaming,
 looting chests and killing enemies.
 

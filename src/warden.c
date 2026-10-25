@@ -40,9 +40,9 @@ void warden_room(void) BANKED {
     }
     set_bkg_data(SCENE_TILES+10,3,tiles);
     for(uint8_t q=0;q<4;q++) {
-        room_tile_lut[BLK_STAIRS*4+q]=SCENE_TILES+10;
-        room_tile_lut[BLK_DECK*4+q]=SCENE_TILES+11;
-        room_tile_lut[BLK_SOLID*4+q]=SCENE_TILES+12;
+        ROOM_TILE(BLK_STAIRS, q)=SCENE_TILES+10;
+        ROOM_TILE(BLK_DECK, q)=SCENE_TILES+11;
+        ROOM_TILE(BLK_SOLID, q)=SCENE_TILES+12;
     }
 }
 

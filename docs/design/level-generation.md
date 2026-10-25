@@ -68,12 +68,13 @@ needs per-tile palette attributes streamed with the map.
 ## Map size
 
 The playfield is one screen: 10×8 blocks (160×128 px). The engine handles maps up
-to 32×32 blocks with a scrolling camera.
+to 32×24 blocks with a scrolling camera (24 rows since 2026-10-24: the work RAM went
+to 128 visual blocks; room.h).
 
 | Map | Size | Notes |
 |---|---|---|
 | Start, way onward | 2×2 screens (4×4 chunks) | Arrival and departure |
-| Field | 3×2 to 3×4 screens (6×4 to 6×8 chunks) | Open ground, 1–2 camps, sometimes a cache |
+| Field | 2×3 to 3×3 screens (4×6 to 6×6 chunks) | Open ground, 1–2 camps, sometimes a cache |
 
 ## Enemies and camps
 

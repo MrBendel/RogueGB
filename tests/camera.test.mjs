@@ -234,7 +234,8 @@ test('scrolling streams each tile\'s attributes (palette) along with it, from th
   const emu = startRun().idle(30);
   const a = (n) => emu.symbols.addr(n);
   // Floor (visual block 0) in palette 5, everything else as loaded: attributes are no longer uniform.
-  for (let q = 0; q < 4; q++) emu.write8(a('room_attr_lut') + q, 5);
+  // (room.h: a page per quadrant, attributes in its upper half)
+  for (let q = 0; q < 4; q++) emu.write8(a('room_lut') + q * 256 + 0x80, 5);
   emu.write8(a('room_attr_uniform'), 0);
   // What's drawn already keeps its attributes; only cells streamed in from now on
   // (outside the drawn area: 23x19 tiles from drawn_tx/ty) get the new ones.

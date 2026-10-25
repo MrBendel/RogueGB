@@ -41,7 +41,7 @@ export function artPath(src) {
   for (const r of PACK_ROOTS) if (fs.existsSync(path.join(r, rel))) return path.join(r, rel);
   return path.join(PACK_ROOTS[PACK_ROOTS.length - 1], rel);  // (missing: the stand-in path reports it)
 }  // background tiles 80-255 (gfx.h SCENE_TILES)
-const MAX_BLOCKS = 64;         // room.h VIS_BLOCKS
+const MAX_BLOCKS = 128;        // room.h VIS_BLOCKS
 
 // --- colours: 0xRRGGBB, rounded to 5 bits a channel ---
 const round5 = (v) => ((v >> 3) << 3) | (v >> 5);
@@ -471,11 +471,12 @@ function themeSource(id, NAME) {
 void ${id}_load(void) BANKED {
     set_bkg_data(SCENE_TILES, TILES_${NAME}_TILE_COUNT, ${id}_tiles);
     memcpy(pal_base_bg, ${id}_pals, TILES_${NAME}_PALETTES * 4 * sizeof(uint16_t));
-    for (uint16_t i = 0; i < VIS_BLOCKS * 4; i++) {
-        uint8_t b = i < TILES_${NAME}_BLOCKS * 4 ? i : 0;
-        room_tile_lut[i] = SCENE_TILES + ${id}_blocks[b];
-        room_attr_lut[i] = ${id}_attrs[b];
-    }
+    for (uint8_t v = 0; v < VIS_BLOCKS; v++)
+        for (uint8_t q = 0; q < 4; q++) {
+            uint16_t b = v < TILES_${NAME}_BLOCKS ? (uint16_t)v * 4 + q : q;
+            ROOM_TILE(v, q) = SCENE_TILES + ${id}_blocks[b];
+            ROOM_ATTR(v, q) = ${id}_attrs[b];
+        }
     room_attr_uniform = 0;
 }
 

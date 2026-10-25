@@ -160,8 +160,8 @@ void room_load_yard(void) BANKED {
     }
     for (uint8_t v = 0; v < V_COUNT; v++) {
         for (uint8_t q = 0; q < 4; q++) {
-            room_tile_lut[(v << 2) | q] = SCENE_TILES + vtile[v][q];
-            room_attr_lut[(v << 2) | q] = vattr[v][q];
+            ROOM_TILE(v, q) = SCENE_TILES + vtile[v][q];
+            ROOM_ATTR(v, q) = vattr[v][q];
         }
     }
     room_attr_uniform = 0;  // six palettes and flips: stream attributes while scrolling

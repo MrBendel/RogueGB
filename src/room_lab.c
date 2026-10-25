@@ -104,18 +104,21 @@ static const char lab_layout[LAB_H][LAB_W + 1] = {
 // 0. Generated maps (level.c) use them too until themes come in.
 void room_load_tiles(void) BANKED {
     set_bkg_data(SCENE_TILES, ROOM_TILE_COUNT, room_tiles);
-    for (uint16_t i = 0; i < VIS_BLOCKS * 4; i++) {
-        room_tile_lut[i] = i < sizeof(block_tiles) ? block_tiles[i] : TILE_FLOOR;
-        room_attr_lut[i] = BG_PAL_SCENE;
-    }
+    for (uint8_t v = 0; v < VIS_BLOCKS; v++)
+        for (uint8_t q = 0; q < 4; q++) {
+            uint16_t i = (uint16_t)v * 4 + q;
+            ROOM_TILE(v, q) = i < sizeof(block_tiles) ? block_tiles[i] : TILE_FLOOR;
+            ROOM_ATTR(v, q) = BG_PAL_SCENE;
+        }
     // One set of attributes for every tile: write them across the attribute map
     // now (the display is off), and scrolling needn't stream any.
     room_attr_uniform = 1;
-    for (uint16_t i = 1; i < VIS_BLOCKS * 4; i++)
-        if (room_attr_lut[i] != room_attr_lut[0]) room_attr_uniform = 0;
+    for (uint8_t v = 0; v < VIS_BLOCKS; v++)
+        for (uint8_t q = 0; q < 4; q++)
+            if (ROOM_ATTR(v, q) != ROOM_ATTR(0, 0)) room_attr_uniform = 0;
     if (room_attr_uniform) {
         VBK_REG = 1;
-        fill_bkg_rect(0, 0, 32, 32, room_attr_lut[0]);
+        fill_bkg_rect(0, 0, 32, 32, ROOM_ATTR(0, 0));
         VBK_REG = 0;
     }
 }

@@ -2,11 +2,11 @@
 ; called from room_draw_row / room_draw_column (room.c) while the camera scrolls.
 ;
 ; Inputs (globals set by room.c): fill_dst (buffer), fill_tx, fill_ty (room tile
-; coordinates), fill_n (tiles, at least 1), fill_lut (the lookup page: tiles or
-; attributes). It reads the visual map at 0xD800 (rows of 32 blocks: address =
-; 0xD800 | by << 5 | bx) and writes lut[vis << 2 | (ty & 1) << 1 | (tx & 1)], with
-; lut the 256-byte page at fill_lut << 8 (room.h: 0xDC00 tiles, 0xDD00 attributes).
-; The collision lookups below read the block-type map at 0xD400.
+; coordinates), fill_n (tiles, at least 1), fill_lut (which half of the lookup:
+; tiles 0, attributes 0x80). It reads the visual map at 0xD700 (rows of 32 blocks:
+; address = 0xD700 + (by << 5 | bx)) and writes the LUT entry of each block's
+; quadrant: page 0xDA + quadrant ((ty & 1) << 1 | (tx & 1)), entry vis | fill_lut
+; (room.h). The collision lookups below read the block-type map at 0xD400.
 ;
 ; A block is 2x2 tiles, so the loops read each block once and write both of its
 ; tiles along the strip (~90 cycles per tile; a tile at a time was ~260). The
@@ -17,7 +17,11 @@
     .globl _fill_dst, _fill_tx, _fill_ty, _fill_n, _fill_lut, _room_w, _room_h
 
 MAP_HI = 0xD4       ; block types (room.h ROOM_MAP_ADDR)
-VIS_HI = 0xD8       ; visual blocks (ROOM_VIS_ADDR)
+VIS_HI = 0xD7       ; visual blocks (ROOM_VIS_ADDR), 24 rows: 3 pages. Rows still
+                    ; wrap at 32 (a strip from a tile above the room starts on row
+                    ; 31 and wraps to 0); rows 24-31 read the LUT's first page, only
+                    ; ever for tiles outside the room (off screen).
+LUT_HI = 0xDA       ; a page per quadrant (ROOM_LUT_ADDR)
 
     .area _DATA
 count:   .ds 1      ; block pairs left
@@ -25,7 +29,7 @@ odd:     .ds 1      ; 1 if a lone tile is left after the pairs
 
     .area _CODE
 
-; hl = 0xD800 | (fill_ty >> 1 & 31) << 5 | (fill_tx >> 1 & 31); de = fill_dst
+; hl = 0xD700 + ((fill_ty >> 1 & 31) << 5 | (fill_tx >> 1 & 31)); de = fill_dst
 .macro FILL_SETUP
     ld a, (_fill_ty)
     srl a
@@ -52,13 +56,20 @@ odd:     .ds 1      ; 1 if a lone tile is left after the pairs
     ld d, a
 .endm
 
-; LUT entry of the block at hl, quadrant q, to (de++). b holds the LUT page.
-.macro PUT q
+; c = the block at hl, keeping c's bit 7 (the LUT half: tiles or attributes).
+; Visual blocks are 0-127, so the entry is the block itself in the right half.
+.macro LOOKUP
     ld a, (hl)
-    add a, a
-    add a, a
-    or a, #q
+    xor a, c
+    and a, #0x7F
+    xor a, c
     ld c, a
+.endm
+
+; LUT entry of the block at hl, quadrant q, to (de++).
+.macro PUT q
+    ld b, #LUT_HI + q
+    LOOKUP
     ld a, (bc)
     ld (de), a
     inc de
@@ -93,23 +104,21 @@ odd:     .ds 1      ; 1 if a lone tile is left after the pairs
     sub a, #32
     ld l, a
 1$:
+    ld b, #LUT_HI + q       ; the left halves' page (the right's is the next)
     SPLIT_COUNT
     ld a, (count)
     or a, a
     jr z, 3$
 2$:
-    ld a, (hl)
-    add a, a
-    add a, a
-    or a, #q
-    ld c, a
+    LOOKUP
     ld a, (bc)
     ld (de), a
     inc de
-    inc c
+    inc b
     ld a, (bc)
     ld (de), a
     inc de
+    dec b
     inc l
     ld a, l
     and a, #31
@@ -151,24 +160,23 @@ odd:     .ds 1      ; 1 if a lone tile is left after the pairs
     jr nz, 1$
     ld h, #VIS_HI
 1$:
+    ld b, #LUT_HI + q       ; the top halves' page (the bottom's is two on)
     SPLIT_COUNT
     ld a, (count)
     or a, a
     jr z, 3$
 2$:
-    ld a, (hl)
-    add a, a
-    add a, a
-    or a, #q
-    ld c, a
+    LOOKUP
     ld a, (bc)
     ld (de), a
     inc de
-    inc c
-    inc c
+    inc b
+    inc b
     ld a, (bc)
     ld (de), a
     inc de
+    dec b
+    dec b
     ld a, l
     add a, #32
     ld l, a
@@ -195,7 +203,7 @@ odd:     .ds 1      ; 1 if a lone tile is left after the pairs
 _room_fill_row::
     FILL_SETUP
     ld a, (_fill_lut)
-    ld b, a                 ; b = the LUT page for the whole strip
+    ld c, a                 ; c's bit 7: the LUT half for the whole strip
     ld a, (_fill_ty)
     rra
     jp c, fill_row_bottom
@@ -207,7 +215,7 @@ fill_row_bottom:
 _room_fill_column::
     FILL_SETUP
     ld a, (_fill_lut)
-    ld b, a
+    ld c, a
     ld a, (_fill_tx)
     rra
     jp c, fill_col_right

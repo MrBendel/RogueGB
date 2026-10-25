@@ -21,9 +21,15 @@ void room_load_town(void) BANKED {
     banked_bkg_data(SCENE_TILES, TILES_ICE_TILE_COUNT, tiles_ice_tiles, bank);
     banked_memcpy(pal_base_bg, tiles_ice_pals, TILES_ICE_PALETTES * 4 * sizeof(uint16_t), bank);
     // Each block's 4 tiles (as scene tiles) and their attributes (palette, flips).
-    banked_memcpy(room_tile_lut, tiles_ice_blocks, TILES_ICE_BLOCKS * 4, bank);
-    banked_memcpy(room_attr_lut, tiles_ice_attrs, TILES_ICE_BLOCKS * 4, bank);
-    for (uint16_t i = 0; i < TILES_ICE_BLOCKS * 4; i++) room_tile_lut[i] += SCENE_TILES;
+    for (uint8_t v = 0; v < TILES_ICE_BLOCKS; v++) {
+        uint8_t t[4], a[4];
+        banked_memcpy(t, tiles_ice_blocks + (uint16_t)v * 4, 4, bank);
+        banked_memcpy(a, tiles_ice_attrs + (uint16_t)v * 4, 4, bank);
+        for (uint8_t q = 0; q < 4; q++) {
+            ROOM_TILE(v, q) = SCENE_TILES + t[q];
+            ROOM_ATTR(v, q) = a[q];
+        }
+    }
     room_attr_uniform = 0;  // palettes and flips per tile: stream attributes while scrolling
 
     room_w = TOWN_W;

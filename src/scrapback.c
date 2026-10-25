@@ -138,7 +138,7 @@ static void acid_draw(void) {
                     uint8_t x=tx+col,y=ty+row;
                     uint8_t v=room_vis[((uint16_t)(y>>1)<<5)|(x>>1)];
                     strip[col]=room_tile_at(x,y);
-                    strip[STRIP_MAX_LEN+col]=room_attr_lut[(v<<2)|((y&1)<<1)|(x&1)];
+                    strip[STRIP_MAX_LEN+col]=ROOM_ATTR(v, ((y&1)<<1)|(x&1));
                 }
             }
         }

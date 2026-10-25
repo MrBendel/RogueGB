@@ -16,7 +16,7 @@
 #define VIEW_W 160          // visible playfield in pixels
 #define VIEW_H 128
 #define ROOM_MAX_W 32       // blocks; the map's row stride, so indexing is a shift
-#define ROOM_MAX_H 32
+#define ROOM_MAX_H 24       // (work RAM is full: 24 rows leaves room for 128 visual blocks)
 
 // Block types.
 #define BLK_FLOOR 0
@@ -36,25 +36,28 @@ extern uint16_t room_px_w;  // size in pixels
 extern uint16_t room_px_h;
 // Work RAM layout (globals start at 0xC0A0 and grow up; tools/build.mjs fails the
 // build if they reach ROOM_MAP_ADDR):
-//   0xD400  room_map: each block's type (BLK_*): collision, pits, height
-//   0xD800  room_vis: each block's look: a visual block id (0-63) into the LUTs
-//   0xDC00  room_tile_lut: tile for (visual block << 2 | quadrant)
-//   0xDD00  room_attr_lut: tile attributes for the same (palette, VRAM bank, flips)
+//   0xD400  room_map: each block's type (BLK_*): collision, pits, height (24 rows)
+//   0xD700  room_vis: each block's look: a visual block id (0-127) into the LUT
+//   0xDA00  room_lut: a 256-byte page per quadrant of a block (top left, top right,
+//           bottom left, bottom right): the tile for visual block v at [v], its
+//           attributes (palette, VRAM bank, flips, priority) at [v | 0x80]
 //   0xDE00  the stack, growing down from 0xDFFF (512 bytes; ~220 used at most)
 // The maps are 256-aligned with rows of 32, so a block's address is just
-// ADDR | (by << 5) | bx (no tables); room_fill.s, bullets.s and shots.s rely on it.
+// ADDR + (by << 5 | bx) with the high byte ADDR's plus by >> 3 (no tables);
+// room_fill.s, bullets.s and shots.s rely on it.
 #define ROOM_MAP_ADDR 0xD400
-#define ROOM_VIS_ADDR 0xD800
-#define ROOM_TILE_LUT_ADDR 0xDC00
-#define ROOM_ATTR_LUT_ADDR 0xDD00
-#define VIS_BLOCKS 64  // visual blocks per theme (4 quadrants each fill a 256-byte page)
+#define ROOM_VIS_ADDR 0xD700
+#define ROOM_LUT_ADDR 0xDA00
+#define VIS_BLOCKS 128  // visual blocks per theme
+#define LUT_ATTR 0x80   // the attributes' half of a quadrant's page
+#define ROOM_TILE(v, q) room_lut[q][v]             // quadrant q: (ty & 1) << 1 | (tx & 1)
+#define ROOM_ATTR(v, q) room_lut[q][(v) | LUT_ATTR]
 // 1 when every tile of the theme has the same attributes: then they're written
 // once when the room loads (room_load_tiles) and scrolling skips them.
 extern uint8_t room_attr_uniform;
 extern uint8_t __at(ROOM_MAP_ADDR) room_map[ROOM_MAX_W * ROOM_MAX_H];  // row-major, stride ROOM_MAX_W
 extern uint8_t __at(ROOM_VIS_ADDR) room_vis[ROOM_MAX_W * ROOM_MAX_H];
-extern uint8_t __at(ROOM_TILE_LUT_ADDR) room_tile_lut[VIS_BLOCKS * 4];  // filled by the room loader
-extern uint8_t __at(ROOM_ATTR_LUT_ADDR) room_attr_lut[VIS_BLOCKS * 4];
+extern uint8_t __at(ROOM_LUT_ADDR) room_lut[4][256];  // filled by the room loader
 
 // Load the movement-lab room (2x2 screens) and its tiles.
 #include <gb/gb.h>
@@ -84,8 +87,9 @@ extern int16_t line_sx, line_sy;
 extern uint8_t line_n;
 uint8_t room_line_clear(void);
 
-// Background tile for room tile coordinates (8x8 tiles; 2x2 per block).
-uint8_t room_tile_at(uint8_t tx, uint8_t ty);
+// Background tile for room tile coordinates (8x8 tiles; 2x2 per block). A macro:
+// only banked code (the bosses' arenas) uses it, so it costs bank 0 nothing.
+#define room_tile_at(tx, ty)     ROOM_TILE(room_vis[((uint16_t)(((ty) >> 1) & 31) << 5) | (((tx) >> 1) & 31)], (((ty) & 1) << 1) | ((tx) & 1))
 // Queue a column of `h` tiles / a row of `w` tiles for the background map; the
 // vblank interrupt writes them (see gfx_strip). Rows longer than a strip are split.
 void room_draw_column(uint8_t tx, uint8_t ty, uint8_t h);
