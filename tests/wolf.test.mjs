@@ -3,7 +3,7 @@ import {assert,bootToTitle,settle,PLAY,FRAME_LIMIT} from './helpers.mjs';
 const at=(e,n)=>e.symbols.addr(n),put=(e,n,v)=>e.write8(at(e,n),v);
 const put16=(e,n,v)=>e.writeBytes(at(e,n),[v&255,(v>>8)&255]);
 function trial(delay=9){
- const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(delay);
+ const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('DOWN').tap('DOWN').idle(delay);
  assert.equal(e.v('title_choice'),2);e.shot('wolf-menu');
  return settle(e.tap('A'),PLAY).idle(3);
 }

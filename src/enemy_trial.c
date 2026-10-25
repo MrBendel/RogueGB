@@ -9,6 +9,7 @@
 #include "acid_skimmer.h"
 #include "mercenary.h"
 #include "acid_wolf.h"
+#include "rift_stalker.h"
 
 uint8_t enemy_trial_kind, enemy_trial_cleared;
 
@@ -20,14 +21,16 @@ void enemy_trial_start(void) BANKED {
     slime_rest = 26;
     slime_speed = 192;
     health_give_shield(SHIELD_START_CAP, SHIELD_START_DELAY, SHIELD_START_RATE);
-    if(enemy_trial_kind==2)acid_wolf_start();
+    if(enemy_trial_kind==3)rift_stalker_start();
+    else if(enemy_trial_kind==2)acid_wolf_start();
     else if(enemy_trial_kind==1)mercenary_start();else acid_skimmer_start();
-    bkg_text(1, 0, enemy_trial_kind==2?"ACID WOLF":enemy_trial_kind?"MERCENARY":"ACID SKIMMER");
-    bkg_text(1, 1, enemy_trial_kind==2?"BAIT LEAP THEN HIT":enemy_trial_kind?"PUNISH THE RELOAD":"LEAVE ACID MARKS");
+    bkg_text(1, 0, enemy_trial_kind==3?"RIFT STALKER":enemy_trial_kind==2?"ACID WOLF":enemy_trial_kind?"MERCENARY":"ACID SKIMMER");
+    bkg_text(1, 1, enemy_trial_kind==3?"DODGE THEN PUNISH":enemy_trial_kind==2?"BAIT LEAP THEN HIT":enemy_trial_kind?"PUNISH THE RELOAD":"LEAVE ACID MARKS");
 }
 
 void enemy_trial_update(void) BANKED {
-    if(enemy_trial_kind==2)acid_wolf_update();
+    if(enemy_trial_kind==3)rift_stalker_update();
+    else if(enemy_trial_kind==2)acid_wolf_update();
     else if(enemy_trial_kind==1)mercenary_update();else acid_skimmer_update();
 
     if (enemy_trial_cleared) return;

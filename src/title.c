@@ -31,7 +31,7 @@ uint8_t title_next_tile;  // the first tile the logo and prompt left free
 uint8_t title_menu, title_category;
 
 static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "MOVEMENT LAB"};
-static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY", "ACID WOLF"};
+static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY", "ACID WOLF", "RIFT STALKER"};
 static const char *const minibosses[] = {"CLAIMJAW", "SCRAPBACK", "CRAGBACK"};
 static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST", "CAPTAIN FLYNT", "GLOBFATHER"};
 
@@ -167,7 +167,7 @@ static void move_cursor(uint8_t to) {
 }
 
 static uint8_t choice_count(void) {
-    return title_menu == 1 ? 4 : title_category == 1 ? 5 : title_category == 2 ? 3 : title_category == 0 ? 3 : 1;
+    return title_menu == 1 ? 4 : title_category == 1 ? 5 : title_category == 2 ? 4 : title_category == 0 ? 3 : 1;
 }
 
 // The playtest menu: a heading and its choices (rows 10, 12, ...), the cursor at one.

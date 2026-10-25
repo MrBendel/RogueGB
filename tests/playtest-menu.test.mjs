@@ -50,11 +50,11 @@ test('playtest menu: fourth boss entry launches Captain Flynt', () => {
   assert.equal(e.v('boss_hp'),36);
 });
 
-test('playtest menu: three enemy choices wrap in both directions', () => {
+test('playtest menu: four enemy choices wrap in both directions', () => {
   const e = enemyMenu();
   for (let n = 0; n < 12; n++) {
     e.tap(n < 6 ? 'DOWN' : 'UP');
-    assert.equal(e.v('title_choice'), n < 6 ? (n+1)%3 : (12-n-1)%3);
+    assert.equal(e.v('title_choice'), n < 6 ? (n+1)%4 : (12-n-1)%4);
   }
   e.idle(10).shot('playtest-enemies');
   settle(e.tap('START'), PLAY).idle(3);
