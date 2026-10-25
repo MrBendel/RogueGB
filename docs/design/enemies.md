@@ -1,6 +1,6 @@
 # Enemies
 
-Acid Skimmer, Mercenary, and Acid Wolf are the active enemy playtests. Acid Skimmer remains
+Acid Skimmer, Mercenary, Acid Wolf, and Rift Stalker are the active enemy playtests. Acid Skimmer remains
 the reference for future enemy quality. From the title, press DOWN, select
 Enemies, then an encounter. B goes back;
 START pauses and SELECT while paused ends the attempt.
@@ -110,3 +110,24 @@ Emulator tests exercise trajectories, committed leaps, landing windows, warnings
 pause, walls, normal-health pistol completion, damage, cleanup, and frame limits.
 Standing still while holding fire loses across four starting frame phases; moving
 and jumping wins. Peak measured update cost is 55,696 of 131,328 cycles (43%).
+
+
+## Rift Stalker trial (2026-10-24)
+
+An alien phase ambusher using the local SGQ_Enemies 16x16 ghost sheet.
+Select **Enemies → Rift Stalker**. Cyan highlights, a violet body, and dark
+purple outlines distinguish it from the acid enemies.
+
+- One 18-HP stalker approaches alternating player flanks as a moving cyan
+  shimmer. It cannot hurt the player during stalking, warning, or recovery.
+- It becomes solid for a 26-frame warning and locks its attack vector before
+  that warning. Moving sideways can bait the subsequent diagonal dash.
+- A 16-frame dash can deal 16 contact damage; jumping avoids it. Walls stop
+  the dash and immediately begin recovery.
+- Recovery lasts 48 frames and is the damage window. Other phases are guarded.
+- Pause freezes its state; defeating it clears the standalone trial.
+
+The controller uses scripted actor 15, ordinary two-part sprite rendering from
+OAM 15, and only five bytes of additional persistent state. Art conversion is
+reproducible with tools/stalker-art.mjs; source sheets remain in the local art
+library. This first playtest does not add campaign spawns or teleportation.

@@ -379,3 +379,6 @@ throw, with crouch/landing pauses and a moving ground shadow.
   generations and whole-body visibility budgeting for crowded medium stages. Available from
   Combat -> Bosses -> Globfather. See docs/design/bosses.md for sprite budgets
   and the current central-hitbox limitation.
+
+- Rift Stalker enemy playtest: SGQ ghost art, trackable phase shimmer, warned
+  diagonal dash, and a vulnerable recovery. Enemies -> Rift Stalker.

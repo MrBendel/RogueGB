@@ -254,7 +254,7 @@ void play_enter(void) BANKED {
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS || play_mode == MODE_YARD) chest_init();  // (the yard is no boss room)
     else if (play_mode == MODE_ENEMY) {
-        play_actor_oam = enemy_trial_kind==2 ? FIRST_ACTOR_OAM : FIRST_ACTOR_OAM + 8;
+        play_actor_oam = enemy_trial_kind>=2 ? FIRST_ACTOR_OAM : FIRST_ACTOR_OAM + 8;
         enemy_trial_start();
     }
     else {
@@ -541,7 +541,7 @@ void play_update(void) BANKED {
     if (play_mode == MODE_ENEMY) {
         if (enemy_trial_kind==2) acid_wolf_draw();
         else if (enemy_trial_kind==1) mercenary_draw();
-        else acid_skimmer_draw();
+        else if(enemy_trial_kind==0) acid_skimmer_draw();
     } else if (play_mode == MODE_LAB) {
         chest_update();
     }
