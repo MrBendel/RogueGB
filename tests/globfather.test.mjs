@@ -128,3 +128,35 @@ test('globfather: eight crowded small slimes rotate visibility within the sprite
  assert.ok(drops>0);assert.ok(worst<=2,`hidden for ${worst} frames`);assert.ok(peak<FRAME_LIMIT,`peak ${peak}`);
  e.shot('globfather-eight-crowded');
 });
+
+
+test('globfather: medium bodies are whole when sharing rows with player and jump shadow',()=>{
+ for(const mixed of [false,true])for(const airborne of [false,true]) {
+  const e=trial();kill(e,living(e));if(mixed)kill(e,[living(e)[0]]);
+  let shown=0;
+  for(let f=0;f<16;f++) {
+   for(const i of living(e)) {
+    e.writeBytes(at(e,'actor_x')+i*2,[32+i*16,0]);e.writeBytes(at(e,'actor_y')+i*2,[80,0]);
+    put(e,'glob_state',0,i);put(e,'glob_timer',200,i);put(e,'actor_guard',1,i);
+   }
+   e.writeBytes(at(e,'player_x'),[72,0]);e.writeBytes(at(e,'player_y'),[80,0]);put(e,'player_invuln',30);
+   e.hold(airborne&&!e.v('player_air')?['A','B']:['A']);
+   const oam=Array.from({length:40},(_,i)=>({y:e.read8(at(e,'shadow_OAM')+i*4),tile:e.read8(at(e,'shadow_OAM')+i*4+2)}));
+   for(let slot=11;slot<27;) {
+    const size=oam[slot].tile>=104?8:2;
+    if(size===8&&oam[slot].y) {
+     shown++;
+     for(let j=slot;j<slot+8;j++) {
+      assert.ok(oam[j].y,'medium body stays whole');
+      for(let y=Math.max(0,oam[j].y-16);y<Math.min(128,oam[j].y);y++)
+       assert.ok(oam.slice(0,j).filter(s=>s.y&&y>=s.y-16&&y<s.y).length<10,`mixed=${mixed}, airborne=${airborne}, frame=${f}, slot=${j}, line=${y}`);
+     }
+    }
+    slot+=size;
+   }
+   assert.ok(e.read8(at(e,'shadow_OAM')+3*4));assert.ok(e.read8(at(e,'shadow_OAM')+4*4));
+   assert.ok(e.lastFrameCycles<FRAME_LIMIT,`frame ${e.lastFrameCycles}`);
+  }
+  assert.ok(shown>=8,`medium visible on at least half the crowded frames: ${shown}`);e.shot(`globfather-medium-overlap-${mixed}-${airborne}`);
+ }
+});
