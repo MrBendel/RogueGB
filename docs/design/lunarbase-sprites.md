@@ -173,6 +173,12 @@ Set pieces (`pf_*`, cut from the example; level.c stamps them whole):
 | `pf_rack` | 1x2 | the canister rack `f5 f6 f7` |
 | `pf_panel` | 1x2 | a solar panel stand `8b 9b`-`8e` |
 
+Pipes (level.c `run_pipes`): `pipe_h` `89 89` over ground, `pipe_h_l` `79 89` and
+`pipe_h_r` `89 79x` (the couplings where a pipe meets a set piece), `pipe_h_lr` for
+one block; `pipe_v` `6a` down the left of a block, `pipe_v_t` / `pipe_v_b` with the
+joint `68` at the ends. The sheet's elbows (`69`, `29 39`) and T-joints (`49 59`)
+aren't used yet.
+
 Building bases (level.c `building_bases`, after the theme's rules): `face_door`
 (`65 65 / d6 e6`: the front with the door's grate) with `step` below it (`fe fex /
 ff ffx`, the orange step out on the ground), and `vents` (`3a 5a`, two black ground

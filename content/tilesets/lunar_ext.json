@@ -1,5 +1,5 @@
 {
-  "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, hull modules (riveted roofs over a front row) where the generator puts solid blocks, props for lone blocks. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs are drawn over sprites and can be walked behind (\"behind\": the block is walkable floor and its tiles have the background priority flag); fronts and the map's rim stay solid. A building's front gets its base where it meets the ground (level.c): a door (its grate and the orange step out front) and ground vents. Decals (the pack's white marks) are stamped onto some pieces: building numbers and hazard stripes on roofs. Doorways (one-block gaps in a map's outer wall: an entrance room's doors): the orange hatch in the north wall, a grated threshold elsewhere, until door art for those views exists. The map's rim (the edge) is plain wall plate all round, with its lower lip on the inside: no building fronts, and nothing drawn over the player.",
+  "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, hull modules (riveted roofs over a front row) where the generator puts solid blocks, props for lone blocks. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs are drawn over sprites and can be walked behind (\"behind\": the block is walkable floor and its tiles have the background priority flag); fronts and the map's rim stay solid. Set pieces (\"prefab\") are cut whole from the example and stamped by level.c, with pipes (pipe_*) run between neighbouring ones. A building's front gets its base where it meets the ground (level.c): a door (its grate and the orange step out front) and ground vents. Decals (the pack's white marks) are stamped onto some pieces: building numbers and hazard stripes on roofs. Doorways (one-block gaps in a map's outer wall: an entrance room's doors): the orange hatch in the north wall, a grated threshold elsewhere, until door art for those views exists. The map's rim (the edge) is plain wall plate all round, with its lower lip on the inside: no building fronts, and nothing drawn over the player.",
   "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Exterior_Standard.png",
   "decals": "pack:LunarBase/Tiles/LunarBase_Tiles_Decals_Standard.png",
   "local": true,
@@ -57,6 +57,13 @@
     "step": { "tiles": ["fe fex", "ff ffx"] },
     "vents": { "tiles": ["3a 5a", "3a 5a"] },
     "door_hatch": { "tiles": ["fe fex", "ff ffx"] },
+    "pipe_h": { "tiles": ["89 89", "00 00"] },
+    "pipe_h_l": { "tiles": ["79 89", "00 00"] },
+    "pipe_h_r": { "tiles": ["89 79x", "00 00"] },
+    "pipe_h_lr": { "tiles": ["79 79x", "00 00"] },
+    "pipe_v": { "tiles": ["6a 00", "6a 00"] },
+    "pipe_v_t": { "tiles": ["68 00", "6a 00"] },
+    "pipe_v_b": { "tiles": ["6a 00", "68 00"] },
     "pf_hab": {
       "tiles": ["02 12 12 12 12 12 12 22", "03 a4 a4x 13 13 a4 a4x 23", "03 13 13 13 13 13 13 23", "03 13 13 13 13 13 13 23",
                 "03 13 13 13 13 13 13 23", "04 14 14 14 14 14 14 24", "05 15 65 65 75 85 75x 05x", "06 16 d6 e6 76 86 96 06x",

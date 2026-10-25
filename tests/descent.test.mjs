@@ -248,8 +248,18 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
     const cx = words(emu, 'camp_x', 1)[0], cy = words(emu, 'camp_y', 1)[0];
     // Step up from the side with more room (never into an opening at the edge).
     const nearX = cx < emu.v('room_w') * 8 ? cx - 8 + 64 : cx - 8 - 64;
-    w16(emu, 'player_x', nearX);
-    w16(emu, 'player_y', cy - 12);
+    // On open ground: the floor block nearest that spot (not a building or a raised
+    // platform, which a blind teleport could land on).
+    const map = emu.readBytes(addr(emu, 'room_map'), 768);
+    let at = null;
+    for (let by = 1; by < emu.v('room_h') - 1; by++)
+      for (let bx = 1; bx < emu.v('room_w') - 1; bx++) {
+        if (map[by * 32 + bx] !== 0 || map[by * 32 + bx + 1] !== 0 || map[(by + 1) * 32 + bx] !== 0) continue;
+        const d = Math.abs(bx * 16 - nearX) + Math.abs(by * 16 - (cy - 12));
+        if (!at || d < at.d) at = { x: bx * 16, y: by * 16, d };
+      }
+    w16(emu, 'player_x', at.x);
+    w16(emu, 'player_y', at.y);
     emu.idle(3);
     assert.equal(emu.v('camp_state'), CAMP_AWAKE, 'awake once you are near');
     assert.ok(emu.v('actors_active') > 0, 'its enemies');

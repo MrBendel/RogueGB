@@ -292,8 +292,24 @@ static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
 #error "pf_xid keeps a set piece's index in 3 bits"
 #endif
 
+uint8_t pipe_count;
+uint16_t pipes[PIPE_MAX];
+
+// A pipe: solid blocks, a coupling at each end where it meets a set piece.
+static void draw_pipe(uint16_t p) {
+    uint8_t x = p & 31, y = (p >> 5) & 31, n = ((p >> 10) & 15) + 1, down = p >> 14;
+    for (uint8_t i = 0; i < n; i++) {
+        uint16_t k = down ? ((uint16_t)(y + i) << 5) | x : ((uint16_t)y << 5) | (x + i);
+        room_map[k] = BLK_SOLID;
+        if (down) room_vis[k] = !i ? TS_LUNAR_EXT_PIPE_V_T : i + 1 == n ? TS_LUNAR_EXT_PIPE_V_B : TS_LUNAR_EXT_PIPE_V;
+        else room_vis[k] = n == 1 ? TS_LUNAR_EXT_PIPE_H_LR : !i ? TS_LUNAR_EXT_PIPE_H_L
+                         : i + 1 == n ? TS_LUNAR_EXT_PIPE_H_R : TS_LUNAR_EXT_PIPE_H;
+    }
+}
+
 static void stamp_set_pieces(void) {
     for (uint8_t k = 0; k < pf_count; k++) tiles_lunar_ext_stamp(pf_xid[k] >> 5, pf_xid[k] & 31, pf_y[k]);
+    for (uint8_t k = 0; k < pipe_count; k++) draw_pipe(pipes[k]);
 }
 
 // Are the w x h blocks at x, y all unclaimed blocks of the building?
@@ -329,18 +345,15 @@ static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
     return 1;
 }
 
+static uint8_t still_connected(void);
+
 // Stamp a set piece on open ground and keep it if everything that must connect
 // still does; otherwise put the ground back.
 static uint8_t try_place(uint8_t pf, uint8_t x, uint8_t y) {
     if (pf_count >= PF_MAX) return 0;
     tiles_lunar_ext_stamp(pf, x, y);
-    flood(must_x[0], must_y[0]);
-    uint8_t ok = 1;
-    for (uint8_t k = 1; k < musts; k++)
-        if (!(MAP(must_x[k], must_y[k]) & VISITED)) ok = 0;
-    unvisit();
     uint8_t w = pf_size[pf * 2], h = pf_size[pf * 2 + 1];
-    if (!ok) {
+    if (!still_connected()) {
         for (uint8_t j = 0; j < h; j++)
             for (uint8_t i = 0; i < w; i++) MAP(x + i, y + j) = BLK_FLOOR;
         return 0;
@@ -348,6 +361,58 @@ static uint8_t try_place(uint8_t pf, uint8_t x, uint8_t y) {
     pf_xid[pf_count] = x | (pf << 5);
     pf_y[pf_count++] = y;
     return 1;
+}
+
+// Everything that must connect still does (a flood from the first such point).
+static uint8_t still_connected(void) {
+    flood(must_x[0], must_y[0]);
+    uint8_t ok = 1;
+    for (uint8_t k = 1; k < musts; k++)
+        if (!(MAP(must_x[k], must_y[k]) & VISITED)) ok = 0;
+    unvisit();
+    return ok;
+}
+
+// A pipe across open ground, kept only if everything still connects.
+static void try_pipe(uint8_t x, uint8_t y, uint8_t n, uint8_t down) {
+    if (pipe_count >= PIPE_MAX || !n || n > 16 || !open_ground(x, y, down ? 1 : n, down ? n : 1)) return;
+    uint16_t p = x | ((uint16_t)y << 5) | ((uint16_t)(n - 1) << 10) | ((uint16_t)down << 14);
+    draw_pipe(p);
+    if (still_connected()) {
+        pipes[pipe_count++] = p;
+        return;
+    }
+    for (uint8_t i = 0; i < n; i++)
+        if (down) MAP(x, y + i) = BLK_FLOOR;
+        else MAP(x + i, y) = BLK_FLOOR;
+}
+
+// Pipes between neighbouring set pieces (up to 8 blocks apart): across from one's
+// side to the next one's, on the lowest row where both are solid; or down from one
+// to one below it, on the first column where both are.
+static void run_pipes(void) {
+    pipe_count = 0;
+    for (uint8_t a = 0; a < pf_count; a++)
+        for (uint8_t b = 0; b < pf_count; b++) {
+            uint8_t ax = pf_xid[a] & 31, ay = pf_y[a], aw = pf_size[(pf_xid[a] >> 5) * 2], ah = pf_size[(pf_xid[a] >> 5) * 2 + 1];
+            uint8_t bx = pf_xid[b] & 31, by = pf_y[b], bw = pf_size[(pf_xid[b] >> 5) * 2], bh = pf_size[(pf_xid[b] >> 5) * 2 + 1];
+            if (bx > ax + aw && bx - ax - aw <= 8) {
+                uint8_t top = ay > by ? ay : by, bottom = ay + ah < by + bh ? ay + ah : by + bh;
+                for (uint8_t y = bottom; y-- > top;)
+                    if (MAP(ax + aw - 1, y) == BLK_SOLID && MAP(bx, y) == BLK_SOLID) {
+                        try_pipe(ax + aw, y, bx - ax - aw, 0);
+                        break;
+                    }
+            }
+            if (by > ay + ah && by - ay - ah <= 8) {
+                uint8_t left = ax > bx ? ax : bx, right = ax + aw < bx + bw ? ax + aw : bx + bw;
+                for (uint8_t x = left; x < right; x++)
+                    if (MAP(x, ay + ah - 1) == BLK_SOLID && MAP(x, by) == BLK_SOLID) {
+                        try_pipe(x, ay + ah, by - ay - ah, 1);
+                        break;
+                    }
+            }
+        }
 }
 
 static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
@@ -380,7 +445,7 @@ static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 }
 
 static void plan_set_pieces(uint8_t w, uint8_t h) {
-    pf_count = 0;
+    pf_count = pipe_count = 0;
     // Lone blocks (the theme's crates) thinned to about one in three: props come
     // in groups now, beside the set pieces.
     for (uint8_t y = 1; y + 1 < h; y++)
@@ -429,6 +494,7 @@ static void plan_set_pieces(uint8_t w, uint8_t h) {
             if (sx >= 2 && sx + sw + 2 <= w && sy >= 2 && open_ground(sx, sy, sw, sh)) try_place(small, sx, sy);
         }
     }
+    run_pipes();
 }
 
 // The entrance room is made by hand (content/tilesets/lunar_int.json, its map
@@ -633,7 +699,7 @@ void level_build_map(uint8_t i) BANKED {
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
     if (area_type[i] == MAP_START) {
-        pf_count = 0;
+        pf_count = pipe_count = 0;
         entrance_room();
     } else {
         plan_set_pieces(w, h);

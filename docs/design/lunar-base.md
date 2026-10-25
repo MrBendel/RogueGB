@@ -78,10 +78,16 @@ canisters on checker plates, a canister rack, a solar panel stand. level.c
   must connect still does (a flood fill), and none goes on a camp's slot, a chest
   or a doorway's approach;
 - lone crates are thinned to about one in three.
+- **pipes** (`pipe_*`: `79 89 79x` across, `68 6a` down) join neighbouring set
+  pieces up to 8 blocks apart: across between two side by side, on the lowest row
+  where both are solid; down from one to one below. Solid (low cover), and kept
+  only if everything still connects.
 They're stamped over the theme's look each time it's drawn (`pf_xid`/`pf_y`: two
-bytes a piece, 20 at most; work RAM is nearly full).
+bytes a piece, 16 at most; `pipes`: a word each, 6 at most; work RAM is nearly full).
 
-Next, to reach the example's density: **pipes** joining neighbouring buildings,
+Next, to reach the example's density: L-shaped buildings (the chunks' solid shapes
+that aren't rectangles) still take the theme's modules; split them into rectangles
+for set pieces, or reshape the chunks;
 **props in groups against buildings** (canister racks, crate stacks, posts, solar
 panels) instead of lone crates in the open. The block limit is now 128 (2026-10-24:
 room.h's LUT is a page per quadrant; maps went to 24 rows to make room), since the
