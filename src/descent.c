@@ -40,13 +40,8 @@ extern uint8_t actor_count;  // enemies alive (actor.c)
 #define WAKE_X 112  // px from a camp's middle at which it wakes (about a screen)
 #define WAKE_Y 96
 
-// The shaft: 2x2 pit blocks in the exit map's middle (player.c lets a fall there
-// through instead of hurting).
-static void dig_shaft(void) {
-    uint8_t x = (room_w >> 1) - 1, y = (room_h >> 1) - 1;
-    uint16_t k = ((uint16_t)y << 5) | x;
-    room_map[k] = room_map[k + 1] = room_map[k + 32] = room_map[k + 33] = BLK_PIT;
-}
+// (The shaft, 2x2 pit blocks in an exit map's middle, is dug by level.c as the map
+// is built; player.c lets a fall there through instead of hurting.)
 
 static void start_area(void) {
     level_generate(area_seed_base + (uint16_t)layer_depth * 7919);
@@ -117,11 +112,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     // Each map's tileset (the display is off): the entrance room is indoors.
     if (map == area_start) tiles_lunar_int_load();
     else tiles_lunar_ext_load();
-    level_build_map(map);
-    if (area_type[map] == MAP_EXIT) {
-        dig_shaft();
-        level_look_exterior();
-    }
+    level_build_map(map);  // (an exit map's shaft included)
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
     // An area's entrance room has the comms device on its upper back wall: the briefing

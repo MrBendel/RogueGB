@@ -133,7 +133,13 @@ test('every map: open edges only at its openings, and openings, camps and chests
           q.push([nx, ny]);
         }
       }
-      for (const [x, y] of points.slice(1)) assert.ok(seen.has(`${x},${y}`), `seed ${seed} map ${i}: ${x},${y} cut off`);
+      // (An exit map's middle is its shaft, 2x2 pits up and left of it: reached
+      // if the ground beside it is.)
+      const shaft = (x, y) => L.type[i] === MAP_EXIT && x === m.w >> 1 && y === m.h >> 1;
+      const reached = (x, y) => seen.has(`${x},${y}`)
+        || (shaft(x, y) && [[x + 1, y], [x + 1, y - 1], [x, y + 1], [x - 1, y + 1], [x - 2, y], [x - 2, y - 1], [x, y - 2], [x - 1, y - 2]]
+          .some(([a, b]) => seen.has(`${a},${b}`)));
+      for (const [x, y] of points.slice(1)) assert.ok(reached(x, y), `seed ${seed} map ${i}: ${x},${y} cut off`);
     }
   }
   assert.ok(camps > mapsBuilt / 2, `camps: ${camps} in ${mapsBuilt} maps`);

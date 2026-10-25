@@ -63,14 +63,9 @@ extern uint8_t level_carved;  // the last build had to carve paths
 void level_generate(uint16_t seed) BANKED;
 // Build map i into the room map (and set room_w/room_h).
 void level_build_map(uint8_t i) BANKED;
-void level_look_exterior(void) BANKED;
-// The set pieces stamped on the current map (level.c, plan_set_pieces).
-#define PF_MAX 16
-extern uint8_t pf_count, pf_xid[PF_MAX], pf_y[PF_MAX];  // x | set piece << 5, and y
-// ... and the pipes run between them: x | y << 5 | (length - 1) << 10 | down << 14.
-#define PIPE_MAX 6
-extern uint8_t pipe_count;
-extern uint16_t pipes[PIPE_MAX];
-#define CHUNK_ROWS 6  // the most chunks down a map (24 blocks: room.h ROOM_MAX_H)  // an exterior map's look: the theme's rules, then buildings' bases
+// How many set pieces and pipe runs the last exterior map got (level.c,
+// plan_set_pieces; the lists themselves live on the stack while a map is built).
+extern uint8_t pf_count, pipe_count;
+#define CHUNK_ROWS 6  // the most chunks down a map (24 blocks: room.h ROOM_MAX_H)
 
 #endif

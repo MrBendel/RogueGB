@@ -70,9 +70,11 @@ ground, `#` solid, `r` a roof you walk behind): the "01" hab module with its doo
 step, the solar station on its legs, the tank, the grilled machine, orange
 canisters on checker plates, a canister rack, a solar panel stand. level.c
 (`plan_set_pieces`), once a map's connections are made:
-- each building the chunks left (a solid rectangle clear of the rim) is packed:
-  the biggest set piece that fits along its front, smaller ones in the rest, any
-  leftover block ground;
+- every building the chunks left, whatever its shape, is split into rectangles
+  (from each free block, its solid run along the row, as deep as it stays full) and
+  each is packed: the set piece that fits best along its front (by size, halved for
+  each already on the map, so a map isn't all tanks), smaller ones in the rest, any
+  leftover block ground (a lone block against a set piece too);
 - then on open ground, about one big set piece (hab, solar, tank) per 120 blocks
   of map, with small ones beside its front; each is kept only if every point that
   must connect still does (a flood fill), and none goes on a camp's slot, a chest
@@ -80,16 +82,17 @@ canisters on checker plates, a canister rack, a solar panel stand. level.c
 - lone crates are thinned to about one in three;
 - raised platforms become buildings first (decided 2026-10-24): outdoors there are
   no stairs up to them, so they were walls drawn like buildings.
-- **pipes** (`pipe_*`: `79 89 79x` across, `68 6a` down) join neighbouring set
-  pieces up to 8 blocks apart: across between two side by side, on the lowest row
-  where both are solid; down from one to one below. Solid (low cover), and kept
-  only if everything still connects.
-They're stamped over the theme's look each time it's drawn (`pf_xid`/`pf_y`: two
-bytes a piece, 16 at most; `pipes`: a word each, 6 at most; work RAM is nearly full).
+- **pipes** (`pipe_*`: `79 89 79x` across, `68 6a` down, the elbow `69` flipped
+  for the bend) join neighbouring set pieces up to 8 blocks apart: across between
+  two side by side, on the lowest row where both are solid; down from one to one
+  below; or bent, across from one's side and down onto the other's top or up into
+  its underside. Solid (low cover), and kept only if everything still connects.
+They're stamped over the theme's look as the map is built; the lists live on the
+stack meanwhile (40 set pieces, 12 pipe runs at most), since the look is drawn once:
+an exit map's shaft is dug in the build too (its blocks kept clear of set pieces).
 
-Next, to reach the example's density: L-shaped buildings (the chunks' solid shapes
-that aren't rectangles) still take the theme's modules; split them into rectangles
-for set pieces, or reshape the chunks;
+Next: more medium set pieces (rectangles about 2x3 are all tanks: a crate stack, a
+vent machine), the T-joints (`49 59`) for branching pipes;
 **props in groups against buildings** (canister racks, crate stacks, posts, solar
 panels) instead of lone crates in the open. The block limit is now 128 (2026-10-24:
 room.h's LUT is a page per quadrant; maps went to 24 rows to make room), since the

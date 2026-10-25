@@ -277,6 +277,12 @@ static void tidy(uint8_t w, uint8_t h) {
     }
 }
 
+static void building_bases(void);
+
+// An exterior map's look: the theme's rules, the set pieces and pipes over them,
+// then the bases of the buildings the theme drew.
+static void look_exterior(void);
+
 // Set pieces (content/tilesets/lunar_ext.json "prefab" pieces, cut from the pack's
 // example: the hab module, the solar station, the tank, racks...). Each building
 // the chunks left (a solid rectangle clear of the rim) is packed with them: the
@@ -284,7 +290,20 @@ static void tidy(uint8_t w, uint8_t h) {
 // block still unclaimed becomes ground. A set piece only turns solid blocks into
 // ground, so it can't cut a way off. They're stamped over the theme's look
 // (level_look_exterior), from this list, each time it's drawn.
-uint8_t pf_count, pf_xid[PF_MAX], pf_y[PF_MAX];
+// The lists are on level_build_map's stack (work RAM is full): set pieces as
+// x | piece << 5 and y; pipe runs as x | y << 5 | (length - 1) << 10 | down << 14
+// | bend << 15 (a bent pipe is two runs: across, its last block the elbow, then
+// down or up from the elbow, with no coupling at that end).
+// An exit map's shaft: 2x2 pit blocks in its middle (descent.c: falling in is the
+// way down). Its blocks are kept ground while set pieces are planned.
+#define SHAFT_X(w) (((w) >> 1) - 1)
+#define SHAFT_Y(h) (((h) >> 1) - 1)
+
+#define PF_MAX 40
+#define PIPE_MAX 12
+uint8_t pf_count, pipe_count;
+static uint8_t *pf_xid, *pf_y;
+static uint16_t *pipes;
 static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
 #define CLAIMED 0x40  // (while planning: a block a set piece has taken)
 #define PF_BIG 3  // the first three (hab, solar, tank) go on open ground; the rest beside them
@@ -292,24 +311,39 @@ static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
 #error "pf_xid keeps a set piece's index in 3 bits"
 #endif
 
-uint8_t pipe_count;
-uint16_t pipes[PIPE_MAX];
 
-// A pipe: solid blocks, a coupling at each end where it meets a set piece.
-static void draw_pipe(uint16_t p) {
-    uint8_t x = p & 31, y = (p >> 5) & 31, n = ((p >> 10) & 15) + 1, down = p >> 14;
+#define PIPE_DOWN 0x4000
+#define PIPE_BEND 0x8000
+#define PIPE_Y(p) (((p) >> 5) & 31)
+
+// A pipe: solid blocks, a coupling at each end where it meets a set piece. A bent
+// one's across part ends in the elbow, turning toward its other part (`other`: the
+// next word for the across part, the one before for the up or down part).
+static void draw_pipe(uint16_t p, uint16_t other) {
+    uint8_t x = p & 31, y = PIPE_Y(p), n = ((p >> 10) & 15) + 1, down = !!(p & PIPE_DOWN), bend = !!(p & PIPE_BEND);
+    uint8_t below = bend && (down ? y > PIPE_Y(other) : PIPE_Y(other) > y);  // (the up or down part below its elbow)
     for (uint8_t i = 0; i < n; i++) {
         uint16_t k = down ? ((uint16_t)(y + i) << 5) | x : ((uint16_t)y << 5) | (x + i);
+        uint8_t first = !i, last = i + 1 == n;
         room_map[k] = BLK_SOLID;
-        if (down) room_vis[k] = !i ? TS_LUNAR_EXT_PIPE_V_T : i + 1 == n ? TS_LUNAR_EXT_PIPE_V_B : TS_LUNAR_EXT_PIPE_V;
-        else room_vis[k] = n == 1 ? TS_LUNAR_EXT_PIPE_H_LR : !i ? TS_LUNAR_EXT_PIPE_H_L
-                         : i + 1 == n ? TS_LUNAR_EXT_PIPE_H_R : TS_LUNAR_EXT_PIPE_H;
+        if (down) {
+            if (bend) first &= !below, last &= below;  // (no coupling at the elbow end)
+            room_vis[k] = first ? TS_LUNAR_EXT_PIPE_V_T : last ? TS_LUNAR_EXT_PIPE_V_B : TS_LUNAR_EXT_PIPE_V;
+        } else if (bend && last) {
+            room_vis[k] = below ? TS_LUNAR_EXT_PIPE_BEND_D : TS_LUNAR_EXT_PIPE_BEND_U;
+        } else {
+            room_vis[k] = first ? TS_LUNAR_EXT_PIPE_H_L : last ? TS_LUNAR_EXT_PIPE_H_R : TS_LUNAR_EXT_PIPE_H;
+            if (first && last) room_vis[k] = TS_LUNAR_EXT_PIPE_H_LR;
+        }
     }
 }
 
 static void stamp_set_pieces(void) {
     for (uint8_t k = 0; k < pf_count; k++) tiles_lunar_ext_stamp(pf_xid[k] >> 5, pf_xid[k] & 31, pf_y[k]);
-    for (uint8_t k = 0; k < pipe_count; k++) draw_pipe(pipes[k]);
+    for (uint8_t k = 0; k < pipe_count; k++) {
+        uint16_t p = pipes[k];
+        draw_pipe(p, p & PIPE_DOWN ? (k ? pipes[k - 1] : 0) : (k + 1 < pipe_count ? pipes[k + 1] : 0));
+    }
 }
 
 // Are the w x h blocks at x, y all unclaimed blocks of the building?
@@ -335,6 +369,7 @@ static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
     for (uint8_t j = 0; j < h; j++)
         for (uint8_t i = 0; i < w; i++)
             if (MAP(x + i, y + j) != BLK_FLOOR) return 0;
+    if ((uint8_t)(SHAFT_X(room_w) + 1 - x) < w + 1 && (uint8_t)(SHAFT_Y(room_h) + 1 - y) < h + 1) return 0;  // (the middle 2x2)
     for (uint8_t k = 0; k < musts; k++)
         if ((uint8_t)(must_x[k] - x) < w && (uint8_t)(must_y[k] - y) < h) return 0;  // (left or above wraps big)
     for (uint8_t c = 0; c < level_camps; c++)
@@ -373,23 +408,55 @@ static uint8_t still_connected(void) {
     return ok;
 }
 
+static uint16_t pipe_word(uint8_t x, uint8_t y, uint8_t n, uint16_t flags) {
+    return x | ((uint16_t)y << 5) | ((uint16_t)(n - 1) << 10) | flags;
+}
+
+static void clear_pipe(uint16_t p) {
+    uint8_t x = p & 31, y = PIPE_Y(p), n = ((p >> 10) & 15) + 1;
+    for (uint8_t i = 0; i < n; i++)
+        if (p & PIPE_DOWN) MAP(x, y + i) = BLK_FLOOR;
+        else MAP(x + i, y) = BLK_FLOOR;
+}
+
 // A pipe across open ground, kept only if everything still connects.
 static void try_pipe(uint8_t x, uint8_t y, uint8_t n, uint8_t down) {
     if (pipe_count >= PIPE_MAX || !n || n > 16 || !open_ground(x, y, down ? 1 : n, down ? n : 1)) return;
-    uint16_t p = x | ((uint16_t)y << 5) | ((uint16_t)(n - 1) << 10) | ((uint16_t)down << 14);
-    draw_pipe(p);
-    if (still_connected()) {
-        pipes[pipe_count++] = p;
+    uint16_t p = pipe_word(x, y, n, down ? PIPE_DOWN : 0);
+    draw_pipe(p, 0);
+    if (still_connected()) pipes[pipe_count++] = p;
+    else clear_pipe(p);
+}
+
+// A bent pipe: across from x0 to its elbow at x1 (on row y), then vn blocks (1 or
+// more: the elbow's direction is read from them) down or up from vy.
+static void try_bent_pipe(uint8_t x0, uint8_t y, uint8_t x1, uint8_t vy, uint8_t vn) {
+    uint8_t n = x1 - x0 + 1;
+    if (pipe_count + 2 > PIPE_MAX || n > 16 || !vn || vn > 16 || !open_ground(x0, y, n, 1) || !open_ground(x1, vy, 1, vn)) return;
+    uint16_t across = pipe_word(x0, y, n, PIPE_BEND), turn = pipe_word(x1, vy, vn, PIPE_DOWN | PIPE_BEND);
+    draw_pipe(across, turn);
+    draw_pipe(turn, across);
+    if (!still_connected()) {
+        clear_pipe(across);
+        clear_pipe(turn);
         return;
     }
-    for (uint8_t i = 0; i < n; i++)
-        if (down) MAP(x, y + i) = BLK_FLOOR;
-        else MAP(x + i, y) = BLK_FLOOR;
+    pipes[pipe_count++] = across;
+    pipes[pipe_count++] = turn;
+}
+
+// The lowest solid row of column x between rows y and y + h, or 0xFF.
+static uint8_t solid_row(uint8_t x, uint8_t y, uint8_t h) {
+    for (uint8_t r = y + h; r-- > y;)
+        if (MAP(x, r) == BLK_SOLID) return r;
+    return 0xFF;
 }
 
 // Pipes between neighbouring set pieces (up to 8 blocks apart): across from one's
 // side to the next one's, on the lowest row where both are solid; or down from one
-// to one below it, on the first column where both are.
+// to one below it, on the first column where both are; or, for two offset both
+// ways, across from one's side and bent down onto the other's top or up into its
+// underside.
 static void run_pipes(void) {
     pipe_count = 0;
     for (uint8_t a = 0; a < pf_count; a++)
@@ -412,17 +479,42 @@ static void run_pipes(void) {
                         break;
                     }
             }
+            // Bent: b to the right of a's side, wholly below or above that row.
+            if (bx >= ax + aw && bx + bw - ax - aw <= 9) {
+                uint8_t r = solid_row(ax + aw - 1, ay, ah);
+                if (r == 0xFF) continue;
+                for (uint8_t c = bx > ax + aw ? bx : ax + aw + 1; c < bx + bw; c++) {
+                    if (by > r + 1 && MAP(c, by) == BLK_SOLID && by - r - 1 <= 8) {
+                        try_bent_pipe(ax + aw, r, c, r + 1, by - r - 1);  // down onto b's top
+                        break;
+                    }
+                    uint8_t rb = solid_row(c, by, bh);
+                    if (by + bh < r && rb == by + bh - 1 && r - rb - 1 <= 8) {
+                        try_bent_pipe(ax + aw, r, c, rb + 1, r - rb - 1);  // up into b's underside
+                        break;
+                    }
+                }
+            }
         }
 }
 
+// How many of a set piece the map has already: each one halves its chance of
+// being picked again, so a map isn't all tanks.
+static uint8_t uses(uint8_t pf) {
+    uint8_t n = 0;
+    for (uint8_t k = 0; k < pf_count; k++) n += pf_xid[k] >> 5 == pf;
+    return n;
+}
+
 static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
-    // The biggest set piece that fits, on the front (the bottom row), anywhere along it.
-    uint8_t best = 0xFF, area = 0;
+    // The set piece that fits best (by its size, halved for each one already on the
+    // map), on the front (the bottom row), anywhere along it.
+    uint8_t best = 0xFF, score = 0;
     for (uint8_t pf = 0; pf < TILES_LUNAR_EXT_PREFABS; pf++) {
-        uint8_t w = pf_size[pf * 2], h = pf_size[pf * 2 + 1];
-        if (w > x1 - x0 || h > y1 - y0 || w * h <= area) continue;
+        uint8_t w = pf_size[pf * 2], h = pf_size[pf * 2 + 1], s = ((uint8_t)(w * h * 4) >> uses(pf)) + 1;  // (+ 1: something always fits)
+        if (w > x1 - x0 || h > y1 - y0 || s <= score) continue;
         best = pf;
-        area = w * h;
+        score = s;
     }
     if (best == 0xFF) return;  // too small for any: the theme draws it
     uint8_t w = pf_size[best * 2], h = pf_size[best * 2 + 1];
@@ -444,8 +536,10 @@ static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
             if (MAP(x, y) == BLK_SOLID) MAP(x, y) = BLK_FLOOR;
 }
 
-static void plan_set_pieces(uint8_t w, uint8_t h) {
+static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
     pf_count = pipe_count = 0;
+    if (shaft)
+        for (uint8_t b = 0; b < 4; b++) MAP(SHAFT_X(w) + (b & 1), SHAFT_Y(h) + (b >> 1)) = BLK_FLOOR;
     // Raised platforms are buildings outdoors: with no stairs up to them they'd only
     // be walls that look like buildings (decided 2026-10-24). Both stop everything,
     // so nothing that connected stops connecting.
@@ -459,27 +553,24 @@ static void plan_set_pieces(uint8_t w, uint8_t h) {
             if (MAP(x, y) == BLK_SOLID && MAP(x - 1, y) != BLK_SOLID && MAP(x + 1, y) != BLK_SOLID
                 && MAP(x, y - 1) != BLK_SOLID && MAP(x, y + 1) != BLK_SOLID && (uint8_t)(x * 7 + y * 5) % 3)
                 MAP(x, y) = BLK_FLOOR;
+    // Every building, whatever its shape, in rectangles: from each unclaimed block
+    // (left to right, top down) the solid run along its row, as deep as it stays
+    // full, packed with set pieces. The rim isn't a building.
     for (uint8_t y = 1; y + 1 < h; y++)
         for (uint8_t x = 1; x + 1 < w; x++) {
             if (MAP(x, y) != BLK_SOLID) continue;
-            // A building's top left (nothing solid above or left of it): its extent.
-            if (MAP(x - 1, y) == BLK_SOLID || MAP(x, y - 1) == BLK_SOLID) continue;
-            uint8_t x1 = x, y1 = y;
-            while (MAP(x1, y) == BLK_SOLID) x1++;
-            while (MAP(x, y1) == BLK_SOLID) y1++;
-            // Only a solid rectangle clear of the rim, with nothing solid touching it.
-            if (x1 >= w - 1 || y1 >= h - 1 || x1 - x < 1 || (x1 - x) * (y1 - y) < 2) continue;
-            uint8_t ok = 1;
-            for (uint8_t j = y - 1; j <= y1; j++)
-                for (uint8_t i = x - 1; i <= x1; i++) {
-                    uint8_t edge_x = i == x - 1 || i == x1, edge_y = j == y - 1 || j == y1;
-                    if (edge_x && edge_y) continue;  // (corners: a diagonal neighbour is fine)
-                    uint8_t solid = (MAP(i, j) & ~CLAIMED) == BLK_SOLID;
-                    if (solid == (edge_x || edge_y)) ok = 0;  // solid inside, clear around
-                }
-            if (ok) pack_building(x, y, x1, y1);
+            uint8_t x1 = x, y1 = y + 1;
+            while (x1 + 1 < w && MAP(x1, y) == BLK_SOLID) x1++;
+            while (y1 + 1 < h && pf_room(x, y1, x1 - x, 1, x1, y1 + 1)) y1++;
+            if ((x1 - x) * (y1 - y) >= 2) pack_building(x, y, x1, y1);
         }
-    // The claimed blocks back to plain solid; the stamps set their types.
+    // A lone block left against a set piece (an L's corner) is ground; one in the
+    // open stays the theme's (a crate). Then the claimed blocks back to plain solid
+    // (the stamps set their types).
+    for (uint8_t y = 1; y + 1 < h; y++)
+        for (uint8_t x = 1; x + 1 < w; x++)
+            if (MAP(x, y) == BLK_SOLID && ((MAP(x - 1, y) | MAP(x + 1, y) | MAP(x, y - 1) | MAP(x, y + 1)) & CLAIMED))
+                MAP(x, y) = BLK_FLOOR;
     for (uint8_t y = 0; y < h; y++)
         for (uint8_t x = 0; x < w; x++) MAP(x, y) &= ~CLAIMED;
     stamp_set_pieces();
@@ -488,7 +579,9 @@ static void plan_set_pieces(uint8_t w, uint8_t h) {
     // its front.
     uint8_t want = (uint8_t)(((uint16_t)w * h) / 120);
     for (uint8_t tries = 0; want && tries < 24; tries++) {
-        uint8_t big = below(PF_BIG), pw = pf_size[big * 2], ph = pf_size[big * 2 + 1];
+        uint8_t big = below(PF_BIG);
+        if (uses(big) > uses((big + 1) % PF_BIG)) big = (big + 1) % PF_BIG;  // (the less used of two)
+        uint8_t pw = pf_size[big * 2], ph = pf_size[big * 2 + 1];
         if (pw + 4 > w || ph + 4 > h) continue;
         uint8_t x = 2 + below(w - pw - 3), y = 2 + below(h - ph - 3);
         if (!open_ground(x - 1, y - 1, pw + 2, ph + 2) || !try_place(big, x, y)) continue;
@@ -501,6 +594,8 @@ static void plan_set_pieces(uint8_t w, uint8_t h) {
         }
     }
     run_pipes();
+    if (shaft)
+        for (uint8_t b = 0; b < 4; b++) MAP(SHAFT_X(w) + (b & 1), SHAFT_Y(h) + (b >> 1)) = BLK_PIT;
 }
 
 // The entrance room is made by hand (content/tilesets/lunar_int.json, its map
@@ -708,8 +803,11 @@ void level_build_map(uint8_t i) BANKED {
         pf_count = pipe_count = 0;
         entrance_room();
     } else {
-        plan_set_pieces(w, h);
-        level_look_exterior();
+        uint8_t xid[PF_MAX], ys[PF_MAX];
+        uint16_t runs[PIPE_MAX];
+        pf_xid = xid, pf_y = ys, pipes = runs;
+        plan_set_pieces(w, h, area_type[i] == MAP_EXIT);
+        look_exterior();
     }
 }
 
@@ -744,7 +842,7 @@ static void building_bases(void) {
     }
 }
 
-void level_look_exterior(void) BANKED {
+static void look_exterior(void) {
     tiles_lunar_ext_apply();
     stamp_set_pieces();
     building_bases();
