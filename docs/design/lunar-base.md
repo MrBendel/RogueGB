@@ -77,7 +77,9 @@ canisters on checker plates, a canister rack, a solar panel stand. level.c
   of map, with small ones beside its front; each is kept only if every point that
   must connect still does (a flood fill), and none goes on a camp's slot, a chest
   or a doorway's approach;
-- lone crates are thinned to about one in three.
+- lone crates are thinned to about one in three;
+- raised platforms become buildings first (decided 2026-10-24): outdoors there are
+  no stairs up to them, so they were walls drawn like buildings.
 - **pipes** (`pipe_*`: `79 89 79x` across, `68 6a` down) join neighbouring set
   pieces up to 8 blocks apart: across between two side by side, on the lowest row
   where both are solid; down from one to one below. Solid (low cover), and kept

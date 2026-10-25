@@ -446,6 +446,12 @@ static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 
 static void plan_set_pieces(uint8_t w, uint8_t h) {
     pf_count = pipe_count = 0;
+    // Raised platforms are buildings outdoors: with no stairs up to them they'd only
+    // be walls that look like buildings (decided 2026-10-24). Both stop everything,
+    // so nothing that connected stops connecting.
+    for (uint8_t y = 1; y + 1 < h; y++)
+        for (uint8_t x = 1; x + 1 < w; x++)
+            if (MAP(x, y) == BLK_RAISED) MAP(x, y) = BLK_SOLID;
     // Lone blocks (the theme's crates) thinned to about one in three: props come
     // in groups now, beside the set pieces.
     for (uint8_t y = 1; y + 1 < h; y++)
