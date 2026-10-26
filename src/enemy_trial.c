@@ -27,7 +27,7 @@ void enemy_trial_start(void) BANKED {
     else if(enemy_trial_kind==2)acid_wolf_start();
     else if(enemy_trial_kind==1)mercenary_start();else acid_skimmer_start();
     bkg_text(1, 0, enemy_trial_kind==4?"WIREWEAVER":enemy_trial_kind==3?"RIFT STALKER":enemy_trial_kind==2?"ACID WOLF":enemy_trial_kind?"MERCENARY":"ACID SKIMMER");
-    bkg_text(1, 1, enemy_trial_kind==4?"JUMP OUT OF WEBS":enemy_trial_kind==3?"DODGE THEN PUNISH":enemy_trial_kind==2?"BAIT LEAP THEN HIT":enemy_trial_kind?"PUNISH THE RELOAD":"LEAVE ACID MARKS");
+    bkg_text(1, 1, enemy_trial_kind==4?"JUMP OVER WEBS":enemy_trial_kind==3?"DODGE THEN PUNISH":enemy_trial_kind==2?"BAIT LEAP THEN HIT":enemy_trial_kind?"PUNISH THE RELOAD":"LEAVE ACID MARKS");
 }
 
 void enemy_trial_update(void) BANKED {

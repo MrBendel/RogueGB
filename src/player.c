@@ -118,7 +118,6 @@ uint8_t player_frames[SPR_PLAYER_FRAME_COUNT * 4];
 uint8_t player_anims[SPR_PLAYER_ANIM_COUNT * 2];
 
 uint16_t move_top;
-extern uint8_t web_slow;
 uint8_t move_slow;  // 1: half speed (set by aim.c while a heavy weapon fires)
 uint8_t move_accel_frames;
 uint8_t move_decel_frames;
@@ -424,7 +423,7 @@ void player_update(void) {
             player_ys = 0;
         }
         int16_t speed = (mx && my) ? (int16_t)move_top_diag : (int16_t)move_top;
-        if (move_slow || (web_slow && !player_air)) speed >>= 1;  // a heavy weapon firing (aim.c)
+        if (move_slow) speed >>= 1;  // a heavy weapon firing (aim.c)
         player_vx = step_axis(player_vx, mx > 0 ? speed : mx < 0 ? -speed : 0);
         player_vy = step_axis(player_vy, my > 0 ? speed : my < 0 ? -speed : 0);
     }

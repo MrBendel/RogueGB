@@ -11,16 +11,25 @@ test('weaver: scuttles, locks a warned web shot, then leaves a bounded persisten
  e.until(t=>t.v('web_life')>0,20);assert.equal(e.v('web_x'),tx);assert.equal(e.v('web_y'),ty);assert.equal(e.v('weaver_spits'),1);e.idle(2).shot('weaver-web');
  put(e,'weaver_state',3);put(e,'weaver_timer',250);put(e,'web_life',3);e.idle(4);assert.equal(e.v('web_life'),0);
 });
-test('weaver: web slows ground steering without damage; jumping escapes and pause freezes it',()=>{
- const distances=[];
- for(const mode of ['clear','web','jump']) {
-  const e=trial();put(e,'weaver_state',3);put(e,'weaver_timer',200);
-  put(e,'web_x',e.v('player_x','u16'));put(e,'web_y',e.v('player_y','u16'));put(e,'web_life',mode==='clear'?0:100);
-  const x=e.v('player_x','u16');e.hold(mode==='jump'?['RIGHT','B']:['RIGHT'],12);distances.push(e.v('player_x','u16')-x);
-  assert.equal(e.v('shield_hp'),40);assert.ok(e.v('sprites_used')<=40);
-  e.tap('START');const life=e.v('web_life');e.idle(20);assert.equal(e.v('web_life'),life);
- }
- assert.ok(distances[1]<distances[0],distances);assert.ok(distances[2]>distances[1],distances);
+test('weaver: web snares for 36 frames, permits shooting, pauses, and grants release grace',()=>{
+ const e=trial();put(e,'weaver_state',3);put(e,'weaver_timer',250);
+ put(e,'web_x',e.v('player_x','u16'));put(e,'web_y',e.v('player_y','u16'));put(e,'web_life',200);
+ const x=e.v('player_x','u16'),y=e.v('player_y','u16');
+ put(e,'player_jump_buffer',6); // A buffered jump must not escape a grounded snare.
+ e.hold(['RIGHT','B','A'],12);assert.equal(e.v('web_trap'),24);
+ assert.equal(e.v('player_x','u16'),x);assert.equal(e.v('player_y','u16'),y);assert.equal(e.v('player_air'),0);
+ assert.ok(e.v('shot_count')>0,'can defend yourself while trapped');assert.equal(e.v('shield_hp'),40);e.shot('weaver-trapped');
+ e.tap('START');const held=e.v('web_trap'),life=e.v('web_life');e.idle(30);
+ assert.equal(e.v('web_trap'),held);assert.equal(e.v('web_life'),life);e.tap('START');
+ e.until(t=>!t.v('web_trap'),40);assert.ok(e.v('web_grace')>0);
+ e.idle(12);assert.equal(e.v('web_trap'),0,'same patch cannot immediately trap again');
+ e.hold('RIGHT',12);assert.ok(e.v('player_x','u16')>x);assert.equal(e.v('web_trap'),0);
+});
+test('weaver: airborne crossing avoids snare and expired webs cannot catch the player',()=>{
+ const e=trial();put(e,'weaver_state',3);put(e,'weaver_timer',200);e.hold('B',6);
+ put(e,'web_x',e.v('player_x','u16'));put(e,'web_y',e.v('player_y','u16'));put(e,'web_life',100);
+ e.hold('RIGHT',6);assert.equal(e.v('web_trap'),0);assert.ok(e.v('player_air'));
+ put(e,'web_life',0);e.idle(50);assert.equal(e.v('web_trap'),0);
 });
 test('weaver: close range lunge is warned and committed, jump avoids damage, death clears web',()=>{
  for(const jump of [false,true]) {
@@ -28,7 +37,7 @@ test('weaver: close range lunge is warned and committed, jump avoids damage, dea
   assert.equal(e.v('weaver_state'),4);assert.equal(e.v('shield_hp'),40);
   e.until(t=>t.v('weaver_state')===5,24);if(jump)e.hold('B',12);else e.idle(12);
   assert.equal(e.v('shield_hp'),jump?40:28);assert.equal(e.v('weaver_state'),3);
-  put(e,'web_life',100);put(e,'actor_hp',0);put(e,'shots_killed',1);e.idle(4);assert.equal(e.v('web_life'),0);assert.equal(e.v('web_slow'),0);assert.equal(e.v('enemy_trial_cleared'),1);
+  put(e,'web_life',100);put(e,'actor_hp',0);put(e,'shots_killed',1);e.idle(4);assert.equal(e.v('web_life'),0);assert.equal(e.v('web_trap'),0);assert.equal(e.v('enemy_trial_cleared'),1);
   for(let slot=11;slot<17;slot++)assert.equal(e.read8(at(e,'shadow_OAM')+slot*4),0);
  }
 });
@@ -36,7 +45,7 @@ test('weaver: moving starter pistol can clear the trial within hardware limits',
  const e=trial();let peak=0;
  for(let f=0;f<4000&&!e.v('enemy_trial_cleared')&&e.v('player_hp');f++) {
   const keys=['A'];const x=e.v('player_x','u16');if((f/70|0)&1){if(x>24)keys.push('LEFT');}else if(x<120)keys.push('RIGHT');
-  if((e.v('web_slow')||e.v('weaver_state')===5)&&!e.v('player_air'))keys.push('B');
+  if((e.v('web_trap')||e.v('weaver_state')===5)&&!e.v('player_air'))keys.push('B');
   e.hold(keys);peak=Math.max(peak,e.lastFrameCycles);assert.ok(e.v('sprites_used')<=40);
  }
  assert.equal(e.v('enemy_trial_cleared'),1);assert.ok(peak<FRAME_LIMIT,`peak ${peak}`);e.shot('weaver-victory');console.log(`Wireweaver peak ${peak}/${FRAME_LIMIT}`);
