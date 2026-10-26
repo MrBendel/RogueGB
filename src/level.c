@@ -418,9 +418,20 @@ static void clear_pipe(uint16_t p) {
         else MAP(x + i, y) = BLK_FLOOR;
 }
 
+// Nothing solid alongside a run (another pipe, a set piece's side): pipes don't
+// bunch up or hug what they pass. (Its ends meet its two set pieces.)
+static uint8_t clear_beside(uint8_t x, uint8_t y, uint8_t n, uint8_t down) {
+    for (uint8_t i = 0; i < n; i++)
+        if (down ? MAP(x - 1, y + i) == BLK_SOLID || MAP(x + 1, y + i) == BLK_SOLID
+                 : MAP(x + i, y - 1) == BLK_SOLID || MAP(x + i, y + 1) == BLK_SOLID)
+            return 0;
+    return 1;
+}
+
 // A pipe across open ground, kept only if everything still connects.
 static void try_pipe(uint8_t x, uint8_t y, uint8_t n, uint8_t down) {
     if (pipe_count >= PIPE_MAX || !n || n > 16 || !open_ground(x, y, down ? 1 : n, down ? n : 1)) return;
+    if (!clear_beside(x, y, n, down)) return;
     uint16_t p = pipe_word(x, y, n, down ? PIPE_DOWN : 0);
     draw_pipe(p, 0);
     if (still_connected()) pipes[pipe_count++] = p;
@@ -432,6 +443,7 @@ static void try_pipe(uint8_t x, uint8_t y, uint8_t n, uint8_t down) {
 static void try_bent_pipe(uint8_t x0, uint8_t y, uint8_t x1, uint8_t vy, uint8_t vn) {
     uint8_t n = x1 - x0 + 1;
     if (pipe_count + 2 > PIPE_MAX || n > 16 || !vn || vn > 16 || !open_ground(x0, y, n, 1) || !open_ground(x1, vy, 1, vn)) return;
+    if (!clear_beside(x0, y, n, 0) || !clear_beside(x1, vy, vn, 1)) return;
     uint16_t across = pipe_word(x0, y, n, PIPE_BEND), turn = pipe_word(x1, vy, vn, PIPE_DOWN | PIPE_BEND);
     draw_pipe(across, turn);
     draw_pipe(turn, across);
@@ -457,9 +469,13 @@ static uint8_t solid_row(uint8_t x, uint8_t y, uint8_t h) {
 // ways, across from one's side and bent down onto the other's top or up into its
 // underside.
 static void run_pipes(void) {
+    uint8_t links[PF_MAX];  // pipes per set piece: two at most
+    for (uint8_t k = 0; k < pf_count; k++) links[k] = 0;
     pipe_count = 0;
     for (uint8_t a = 0; a < pf_count; a++)
         for (uint8_t b = 0; b < pf_count; b++) {
+            if (a == b || links[a] >= 2 || links[b] >= 2) continue;
+            uint8_t had = pipe_count;  // (one pipe between two set pieces: the first that fits)
             uint8_t ax = pf_x[a], ay = pf_y[a], aw = pf_size[pf_id[a] * 2], ah = pf_size[pf_id[a] * 2 + 1];
             uint8_t bx = pf_x[b], by = pf_y[b], bw = pf_size[pf_id[b] * 2], bh = pf_size[pf_id[b] * 2 + 1];
             if (bx > ax + aw && bx - ax - aw <= 8) {
@@ -470,7 +486,7 @@ static void run_pipes(void) {
                         break;
                     }
             }
-            if (by > ay + ah && by - ay - ah <= 8) {
+            if (pipe_count == had && by > ay + ah && by - ay - ah <= 8) {
                 uint8_t left = ax > bx ? ax : bx, right = ax + aw < bx + bw ? ax + aw : bx + bw;
                 for (uint8_t x = left; x < right; x++)
                     if (MAP(x, ay + ah - 1) == BLK_SOLID && MAP(x, by) == BLK_SOLID) {
@@ -479,10 +495,9 @@ static void run_pipes(void) {
                     }
             }
             // Bent: b to the right of a's side, wholly below or above that row.
-            if (bx >= ax + aw && bx + bw - ax - aw <= 9) {
+            if (pipe_count == had && bx >= ax + aw && bx + bw - ax - aw <= 9) {
                 uint8_t r = solid_row(ax + aw - 1, ay, ah);
-                if (r == 0xFF) continue;
-                for (uint8_t c = bx > ax + aw ? bx : ax + aw + 1; c < bx + bw; c++) {
+                for (uint8_t c = bx > ax + aw ? bx : ax + aw + 1; r != 0xFF && c < bx + bw; c++) {
                     if (by > r + 1 && MAP(c, by) == BLK_SOLID && by - r - 1 <= 8) {
                         try_bent_pipe(ax + aw, r, c, r + 1, by - r - 1);  // down onto b's top
                         break;
@@ -494,6 +509,7 @@ static void run_pipes(void) {
                     }
                 }
             }
+            if (pipe_count != had) links[a]++, links[b]++;
         }
 }
 

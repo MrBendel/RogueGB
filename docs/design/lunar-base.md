@@ -87,7 +87,9 @@ a crate pile, a pair of panel stands (the exterior is at 122 of its 128 blocks).
   for the bend) join neighbouring set pieces up to 8 blocks apart: across between
   two side by side, on the lowest row where both are solid; down from one to one
   below; or bent, across from one's side and down onto the other's top or up into
-  its underside. Solid (low cover), and kept only if everything still connects.
+  its underside. Solid (low cover), and kept only if everything still connects;
+  one pipe between two set pieces, two at most from any one, and nothing solid
+  alongside a run (no pipes bunched side by side or hugging a piece).
 They're stamped over the theme's look as the map is built; the lists live on the
 stack meanwhile (40 set pieces, 12 pipe runs at most), since the look is drawn once:
 an exit map's shaft is dug in the build too (its blocks kept clear of set pieces).
