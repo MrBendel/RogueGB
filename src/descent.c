@@ -36,6 +36,7 @@ uint16_t area_seed_base;  // the run's seed; each area's is derived from it and 
 uint16_t saved_seconds;   // run_seconds at the last save
 // Per camp of the current map: asleep, awake, or cleared; and its enemies' actor slots.
 uint8_t camp_state[LEVEL_CAMPS];
+uint8_t camp_bit0;  // the map's first camp bit in area_camps_cleared: 0, or a building's (level.h INSIDE_CAMP_BIT + door)
 uint8_t camp_actors[LEVEL_CAMPS];
 
 extern uint8_t actor_count;  // enemies alive (actor.c)
@@ -72,6 +73,7 @@ void descent_resume(void) BANKED {
     memcpy(area_camps_cleared, profile.exp_camps, sizeof(area_camps_cleared));
     memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
     memcpy(area_conts_opened, profile.exp_conts, sizeof(area_conts_opened));
+    memcpy(area_inside_opened, profile.exp_inside, sizeof(area_inside_opened));
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     // Back from its miniboss (or a continue after): beside the shaft, open now.
@@ -130,6 +132,7 @@ static void autosave(void) {
     memcpy(profile.exp_camps, area_camps_cleared, sizeof(profile.exp_camps));
     memcpy(profile.exp_chests, area_chests_opened, sizeof(profile.exp_chests));
     memcpy(profile.exp_conts, area_conts_opened, sizeof(profile.exp_conts));
+    memcpy(profile.exp_inside, area_inside_opened, sizeof(profile.exp_inside));
     if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
     save_write();
 }
@@ -156,7 +159,7 @@ static void place_player(uint8_t side) {
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
     level_inside = 0xFF;
-    chest_bit0 = 0;
+    chest_bit0 = camp_bit0 = 0;
     // Each map's tileset (the display is off): the entrance room is indoors.
     if (map == area_start) tiles_lunar_int_load();
     else tiles_lunar_ext_load();
@@ -217,7 +220,7 @@ void descent_update(void) BANKED {
                 if ((camp_actors[c] & (1 << a)) && actor_type[a] != ACTOR_NONE) alive = 1;
             if (!alive) {
                 camp_state[c] = CAMP_CLEARED;
-                area_camps_cleared[level_map] |= 1 << c;
+                area_camps_cleared[level_map] |= 1 << (c + camp_bit0);
                 char t[8] = "CLEAR! ";
                 hud_say(t);
                 xp_gain(XP_CAMP + 5 * layer_depth);
@@ -234,9 +237,14 @@ static void enter_building(uint8_t k) {
     tiles_lunar_int_load();
     level_build_interior(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map << 8) ^ (k * 97 + 1));
     chest_bit0 = 3 + k;
+    camp_bit0 = INSIDE_CAMP_BIT + k;
+    // Its guard (if it has one), asleep unless cleared, before the chest that waits for it.
+    for (uint8_t c = 0; c < LEVEL_CAMPS; c++) {
+        camp_state[c] = c < level_camps && !(area_camps_cleared[level_map] & (1 << (c + camp_bit0))) ? CAMP_ASLEEP : CAMP_CLEARED;
+        camp_actors[c] = 0;
+    }
     pickups_load_map(area_chests_opened[level_map] >> chest_bit0);
     talk_clear();
-    for (uint8_t c = 0; c < LEVEL_CAMPS; c++) camp_state[c] = CAMP_CLEARED;
     player_x = (uint16_t)level_open[2] * BLOCK_SIZE;
     player_y = room_px_h - 3 * BLOCK_SIZE + 4;
     player_xs = player_ys = 0;

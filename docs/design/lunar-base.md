@@ -148,8 +148,14 @@ back on the step. One screen (10x8 blocks):
   either side of the door (3 in 4);
 - a chest beside a couch: bit 3 + k of the map's `area_chests_opened` (pickups.c
   `chest_bit0`), so a looted one stays looted, and it's saved.
-Up to 4 doors a map (`DOORS_MAX`). Next: enemies inside, rooms of other sizes and
-kinds (a lab, quarters), doors on other set pieces.
+- (2026-10-26) a locker pair at the ends of the face strip, one building in two
+  (the shared container art; their bits: building k's at 2k, 2k + 1 of the map's
+  `area_inside_opened`, saved as `exp_inside`, save version 7);
+- a guard, one building in two: a camp of three in the upper room (its cleared bit:
+  2 + the door in the map's `area_camps_cleared`); the chest waits for it and is
+  luckier.
+Up to 4 doors a map (`DOORS_MAX`). Next: rooms of other sizes and kinds (a lab,
+quarters), doors on other set pieces.
 
 ## The area
 

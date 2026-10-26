@@ -425,7 +425,7 @@ test('containers beside the set pieces open as you walk up: their look, their lo
     for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
     const map = emu.v('level_map'), bx = emu.read8(addr(emu, 'cont_bx')), by = emu.read8(addr(emu, 'cont_by'));
     const kind = emu.read8(addr(emu, 'cont_kind')), h = kind === 1 ? 1 : 2;
-    const vis = () => emu.read8(addr(emu, 'room_vis') + by * 32 + bx);
+    const vis = () => emu.read8(addr(emu, 'room_vis') + (by + h - 1) * 32 + bx);  // (its bottom block: a locker's head is the same open or shut)
     const closed = vis();
     // Below it, then up into it.
     w16(emu, 'player_x', bx * 16);
@@ -468,4 +468,52 @@ test("the vendor post before the miniboss: green for ammo, red for health, paid 
   assert.equal(emu.v('player_hp'), emu.v('player_hp_max'), 'healed');
   buy(1);
   assert.equal(credits(), 500 - 25 - 40, 'full already: nothing charged');
+});
+
+/** From seed's entrance room out its first door, then into that map's first building. */
+function intoBuilding(seed) {
+  const emu = startDescent(bootToTitle(), seed);
+  const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+  leaveBy(emu, [1, 2, 8].find((x) => links & x));
+  if (!emu.v('level_doors')) return null;
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+  w16(emu, 'player_x', emu.read8(addr(emu, 'door_bx')) * 16);
+  w16(emu, 'player_y', emu.read8(addr(emu, 'door_by')) * 16 + 4);
+  for (let f = 0; f < 60 && emu.v('level_inside') === 0xff; f++) emu.hold('UP', 1);
+  return emu.idle(40);
+}
+
+test("a building's lockers open and stay open (their own bits, saved)", () => {
+  const emu = intoBuilding(4251);  // (lockers, no guard)
+  assert.equal(emu.v('level_conts'), 2);
+  const map = emu.v('level_map'), bx = emu.read8(addr(emu, 'cont_bx'));
+  w16(emu, 'player_x', bx * 16);
+  w16(emu, 'player_y', 3 * 16 + 4);
+  for (let f = 0; f < 30 && !(emu.read8(addr(emu, 'area_inside_opened') + map) & 1); f++) emu.hold('UP', 1);
+  assert.equal(emu.read8(addr(emu, 'area_inside_opened') + map) & 1, 1, 'building 0, locker 0');
+  assert.equal(emu.read8(addr(emu, 'area_conts_opened') + map), 0, "not the map's own containers");
+  assert.equal(emu.read8(addr(emu, 'profile') + 214 + map) & 1, 1, 'in the file (exp_inside)');
+});
+
+test('a guarded building: its camp wakes, and its chest waits until the camp is cleared', () => {
+  const emu = intoBuilding(4260);  // (guarded)
+  assert.equal(emu.v('level_camps'), 1);
+  assert.ok(emu.v('actors_active') > 0, 'its guards, awake');
+  const map = emu.v('level_map'), cx = emu.v('chest_x', 'u16'), cy = emu.v('chest_y', 'u16');
+  const opened = () => emu.read8(addr(emu, 'area_chests_opened') + map) & (1 << 3);
+  // Up to the chest with the guards about: it stays shut. (From the side: a couch
+  // can stand below it.)
+  const left = cx < 5 * 16;
+  const toChest = () => {
+    w16(emu, 'player_x', left ? cx + 24 : cx - 24);
+    w16(emu, 'player_y', cy - 4);
+    emu.hold(left ? 'LEFT' : 'RIGHT', 24).idle(2);
+  };
+  toChest();
+  assert.equal(opened(), 0, 'locked while they live');
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // (cleared)
+  emu.idle(4);
+  assert.ok(emu.read8(addr(emu, 'area_camps_cleared') + map) & (1 << 2), 'cleared: bit 2 + door 0');
+  toChest();
+  assert.ok(opened(), 'then it opens');
 });

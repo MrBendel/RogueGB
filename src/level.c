@@ -8,6 +8,8 @@
 #include "tiles_lunar_int.h"
 #include "gfx.h"
 #include "chunks.h"
+#include "descent.h"
+#include "save.h"
 
 uint8_t area_type[AREA_CELLS];
 uint8_t area_links[AREA_CELLS];
@@ -78,7 +80,7 @@ void level_generate(uint16_t seed) BANKED {
         area_type[i] = MAP_NONE;
         area_links[i] = 0;
         area_camps_cleared[i] = 0;
-        area_chests_opened[i] = area_conts_opened[i] = 0;
+        area_chests_opened[i] = area_conts_opened[i] = area_inside_opened[i] = 0;
         area_cw[i] = area_ch[i] = 0;
     }
     // The start is the entrance room, on the bottom row: south of it is the way
@@ -305,6 +307,7 @@ uint8_t pf_count, pipe_count;
 uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
 uint8_t level_conts, cont_bx[CONT_MAX], cont_by[CONT_MAX], cont_kind[CONT_MAX];
 uint8_t area_conts_opened[AREA_CELLS];
+uint8_t area_inside_opened[AREA_CELLS];
 uint8_t level_vends, vend_bx[VENDS_MAX], vend_by[VENDS_MAX];
 static const uint8_t cont_w[3] = {1, 1, 2}, cont_h[3] = {2, 1, 2};
 #define PF_HAB 0  // (the first set piece: the hab module, the one with a door)
@@ -915,12 +918,32 @@ static void look_exterior(void) {
     }
 }
 
-// A container's blocks: closed, or open (its bit in the map's area_conts_opened).
-// The pieces are in kind order, each closed then open (lunar_ext.json cont_*).
+// Whether container k is open: outside, its bit in the map's area_conts_opened;
+// in building d, bit 2d + k of the map's area_inside_opened (its lockers).
+uint8_t cont_is_open(uint8_t k) BANKED {
+    // (One shift for both: SDCC 4.5 dropped the byte's load from the outdoor
+    // branch when each returned its own shift.)
+    uint8_t bits = area_conts_opened[level_map];
+    if (level_inside != 0xFF) bits = area_inside_opened[level_map], k += level_inside << 1;
+    return (bits >> k) & 1;
+}
+
+void cont_set_open(uint8_t k) BANKED {
+    if (level_inside != 0xFF) {
+        area_inside_opened[level_map] |= 1 << ((level_inside << 1) + k);
+        profile.exp_inside[level_map] = area_inside_opened[level_map];
+    } else {
+        area_conts_opened[level_map] |= 1 << k;
+        profile.exp_conts[level_map] = area_conts_opened[level_map];
+    }
+}
+
+// A container's blocks: closed, or open. The pieces are in kind order, each closed
+// then open (lunar_ext.json cont_*; a building's only has lockers: lunar_int.json).
 void level_draw_container(uint8_t k) BANKED {
     static const uint8_t first[3] = {TS_LUNAR_EXT_CONT_LOCKER, TS_LUNAR_EXT_CONT_CHEST, TS_LUNAR_EXT_CONT_BOX};
     uint8_t kind = cont_kind[k], cw = cont_w[kind], ch = cont_h[kind];
-    uint8_t v = first[kind] + (area_conts_opened[level_map] & (1 << k) ? cw * ch : 0);
+    uint8_t v = (level_inside != 0xFF ? TS_LUNAR_INT_CONT_LOCKER : first[kind]) + (cont_is_open(k) ? cw * ch : 0);
     for (uint8_t j = 0; j < ch; j++)
         for (uint8_t i = 0; i < cw; i++) room_vis[((uint16_t)(cont_by[k] + j) << 5) | (cont_bx[k] + i)] = v++;
 }
@@ -1008,6 +1031,31 @@ void level_build_interior(uint16_t seed) BANKED {
         in_put(IN_W - 2, 6, TS_LUNAR_INT_COUNTER_R, BLK_SOLID);
     }
     if (!plates) in_pair(3, 3, TS_LUNAR_INT_FLOOR_LIGHT, BLK_FLOOR);
+    // A locker pair at the ends of the face strip, one building in two.
+    if (below(2)) {
+        for (uint8_t k = 0; k < 2; k++) {
+            cont_bx[k] = k ? IN_W - 2 : 1;
+            cont_by[k] = 1;
+            cont_kind[k] = CONT_LOCKER;
+            in_put(cont_bx[k], 1, 0, BLK_SOLID);
+            in_put(cont_bx[k], 2, 0, BLK_SOLID);
+        }
+        level_conts = 2;
+        for (uint8_t k = 0; k < 2; k++) level_draw_container(k);
+    }
+    // A guard, one building in two: a camp in the upper room (its enemies at the ends
+    // of the shadow row and the middle; the chest waits for it, descent.c).
+    if (below(2)) {
+        static const uint8_t gx[3] = {2, IN_W - 3, IN_W / 2}, gy[3] = {2, 2, 3};
+        level_camps = 1;
+        camp_x[0] = (IN_W / 2) * BLOCK_SIZE;
+        camp_y[0] = 3 * BLOCK_SIZE;
+        camp_slots[0] = 3;
+        for (uint8_t s = 0; s < 3; s++) {
+            camp_slot_x[0][s] = (uint16_t)gx[s] * BLOCK_SIZE;
+            camp_slot_y[0][s] = (uint16_t)gy[s] * BLOCK_SIZE;
+        }
+    }
     // The way out: the south door, its jambs either side.
     in_put(IN_DOOR, IN_H - 1, TS_LUNAR_INT_DOOR_NS, BLK_FLOOR);
     in_put(IN_DOOR - 1, IN_H - 1, TS_LUNAR_INT_JAMB_NS_L, BLK_SOLID);
@@ -1016,7 +1064,7 @@ void level_build_interior(uint16_t seed) BANKED {
     level_chests = 1;
     chest_x[0] = (uint16_t)(below(2) ? 1 : IN_W - 2) * BLOCK_SIZE;
     chest_y[0] = 3 * BLOCK_SIZE;
-    chest_camp[0] = 0xFF;  // (a cache: a little luckier)
+    chest_camp[0] = level_camps ? 0 : 0xFF;  // (guarded: opens once they're cleared; else a cache)
 }
 
 // --- A miniboss's arena ---

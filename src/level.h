@@ -79,6 +79,9 @@ extern uint8_t pf_count, pipe_count;
 #define CONT_BOX 2     // 2x2, rare: a better gun, credits, ammo
 extern uint8_t level_conts, cont_bx[CONT_MAX], cont_by[CONT_MAX], cont_kind[CONT_MAX];
 extern uint8_t area_conts_opened[12];  // (AREA_CELLS)
+extern uint8_t area_inside_opened[12]; // a building's lockers: building k's at bits 2k, 2k + 1
+uint8_t cont_is_open(uint8_t k) BANKED;    // container k of the map (or the building you're in)
+void cont_set_open(uint8_t k) BANKED;      // ... opened now (and into the file)
 void level_draw_container(uint8_t k) BANKED;  // its look, opened or not (and onto the screen)
 // The vendor post before an area's miniboss (its exit map): two vending machines
 // (1x2 blocks: ammo, green and black; health, red and black), far enough from the
@@ -91,6 +94,10 @@ extern uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
 // A building's interior: one screen in the interior tileset, from a seed, its way
 // out the south door (level_open), one chest.
 void level_build_interior(uint16_t seed) BANKED;
+// A building's guard (level_build_interior: one in two): one camp in its upper room;
+// its cleared bit is 2 + the door in the map's area_camps_cleared, and the chest
+// (luckier) waits for it.
+#define INSIDE_CAMP_BIT 2
 // An area's miniboss's arena in the world's art (the exterior tileset: the trials'
 // room's shape, 10x8, a rim and open ground). The tileset is loaded here.
 void level_build_arena(void) BANKED;

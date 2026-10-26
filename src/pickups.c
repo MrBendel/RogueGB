@@ -151,7 +151,7 @@ static void open_chest(uint8_t c) {
     uint16_t x = chest_x[c], y = chest_y[c] + 18;
     drop_credits(x - 10, y, (uint16_t)(10 + (rand() & 15)) * layer_depth);
     Gun g;
-    uint8_t luck = (layer_depth - 1) * 4 + (chest_camp[c] == 0xFF ? 6 : 0);
+    uint8_t luck = (layer_depth - 1) * 4 + (chest_camp[c] == 0xFF ? 6 : 0) + (chest_bit0 && chest_camp[c] != 0xFF ? 12 : 0);  // (a guarded building's: luckiest)
     uint8_t lv = profile.level + (rand() & 1);
     loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, luck);
     drop_gun(x + 10, y, &g);
@@ -300,7 +300,7 @@ void pickups_take(void) BANKED {
 static void open_container(uint8_t k) {
     static const uint8_t cw[3] = {1, 1, 2}, ch[3] = {2, 1, 2};
     uint8_t kind = cont_kind[k], w = cw[kind], h = ch[kind];
-    area_conts_opened[level_map] |= 1 << k;
+    cont_set_open(k);
     level_draw_container(k);
     for (uint8_t c = 0; c < w * 2; c++) room_draw_column((cont_bx[k] << 1) + c, cont_by[k] << 1, h * 2);
     sfx_play(SFX_CHEST);
@@ -316,9 +316,7 @@ static void open_container(uint8_t k) {
         drop_credits(x - 12, y, (uint16_t)(8 + (rand() & 15)) * layer_depth);
         if (kind == CONT_BOX) drop_ammo(x + 12, y, profile.guns[profile.gun_sel].type);
     }
-    // Opened for good: into the file now.
-    profile.exp_conts[level_map] = area_conts_opened[level_map];
-    save_write();
+    save_write();  // (opened for good: cont_set_open put it in the file)
 }
 
 void pickups_update(void) BANKED {
@@ -326,7 +324,7 @@ void pickups_update(void) BANKED {
     // Containers: walk up to one (they're solid: the player's middle within a few
     // pixels of its sides) and it opens.
     for (uint8_t k = 0; k < level_conts; k++) {
-        if (area_conts_opened[level_map] & (1 << k)) continue;
+        if (cont_is_open(k)) continue;
         uint16_t px = player_x + 8, py = player_y + 12, x0 = (uint16_t)cont_bx[k] * BLOCK_SIZE, y0 = (uint16_t)cont_by[k] * BLOCK_SIZE;
         uint8_t w = cont_kind[k] == CONT_BOX ? 2 : 1, h = cont_kind[k] == CONT_CHEST ? 1 : 2;
         if (px + 8 >= x0 && px < x0 + w * BLOCK_SIZE + 8 && py + 4 >= y0 && py < y0 + h * BLOCK_SIZE + 8) open_container(k);

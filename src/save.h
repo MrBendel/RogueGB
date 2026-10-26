@@ -16,8 +16,8 @@
 
 #define SAVE_SLOTS 3
 #define SAVE_NONE 0xFF
-#define SAVE_VERSION 6  // 2: guns as items (loot.h); 3: story flags; 4: the backpack (256-byte copies); 5: ammo;
-                        // 6: containers opened (exp_conts)
+#define SAVE_VERSION 7  // 2: guns as items (loot.h); 3: story flags; 4: the backpack (256-byte copies); 5: ammo;
+                        // 6: containers opened (exp_conts); 7: lockers in buildings (exp_inside)
 #define SAVE_OLDEST 5   // older files still read: fields added since sit at the end, and start at 0
 #define DEATH_FEE_SHIFT 3  // the corporation's cut for rebuilding you: credits >> 3 (12.5%; a shift, no 32-bit division)
 
@@ -49,6 +49,7 @@ typedef struct {
     uint8_t ammo[AMMO_TYPES];  // the expedition's reserve rounds, per gun type (loot.h)
     // (Version 6 on: new fields go after the last, so older files read as a prefix.)
     uint8_t exp_conts[12];  // containers opened, a bit each, per map (level.h CONT_MAX)
+    uint8_t exp_inside[12]; // lockers in buildings opened, per map: building k's at bits 2k, 2k + 1
 } Profile;
 
 #define STORY_MET_ECHO 1    // her first contact at the town's relay has played
