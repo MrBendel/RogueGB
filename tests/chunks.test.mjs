@@ -63,7 +63,6 @@ test('patched chunks in a booted state build what a fresh boot of that ROM build
   const swapped = new Emu(B, rom);
   swapped.symbols = base.symbols;
   swapped.loadState(state);
-  swapped.write8(swapped.symbols.addr('chunk_tables_loaded'), 0);
   const tmp = path.join(ROOT, 'build', 'test-output', 'chunks-patched.gb');
   fs.mkdirSync(path.dirname(tmp), { recursive: true });
   fs.writeFileSync(tmp, rom);

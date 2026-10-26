@@ -119,7 +119,6 @@ const words = (n, len) => Array.from({ length: len }, (_, i) => emu.read16(A(n) 
 
 function generate(areaSeed, i) {
   emu.write8(A('area_theme'), themeIdx);
-  emu.write8(A('chunk_tables_loaded'), 0);  // re-read the tables (and the theme filter)
   emu.writeBytes(A('debug_x'), [areaSeed & 255, areaSeed >> 8]);
   emu.write8(A('debug_type'), i);
   emu.write8(A('debug_cmd'), 5);

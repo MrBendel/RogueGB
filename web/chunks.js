@@ -388,7 +388,6 @@ function loadChunksIntoEmu(chunks) {
   emu = new Emu(B, patchRom(chunks));
   emu.symbols = symbols;
   emu.loadState(bootState);
-  emu.write8(symbols.addr('chunk_tables_loaded'), 0);  // re-read the tags and weights
 }
 
 const A = (n) => symbols.addr(n);

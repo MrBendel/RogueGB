@@ -1,6 +1,7 @@
 #pragma bank 255
 // The pause menu's pages (menu.h). Banked: only while paused. The display is on,
 // so text goes straight to VRAM (a few frames of writes when a page is drawn).
+#include "far.h"
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
@@ -53,7 +54,7 @@ uint8_t gear_tiles;  // the gear detail's 2 lines (redrawn in place)
 uint16_t guns_bought;
 uint8_t shop_tiles;  // where the detail lines are drawn (redrawn in place)
 uint8_t shop_marker; // the cursor's tile
-uint16_t menu_saved_pal[BORROWED * 4];  // background palettes 0-5 as they were
+// (The background palettes 0-5 as they were wait in far RAM: far.h FAR_MENU_PAL.)
 // Text tiles (second VRAM bank): the HUD's 12-127, then 192-253.
 uint8_t tiles_a, tiles_b;
 uint8_t detail_tiles;  // the skill detail's 4 lines, 19 tiles each (redrawn in place)
@@ -144,7 +145,7 @@ void menu_tabs(void) BANKED {
 }
 
 void menu_open(void) BANKED {
-    memcpy(menu_saved_pal, pal_base_bg, sizeof(menu_saved_pal));
+    FAR_PUT(FAR_MENU_PAL, pal_base_bg, BORROWED * 4 * sizeof(uint16_t));
     memcpy(pal_base_bg, inks, sizeof(inks));
     gfx_set_fade(0);
     win_frame(0, 0, SCREEN_TW, SCREEN_TH);
@@ -155,7 +156,7 @@ void menu_open(void) BANKED {
 }
 
 void menu_close(void) BANKED {
-    memcpy(pal_base_bg, menu_saved_pal, sizeof(menu_saved_pal));
+    FAR_GET(pal_base_bg, FAR_MENU_PAL, BORROWED * 4 * sizeof(uint16_t));
     gfx_set_fade(0);
 }
 

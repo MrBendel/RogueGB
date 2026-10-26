@@ -158,12 +158,15 @@ void level_generate(uint16_t seed) BANKED {
 
 // --- Building a map ---
 
-uint8_t chunk_tag_ram[CHUNK_MAX], chunk_weight_ram[CHUNK_MAX];
+// The chunk tables' tags and weights (the editor patches them in ROM), copied for
+// each build into the top of room_vis: its looks aren't drawn until the build's
+// end, and the flood fill's ring only uses its first 512 bytes. No RAM of their own.
 uint8_t chunk_count_ram;
+#define chunk_tag_tab (room_vis + 512)
+#define chunk_weight_tab (room_vis + 512 + CHUNK_MAX)
 // The chunk picked for each chunk cell of the last map built (cy * 8 + cx);
 // watchable, for the chunk editor's preview and survey.
 uint8_t level_picks[CHUNK_ROWS * 8];
-uint8_t chunk_tables_loaded;
 // The area's chunk theme (content/chunks/*.json "theme"): only its chunks are picked.
 uint8_t area_theme = CHUNK_THEME_LUNAR;
 
@@ -171,12 +174,12 @@ uint8_t area_theme = CHUNK_THEME_LUNAR;
 static uint8_t pick_chunk(uint8_t tag) {
     uint8_t total = 0;
     for (uint8_t k = 0; k < chunk_count_ram; k++)
-        if (chunk_tag_ram[k] & tag) total += chunk_weight_ram[k];
+        if (chunk_tag_tab[k] & tag) total += chunk_weight_tab[k];
     uint8_t r = below(total);
     for (uint8_t k = 0; k < chunk_count_ram; k++) {
-        if (!(chunk_tag_ram[k] & tag)) continue;
-        if (r < chunk_weight_ram[k]) return k;
-        r -= chunk_weight_ram[k];
+        if (!(chunk_tag_tab[k] & tag)) continue;
+        if (r < chunk_weight_tab[k]) return k;
+        r -= chunk_weight_tab[k];
     }
     return 0;
 }
@@ -189,7 +192,7 @@ static uint8_t pick_chunk(uint8_t tag) {
 // of a fill on a map up to 30x32 blocks stays far under 256). The map's edges
 // are wall except at openings, and outside the map is wall, so the fill can't
 // leave it; indices off the top are skipped.
-// The ring lives in room_vis (512 of its 1024 bytes): the fill runs while a map
+// The ring lives in room_vis (the first 512 of its 768 bytes): the fill runs while a map
 // is built, before its looks are filled in (room_vis_from_map, last), with the
 // display off; work RAM below the maps has no room for it.
 #define fill_queue ((uint16_t *)ROOM_VIS_ADDR)
@@ -707,17 +710,13 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
 
 void level_build_map(uint8_t i) BANKED {
     if (!area_type[i]) return;  // no map in that slot
-    if (!chunk_tables_loaded) {
-        banked_memcpy(&chunk_count_ram, &chunk_count, 1, BANK(chunks));
-        banked_memcpy(chunk_tag_ram, chunk_tags, chunk_count_ram, BANK(chunks));
-        banked_memcpy(chunk_weight_ram, chunk_weight, chunk_count_ram, BANK(chunks));
-        // Other themes' chunks weigh nothing here.
-        for (uint8_t k = 0; k < chunk_count_ram; k++) {
-            uint8_t t;
-            banked_memcpy(&t, &chunk_theme[k], 1, BANK(chunks));
-            if (t != area_theme) chunk_weight_ram[k] = 0;
-        }
-        chunk_tables_loaded = 1;
+    banked_memcpy(&chunk_count_ram, &chunk_count, 1, BANK(chunks));
+    banked_memcpy(chunk_tag_tab, chunk_tags, chunk_count_ram, BANK(chunks));
+    banked_memcpy(chunk_weight_tab, chunk_weight, chunk_count_ram, BANK(chunks));
+    for (uint8_t k = 0; k < chunk_count_ram; k++) {  // other themes' chunks weigh nothing here
+        uint8_t t;
+        banked_memcpy(&t, &chunk_theme[k], 1, BANK(chunks));
+        if (t != area_theme) chunk_weight_tab[k] = 0;
     }
     level_rng = area_seed[i];
     uint8_t cw = area_cw[i], ch = area_ch[i];
