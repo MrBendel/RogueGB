@@ -59,6 +59,40 @@ the artist's reference (2026-10-23):
 The side doorways are stand-ins: the sheet has no side-on doorway. Doors that open
 and close need the artist's art.
 
+## The miniboss at the shaft (built 2026-10-25)
+
+An area's exit map guards its shaft: within 3 blocks of it (a file's descent), the
+game saves the expedition and goes to the area's miniboss's arena (MODE_MINIBOSS:
+the Claimjaw, Scrapback and Cragback in turn with depth; descent.c
+`descent_miniboss`). Won, a moment for the "CLEAR", then XP (`XP_MINIBOSS` x depth),
+and back to the descent, rebuilt from the file, beside the shaft, open: the beaten
+flag is bit 7 of the exit map's chest bits (`AREA_BOSS_BEATEN`), so it's saved.
+Dying there ends the run like dying anywhere in the descent. Your health carries
+into the arena and back (play.c `carry_hp`; only a level up from the win heals).
+The arena is the trials' room's shape (10x8, open ground: the fights are tuned to
+it) in the world's art (level.c `level_build_arena`), except the Scrapback's, which
+paints its acid pools into background tiles and palettes the world's art uses and
+keeps the trials' room until that changes. Still to do: the vendor post before it.
+
+A whole area now plays through: the entrance room's briefing, its maps (camps,
+chests, buildings to go into), the miniboss at the shaft, and down to the next.
+
+## Containers (built 2026-10-25)
+
+Lockers, chests and loot boxes stand against an exterior map's set pieces (level.c
+`place_containers`): 3 lockers, a chest, and a loot box one map in two, each beside
+a set piece's front and kept only if everything still connects (they're solid:
+cover). Walk up to one and it opens (pickups.c): its open look, and its loot in
+front of it: a locker, credits and rounds for a gun you carry; a chest, a gun and
+credits; a loot box, a better gun (luckier), credits and rounds. Opened ones stay
+open for the expedition (`area_conts_opened`, saved as `profile.exp_conts`; save
+version 6, which still reads version 5 files).
+
+The art is shared by every world (the user's lockers, chest and gun box from the
+ice sheet: `artwork/tiles/containers.png`, in LunarBase's light lilac, dark grey
+and orange so they sit in its palettes); a world's tileset stamps it over its
+ground (tileset `"sheets"`, a piece's `"stamp_from"`).
+
 ## Missions
 
 The board in town (a terminal or an NPC) offers a few missions at a time; each says

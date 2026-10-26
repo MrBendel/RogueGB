@@ -14,6 +14,7 @@
 #define XP_PEASHOOTER 6
 #define XP_CAMP 10        // + 5 a depth: clearing a camp
 #define XP_SHAFT 20       // x depth: down the shaft into the next area
+#define XP_MINIBOSS 40    // x depth: an area's miniboss, the way down opened
 
 // --- watchable state ---
 extern uint16_t xp_pending;   // XP from kills this frame (actor.c), awarded by play

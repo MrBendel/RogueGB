@@ -119,3 +119,21 @@ test('gear: the backpack list scrolls', () => {
   assert.equal(emu.v('gear_top'), 8);
   matchGolden(emu, 'pause-gear-scrolled');
 });
+
+test('the menu keeps the palettes it borrows in far RAM (work RAM bank 2) and puts them back', () => {
+  const emu = startRun().idle(30);
+  const pal = () => Array.from(emu.readBytes(emu.symbols.addr('pal_base_bg'), 48));
+  const before = pal();
+  const near = () => Array.from(emu.readBytes(0xd000, 48));  // bank 1's: our own globals
+  const nearBefore = near();
+  emu.tap('START').idle(20);
+  assert.equal(emu.v('paused'), 1);
+  assert.deepEqual(near(), nearBefore, "bank 1's 0xD000 untouched: the copy went to bank 2");
+  assert.notDeepEqual(pal(), before, "the menu's inks while it's open");
+  assert.equal(emu.v('far_n'), 48, 'copied out through far RAM');
+  emu.tap('START').idle(20);
+  assert.equal(emu.v('paused'), 0);
+  assert.deepEqual(pal(), before, 'the palettes back as they were');
+  // Bank 1 is back in the window (SVBK): the room map still reads as before.
+  assert.equal(emu.read8(0xff70) & 7, 1, 'SVBK: bank 1');
+});

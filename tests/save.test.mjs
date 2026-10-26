@@ -116,3 +116,25 @@ test('the lab and the yard save nothing', () => {
   assert.equal(emu.v('save_slot'), 0xff);
   assert.equal(emu.v('saves_written', 'u16'), 0);
 });
+
+test('a version 5 file (before the containers) still loads: the new fields start at 0', () => {
+  const emu = startDescent().idle(2);
+  const level = prof(emu, 'level'), credits = prof(emu, 'credits', 4);
+  const sram = new Uint8Array(emu.sram());
+  // Rewrite both copies of slot 0 as version 5: 12 bytes shorter (no exp_conts),
+  // its checksum over those bytes (save.c).
+  for (const at of [0, 256]) {
+    const r = sram.subarray(at, at + 256);
+    if (r[0] !== 0x53) continue;
+    const n = r[6] - 12;
+    let c = 0x5afe;
+    for (let i = 0; i < n; i++) c = (((c << 1) | (c >> 15)) & 0xffff) ^ r[8 + i];
+    r[2] = 5; r[4] = c & 255; r[5] = c >> 8; r[6] = n;
+    for (let i = 0; i < 12; i++) r[8 + n + i] = 0xee;  // (bytes past its size: ignored)
+  }
+  const again = settle(withSram(sram).tap('START').tap('A'), PLAY, 'continued');
+  assert.equal(prof(again, 'level'), level, 'the file read');
+  assert.equal(prof(again, 'credits', 4), credits);
+  const conts = Array.from(again.readBytes(A(again, 'profile') + 202, 12));
+  assert.deepEqual(conts, new Array(12).fill(0), 'containers: none opened yet');
+});

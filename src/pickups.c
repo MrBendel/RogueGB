@@ -82,7 +82,7 @@ void pickups_load_map(uint8_t opened) BANKED {
     // Chests are solid (drawn as the floor under them; the sprite shows the chest).
     for (uint8_t c = 0; c < level_chests; c++)
         room_map[((chest_y[c] >> 4) << 5) | (chest_x[c] >> 4)] = BLK_PROP;
-    pickups_on = level_chests != 0;
+    pickups_on = level_chests || level_conts;
 }
 
 static uint8_t near(uint16_t x, uint16_t y, uint8_t reach) {
@@ -296,8 +296,41 @@ void pickups_take(void) BANKED {
     else card_hide();
 }
 
+// A container (level.h): open now, its look onto the screen, its loot in front.
+static void open_container(uint8_t k) {
+    static const uint8_t cw[3] = {1, 1, 2}, ch[3] = {2, 1, 2};
+    uint8_t kind = cont_kind[k], w = cw[kind], h = ch[kind];
+    area_conts_opened[level_map] |= 1 << k;
+    level_draw_container(k);
+    for (uint8_t c = 0; c < w * 2; c++) room_draw_column((cont_bx[k] << 1) + c, cont_by[k] << 1, h * 2);
+    sfx_play(SFX_CHEST);
+    uint16_t x = (uint16_t)cont_bx[k] * BLOCK_SIZE + w * 8 - 8, y = (uint16_t)(cont_by[k] + h) * BLOCK_SIZE + 2;
+    if (kind == CONT_LOCKER) {  // supplies: credits and rounds for what you carry
+        drop_credits(x - 8, y, (uint16_t)(4 + (rand() & 7)) * layer_depth);
+        drop_ammo(x + 8, y, loadout_ammo_type());
+    } else {  // a gun (a loot box's luckier), credits, and for a box rounds too
+        Gun g;
+        uint8_t lv = profile.level + (rand() & 1);
+        loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, (layer_depth - 1) * 4 + (kind == CONT_BOX ? 10 : 2));
+        drop_gun(x, y + 6, &g);
+        drop_credits(x - 12, y, (uint16_t)(8 + (rand() & 15)) * layer_depth);
+        if (kind == CONT_BOX) drop_ammo(x + 12, y, profile.guns[profile.gun_sel].type);
+    }
+    // Opened for good: into the file now.
+    profile.exp_conts[level_map] = area_conts_opened[level_map];
+    save_write();
+}
+
 void pickups_update(void) BANKED {
     pickups_tick++;
+    // Containers: walk up to one (they're solid: the player's middle within a few
+    // pixels of its sides) and it opens.
+    for (uint8_t k = 0; k < level_conts; k++) {
+        if (area_conts_opened[level_map] & (1 << k)) continue;
+        uint16_t px = player_x + 8, py = player_y + 12, x0 = (uint16_t)cont_bx[k] * BLOCK_SIZE, y0 = (uint16_t)cont_by[k] * BLOCK_SIZE;
+        uint8_t w = cont_kind[k] == CONT_BOX ? 2 : 1, h = cont_kind[k] == CONT_CHEST ? 1 : 2;
+        if (px + 8 >= x0 && px < x0 + w * BLOCK_SIZE + 8 && py + 4 >= y0 && py < y0 + h * BLOCK_SIZE + 8) open_container(k);
+    }
     // Chests: a camp's opens once the camp is cleared; caches any time.
     for (uint8_t c = 0; c < level_chests; c++) {
         if (chest_open_bits & (1 << c)) continue;

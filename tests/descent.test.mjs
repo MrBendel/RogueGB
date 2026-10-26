@@ -1,10 +1,11 @@
 // Generated areas (level.c) and the descent (descent.c), M2: open maps linked at
 // their edges, camps that wake as you approach, and a shaft down to the next area.
 import { test } from 'node:test';
-import { assert, matchGolden, startRun, startDescent, bootToTitle } from './helpers.mjs';
+import { assert, matchGolden, startRun, startDescent, bootToTitle, settle, PLAY } from './helpers.mjs';
 
 const W = 4, CELLS = 12;
 const MAP_START = 1, MAP_FIELD = 2, MAP_EXIT = 3;
+const AREA_BOSS_BEATEN = 0x80, MODE_MINIBOSS = 2;  // descent.h, run.h
 const STEP = { 1: -W, 2: 1, 4: W, 8: -1 };
 const OPP = { 1: 4, 2: 8, 4: 1, 8: 2 };
 const SIDE = { 1: 0, 2: 1, 4: 2, 8: 3 };  // edge bit -> index into level_open
@@ -292,6 +293,8 @@ test('the exit map has a shaft: dropping in leads to a new area, one deeper', ()
   const firstLinks = bytes(emu, 'area_links');
   walkTo(emu, emu.v('area_exit'));
   for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // nothing in the way
+  const exitChests = addr(emu, 'area_chests_opened') + emu.v('area_exit');
+  emu.write8(exitChests, emu.read8(exitChests) | AREA_BOSS_BEATEN);  // (its miniboss: the next test)
   // Beside the shaft (2x2 pit blocks in the middle), then into it.
   const w = emu.v('room_w'), h = emu.v('room_h');
   const sx = ((w >> 1) - 1) * 16, sy = ((h >> 1) - 1) * 16;
@@ -373,4 +376,66 @@ test("a hab module's door leads into its interior and back out onto its step", (
   emu.idle(10);
   assert.equal(emu.v('level_map'), map, 'the same map');
   assert.deepEqual([emu.v('player_x', 'u16') >> 4, emu.v('player_y', 'u16') >> 4], [bx, by], 'on the step');
+});
+
+test("the exit map's shaft is guarded: its miniboss's arena, then back beside the shaft, open", () => {
+  const emu = startDescent();
+  walkTo(emu, emu.v('area_exit'));
+  const exit = emu.v('area_exit');
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+  const w = emu.v('room_w'), h = emu.v('room_h');
+  const sx = ((w >> 1) - 1) * 16, sy = ((h >> 1) - 1) * 16;
+  w16(emu, 'player_x', sx - 56);
+  w16(emu, 'player_y', sy);
+  emu.write8(addr(emu, 'player_hp'), 3);  // hurt on the way
+  for (let f = 0; f < 120 && emu.v('play_mode') !== MODE_MINIBOSS; f++) emu.hold('RIGHT', 1);
+  assert.equal(emu.v('play_mode'), MODE_MINIBOSS, 'into its arena');
+  emu.until((e) => e.v('in_transition'), 60, 'the scene change');
+  settle(emu, PLAY, 'the arena');
+  assert.equal(emu.v('layer_depth'), 1);
+  assert.ok(emu.v('boss_kind') !== 0, 'a miniboss');
+  assert.equal(emu.v('boss_campaign'), 1);
+  assert.equal(emu.v('player_hp'), 3, 'no free heal going in');
+  const level = emu.read8(addr(emu, 'profile') + 1);
+  // Won (its fight is the miniboss tests'): back down, beside the open shaft.
+  emu.write8(addr(emu, 'boss_state'), 5);  // BOSS_WON
+  emu.until((e) => e.v('play_mode') === 1, 300, 'back to the descent');
+  emu.until((e) => e.v('in_transition'), 60, 'the scene change');
+  settle(emu, PLAY, 'the descent');
+  assert.equal(emu.v('level_map'), exit, 'the exit map');
+  // Nor coming back: the 3 it went in with, unless the win's XP levelled it up (a full heal).
+  const up = emu.read8(addr(emu, 'profile') + 1) > level;
+  assert.equal(emu.v('player_hp'), up ? emu.v('player_hp_max') : 3, up ? 'levelled up: full' : 'as it went in');
+  assert.ok(emu.read8(addr(emu, 'area_chests_opened') + exit) & AREA_BOSS_BEATEN, 'its miniboss beaten');
+  const px = emu.v('player_x', 'u16'), py = emu.v('player_y', 'u16');
+  assert.ok(Math.abs(px - sx) < 48 && Math.abs(py - sy) < 48, `beside the shaft: ${px},${py}`);
+  // Into it: the next area.
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+  for (let f = 0; f < 200 && emu.v('layer_depth') === 1; f++) emu.hold('RIGHT', 1);
+  emu.idle(40);
+  assert.equal(emu.v('layer_depth'), 2, 'one deeper');
+});
+
+test('containers beside the set pieces open as you walk up: their look, their loot, saved', () => {
+  for (let seed = 4242; seed < 4242 + 40; seed += 3) {
+    const emu = startDescent(bootToTitle(), seed);
+    const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+    leaveBy(emu, [1, 2, 8].find((x) => links & x));
+    if (!emu.v('level_conts')) continue;
+    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+    const map = emu.v('level_map'), bx = emu.read8(addr(emu, 'cont_bx')), by = emu.read8(addr(emu, 'cont_by'));
+    const kind = emu.read8(addr(emu, 'cont_kind')), h = kind === 1 ? 1 : 2;
+    const vis = () => emu.read8(addr(emu, 'room_vis') + by * 32 + bx);
+    const closed = vis();
+    // Below it, then up into it.
+    w16(emu, 'player_x', bx * 16);
+    w16(emu, 'player_y', (by + h) * 16 + 4);
+    for (let f = 0; f < 30 && !(emu.read8(addr(emu, 'area_conts_opened') + map) & 1); f++) emu.hold('UP', 1);
+    assert.ok(emu.read8(addr(emu, 'area_conts_opened') + map) & 1, 'opened');
+    assert.notEqual(vis(), closed, 'its open look');
+    assert.ok(bytes(emu, 'drop_kind', 6).some((d) => d), 'its loot on the floor');
+    assert.equal(emu.read8(addr(emu, 'profile') + 202 + map) & 1, 1, 'in the file');
+    return;
+  }
+  assert.fail('no map with containers found');
 });

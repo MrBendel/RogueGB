@@ -156,6 +156,10 @@ export function convert(name) {
   const img = placeholder ? null : decodePng(fs.readFileSync(srcPath));
   // A second sheet of decals to stamp over pieces (optional; local like the main one).
   const decals = !placeholder && def.decals ? decodePng(fs.readFileSync(artPath(def.decals))) : null;
+  // More sheets to stamp from, by name ("sheets": { "containers": "artwork/tiles/containers.png" }):
+  // a piece's "stamp_from" picks one (art shared by every world, like the containers).
+  const sheets = {};
+  for (const [k, f] of Object.entries(def.sheets || {})) if (!placeholder) sheets[k] = decodePng(fs.readFileSync(artPath(f)));
   const [br, bg, bb] = def.backdrop;
   const sheetPixel = (x, y) => {
     const i = (y * img.width + x) * 4, a = img.rgba[i + 3] / 255;
@@ -172,7 +176,7 @@ export function convert(name) {
     // { tiles: ["00 10x", "20 00xy"] }: 8x8 sheet tiles by column and row (hex), each
     //   optionally flipped (x, y); rows of codes, 2 per block across and down.
     // A tiles piece can add "stamp": rows of codes like its tiles, from the "decals"
-    // sheet, drawn over it ("..": none).
+    // sheet (or "stamp_from": one of the tileset's "sheets"), drawn over it ("..": none).
     // Any form can add "behind": true: drawn over sprites, and walkable in a generated
     // map (a roof you walk behind).
     let w, h, pixel, x = 0, y = 0;
@@ -190,12 +194,13 @@ export function convert(name) {
       const stamp = spec.stamp && spec.stamp.map((r) => r.trim().split(/\s+/).map((c) => (c === '..' ? null : {
         tx: parseInt(c[0], 16), ty: parseInt(c[1], 16), fx: c.slice(2).includes('x'), fy: c.slice(2).includes('y'),
       })));
-      if (stamp && !decals && !placeholder) throw new Error(`${name}.${piece}: a stamp needs "decals" (a sheet)`);
+      const from = spec.stamp_from ? sheets[spec.stamp_from] : decals;
+      if (stamp && !from && !placeholder) throw new Error(`${name}.${piece}: a stamp needs "decals" or a "sheets" entry (${spec.stamp_from || 'decals'})`);
       pixel = placeholder ? placeholderPixel(piece, roles[piece]) : (lx, ly) => {
         const ix = lx & 7, iy = ly & 7, d = stamp && stamp[ly >> 3] && stamp[ly >> 3][lx >> 3];
         if (d) {
-          const i = ((d.ty * 8 + (d.fy ? 7 - iy : iy)) * decals.width + d.tx * 8 + (d.fx ? 7 - ix : ix)) * 4;
-          if (decals.rgba[i + 3] > 127) return pack(decals.rgba[i], decals.rgba[i + 1], decals.rgba[i + 2]);
+          const i = ((d.ty * 8 + (d.fy ? 7 - iy : iy)) * from.width + d.tx * 8 + (d.fx ? 7 - ix : ix)) * 4;
+          if (from.rgba[i + 3] > 127) return pack(from.rgba[i], from.rgba[i + 1], from.rgba[i + 2]);
         }
         const t = codes[ly >> 3][lx >> 3];
         return sheetPixel(t.tx * 8 + (t.fx ? 7 - ix : ix), t.ty * 8 + (t.fy ? 7 - iy : iy));

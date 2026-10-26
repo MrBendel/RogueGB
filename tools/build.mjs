@@ -191,6 +191,9 @@ export function build({ clean = false, quiet = false } = {}) {
       console.error(ram.error);
       return { ok: false, ms: Date.now() - t0, error: ram.error };
     }
+    // Work RAM headroom, every build (far RAM, src/far.h, is the place for cold data).
+    const free = ROOM_MAP_ADDR - ram.end;
+    console.log(`[build] work RAM: globals end at 0x${ram.end.toString(16)}, ${free} bytes before the room map${free < 64 ? ' (tight: move cold data to far RAM, src/far.h)' : ''}`);
     if (!bank0.ok) {
       // Remove the ROM so the next build can't treat it as up to date and skip this check.
       fs.rmSync(out, { force: true });
