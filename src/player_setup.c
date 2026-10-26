@@ -19,6 +19,7 @@ extern SpriteSlot player_slot;
 #define SHADOW_OAM OAM_SHADOW
 #define SHADOW_VRAM 8
 #define ANIM_DOWN 0
+#define FALL_FRAMES 32
 
 extern uint8_t player_anim_dir;
 extern uint16_t player_anim_dist;
@@ -128,4 +129,11 @@ void player_hurt(uint8_t dmg, uint16_t from_x, uint16_t from_y) BANKED {
     player_vx = dx > 2 ? KNOCKBACK : dx < -2 ? -KNOCKBACK : 0;
     player_vy = dy > 2 ? KNOCKBACK : dy < -2 ? -KNOCKBACK : 0;
     if (!player_vx && !player_vy) player_vy = KNOCKBACK;
+}
+
+void start_pit_fall(void) BANKED {
+    player_fall_timer = FALL_FRAMES;
+    player_vx = player_vy = 0;
+    player_roll_len = 0;
+    player_falls++;
 }

@@ -47,6 +47,7 @@
 #include "acid_skimmer.h"
 #include "mercenary.h"
 #include "acid_wolf.h"
+#include "wireweaver.h"
 #include "scrapback.h"
 #include "flynt.h"
 #include "globfather.h"
@@ -280,6 +281,7 @@ void play_enter(void) BANKED {
     gfx_sprites(1);
     gfx_sprite_split(hud_y);  // no sprites over the HUD
     player_draw();
+    if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
     talk_init();  // after the room: it added its talkers
     if (play_mode == MODE_YARD && save_slot != SAVE_NONE) shop_restock();  // new stock each time you're in town
 }
@@ -505,6 +507,8 @@ void play_update(void) BANKED {
         }
         debug_cmd = 0;
     }
+    web_slow=0;
+    if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_pre();
     player_update();
     if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
     if (pickups_on) pickups_update();
@@ -547,6 +551,7 @@ void play_update(void) BANKED {
     }
     aim_update();
     player_draw();
+    if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
     health_update();
     if (card_drop == CARD_NONE) hud_update();  // (a gun's card has the window: the HUD redraws when it closes)
     if (boss_kind != BOSS_NONE) {

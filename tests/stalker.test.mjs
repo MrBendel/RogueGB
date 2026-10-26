@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import {assert,bootToTitle,settle,PLAY,FRAME_LIMIT} from './helpers.mjs';
 const at=(e,n)=>e.symbols.addr(n),put=(e,n,v)=>e.write8(at(e,n),v),put16=(e,n,v)=>e.writeBytes(at(e,n),[v&255,(v>>8)&255]);
-function trial(){const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);assert.equal(e.v('title_choice'),3);e.shot('stalker-menu');return settle(e.tap('A'),PLAY).idle(3);}
+function trial(){const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('DOWN').tap('DOWN').tap('DOWN').idle(9);assert.equal(e.v('title_choice'),3);e.shot('stalker-menu');return settle(e.tap('A'),PLAY).idle(3);}
 test('stalker: shimmer flanks, warns a committed diagonal dash, then exposes itself',()=>{
  const e=trial();assert.equal(e.v('actor_scripted'),15);assert.equal(e.v('play_actor_oam'),15);assert.equal(e.v('actor_guard'),1);
  const x=e.v('actor_x','u16'),y=e.v('actor_y','u16');e.idle(12);assert.ok(e.v('actor_x','u16')!==x||e.v('actor_y','u16')!==y);e.shot('stalker-shimmer');

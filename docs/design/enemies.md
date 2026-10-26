@@ -1,6 +1,6 @@
 # Enemies
 
-Acid Skimmer, Mercenary, Acid Wolf, and Rift Stalker are the active enemy playtests. Acid Skimmer remains
+Acid Skimmer, Mercenary, Acid Wolf, Rift Stalker, and Wireweaver are the active enemy playtests. Acid Skimmer remains
 the reference for future enemy quality. From the title, press DOWN, select
 Enemies, then an encounter. B goes back;
 START pauses and SELECT while paused ends the attempt.
@@ -131,3 +131,25 @@ The controller uses scripted actor 15, ordinary two-part sprite rendering from
 OAM 15, and only five bytes of additional persistent state. Art conversion is
 reproducible with tools/stalker-art.mjs; source sheets remain in the local art
 library. This first playtest does not add campaign spawns or teleportation.
+
+
+## Wireweaver trial (2026-10-25)
+
+A 14-HP spider from the SGQ_Enemies 16x16 spider sheet, with amber highlights
+and a magenta body. Select **Enemies → Wireweaver**.
+
+- Scuttles sideways while trying to keep some distance from the player.
+- Marks the player's position for 26 frames, then fires a visible web toward
+  that fixed point over 16 frames. Moving after the mark avoids the patch.
+- One web patch persists for 210 frames; a newer web replaces the old one.
+  Grounded steering is half speed inside it, with no damage or lingering slow.
+  Jumping and air dashes escape normally; heavy-weapon slow does not stack.
+- At close range, a separate 20-frame warning precedes a committed 12-frame
+  lunge for 12 damage. Jumping avoids it. It pauses 30 frames after either attack.
+- Always vulnerable to gunfire; passive body contact does no damage. Defeat
+  clears its web and slow immediately; pausing freezes the encounter.
+
+Body sprites use OAM 15 onward. Warning/projectile and web use props 11–14;
+optional gun overlays yield when necessary to preserve the player and spider.
+Controller: src/wireweaver.c (scripted actor 16). Art: tools/weaver-art.mjs.
+This is a standalone trial; mixed enemy encounters remain future work.
