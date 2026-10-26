@@ -85,6 +85,9 @@ extern uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
 // A building's interior: one screen in the interior tileset, from a seed, its way
 // out the south door (level_open), one chest.
 void level_build_interior(uint16_t seed) BANKED;
+// An area's miniboss's arena in the world's art (the exterior tileset: the trials'
+// room's shape, 10x8, a rim and open ground). The tileset is loaded here.
+void level_build_arena(void) BANKED;
 #define CHUNK_ROWS 6  // the most chunks down a map (24 blocks: room.h ROOM_MAX_H)
 
 #endif

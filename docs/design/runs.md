@@ -67,9 +67,12 @@ the Claimjaw, Scrapback and Cragback in turn with depth; descent.c
 `descent_miniboss`). Won, a moment for the "CLEAR", then XP (`XP_MINIBOSS` x depth),
 and back to the descent, rebuilt from the file, beside the shaft, open: the beaten
 flag is bit 7 of the exit map's chest bits (`AREA_BOSS_BEATEN`), so it's saved.
-Dying there ends the run like dying anywhere in the descent. Still to do: the arena
-in the world's own art (it's the combat trials' room), your health carried in
-(entering refills it now), the vendor post before it.
+Dying there ends the run like dying anywhere in the descent. Your health carries
+into the arena and back (play.c `carry_hp`; only a level up from the win heals).
+The arena is the trials' room's shape (10x8, open ground: the fights are tuned to
+it) in the world's art (level.c `level_build_arena`), except the Scrapback's, which
+paints its acid pools into background tiles and palettes the world's art uses and
+keeps the trials' room until that changes. Still to do: the vendor post before it.
 
 A whole area now plays through: the entrance room's briefing, its maps (camps,
 chests, buildings to go into), the miniboss at the shaft, and down to the next.

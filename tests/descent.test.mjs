@@ -387,6 +387,7 @@ test("the exit map's shaft is guarded: its miniboss's arena, then back beside th
   const sx = ((w >> 1) - 1) * 16, sy = ((h >> 1) - 1) * 16;
   w16(emu, 'player_x', sx - 56);
   w16(emu, 'player_y', sy);
+  emu.write8(addr(emu, 'player_hp'), 3);  // hurt on the way
   for (let f = 0; f < 120 && emu.v('play_mode') !== MODE_MINIBOSS; f++) emu.hold('RIGHT', 1);
   assert.equal(emu.v('play_mode'), MODE_MINIBOSS, 'into its arena');
   emu.until((e) => e.v('in_transition'), 60, 'the scene change');
@@ -394,12 +395,17 @@ test("the exit map's shaft is guarded: its miniboss's arena, then back beside th
   assert.equal(emu.v('layer_depth'), 1);
   assert.ok(emu.v('boss_kind') !== 0, 'a miniboss');
   assert.equal(emu.v('boss_campaign'), 1);
+  assert.equal(emu.v('player_hp'), 3, 'no free heal going in');
+  const level = emu.read8(addr(emu, 'profile') + 1);
   // Won (its fight is the miniboss tests'): back down, beside the open shaft.
   emu.write8(addr(emu, 'boss_state'), 5);  // BOSS_WON
   emu.until((e) => e.v('play_mode') === 1, 300, 'back to the descent');
   emu.until((e) => e.v('in_transition'), 60, 'the scene change');
   settle(emu, PLAY, 'the descent');
   assert.equal(emu.v('level_map'), exit, 'the exit map');
+  // Nor coming back: the 3 it went in with, unless the win's XP levelled it up (a full heal).
+  const up = emu.read8(addr(emu, 'profile') + 1) > level;
+  assert.equal(emu.v('player_hp'), up ? emu.v('player_hp_max') : 3, up ? 'levelled up: full' : 'as it went in');
   assert.ok(emu.read8(addr(emu, 'area_chests_opened') + exit) & AREA_BOSS_BEATEN, 'its miniboss beaten');
   const px = emu.v('player_x', 'u16'), py = emu.v('player_y', 'u16');
   assert.ok(Math.abs(px - sx) < 48 && Math.abs(py - sy) < 48, `beside the shaft: ${px},${py}`);

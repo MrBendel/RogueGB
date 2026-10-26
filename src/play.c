@@ -214,7 +214,7 @@ static void draw_page(void) {
     else menu_draw();
 }
 
-extern uint8_t boss_campaign, campaign_timer;  // (an area's miniboss: below)
+extern uint8_t boss_campaign, campaign_timer, carry_hp;  // (an area's miniboss: below)
 
 void play_enter(void) BANKED {
     play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
@@ -233,6 +233,10 @@ void play_enter(void) BANKED {
     } else if (play_mode >= MODE_MINIBOSS) {
         if (play_mode == MODE_BOSS && enemy_trial_kind == 0) { warden_room(); player_init(72,184); }
         else if (play_mode == MODE_BOSS && enemy_trial_kind == 3) { flynt_room(); player_init(72,96); }
+        // An area's miniboss (boss_campaign): its arena in the world's art; the
+        // Scrapback paints its acid into background tiles and palettes the world's
+        // art uses, so it keeps the trials' room for now.
+        else if (boss_campaign && enemy_trial_kind != 1) { level_build_arena(); player_init(72,96); }
         else { boss_room(); player_init(72,96); }
     } else {
         room_load_lab();
@@ -250,6 +254,10 @@ void play_enter(void) BANKED {
     }
     if (play_mode != MODE_DESCENT) layer_depth = 1;  // (XP's depth bonus)
     progress_apply();  // max health from the level
+    if (carry_hp) {     // (into an area's miniboss's arena and back: no free heal)
+        player_hp = carry_hp < player_hp_max ? carry_hp : player_hp_max;
+        carry_hp = 0;
+    }
     // XP and levels: a file's descent, the lab and the yard; the combat playtests
     // (bosses, enemies) are tuned arenas: a level up's full heal would skew them.
     if (play_mode != MODE_MINIBOSS) boss_campaign = 0;
@@ -304,6 +312,7 @@ static void leave_scene(void) {
 // rebuilt from the file with the shaft open. 1 while that fight is on.
 uint8_t boss_campaign;
 uint8_t campaign_timer;  // frames since it was won
+uint8_t carry_hp;        // health into the next scene (to the arena and back), or 0: full
 
 // Play again in another mode (play -> play: the main loop only changes scenes
 // when the next differs, so fade out here and leave none; it then enters play).
@@ -533,6 +542,7 @@ void play_update(void) BANKED {
             }
         } else if (door == DESCENT_ARENA) {
             descent_save();
+            carry_hp = player_hp;
             boss_campaign = 1;
             campaign_timer = 0;
             enemy_trial_kind = descent_miniboss();
@@ -552,6 +562,7 @@ void play_update(void) BANKED {
             boss_campaign = 0;
             profile.exp_chests[profile.exp_map] |= AREA_BOSS_BEATEN;
             xp_gain(XP_MINIBOSS * profile.exp_depth);
+            carry_hp = player_hp;  // (after the XP: a level up's heal counts)
             save_write();
             go(MODE_DESCENT);
             return;

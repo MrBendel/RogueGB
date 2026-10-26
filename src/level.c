@@ -979,3 +979,19 @@ void level_build_interior(uint16_t seed) BANKED {
     chest_y[0] = 3 * BLOCK_SIZE;
     chest_camp[0] = 0xFF;  // (a cache: a little luckier)
 }
+
+// --- A miniboss's arena ---
+// The combat trials' room (boss.c boss_room: 10x8, a rim, open ground: the fights
+// are tuned to it) drawn in the world's exterior art instead of the test tiles.
+void level_build_arena(void) BANKED {
+    tiles_lunar_ext_load();
+    room_w = IN_W;
+    room_h = IN_H;
+    room_px_w = IN_W * BLOCK_SIZE;
+    room_px_h = IN_H * BLOCK_SIZE;
+    for (uint16_t k = 0; k < sizeof(room_map); k++) room_map[k] = BLK_SOLID;
+    for (uint8_t y = 1; y + 1 < IN_H; y++)
+        for (uint8_t x = 1; x + 1 < IN_W; x++) MAP(x, y) = BLK_FLOOR;
+    pf_count = pipe_count = level_doors = level_conts = 0;
+    tiles_lunar_ext_apply();
+}
