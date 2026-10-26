@@ -309,8 +309,8 @@ void actors_update(uint8_t first_oam) {
             } else if (type == ACTOR_SLIME) {
                 actor_flash[i] = 0;  // (peashooters set their own: the warning flash)
             }
-            // Touching an enemy hurts (unless you're jumping over it).
-            if (hittable && actor_scripted[i] != 15 && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
+            // Scripted actors 15+ own their contact windows; others hurt on touch.
+            if (hittable && actor_scripted[i] < 15 && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
                 hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : actor_type[i];
                 player_hurt(TOUCH_DAMAGE, actor_x[i] + 8, actor_y[i] + 11);

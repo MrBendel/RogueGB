@@ -382,3 +382,6 @@ throw, with crouch/landing pauses and a moving ground shadow.
 
 - Rift Stalker enemy playtest: SGQ ghost art, trackable phase shimmer, warned
   diagonal dash, and a vulnerable recovery. Enemies -> Rift Stalker.
+
+- Wireweaver enemy playtest: SGQ spider, aimed web patches that slow grounded
+  movement, jump escape, and a warned close-range lunge. Enemies -> Wireweaver.
