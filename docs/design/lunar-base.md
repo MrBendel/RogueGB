@@ -67,8 +67,9 @@ some of the rest); calmer ground (mostly plain regolith, few patches and craters
 **Set pieces** (2026-10-24): parts of the pack's example cut out whole, as
 `"prefab"` pieces in `content/tilesets/lunar_ext.json` (a grid of block types: `.`
 ground, `#` solid, `r` a roof you walk behind): the "01" hab module with its door
-step, the solar station on its legs, the tank, the grilled machine, orange
-canisters on checker plates, a canister rack, a solar panel stand. level.c
+step, the solar station on its legs, the tank, a small module, the grilled
+machine, orange canisters on checker plates, a canister rack, a solar panel stand,
+a crate pile, a pair of panel stands (the exterior is at 122 of its 128 blocks). level.c
 (`plan_set_pieces`), once a map's connections are made:
 - every building the chunks left, whatever its shape, is split into rectangles
   (from each free block, its solid run along the row, as deep as it stays full) and
@@ -91,8 +92,7 @@ They're stamped over the theme's look as the map is built; the lists live on the
 stack meanwhile (40 set pieces, 12 pipe runs at most), since the look is drawn once:
 an exit map's shaft is dug in the build too (its blocks kept clear of set pieces).
 
-Next: more medium set pieces (rectangles about 2x3 are all tanks: a crate stack, a
-vent machine), the T-joints (`49 59`) for branching pipes;
+Next: the T-joints (`49 59`) for branching pipes;
 **props in groups against buildings** (canister racks, crate stacks, posts, solar
 panels) instead of lone crates in the open. The block limit is now 128 (2026-10-24:
 room.h's LUT is a page per quadrant; maps went to 24 rows to make room), since the

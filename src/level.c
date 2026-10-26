@@ -290,8 +290,8 @@ static void look_exterior(void);
 // block still unclaimed becomes ground. A set piece only turns solid blocks into
 // ground, so it can't cut a way off. They're stamped over the theme's look
 // (level_look_exterior), from this list, each time it's drawn.
-// The lists are on level_build_map's stack (work RAM is full): set pieces as
-// x | piece << 5 and y; pipe runs as x | y << 5 | (length - 1) << 10 | down << 14
+// The lists are on level_build_map's stack (work RAM is full): set pieces' x, y
+// and index; pipe runs as x | y << 5 | (length - 1) << 10 | down << 14
 // | bend << 15 (a bent pipe is two runs: across, its last block the elbow, then
 // down or up from the elbow, with no coupling at that end).
 // An exit map's shaft: 2x2 pit blocks in its middle (descent.c: falling in is the
@@ -302,14 +302,11 @@ static void look_exterior(void);
 #define PF_MAX 40
 #define PIPE_MAX 12
 uint8_t pf_count, pipe_count;
-static uint8_t *pf_xid, *pf_y;
+static uint8_t *pf_x, *pf_y, *pf_id;
 static uint16_t *pipes;
 static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
 #define CLAIMED 0x40  // (while planning: a block a set piece has taken)
-#define PF_BIG 3  // the first three (hab, solar, tank) go on open ground; the rest beside them
-#if TILES_LUNAR_EXT_PREFABS > 8
-#error "pf_xid keeps a set piece's index in 3 bits"
-#endif
+#define PF_BIG 4  // the first four (hab, solar, tank, module) go on open ground; the rest beside them
 
 
 #define PIPE_DOWN 0x4000
@@ -339,7 +336,7 @@ static void draw_pipe(uint16_t p, uint16_t other) {
 }
 
 static void stamp_set_pieces(void) {
-    for (uint8_t k = 0; k < pf_count; k++) tiles_lunar_ext_stamp(pf_xid[k] >> 5, pf_xid[k] & 31, pf_y[k]);
+    for (uint8_t k = 0; k < pf_count; k++) tiles_lunar_ext_stamp(pf_id[k], pf_x[k], pf_y[k]);
     for (uint8_t k = 0; k < pipe_count; k++) {
         uint16_t p = pipes[k];
         draw_pipe(p, p & PIPE_DOWN ? (k ? pipes[k - 1] : 0) : (k + 1 < pipe_count ? pipes[k + 1] : 0));
@@ -357,7 +354,8 @@ static uint8_t pf_room(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t x1, u
 
 static void pf_place(uint8_t pf, uint8_t x, uint8_t y) {
     if (pf_count >= PF_MAX) return;
-    pf_xid[pf_count] = x | (pf << 5);
+    pf_x[pf_count] = x;
+    pf_id[pf_count] = pf;
     pf_y[pf_count++] = y;
     for (uint8_t j = 0; j < pf_size[pf * 2 + 1]; j++)
         for (uint8_t i = 0; i < pf_size[pf * 2]; i++) MAP(x + i, y + j) = BLK_SOLID | CLAIMED;
@@ -393,7 +391,8 @@ static uint8_t try_place(uint8_t pf, uint8_t x, uint8_t y) {
             for (uint8_t i = 0; i < w; i++) MAP(x + i, y + j) = BLK_FLOOR;
         return 0;
     }
-    pf_xid[pf_count] = x | (pf << 5);
+    pf_x[pf_count] = x;
+    pf_id[pf_count] = pf;
     pf_y[pf_count++] = y;
     return 1;
 }
@@ -461,8 +460,8 @@ static void run_pipes(void) {
     pipe_count = 0;
     for (uint8_t a = 0; a < pf_count; a++)
         for (uint8_t b = 0; b < pf_count; b++) {
-            uint8_t ax = pf_xid[a] & 31, ay = pf_y[a], aw = pf_size[(pf_xid[a] >> 5) * 2], ah = pf_size[(pf_xid[a] >> 5) * 2 + 1];
-            uint8_t bx = pf_xid[b] & 31, by = pf_y[b], bw = pf_size[(pf_xid[b] >> 5) * 2], bh = pf_size[(pf_xid[b] >> 5) * 2 + 1];
+            uint8_t ax = pf_x[a], ay = pf_y[a], aw = pf_size[pf_id[a] * 2], ah = pf_size[pf_id[a] * 2 + 1];
+            uint8_t bx = pf_x[b], by = pf_y[b], bw = pf_size[pf_id[b] * 2], bh = pf_size[pf_id[b] * 2 + 1];
             if (bx > ax + aw && bx - ax - aw <= 8) {
                 uint8_t top = ay > by ? ay : by, bottom = ay + ah < by + bh ? ay + ah : by + bh;
                 for (uint8_t y = bottom; y-- > top;)
@@ -502,7 +501,7 @@ static void run_pipes(void) {
 // being picked again, so a map isn't all tanks.
 static uint8_t uses(uint8_t pf) {
     uint8_t n = 0;
-    for (uint8_t k = 0; k < pf_count; k++) n += pf_xid[k] >> 5 == pf;
+    for (uint8_t k = 0; k < pf_count; k++) n += pf_id[k] == pf;
     return n;
 }
 
@@ -803,9 +802,9 @@ void level_build_map(uint8_t i) BANKED {
         pf_count = pipe_count = 0;
         entrance_room();
     } else {
-        uint8_t xid[PF_MAX], ys[PF_MAX];
+        uint8_t xs[PF_MAX], ys[PF_MAX], ids[PF_MAX];
         uint16_t runs[PIPE_MAX];
-        pf_xid = xid, pf_y = ys, pipes = runs;
+        pf_x = xs, pf_y = ys, pf_id = ids, pipes = runs;
         plan_set_pieces(w, h, area_type[i] == MAP_EXIT);
         look_exterior();
     }

@@ -84,10 +84,16 @@
       "tiles": ["0a 2a 2ax 0ax", "0b 2b 2bx 0bx", "0c 2c 2cx 0cx", "0d 2c 2cx 0dx", "0e 3e 4e 0ex", "00 00 00 00"],
       "prefab": ["rr", "##", "##"]
     },
+    "pf_module": {
+      "tiles": ["02 12 12 12 12 22", "04 14 14 14 14 24", "05 27 57 27x 15 05x", "06 48 58 48x 16 06x"],
+      "prefab": ["rrr", "###"]
+    },
     "pf_grill": { "tiles": ["c7 17 19 19 17x c7", "c8 17 19 19 17x c8"], "prefab": ["###"] },
     "pf_pads": { "tiles": ["72 82 72 82", "73 83 73 83"], "prefab": ["##"] },
     "pf_rack": { "tiles": ["f5 f5", "f6 f6", "f7 f7", "00 00"], "prefab": ["#", "#"] },
     "pf_panel": { "tiles": ["8b 9b", "8c 9c", "8d 9d", "8e 8ex"], "prefab": ["#", "#"] },
+    "pf_crates": { "tiles": ["b9 b9x 2f 2fx", "ba bax 2f 2fx", "2f 2fx b9 b9x", "2f 2fx ba bax"], "prefab": ["##", "##"] },
+    "pf_panels": { "tiles": ["8b 9b 8b 9b", "8c 9c 8c 9c", "8d 9d 8d 9d", "8e 8ex 8e 8ex"], "prefab": ["##", "##"] },
     "door_grate": { "tiles": ["d6 e6", "d7 e7"] }
   },
   "theme": {
