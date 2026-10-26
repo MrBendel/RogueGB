@@ -302,6 +302,10 @@ static void look_exterior(void);
 #define PF_MAX 40
 #define PIPE_MAX 12
 uint8_t pf_count, pipe_count;
+uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
+#define PF_HAB 0  // (the first set piece: the hab module, the one with a door)
+#define HAB_DOOR_X 1  // its door's column, and its step's row
+#define HAB_STEP_Y 4
 static uint8_t *pf_x, *pf_y, *pf_id;
 static uint16_t *pipes;
 static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
@@ -352,8 +356,15 @@ static uint8_t pf_room(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t x1, u
     return 1;
 }
 
+static void add_door(uint8_t pf, uint8_t x, uint8_t y) {
+    if (pf != PF_HAB || level_doors >= DOORS_MAX) return;
+    door_bx[level_doors] = x + HAB_DOOR_X;
+    door_by[level_doors++] = y + HAB_STEP_Y;
+}
+
 static void pf_place(uint8_t pf, uint8_t x, uint8_t y) {
     if (pf_count >= PF_MAX) return;
+    add_door(pf, x, y);
     pf_x[pf_count] = x;
     pf_id[pf_count] = pf;
     pf_y[pf_count++] = y;
@@ -394,6 +405,7 @@ static uint8_t try_place(uint8_t pf, uint8_t x, uint8_t y) {
     pf_x[pf_count] = x;
     pf_id[pf_count] = pf;
     pf_y[pf_count++] = y;
+    add_door(pf, x, y);
     return 1;
 }
 
@@ -552,7 +564,7 @@ static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 }
 
 static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
-    pf_count = pipe_count = 0;
+    pf_count = pipe_count = level_doors = 0;
     if (shaft)
         for (uint8_t b = 0; b < 4; b++) MAP(SHAFT_X(w) + (b & 1), SHAFT_Y(h) + (b >> 1)) = BLK_FLOOR;
     // Raised platforms are buildings outdoors: with no stairs up to them they'd only
@@ -815,7 +827,7 @@ void level_build_map(uint8_t i) BANKED {
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
     if (area_type[i] == MAP_START) {
-        pf_count = pipe_count = 0;
+        pf_count = pipe_count = level_doors = 0;
         entrance_room();
     } else {
         uint8_t xs[PF_MAX], ys[PF_MAX], ids[PF_MAX];
@@ -861,4 +873,98 @@ static void look_exterior(void) {
     tiles_lunar_ext_apply();
     stamp_set_pieces();
     building_bases();
+}
+
+// --- Building interiors ---
+// One screen (10x8 blocks) in the interior tileset, after the artist's reference
+// interior (docs/design/lunar-base.md, "The interior"): white walls seen from
+// above; under the top wall a face strip, mirrored (lights, plates, screens,
+// vents, sometimes a pair of starfield windows); one floor for the room (plates,
+// or studs with a wall's shadow and cyan lights); couches and counters in mirrored
+// pairs either side of a clear walkway up from the south door; a chest beside it.
+#define IN_W 10
+#define IN_H 8
+#define IN_DOOR 4  // the south door's column
+
+static void in_put(uint8_t x, uint8_t y, uint8_t v, uint8_t t) {
+    uint16_t k = ((uint16_t)y << 5) | x;
+    room_vis[k] = v;
+    room_map[k] = t;
+}
+
+// A block and its mirror image across the walkway.
+static void in_pair(uint8_t x, uint8_t y, uint8_t v, uint8_t t) {
+    in_put(x, y, v, t);
+    in_put(IN_W - 1 - x, y, v, t);
+}
+
+void level_build_interior(uint16_t seed) BANKED {
+    static const uint8_t faces[4] = {TS_LUNAR_INT_FACE_LIGHTS, TS_LUNAR_INT_FACE_PLATE, TS_LUNAR_INT_FACE_SCREEN, TS_LUNAR_INT_FACE_VENT};
+    level_rng = seed ? seed : 0xACE1;
+    room_w = IN_W;
+    room_h = IN_H;
+    room_px_w = IN_W * BLOCK_SIZE;
+    room_px_h = IN_H * BLOCK_SIZE;
+    level_camps = level_chests = level_carved = 0;
+    pf_count = pipe_count = level_doors = 0;
+    for (uint8_t s = 0; s < 4; s++) level_open[s] = 0xFF;
+    level_open[2] = IN_DOOR;
+    uint8_t plates = below(2), floor = plates ? TS_LUNAR_INT_PLATES : TS_LUNAR_INT_FLOOR;
+    // The walls and the floor.
+    for (uint8_t y = 0; y < IN_H; y++)
+        for (uint8_t x = 0; x < IN_W; x++) {
+            uint8_t v = floor, t = BLK_FLOOR;
+            if (!y || y == IN_H - 1) {
+                t = BLK_SOLID;
+                v = !x ? (y ? TS_LUNAR_INT_CORNER_SW : TS_LUNAR_INT_CORNER_NW)
+                  : x == IN_W - 1 ? (y ? TS_LUNAR_INT_CORNER_SE : TS_LUNAR_INT_CORNER_NE) : TS_LUNAR_INT_WALL_N;
+            } else if (!x) {
+                t = BLK_SOLID;
+                v = plates ? TS_LUNAR_INT_WALL_W_PLATES : TS_LUNAR_INT_WALL_W;
+            } else if (x == IN_W - 1) {
+                t = BLK_SOLID;
+                v = plates ? TS_LUNAR_INT_WALL_E_PLATES : TS_LUNAR_INT_WALL_E;
+            } else if (y == 2 && !plates) {
+                v = TS_LUNAR_INT_FLOOR_SHADOW;  // (the top wall's shadow)
+            }
+            in_put(x, y, v, t);
+        }
+    // The face strip under the top wall: a pair of windows, or face pieces.
+    uint8_t windows = !below(3);
+    for (uint8_t x = 1; x < IN_W / 2; x++) {
+        if (windows && (x == 2 || x == 3)) {
+            uint8_t b = TS_LUNAR_INT_WINDOW + (x - 2);
+            in_put(x, 1, b, BLK_SOLID);
+            in_put(x, 2, b + 2, BLK_SOLID);
+            in_put(x + 4, 1, b, BLK_SOLID);  // (the second window: the same way round)
+            in_put(x + 4, 2, b + 2, BLK_SOLID);
+            continue;
+        }
+        in_pair(x, 1, faces[below(4)], BLK_SOLID);
+    }
+    // Couches in the middle of the room, counters along the bottom, lights on studs.
+    if (below(4)) {
+        in_put(1, 4, TS_LUNAR_INT_COUCH, BLK_SOLID);
+        in_put(2, 4, TS_LUNAR_INT_COUCH + 1, BLK_SOLID);
+        in_put(IN_W - 3, 4, TS_LUNAR_INT_COUCH, BLK_SOLID);  // (both the same way round)
+        in_put(IN_W - 2, 4, TS_LUNAR_INT_COUCH + 1, BLK_SOLID);
+    }
+    if (below(4)) {
+        in_put(1, 6, TS_LUNAR_INT_COUNTER_L, BLK_SOLID);
+        in_put(2, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
+        in_put(3, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
+        in_put(IN_W - 4, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
+        in_put(IN_W - 3, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
+        in_put(IN_W - 2, 6, TS_LUNAR_INT_COUNTER_R, BLK_SOLID);
+    }
+    if (!plates) in_pair(3, 3, TS_LUNAR_INT_FLOOR_LIGHT, BLK_FLOOR);
+    // The way out: the south door, its jambs either side.
+    in_put(IN_DOOR, IN_H - 1, TS_LUNAR_INT_DOOR_NS, BLK_FLOOR);
+    in_put(IN_DOOR - 1, IN_H - 1, TS_LUNAR_INT_JAMB_NS_L, BLK_SOLID);
+    in_put(IN_DOOR + 1, IN_H - 1, TS_LUNAR_INT_JAMB_NS_R, BLK_SOLID);
+    // The chest, on one side, above the couches.
+    level_chests = 1;
+    chest_x[0] = (uint16_t)(below(2) ? 1 : IN_W - 2) * BLOCK_SIZE;
+    chest_y[0] = 3 * BLOCK_SIZE;
+    chest_camp[0] = 0xFF;  // (a cache: a little luckier)
 }

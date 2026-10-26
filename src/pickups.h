@@ -23,6 +23,7 @@
 // --- watchable state ---
 extern uint8_t pickups_on;              // this map has chests or drops (play skips the calls otherwise)
 extern uint8_t chest_open_bits;         // this map's chests opened (a bit each)
+extern uint8_t chest_bit0;              // their first bit in area_chests_opened: 0, or a building's (3 + door)
 extern uint8_t drop_kind[DROP_MAX];
 extern uint16_t drop_x[DROP_MAX], drop_y[DROP_MAX];
 extern uint16_t drop_value[DROP_MAX];   // credits, or the gun's record (0..DROP_GUNS-1)

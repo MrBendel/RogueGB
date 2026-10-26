@@ -109,6 +109,8 @@ static void place_player(uint8_t side) {
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
+    level_inside = 0xFF;
+    chest_bit0 = 0;
     // Each map's tileset (the display is off): the entrance room is indoors.
     if (map == area_start) tiles_lunar_int_load();
     else tiles_lunar_ext_load();
@@ -174,6 +176,22 @@ void descent_update(void) BANKED {
     }
 }
 
+// In through building door k of the current map: its interior (the interior
+// tileset, from a seed of the area, the map and the door), the player just inside
+// its south door. Its chest is bit 3 + k of the map's.
+static void enter_building(uint8_t k) {
+    level_inside = k;
+    tiles_lunar_int_load();
+    level_build_interior(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map << 8) ^ (k * 97 + 1));
+    chest_bit0 = 3 + k;
+    pickups_load_map(area_chests_opened[level_map] >> chest_bit0);
+    talk_clear();
+    for (uint8_t c = 0; c < LEVEL_CAMPS; c++) camp_state[c] = CAMP_CLEARED;
+    player_x = (uint16_t)level_open[2] * BLOCK_SIZE;
+    player_y = room_px_h - 3 * BLOCK_SIZE + 4;
+    player_xs = player_ys = 0;
+}
+
 // The linked map through side d, and the side of it the player comes in by.
 static uint8_t through(uint8_t d, uint8_t *side) {
     switch (d) {
@@ -184,10 +202,19 @@ static uint8_t through(uint8_t d, uint8_t *side) {
     }
 }
 
+uint8_t level_inside = 0xFF;
+
 uint8_t descent_door(void) BANKED {
     if (shaft_taken) return DESCENT_SHAFT;
     // An opening is in the outer ring of blocks; stepping into it leaves.
     int16_t cx = (int16_t)player_x + 8, fy = (int16_t)player_y + 12;
+    if (level_inside != 0xFF) return fy > (int16_t)room_px_h - BLOCK_SIZE ? DESCENT_OUTSIDE : 0;
+    // A building's door: up its step, into the door (solid: the player stops with
+    // the top of their box at the step's top).
+    for (uint8_t k = 0; k < level_doors; k++)
+        if ((uint8_t)(cx >> 4) == door_bx[k] && player_y + PLAYER_HB_Y <= (uint16_t)door_by[k] * BLOCK_SIZE + 1
+            && player_y + PLAYER_HB_Y + PLAYER_HB_H > (uint16_t)door_by[k] * BLOCK_SIZE)
+            return DESCENT_INSIDE | k;
     uint8_t d = 0;
     if (cx < BLOCK_SIZE) d = EDGE_W;
     else if (cx > (int16_t)room_px_w - BLOCK_SIZE) d = EDGE_E;
@@ -214,6 +241,16 @@ void descent_change_room(uint8_t d) BANKED {
         t[6] = '0' + (layer_depth > 9 ? 9 : layer_depth);
         hud_say(t);
         xp_gain(XP_SHAFT * layer_depth);
+    } else if (d & DESCENT_INSIDE) {
+        enter_building(d & 3);
+    } else if (d == DESCENT_OUTSIDE) {
+        // Back out onto the building's step: its map rebuilt (the same from its seed).
+        uint8_t k = level_inside;
+        level_inside = 0xFF;
+        chest_bit0 = 0;
+        descent_enter(level_map, EDGE_S);
+        player_x = (uint16_t)door_bx[k] * BLOCK_SIZE;
+        player_y = (uint16_t)door_by[k] * BLOCK_SIZE + 4;
     } else {
         uint8_t side, next = through(d, &side);
         descent_enter(next, side);

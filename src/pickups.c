@@ -33,6 +33,7 @@
 uint8_t pickups_on;
 uint8_t pickups_map;  // a descent map is loaded (loot can drop)
 uint8_t chest_open_bits;
+uint8_t chest_bit0;  // the map's first chest bit in area_chests_opened: 0, or a building's (3 + door)
 uint8_t drop_kind[DROP_MAX];
 uint16_t drop_x[DROP_MAX], drop_y[DROP_MAX];
 uint16_t drop_value[DROP_MAX];
@@ -144,7 +145,7 @@ static void drop_gun(uint16_t x, uint16_t y, const Gun *g) {
 // guarded by a camp) are a little luckier.
 static void open_chest(uint8_t c) {
     chest_open_bits |= 1 << c;
-    area_chests_opened[level_map] |= 1 << c;
+    area_chests_opened[level_map] |= 1 << (c + chest_bit0);
     chests_opened++;
     sfx_play(SFX_CHEST);
     uint16_t x = chest_x[c], y = chest_y[c] + 18;

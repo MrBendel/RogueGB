@@ -66,6 +66,15 @@ void level_build_map(uint8_t i) BANKED;
 // How many set pieces and pipe runs the last exterior map got (level.c,
 // plan_set_pieces; the lists themselves live on the stack while a map is built).
 extern uint8_t pf_count, pipe_count;
+// The doors into buildings on the current exterior map (a hab module's: its step,
+// the block below the door), in the order set pieces were placed. Each leads to
+// an interior (level_build_interior); its chest is bit 3 + k of the map's
+// area_chests_opened.
+#define DOORS_MAX 4
+extern uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
+// A building's interior: one screen in the interior tileset, from a seed, its way
+// out the south door (level_open), one chest.
+void level_build_interior(uint16_t seed) BANKED;
 #define CHUNK_ROWS 6  // the most chunks down a map (24 blocks: room.h ROOM_MAX_H)
 
 #endif

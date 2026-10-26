@@ -134,9 +134,22 @@ It's the density to aim for in generated interiors:
   walkway down the middle that lines up with the doorways.
 - **Walls cast a shadow** on the floor below them; cyan floor lights here and there.
 
-To generate them: wall-face strips (a run of face pieces to fill a back wall),
-furniture groups (a couch and a counter, a pair either side of the walkway) and a
-floor per room, put together by the interior's chunks.
+**Built** (2026-10-25): a hab module's door (`pf_hab`: the grate over its orange
+step) leads into its interior. Walk up the step into the door (descent.c
+`descent_door`: `DESCENT_INSIDE | k`); the interior loads in the interior tileset,
+built from a seed of the area, the map and the door (level.c
+`level_build_interior`), the player just inside its south door; out of that door
+(`DESCENT_OUTSIDE`) the map is rebuilt (the same, from its seed) and the player is
+back on the step. One screen (10x8 blocks):
+- white walls, and under the top one a face strip mirrored across the middle
+  (lights, plates, screens, vents) or a pair of starfield windows;
+- one floor: plates, or studs with the wall's shadow and two cyan lights;
+- couches either side of the walkway (3 rooms in 4), counters along the bottom
+  either side of the door (3 in 4);
+- a chest beside a couch: bit 3 + k of the map's `area_chests_opened` (pickups.c
+  `chest_bit0`), so a looted one stays looted, and it's saved.
+Up to 4 doors a map (`DOORS_MAX`). Next: enemies inside, rooms of other sizes and
+kinds (a lab, quarters), doors on other set pieces.
 
 ## The area
 

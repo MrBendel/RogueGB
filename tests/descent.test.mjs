@@ -351,3 +351,26 @@ test("the entrance room's comms device gives the briefing; you arrive through th
   for (let i = 0; i < 60 && emu.v('dlg_active'); i++) emu.tap('A');
   assert.equal(emu.v('dlg_active'), 0);
 });
+
+test("a hab module's door leads into its interior and back out onto its step", () => {
+  // Seed 4251: the map through the entrance room's first door has a hab module.
+  const emu = startDescent(bootToTitle(), 4251);
+  const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+  leaveBy(emu, [1, 2, 8].find((x) => links & x));
+  assert.ok(emu.v('level_doors') > 0, 'a door on this map');
+  const bx = emu.read8(addr(emu, 'door_bx')), by = emu.read8(addr(emu, 'door_by')), map = emu.v('level_map');
+  // Up the step into the door.
+  w16(emu, 'player_x', bx * 16);
+  w16(emu, 'player_y', by * 16 + 4);
+  for (let f = 0; f < 60 && emu.v('level_inside') === 0xff; f++) emu.hold('UP', 1);
+  assert.equal(emu.v('level_inside'), 0, 'inside building 0');
+  emu.idle(40);
+  assert.deepEqual([emu.v('room_w'), emu.v('room_h')], [10, 8], 'one screen');
+  assert.equal(emu.v('level_chests'), 1, 'its chest');
+  matchGolden(emu, 'interior');
+  // Out of its south door: the same map, on the step.
+  for (let f = 0; f < 120 && emu.v('level_inside') !== 0xff; f++) emu.hold('DOWN', 1);
+  emu.idle(10);
+  assert.equal(emu.v('level_map'), map, 'the same map');
+  assert.deepEqual([emu.v('player_x', 'u16') >> 4, emu.v('player_y', 'u16') >> 4], [bx, by], 'on the step');
+});
