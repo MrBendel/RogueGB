@@ -507,8 +507,8 @@ void play_update(void) BANKED {
         }
         debug_cmd = 0;
     }
-    web_slow=0;
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_pre();
+    else web_trap=web_grace=0;
     player_update();
     if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
     if (pickups_on) pickups_update();

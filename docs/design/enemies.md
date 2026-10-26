@@ -142,12 +142,14 @@ and a magenta body. Select **Enemies → Wireweaver**.
 - Marks the player's position for 26 frames, then fires a visible web toward
   that fixed point over 16 frames. Moving after the mark avoids the patch.
 - One web patch persists for 210 frames; a newer web replaces the old one.
-  Grounded steering is half speed inside it, with no damage or lingering slow.
-  Jumping and air dashes escape normally; heavy-weapon slow does not stack.
+  Grounded contact traps the player for 36 frames (about 0.6 seconds), with
+  no web damage. Walking, jumping, and buffered jumps are blocked during the
+  hold; firing and pause still work. After release, 48 frames of snare immunity
+  let the player move away. Jumping over a web before landing avoids capture.
 - At close range, a separate 20-frame warning precedes a committed 12-frame
   lunge for 12 damage. Jumping avoids it. It pauses 30 frames after either attack.
 - Always vulnerable to gunfire; passive body contact does no damage. Defeat
-  clears its web and slow immediately; pausing freezes the encounter.
+  clears its web and trap immediately; pausing freezes the encounter.
 
 Body sprites use OAM 15 onward. Warning/projectile and web use props 11–14;
 optional gun overlays yield when necessary to preserve the player and spider.

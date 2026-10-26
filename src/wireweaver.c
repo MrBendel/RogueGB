@@ -5,13 +5,15 @@
 #include "player.h"
 #include "health.h"
 #include "aim.h"
+#include "input.h"
 #include "gfx.h"
 #include "camera.h"
 #include "state.h"
 #include "wireweaver_art.inc"
+extern uint8_t player_jump_buffer;
 // Scuttle, web warning, travelling web, recovery, lunge warning, lunge.
 uint8_t weaver_slot,weaver_state,weaver_timer,weaver_side,weaver_tx,weaver_ty;
-uint8_t web_x,web_y,web_life,web_slow,weaver_spits;
+uint8_t web_x,web_y,web_life,web_trap,web_grace,weaver_spits;
 static void pose(void) {
  uint8_t i=weaver_slot,t=96+(((uint8_t)frame_count>>2)&1)*4;
  actor_t0[i]=t;actor_t1[i]=t+2;actor_p0[i]=actor_p1[i]=SPR_PAL_SHOOTER;
@@ -38,18 +40,30 @@ void wireweaver_start(void) BANKED {
  pal_base_obj[SPR_PAL_SHOOTER*4+3]=RGB(5,2,10);
  pal_base_obj[SPR_PAL_SLIME*4+1]=RGB(18,29,31);
  weaver_slot=actor_spawn(ACTOR_PEASHOOTER,72,32);actor_scripted[weaver_slot]=16;actor_hp[weaver_slot]=14;
- weaver_state=weaver_side=weaver_spits=web_life=web_slow=0;weaver_timer=40;pose();
+ weaver_state=weaver_side=weaver_spits=web_life=web_trap=web_grace=0;weaver_timer=40;pose();
 }
 void wireweaver_pre(void) BANKED {
- web_slow=0;
- if(!web_life || !actor_type[weaver_slot] || !actor_hp[weaver_slot])return;
- int16_t dx=(int16_t)player_x-web_x,dy=(int16_t)player_y-web_y;
- web_slow=dx> -10 && dx<14 && dy> -10 && dy<14;
+ if(!actor_type[weaver_slot] || !actor_hp[weaver_slot]){web_trap=web_grace=0;return;}
+ if(web_grace)web_grace--;
+ if(!web_trap && !web_grace && web_life && !player_air && !player_stun && !player_fall_timer) {
+  int16_t dx=(int16_t)player_x-web_x,dy=(int16_t)player_y-web_y;
+  if(dx> -10 && dx<14 && dy> -10 && dy<14)web_trap=36;
+ }
+ if(web_trap) {
+  // Snared feet: aiming/firing and pause still work, but walking and jumping
+  // cannot cancel the hold. Raw input edges are preserved by input.c.
+  joy&=~(J_LEFT|J_RIGHT|J_UP|J_DOWN|J_B);
+  joy_pressed&=~J_B;
+  player_jump_buffer=0;
+  player_vx=player_vy=0;player_xs=player_ys=0;
+  web_trap--;
+  if(!web_trap)web_grace=48;
+ }
 }
 static void rest(void){weaver_state=3;weaver_timer=30;}
 void wireweaver_update(void) BANKED {
  uint8_t i=weaver_slot;
- if(!actor_type[i] || !actor_hp[i]){web_life=web_slow=0;return;}
+ if(!actor_type[i] || !actor_hp[i]){web_life=web_trap=web_grace=0;return;}
  if(web_life)web_life--;
  if(weaver_timer)weaver_timer--;
  int16_t dx=(int16_t)player_x-actor_x[i],dy=(int16_t)player_y-actor_y[i];
@@ -91,8 +105,9 @@ void wireweaver_draw(void) BANKED {
  for(uint8_t i=11;i<15;i++)shadow_OAM[i].y=0;
  if(!actor_type[weaver_slot]||!actor_hp[weaver_slot])return;
  // Four overlay sprites plus the two-part body leave four player/weapon columns.
- if(web_life || weaver_state==1 || weaver_state==2)aim_limit_overlays(16,144,4);
- if(web_life && (web_life>30 || (web_life&4)))pair(13,web_x,web_y,104);
+ if(web_trap || web_life || weaver_state==1 || weaver_state==2)aim_limit_overlays(16,144,4);
+ if(web_trap)pair(13,player_x,player_y,104);
+ else if(web_life && (web_life>30 || (web_life&4)))pair(13,web_x,web_y,104);
  if(weaver_state==1)pair(11,weaver_tx,weaver_ty,108);
  else if(weaver_state==2) {
   uint8_t i=weaver_slot,t=16-weaver_timer;
