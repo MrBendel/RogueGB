@@ -70,7 +70,21 @@ void descent_resume(void) BANKED {
     memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
+    // Back from its miniboss (or a continue after): beside the shaft, open now.
+    if (area_type[map] == MAP_EXIT && (area_chests_opened[map] & AREA_BOSS_BEATEN)) side = DESCENT_NO_DOOR;
     descent_enter(map, side);
+}
+
+static void autosave(void);
+
+void descent_save(void) BANKED {
+    autosave();
+}
+
+// The area's miniboss, in turn with depth (play.c: MODE_MINIBOSS's kinds: the
+// Claimjaw, Scrapback, Cragback).
+uint8_t descent_miniboss(void) BANKED {
+    return (uint8_t)((layer_depth - 1) % 3);
 }
 
 // Save at a map's entrance (save.h: nothing without a slot).
@@ -209,6 +223,13 @@ uint8_t descent_door(void) BANKED {
     // An opening is in the outer ring of blocks; stepping into it leaves.
     int16_t cx = (int16_t)player_x + 8, fy = (int16_t)player_y + 12;
     if (level_inside != 0xFF) return fy > (int16_t)room_px_h - BLOCK_SIZE ? DESCENT_OUTSIDE : 0;
+    // The exit map's shaft is guarded (docs/design/runs.md: a miniboss every area):
+    // within 3 blocks of it, the fight; once won, the way down is open. (A file's
+    // descent: the arena and the way back go through the save.)
+    if (area_type[level_map] == MAP_EXIT && save_slot != SAVE_NONE && !(area_chests_opened[level_map] & AREA_BOSS_BEATEN)) {
+        int16_t dx = cx - (int16_t)((room_w >> 1) << 4), dy = fy - (int16_t)((room_h >> 1) << 4);
+        if (dx > -48 && dx < 48 && dy > -48 && dy < 48) return DESCENT_ARENA;
+    }
     // A building's door: up its step, into the door (solid: the player stops with
     // the top of their box at the step's top).
     for (uint8_t k = 0; k < level_doors; k++)

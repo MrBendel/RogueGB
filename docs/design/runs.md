@@ -59,6 +59,21 @@ the artist's reference (2026-10-23):
 The side doorways are stand-ins: the sheet has no side-on doorway. Doors that open
 and close need the artist's art.
 
+## The miniboss at the shaft (built 2026-10-25)
+
+An area's exit map guards its shaft: within 3 blocks of it (a file's descent), the
+game saves the expedition and goes to the area's miniboss's arena (MODE_MINIBOSS:
+the Claimjaw, Scrapback and Cragback in turn with depth; descent.c
+`descent_miniboss`). Won, a moment for the "CLEAR", then XP (`XP_MINIBOSS` x depth),
+and back to the descent, rebuilt from the file, beside the shaft, open: the beaten
+flag is bit 7 of the exit map's chest bits (`AREA_BOSS_BEATEN`), so it's saved.
+Dying there ends the run like dying anywhere in the descent. Still to do: the arena
+in the world's own art (it's the combat trials' room), your health carried in
+(entering refills it now), the vendor post before it.
+
+A whole area now plays through: the entrance room's briefing, its maps (camps,
+chests, buildings to go into), the miniboss at the shaft, and down to the next.
+
 ## Missions
 
 The board in town (a terminal or an NPC) offers a few missions at a time; each says

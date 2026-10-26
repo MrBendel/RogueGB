@@ -214,6 +214,8 @@ static void draw_page(void) {
     else menu_draw();
 }
 
+extern uint8_t boss_campaign, campaign_timer;  // (an area's miniboss: below)
+
 void play_enter(void) BANKED {
     play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
     palettes_play();
@@ -250,7 +252,8 @@ void play_enter(void) BANKED {
     progress_apply();  // max health from the level
     // XP and levels: a file's descent, the lab and the yard; the combat playtests
     // (bosses, enemies) are tuned arenas: a level up's full heal would skew them.
-    xp_on = play_mode == MODE_DESCENT || play_mode == MODE_LAB || play_mode == MODE_YARD;
+    if (play_mode != MODE_MINIBOSS) boss_campaign = 0;
+    xp_on = play_mode == MODE_DESCENT || play_mode == MODE_LAB || play_mode == MODE_YARD || boss_campaign;
     hud_init();
     boss_kind = BOSS_NONE;
     if (play_mode < MODE_MINIBOSS || play_mode == MODE_YARD) chest_init();  // (the yard is no boss room)
@@ -295,6 +298,12 @@ static void leave_scene(void) {
     enemies_killed = 0;
     save_write();
 }
+
+// An area's miniboss (descent.c DESCENT_ARENA): its arena is MODE_MINIBOSS, the
+// expedition kept in the file meanwhile; won, the way back is the descent again,
+// rebuilt from the file with the shaft open. 1 while that fight is on.
+uint8_t boss_campaign;
+uint8_t campaign_timer;  // frames since it was won
 
 // Play again in another mode (play -> play: the main loop only changes scenes
 // when the next differs, so fade out here and leave none; it then enters play).
@@ -522,6 +531,13 @@ void play_update(void) BANKED {
                 go(MODE_YARD);
                 return;
             }
+        } else if (door == DESCENT_ARENA) {
+            descent_save();
+            boss_campaign = 1;
+            campaign_timer = 0;
+            enemy_trial_kind = descent_miniboss();
+            go(MODE_MINIBOSS);
+            return;
         } else if (door) {
             descent_change_room(door);
         }
@@ -530,6 +546,16 @@ void play_update(void) BANKED {
         enemy_trial_update();
     } else if (play_mode >= MODE_MINIBOSS && play_mode != MODE_YARD) {
         boss_update();
+        // An area's miniboss beaten: a moment for the "CLEAR", then back down, the
+        // shaft open.
+        if (boss_campaign && boss_state == BOSS_WON && ++campaign_timer > 150) {
+            boss_campaign = 0;
+            profile.exp_chests[profile.exp_map] |= AREA_BOSS_BEATEN;
+            xp_gain(XP_MINIBOSS * profile.exp_depth);
+            save_write();
+            go(MODE_DESCENT);
+            return;
+        }
     }
     // The camera only follows the player, so it moves first; then actors and
     // bullets can move and draw in one pass against this frame's camera.

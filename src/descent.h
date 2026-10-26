@@ -10,6 +10,12 @@
 #define DESCENT_TOWN 0x20  // descent_door: out of the entrance room's south door, to town
 #define DESCENT_INSIDE 0x40  // descent_door: | k, in through building door k (level.h door_bx)
 #define DESCENT_OUTSIDE 0x80 // descent_door: out of a building's south door, onto its step
+#define DESCENT_ARENA 0x30  // descent_door: up to an exit map's shaft, its miniboss not beaten yet
+// An area's miniboss beaten: bit 7 of its exit map's area_chests_opened (so it's
+// saved with the expedition: profile.exp_chests).
+#define AREA_BOSS_BEATEN 0x80
+void descent_save(void) BANKED;          // the expedition into the file now (before leaving for an arena)
+uint8_t descent_miniboss(void) BANKED;   // the miniboss guarding this area's shaft (play.c's MODE_MINIBOSS kind)
 extern uint8_t level_inside;  // the door of the building the player is in, or 0xFF (outside)
 
 #define CAMP_ASLEEP 0

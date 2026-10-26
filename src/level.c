@@ -378,7 +378,9 @@ static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
     for (uint8_t j = 0; j < h; j++)
         for (uint8_t i = 0; i < w; i++)
             if (MAP(x + i, y + j) != BLK_FLOOR) return 0;
-    if ((uint8_t)(SHAFT_X(room_w) + 1 - x) < w + 1 && (uint8_t)(SHAFT_Y(room_h) + 1 - y) < h + 1) return 0;  // (the middle 2x2)
+    // (The middle: the shaft and two blocks either side of it, where you arrive
+    // beside it back from its miniboss.)
+    if ((uint8_t)(SHAFT_X(room_w) + 3 - x) < w + 5 && (uint8_t)(SHAFT_Y(room_h) + 1 - y) < h + 1) return 0;
     for (uint8_t k = 0; k < musts; k++)
         if ((uint8_t)(must_x[k] - x) < w && (uint8_t)(must_y[k] - y) < h) return 0;  // (left or above wraps big)
     for (uint8_t c = 0; c < level_camps; c++)
