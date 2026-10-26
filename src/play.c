@@ -68,6 +68,7 @@
 #define KIND_NUM 3  // uint8 shown as a plain number
 #define KIND_PRESET 4  // the movement preset, by name
 #define KIND_RIFLE 5   // the rifle's trigger: TAP, BURST, AUTO
+#define KIND_CHAR 6    // the player character sprite set
 // What else changing a value does.
 #define TUNE_MOVEMENT 1  // makes the movement preset CUSTOM
 #define TUNE_WEAPON 2    // the held weapon's: reload it (its recoil table is scaled)
@@ -116,6 +117,7 @@ static const Tunable tunables[] = {
     {"SHIELD", KIND_NUM, TUNE_SHIELD, &shield_cap, 10, 0, 250},
     {"SH DELAY", KIND_FRAMES, TUNE_SHIELD, &shield_delay, 10, 0, 250},
     {"SH RATE", KIND_FRAMES, TUNE_SHIELD, &shield_rate, 1, 0, 30},
+    {"CHAR", KIND_CHAR, 0, &player_character, 1, 0, CHAR_COUNT - 1},
 };
 #define TUNE_COUNT (sizeof(tunables) / sizeof(tunables[0]))
 
@@ -175,7 +177,9 @@ static void draw_tune_row(uint8_t i) {
     fill_win_rect(1, y, SCREEN_TW - 2, 1, FONT_TILES);
     win_text(1, y, i == tune_sel ? ">" : " ");
     win_text(2, y, t->label);
-    if (t->kind == KIND_PRESET) {
+    if (t->kind == KIND_CHAR) {
+        win_text(10, y, player_character == CHAR_SPACEMARINE ? "MARINE " : "ADVENT.");
+    } else if (t->kind == KIND_PRESET) {
         win_text(11, y, move_preset_name());
     } else if (t->kind == KIND_RIFLE) {
         win_text(13, y, v == RIFLE_TAP ? "TAP  " : v == RIFLE_BURST ? "BURST" : "AUTO ");
@@ -378,6 +382,13 @@ static void tune_update(void) {
         }
     }
     const Tunable *t = &tunables[tune_sel];
+    if (t->kind == KIND_CHAR) {
+        if (joy_pressed & (J_LEFT | J_RIGHT)) {
+            player_select_character(player_character == CHAR_SPACEMARINE ? CHAR_ADVENTURER : CHAR_SPACEMARINE);
+            draw_tune_row(tune_sel);
+        }
+        return;
+    }
     if (t->kind == KIND_PRESET) {
         // LEFT/RIGHT step through the presets (from CUSTOM, back to the first).
         uint8_t p = move_preset;

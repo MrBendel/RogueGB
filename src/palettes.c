@@ -8,6 +8,7 @@
 #include <string.h>
 #include "gfx.h"
 #include "spr_player.h"
+#include "player.h"
 #include "spr_slime.h"
 #include "spr_peashooter.h"
 #include "spr_pea.h"
@@ -62,7 +63,7 @@ void palettes_play(void) BANKED {
     set_bg(BG_PAL_SHIELD, hud_blue);
     set_bg(BG_PAL_HEALTH, hud_red);
     // From the art (in switchable banks: banked_memcpy switches to them).
-    banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_player_palette, 8, BANK(spr_player));
+    player_select_character(player_character);
     banked_memcpy(&pal_base_obj[SPR_PAL_SLIME << 2], spr_slime_palette, 8, BANK(spr_slime));
     banked_memcpy(&pal_base_obj[SPR_PAL_SHOOTER << 2], spr_peashooter_palette, 8, BANK(spr_peashooter));
     banked_memcpy(&pal_base_obj[SPR_PAL_BULLET << 2], spr_pea_palette, 8, BANK(spr_pea));

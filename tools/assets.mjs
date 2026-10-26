@@ -49,7 +49,7 @@ export const ASSETS = [
     // The vblank handler copies frames from its bank (gfx_vram_copy's bank);
     // player_init copies the small frame tables to RAM.
     bank: true,
-    dir: 'artwork/8bitadventure/Player',
+    dir: 'artwork/spacemarine',
     anims: {
       walk_down: numbered('player walk down', 4),
       walk_up: numbered('player walk up', 4),
@@ -59,12 +59,31 @@ export const ASSETS = [
       hurt_right: ['player hurt right.png'],
       // Falling into a pit: a spin.
       fall: numbered('player falling', 4),
-      // Dash roll: the crouched pose tumbling clockwise (no roll art in the pack).
+      // Dash roll: handcrafted 4-frame combat rolls
+      roll_down: numbered('player roll down', 4),
+      roll_up: numbered('player roll up', 4),
+      roll_right: numbered('player roll right', 4),
+    },
+    // Mirroring a clockwise roll gives a counter-clockwise one, right for rolling left.
+    mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
+  },
+  {
+    name: 'spr_adventurer',
+    kind: 'sprite',
+    bank: true,
+    dir: 'artwork/8bitadventure/Player',
+    anims: {
+      walk_down: numbered('player walk down', 4),
+      walk_up: numbered('player walk up', 4),
+      walk_right: numbered('player walk right', 4),
+      hurt_down: ['player hurt down.png'],
+      hurt_up: ['player hurt up.png'],
+      hurt_right: ['player hurt right.png'],
+      fall: numbered('player falling', 4),
       roll_down: { roll: 'player float down.png' },
       roll_up: { roll: 'player float up.png' },
       roll_right: { roll: 'player float right.png' },
     },
-    // Mirroring a clockwise roll gives a counter-clockwise one, right for rolling left.
     mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
   },
   // Enemies. Each type's frames are loaded into VRAM once and shared by every enemy of that type.

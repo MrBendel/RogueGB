@@ -14,6 +14,7 @@
 #include "save.h"
 #include "settings.h"
 #include "skilldata.h"
+#include "player.h"
 
 #define BLINK_MASK 0x20  // "PRESS START" blinks every 32 frames (its palette's ink)
 #define FILE_ROW0 10     // the files' tile rows: 10, 12, 14
@@ -30,7 +31,7 @@ uint8_t title_next_tile;  // the first tile the logo and prompt left free
 // The combat playtests: 0 home, 1 their categories, 2 a category's encounters.
 uint8_t title_menu, title_category;
 
-static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "MOVEMENT LAB"};
+static const char *const categories[] = {"MINIBOSSES", "BOSSES", "ENEMIES", "CHARACTER LAB"};
 static const char *const enemies[] = {"ACID SKIMMER", "MERCENARY", "ACID WOLF", "RIFT STALKER", "WIREWEAVER"};
 static const char *const minibosses[] = {"CLAIMJAW", "SCRAPBACK", "CRAGBACK"};
 static const char *const bosses[] = {"WARDEN", "COLLECTOR SHIP", "SPROCKET + BLAST", "CAPTAIN FLYNT", "GLOBFATHER"};
@@ -176,8 +177,17 @@ static void draw_playtests(void) {
     uint8_t t = title_next_tile;
     t += draw(FONT_COMPACT, TEXT_CENTER, 9, title_menu == 1 ? "COMBAT PLAYTESTS" : categories[title_category], t, TITLE_PAL_HINT);
     for (uint8_t i = 0; i < choice_count(); i++) {
-        const char *s = title_menu == 1 ? categories[i] : title_category == 2 ? enemies[i] : title_category == 0 ? minibosses[i] : bosses[i];
-        t += draw(FONT_COMPACT, 20, choice_row(i), s, t, TITLE_PAL_TEXT);
+        if (title_menu == 1 && i == 3) {
+            char line[TEXT_MAX + 1];
+            char *p = put(line, "CHAR: < ");
+            p = put(p, player_character == CHAR_SPACEMARINE ? "MARINE" : "ADVENT");
+            p = put(p, " >");
+            *p = 0;
+            t += draw(FONT_COMPACT, 20, choice_row(i), line, t, TITLE_PAL_TEXT);
+        } else {
+            const char *s = title_menu == 1 ? categories[i] : title_category == 2 ? enemies[i] : title_category == 0 ? minibosses[i] : bosses[i];
+            t += draw(FONT_COMPACT, 20, choice_row(i), s, t, TITLE_PAL_TEXT);
+        }
     }
     t += draw(FONT_COMPACT, TEXT_CENTER, 17, "A: GO     B: BACK", t, TITLE_PAL_HINT);
     title_cursor_tile = t;
@@ -212,6 +222,10 @@ void title_update(void) BANKED {
             title_choice = title_menu ? title_category : 0;
             if (title_menu) draw_playtests();
             else draw_home();
+        } else if (title_menu == 1 && title_choice == 3 && (joy_pressed & (J_LEFT | J_RIGHT))) {
+            player_character = player_character == CHAR_SPACEMARINE ? CHAR_ADVENTURER : CHAR_SPACEMARINE;
+            
+            draw_playtests();
         } else if (joy_pressed & (J_UP | J_DOWN)) {
             // (wraps around)
             if (joy_pressed & J_DOWN) move_cursor(title_choice + 1 == count ? 0 : title_choice + 1);

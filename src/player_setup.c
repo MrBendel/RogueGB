@@ -9,7 +9,31 @@
 #include "camera.h"
 #include "oam.h"
 #include "spr_player.h"
+#include "spr_adventurer.h"
 #include "sprite_slot.h"
+
+const char *player_character_name(uint8_t id) {
+    if (id == CHAR_ADVENTURER) return "ADVENTURER";
+    return "SPACE MARINE";
+}
+
+void player_select_character(uint8_t id) BANKED {
+    player_character = id >= CHAR_COUNT ? 0 : id;
+    if (player_character == CHAR_SPACEMARINE) {
+        player_tiles_ptr = spr_player_tiles;
+        player_tiles_bank = BANK(spr_player);
+        banked_memcpy(player_frames, spr_player_frames, SPR_PLAYER_FRAME_COUNT * 4, BANK(spr_player));
+        banked_memcpy(player_anims, spr_player_anims, SPR_PLAYER_ANIM_COUNT * 2, BANK(spr_player));
+        banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_player_palette, 8, BANK(spr_player));
+    } else {
+        player_tiles_ptr = spr_adventurer_tiles;
+        player_tiles_bank = BANK(spr_adventurer);
+        banked_memcpy(player_frames, spr_adventurer_frames, SPR_ADVENTURER_FRAME_COUNT * 4, BANK(spr_adventurer));
+        banked_memcpy(player_anims, spr_adventurer_anims, SPR_ADVENTURER_ANIM_COUNT * 2, BANK(spr_adventurer));
+        banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_adventurer_palette, 8, BANK(spr_adventurer));
+    }
+    gfx_set_fade(0);
+}
 
 extern SpriteSlot player_slot;
 
@@ -80,8 +104,7 @@ void move_apply_preset(uint8_t preset) BANKED {
 
 
 void player_init(uint16_t px, uint16_t py) BANKED {
-    banked_memcpy(player_frames, spr_player_frames, SPR_PLAYER_FRAME_COUNT * 4, BANK(spr_player));
-    banked_memcpy(player_anims, spr_player_anims, SPR_PLAYER_ANIM_COUNT * 2, BANK(spr_player));
+    player_select_character(player_character);
     slot_init(&player_slot, PLAYER_OAM, PLAYER_VRAM);
     player_x = px;
     player_y = py;
