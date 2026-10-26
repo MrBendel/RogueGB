@@ -114,6 +114,9 @@ SpriteSlot player_slot;  // also used by player_setup.c
 // The player's frame and animation tables, copied to RAM by player_init: the
 // sprite is in a switchable bank, and these are read every frame. The tiles stay
 // in ROM; the vblank handler switches their bank in to copy a frame.
+uint8_t player_character = CHAR_ADVENTURER;
+const uint8_t *player_tiles_ptr;
+uint8_t player_tiles_bank;
 uint8_t player_frames[SPR_PLAYER_FRAME_COUNT * 4];
 uint8_t player_anims[SPR_PLAYER_ANIM_COUNT * 2];
 
@@ -462,7 +465,7 @@ void player_draw(void) {
         anim = walk_anim[player_anim_dir];
         frame = player_air ? AIR_FRAME : player_anim_frame;
     }
-    slot_set_frame(&player_slot, spr_player_tiles, BANK(spr_player), player_frames, player_anims[anim << 1] + frame);
+    slot_set_frame(&player_slot, player_tiles_ptr, player_tiles_bank, player_frames, player_anims[anim << 1] + frame);
     // Screen position = room position - camera (the camera keeps the player in view).
     // The body is raised by its height; near the top edge the subtraction wraps,
     // which the hardware's 8-bit coordinates handle.
