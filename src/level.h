@@ -80,6 +80,12 @@ extern uint8_t pf_count, pipe_count;
 extern uint8_t level_conts, cont_bx[CONT_MAX], cont_by[CONT_MAX], cont_kind[CONT_MAX];
 extern uint8_t area_conts_opened[12];  // (AREA_CELLS)
 void level_draw_container(uint8_t k) BANKED;  // its look, opened or not (and onto the screen)
+// The vendor post before an area's miniboss (its exit map): two vending machines
+// (1x2 blocks: ammo, green and black; health, red and black), far enough from the
+// shaft that walking up to them doesn't start the fight. descent.c makes them
+// talkers (TALK_DO_VEND_*).
+#define VENDS_MAX 2
+extern uint8_t level_vends, vend_bx[VENDS_MAX], vend_by[VENDS_MAX];
 #define DOORS_MAX 4
 extern uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
 // A building's interior: one screen in the interior tileset, from a seed, its way

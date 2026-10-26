@@ -25,6 +25,9 @@
 #include "progress.h"
 #include "run.h"
 #include "weapon.h"
+#include "loot.h"
+#include "health.h"
+#include "sfx.h"
 #include <string.h>
 
 uint8_t layer_depth;      // 1 for the first area
@@ -88,6 +91,33 @@ uint8_t descent_miniboss(void) BANKED {
     return (uint8_t)((layer_depth - 1) % 3);
 }
 
+// A vending machine (the vendor post: level.h): its price by depth, paid in credits,
+// for every reserve full or full health; nothing charged if you're full already.
+void descent_vend(uint8_t what) BANKED {
+    uint8_t ammo = what == TALK_DO_VEND_AMMO;
+    uint16_t price = (uint16_t)(ammo ? 25 : 40) * layer_depth;
+    char t[8] = "-    CR";
+    if (ammo ? ammo_full() : player_hp == player_hp_max) {
+        hud_say("FULL   ");
+        return;
+    }
+    if (profile.credits < price) {
+        hud_say("NO CR  ");
+        return;
+    }
+    profile.credits -= price;
+    if (ammo) ammo_fill();
+    else player_hp = player_hp_max;
+    for (int8_t k = 3; k >= 1; k--) {  // "-nnn CR"
+        t[k] = '0' + price % 10;
+        price /= 10;
+        if (!price) break;
+    }
+    hud_say(t);
+    sfx_play(SFX_PICKUP);
+    save_write();
+}
+
 // Save at a map's entrance (save.h: nothing without a slot).
 static void autosave(void) {
     if (save_slot == SAVE_NONE) return;
@@ -141,6 +171,10 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
             talk_add(COMMS_X + b, COMMS_Y + 1, TALK_COMMS, DLG_AREA_BRIEFING);
         talk_init();
     }
+    // An exit map's vendor post: its machines (drawn by the map) talk from below.
+    for (uint8_t k = 0; k < level_vends; k++)
+        talk_add(vend_bx[k], vend_by[k] + 1, TALK_COMMS, k ? TALK_DO_VEND_HEALTH : TALK_DO_VEND_AMMO);
+    if (level_vends) talk_init();
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
     shaft_taken = 0;
     place_player(side);

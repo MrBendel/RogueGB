@@ -439,3 +439,33 @@ test('containers beside the set pieces open as you walk up: their look, their lo
   }
   assert.fail('no map with containers found');
 });
+
+test("the vendor post before the miniboss: green for ammo, red for health, paid in credits", () => {
+  const emu = startDescent();
+  walkTo(emu, emu.v('area_exit'));
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+  assert.equal(emu.v('level_vends'), 2, 'two machines');
+  emu.write8(addr(emu, 'level_conts'), 0);  // (no lockers opening on the way: their credits)
+  const P = addr(emu, 'profile'), CREDITS = 7, AMMO = 198;
+  const credits = () => Array.from(emu.readBytes(P + CREDITS, 4)).reduce((v, b, i) => v + b * 256 ** i, 0);
+  emu.writeBytes(P + CREDITS, [244, 1, 0, 0]);  // 500
+  emu.writeBytes(P + AMMO, [1, 1, 1, 1]);       // nearly dry
+  emu.write8(addr(emu, 'player_hp'), 5);
+  const buy = (k) => {
+    for (let i = 0; i < 6; i++) emu.write8(addr(emu, 'drop_kind') + i, 0);  // (no pickups underfoot)
+    w16(emu, 'player_x', emu.read8(addr(emu, 'vend_bx') + k) * 16);
+    w16(emu, 'player_y', (emu.read8(addr(emu, 'vend_by') + k) + 2) * 16 - 4);
+    emu.hold('UP', 4).idle(4);
+    assert.notEqual(emu.v('talk_near'), 0xff, `machine ${k} in reach`);
+    emu.tap('A').idle(4);
+  };
+  buy(0);
+  assert.equal(credits(), 500 - 25, 'the ammo machine: 25 credits at depth 1');
+  assert.ok(Array.from(emu.readBytes(P + AMMO, 4)).every((n) => n > 1), 'every reserve filled');
+  emu.shot('vendor-post');
+  buy(1);
+  assert.equal(credits(), 500 - 25 - 40, 'the health machine: 40');
+  assert.equal(emu.v('player_hp'), emu.v('player_hp_max'), 'healed');
+  buy(1);
+  assert.equal(credits(), 500 - 25 - 40, 'full already: nothing charged');
+});

@@ -72,7 +72,16 @@ into the arena and back (play.c `carry_hp`; only a level up from the win heals).
 The arena is the trials' room's shape (10x8, open ground: the fights are tuned to
 it) in the world's art (level.c `level_build_arena`), except the Scrapback's, which
 paints its acid pools into background tiles and palettes the world's art uses and
-keeps the trials' room until that changes. Still to do: the vendor post before it.
+keeps the trials' room until that changes.
+
+**The vendor post** (built 2026-10-26): every exit map has two vending machines side
+by side 4-7 blocks from the shaft (level.c `place_vendors`: every spot tried, kept
+only if everything still connects): **ammo, green and black**, every reserve full for
+25 credits x depth; **health, red and black**, full health for 40 x depth (descent.c
+`descent_vend`; nothing charged if you're full). The colours say what a machine sells
+(the user's scheme: guns yellow and black, ammo green and black, health and shields
+red and black; guns and shields are sold in town). A on one (a talker with no
+sprite: the nearest talker in reach answers).
 
 A whole area now plays through: the entrance room's briefing, its maps (camps,
 chests, buildings to go into), the miniboss at the shaft, and down to the next.

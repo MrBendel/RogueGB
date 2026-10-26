@@ -167,7 +167,7 @@ export function convert(name) {
     return pack(mix(img.rgba[i], br), mix(img.rgba[i + 1], bg), mix(img.rgba[i + 2], bb));
   };
   // The pieces' blocks, and their tiles' pixels.
-  const pieces = [], blocks = [], tiles = [], roles = pieceRoles(def);
+  const pieces = [], blocks = [], tiles = [], weights = [], roles = pieceRoles(def);
   for (const [piece, spec] of Object.entries(def.pieces)) {
     // Each piece reads its pixels at piece-local (lx, ly). Three forms:
     // [x, y, w, h]: a rectangle of the sheet.
@@ -232,12 +232,15 @@ export function convert(name) {
             for (let yy = 0; yy < 8; yy++) for (let xx = 0; xx < 8; xx++) px.push(pixel(ox + xx, oy + yy));
             q.push(tiles.length);
             tiles.push(px);
+            weights.push(spec.weight || 1);
           }
         blocks.push(q);
       }
   }
   if (blocks.length > MAX_BLOCKS) throw new Error(`${name}: ${blocks.length} blocks; a scene has ${MAX_BLOCKS}`);
-  const hists = tiles.map((px) => px.reduce((m, c) => m.set(c, (m.get(c) || 0) + 1), new Map()));
+  // A piece's "weight" counts its tiles that many times when palettes are merged:
+  // what covers most of a map (the ground) keeps its colours over the rarer pieces.
+  const hists = tiles.map((px, t) => px.reduce((m, c) => m.set(c, (m.get(c) || 0) + weights[t]), new Map()));
   const art = new Set(tiles.flat());
 
   // Palettes: each tile's best 4 colours, merged down to def.palettes.

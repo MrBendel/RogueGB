@@ -44,6 +44,13 @@ draw it in the pack's colours on a small sheet of ours in `artwork/tiles/` and n
 as the tileset's `"decals"`: a piece's `"stamp"` draws it over the pack's tiles (an
 opaque tile replaces them). Ours can be committed; it's only used where the pack is.
 
+## A piece's weight
+
+When palettes are merged, every tile counts once, so a rare piece's colours can win
+over the ground's, which covers most of every map. `"weight": 16` on a piece counts
+its tiles that many times (the LunarBase ground pieces have it): the ground keeps its
+colours and the merges take from the rarer art.
+
 ## Limits (the build fails past them)
 
 - **176 tiles** per scene (background tiles 80-255). The ice town uses 139.

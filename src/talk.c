@@ -120,13 +120,16 @@ void talk_update(void) BANKED {
             return;
         }
     }
+    // The nearest in reach (two side by side, like a vendor post's machines: the one
+    // you're in front of).
     talk_near = TALK_NONE;
+    uint8_t best = 0xFF;
     for (uint8_t i = 0; i < talk_count; i++) {
         uint16_t tx = ((uint16_t)talk_bx[i] << 4) + 8, ty = ((uint16_t)talk_by[i] << 4) + 8;
         uint16_t dx = px > tx ? px - tx : tx - px, dy = py > ty ? py - ty : ty - py;
-        if (dx < REACH && dy < REACH) {
+        if (dx < REACH && dy < REACH && (uint8_t)(dx + dy) < best) {
+            best = (uint8_t)(dx + dy);
             talk_near = i;
-            return;
         }
     }
 }

@@ -305,6 +305,7 @@ uint8_t pf_count, pipe_count;
 uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
 uint8_t level_conts, cont_bx[CONT_MAX], cont_by[CONT_MAX], cont_kind[CONT_MAX];
 uint8_t area_conts_opened[AREA_CELLS];
+uint8_t level_vends, vend_bx[VENDS_MAX], vend_by[VENDS_MAX];
 static const uint8_t cont_w[3] = {1, 1, 2}, cont_h[3] = {2, 1, 2};
 #define PF_HAB 0  // (the first set piece: the hab module, the one with a door)
 #define HAB_DOOR_X 1  // its door's column, and its step's row
@@ -598,6 +599,36 @@ static void place_containers(uint8_t w, uint8_t h) {
     }
 }
 
+// The vendor post (an exit map): its two machines side by side, 4 to 7 blocks
+// left or right of the shaft (descent.c starts the miniboss within 3), on a row
+// near it; every such spot is tried (from a random one on), first with a block of
+// open ground around, then without; kept only if everything still connects.
+static uint8_t try_vendors(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t margin) {
+    if (x < 2 || x + 4 > w || y < 2 || y + 4 > h) return 0;
+    if (!open_ground(x - margin, y - margin, 2 + 2 * margin, 2 + 2 * margin)) return 0;
+    for (uint8_t j = 0; j < 2; j++) MAP(x, y + j) = MAP(x + 1, y + j) = BLK_SOLID;
+    if (!still_connected()) {
+        for (uint8_t j = 0; j < 2; j++) MAP(x, y + j) = MAP(x + 1, y + j) = BLK_FLOOR;
+        return 0;
+    }
+    vend_bx[0] = x, vend_bx[1] = x + 1;
+    vend_by[0] = vend_by[1] = y;
+    level_vends = 2;
+    return 1;
+}
+
+static void place_vendors(uint8_t w, uint8_t h) {
+    level_vends = 0;
+    uint8_t from = below(40);
+    for (uint8_t margin = 1; margin != 0xFF; margin--)
+        for (uint8_t n = 0; n < 40; n++) {
+            uint8_t c = from + n < 40 ? from + n : from + n - 40;  // 2 sides x 4 offsets x 5 rows
+            uint8_t off = 4 + ((c >> 1) & 3), y = SHAFT_Y(h) - 2 + c / 8;
+            uint8_t x = c & 1 ? SHAFT_X(w) + 2 + off : SHAFT_X(w) - 1 - off;
+            if (try_vendors(x, y, w, h, margin)) return;
+        }
+}
+
 static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
     pf_count = pipe_count = level_doors = 0;
     if (shaft)
@@ -636,6 +667,9 @@ static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
     for (uint8_t y = 0; y < h; y++)
         for (uint8_t x = 0; x < w; x++) MAP(x, y) &= ~CLAIMED;
     stamp_set_pieces();
+    // An exit map's vendor post first: its spot near the middle.
+    level_vends = 0;
+    if (shaft) place_vendors(w, h);
     // Then on open ground, for the density of the pack's example: a big set piece
     // now and then (about one per 120 blocks of map), each with small ones beside
     // its front.
@@ -859,7 +893,7 @@ void level_build_map(uint8_t i) BANKED {
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
     if (area_type[i] == MAP_START) {
-        pf_count = pipe_count = level_doors = level_conts = 0;
+        pf_count = pipe_count = level_doors = level_conts = level_vends = 0;
         entrance_room();
     } else {
         uint8_t xs[PF_MAX], ys[PF_MAX], ids[PF_MAX];
@@ -874,6 +908,11 @@ static void look_exterior(void) {
     tiles_lunar_ext_apply();
     stamp_set_pieces();
     for (uint8_t k = 0; k < level_conts; k++) level_draw_container(k);
+    for (uint8_t k = 0; k < level_vends; k++) {  // (ammo, then health)
+        uint8_t v = k ? TS_LUNAR_EXT_VEND_HEALTH : TS_LUNAR_EXT_VEND_AMMO;
+        room_vis[((uint16_t)vend_by[k] << 5) | vend_bx[k]] = v;
+        room_vis[((uint16_t)(vend_by[k] + 1) << 5) | vend_bx[k]] = v + 1;
+    }
 }
 
 // A container's blocks: closed, or open (its bit in the map's area_conts_opened).
@@ -917,7 +956,7 @@ void level_build_interior(uint16_t seed) BANKED {
     room_px_w = IN_W * BLOCK_SIZE;
     room_px_h = IN_H * BLOCK_SIZE;
     level_camps = level_chests = level_carved = 0;
-    pf_count = pipe_count = level_doors = level_conts = 0;
+    pf_count = pipe_count = level_doors = level_conts = level_vends = 0;
     for (uint8_t s = 0; s < 4; s++) level_open[s] = 0xFF;
     level_open[2] = IN_DOOR;
     uint8_t plates = below(2), floor = plates ? TS_LUNAR_INT_PLATES : TS_LUNAR_INT_FLOOR;
@@ -992,6 +1031,6 @@ void level_build_arena(void) BANKED {
     for (uint16_t k = 0; k < sizeof(room_map); k++) room_map[k] = BLK_SOLID;
     for (uint8_t y = 1; y + 1 < IN_H; y++)
         for (uint8_t x = 1; x + 1 < IN_W; x++) MAP(x, y) = BLK_FLOOR;
-    pf_count = pipe_count = level_doors = level_conts = 0;
+    pf_count = pipe_count = level_doors = level_conts = level_vends = 0;
     tiles_lunar_ext_apply();
 }

@@ -79,6 +79,7 @@ extern uint8_t melee_fallback;  // every gun dry: the sword in hand until a swit
 uint8_t ammo_limited(void) BANKED;          // on an expedition with a file
 uint8_t ammo_cap(uint8_t type) BANKED;      // the most rounds of a type carried
 void ammo_fill(void) BANKED;                // every reserve full (a new expedition)
+uint8_t ammo_full(void) BANKED;             // ... and are they
 uint8_t ammo_left(void) BANKED;             // the held gun's reserve (255: unlimited)
 uint8_t ammo_take(uint8_t need) BANKED;     // a reload: rounds out of the reserve (up to need)
 uint8_t ammo_give(uint8_t type, uint8_t n) BANKED;  // a pickup: rounds added (0: full)

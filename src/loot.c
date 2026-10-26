@@ -199,6 +199,12 @@ void ammo_fill(void) BANKED {
     for (uint8_t t = 0; t < AMMO_TYPES; t++) profile.ammo[t] = ammo_cap(t);
 }
 
+uint8_t ammo_full(void) BANKED {
+    for (uint8_t t = 0; t < AMMO_TYPES; t++)
+        if (profile.ammo[t] < ammo_cap(t)) return 0;
+    return 1;
+}
+
 uint8_t ammo_left(void) BANKED {
     if (!ammo_limited() || weapon_cur >= AMMO_TYPES) return 255;
     return profile.ammo[weapon_cur];

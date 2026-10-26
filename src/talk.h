@@ -31,6 +31,8 @@
 #define TALK_DO_SHOP 0x80  // Marro's shop
 #define TALK_DO_DOWN 0x81  // the town's lift: down into the descent
 #define TALK_DO_UP 0x82    // a start map's lift: back up to town
+#define TALK_DO_VEND_AMMO 0x83    // a vending machine (descent.c descent_vend): every reserve full
+#define TALK_DO_VEND_HEALTH 0x84  // ... health full
 
 // --- watchable state ---
 extern uint8_t talk_count;
