@@ -68,6 +68,7 @@ void descent_resume(void) BANKED {
     start_area();
     memcpy(area_camps_cleared, profile.exp_camps, sizeof(area_camps_cleared));
     memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
+    memcpy(area_conts_opened, profile.exp_conts, sizeof(area_conts_opened));
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     // Back from its miniboss (or a continue after): beside the shaft, open now.
@@ -98,6 +99,7 @@ static void autosave(void) {
     profile.exp_map = level_map;
     memcpy(profile.exp_camps, area_camps_cleared, sizeof(profile.exp_camps));
     memcpy(profile.exp_chests, area_chests_opened, sizeof(profile.exp_chests));
+    memcpy(profile.exp_conts, area_conts_opened, sizeof(profile.exp_conts));
     if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
     save_write();
 }

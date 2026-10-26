@@ -409,3 +409,27 @@ test("the exit map's shaft is guarded: its miniboss's arena, then back beside th
   emu.idle(40);
   assert.equal(emu.v('layer_depth'), 2, 'one deeper');
 });
+
+test('containers beside the set pieces open as you walk up: their look, their loot, saved', () => {
+  for (let seed = 4242; seed < 4242 + 40; seed += 3) {
+    const emu = startDescent(bootToTitle(), seed);
+    const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+    leaveBy(emu, [1, 2, 8].find((x) => links & x));
+    if (!emu.v('level_conts')) continue;
+    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+    const map = emu.v('level_map'), bx = emu.read8(addr(emu, 'cont_bx')), by = emu.read8(addr(emu, 'cont_by'));
+    const kind = emu.read8(addr(emu, 'cont_kind')), h = kind === 1 ? 1 : 2;
+    const vis = () => emu.read8(addr(emu, 'room_vis') + by * 32 + bx);
+    const closed = vis();
+    // Below it, then up into it.
+    w16(emu, 'player_x', bx * 16);
+    w16(emu, 'player_y', (by + h) * 16 + 4);
+    for (let f = 0; f < 30 && !(emu.read8(addr(emu, 'area_conts_opened') + map) & 1); f++) emu.hold('UP', 1);
+    assert.ok(emu.read8(addr(emu, 'area_conts_opened') + map) & 1, 'opened');
+    assert.notEqual(vis(), closed, 'its open look');
+    assert.ok(bytes(emu, 'drop_kind', 6).some((d) => d), 'its loot on the floor');
+    assert.equal(emu.read8(addr(emu, 'profile') + 202 + map) & 1, 1, 'in the file');
+    return;
+  }
+  assert.fail('no map with containers found');
+});

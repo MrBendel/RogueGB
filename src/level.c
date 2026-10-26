@@ -78,7 +78,7 @@ void level_generate(uint16_t seed) BANKED {
         area_type[i] = MAP_NONE;
         area_links[i] = 0;
         area_camps_cleared[i] = 0;
-        area_chests_opened[i] = 0;
+        area_chests_opened[i] = area_conts_opened[i] = 0;
         area_cw[i] = area_ch[i] = 0;
     }
     // The start is the entrance room, on the bottom row: south of it is the way
@@ -280,10 +280,7 @@ static void tidy(uint8_t w, uint8_t h) {
     }
 }
 
-static void building_bases(void);
-
-// An exterior map's look: the theme's rules, the set pieces and pipes over them,
-// then the bases of the buildings the theme drew.
+// An exterior map's look: the theme's rules, then the set pieces and pipes over them.
 static void look_exterior(void);
 
 // Set pieces (content/tilesets/lunar_ext.json "prefab" pieces, cut from the pack's
@@ -306,6 +303,9 @@ static void look_exterior(void);
 #define PIPE_MAX 12
 uint8_t pf_count, pipe_count;
 uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
+uint8_t level_conts, cont_bx[CONT_MAX], cont_by[CONT_MAX], cont_kind[CONT_MAX];
+uint8_t area_conts_opened[AREA_CELLS];
+static const uint8_t cont_w[3] = {1, 1, 2}, cont_h[3] = {2, 1, 2};
 #define PF_HAB 0  // (the first set piece: the hab module, the one with a door)
 #define HAB_DOOR_X 1  // its door's column, and its step's row
 #define HAB_STEP_Y 4
@@ -568,6 +568,36 @@ static void pack_building(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
             if (MAP(x, y) == BLK_SOLID) MAP(x, y) = BLK_FLOOR;
 }
 
+// Containers against the set pieces: lockers and a chest beside their fronts (the
+// bottom row, either side), a loot box now and then; each kept only if
+// everything still connects. Solid (cover).
+static void place_containers(uint8_t w, uint8_t h) {
+    static const uint8_t want[3] = {3, 1, 1};
+    level_conts = 0;
+    for (uint8_t kind = 0; kind < 3; kind++) {
+        uint8_t n = want[kind];
+        if (kind == CONT_BOX && below(2)) n = 0;  // (one map in two)
+        for (uint8_t tries = 0; n && tries < 16 && level_conts < CONT_MAX && pf_count; tries++) {
+            uint8_t p = below(pf_count), cw = cont_w[kind], ch = cont_h[kind];
+            uint8_t pw = pf_size[pf_id[p] * 2], ph = pf_size[pf_id[p] * 2 + 1];
+            uint8_t x = below(2) ? pf_x[p] + pw : pf_x[p] - cw, y = pf_y[p] + ph - ch;
+            if (pf_id[p] == PF_HAB) y--;  // (a hab's bottom row is its step: beside its front)
+            if (x < 2 || x + cw + 2 > w || y < 2 || y + ch + 2 > h || !open_ground(x, y, cw, ch)) continue;
+            for (uint8_t j = 0; j < ch; j++)
+                for (uint8_t i = 0; i < cw; i++) MAP(x + i, y + j) = BLK_SOLID;
+            if (!still_connected()) {
+                for (uint8_t j = 0; j < ch; j++)
+                    for (uint8_t i = 0; i < cw; i++) MAP(x + i, y + j) = BLK_FLOOR;
+                continue;
+            }
+            cont_bx[level_conts] = x;
+            cont_by[level_conts] = y;
+            cont_kind[level_conts++] = kind;
+            n--;
+        }
+    }
+}
+
 static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
     pf_count = pipe_count = level_doors = 0;
     if (shaft)
@@ -626,6 +656,7 @@ static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
         }
     }
     run_pipes();
+    place_containers(w, h);
     if (shaft)
         for (uint8_t b = 0; b < 4; b++) MAP(SHAFT_X(w) + (b & 1), SHAFT_Y(h) + (b >> 1)) = BLK_PIT;
 }
@@ -828,7 +859,7 @@ void level_build_map(uint8_t i) BANKED {
     }
     // The look: the theme's rules (content/tilesets/): the entrance room is indoors.
     if (area_type[i] == MAP_START) {
-        pf_count = pipe_count = level_doors = 0;
+        pf_count = pipe_count = level_doors = level_conts = 0;
         entrance_room();
     } else {
         uint8_t xs[PF_MAX], ys[PF_MAX], ids[PF_MAX];
@@ -839,41 +870,20 @@ void level_build_map(uint8_t i) BANKED {
     }
 }
 
-// Where a building's front meets the ground, its base (as the pack's example draws
-// them): a door in the middle of a front three blocks or wider, its orange step out
-// on the ground below; ground vents under some of the rest. All walkable: nothing
-// it adds can block a way through.
-static void building_bases(void) {
-    for (uint8_t y = 1; y + 2 < room_h; y++) {
-        uint16_t row = (uint16_t)y << 5;
-        for (uint8_t x = 1; x + 1 < room_w;) {
-            // A front: a run of face blocks on a building (not a deck), ground below.
-            uint8_t x1 = x;
-            while (x1 + 1 < room_w && room_map[row | x1] == BLK_SOLID && room_map[row + 32 + x1] == BLK_FLOOR
-                   && room_vis[row | x1] >= TS_LUNAR_EXT_FACE_L && room_vis[row | x1] <= TS_LUNAR_EXT_FACE_R)
-                x1++;
-            if (x1 == x) {
-                x++;
-                continue;
-            }
-            uint8_t door = x1 - x >= 3 ? (uint8_t)((x + x1 - 1) >> 1) : 0xFF;
-            for (uint8_t bx = x; bx < x1; bx++) {
-                if (bx == door) {
-                    room_vis[row | bx] = TS_LUNAR_EXT_FACE_DOOR;
-                    room_vis[row + 32 + bx] = TS_LUNAR_EXT_STEP;
-                } else if (bx + 1 != door && bx != door + 1 && !((bx * 7 + y * 13) & 3)) {
-                    room_vis[row + 32 + bx] = TS_LUNAR_EXT_VENTS;
-                }
-            }
-            x = x1;
-        }
-    }
-}
-
 static void look_exterior(void) {
     tiles_lunar_ext_apply();
     stamp_set_pieces();
-    building_bases();
+    for (uint8_t k = 0; k < level_conts; k++) level_draw_container(k);
+}
+
+// A container's blocks: closed, or open (its bit in the map's area_conts_opened).
+// The pieces are in kind order, each closed then open (lunar_ext.json cont_*).
+void level_draw_container(uint8_t k) BANKED {
+    static const uint8_t first[3] = {TS_LUNAR_EXT_CONT_LOCKER, TS_LUNAR_EXT_CONT_CHEST, TS_LUNAR_EXT_CONT_BOX};
+    uint8_t kind = cont_kind[k], cw = cont_w[kind], ch = cont_h[kind];
+    uint8_t v = first[kind] + (area_conts_opened[level_map] & (1 << k) ? cw * ch : 0);
+    for (uint8_t j = 0; j < ch; j++)
+        for (uint8_t i = 0; i < cw; i++) room_vis[((uint16_t)(cont_by[k] + j) << 5) | (cont_bx[k] + i)] = v++;
 }
 
 // --- Building interiors ---
@@ -907,7 +917,7 @@ void level_build_interior(uint16_t seed) BANKED {
     room_px_w = IN_W * BLOCK_SIZE;
     room_px_h = IN_H * BLOCK_SIZE;
     level_camps = level_chests = level_carved = 0;
-    pf_count = pipe_count = level_doors = 0;
+    pf_count = pipe_count = level_doors = level_conts = 0;
     for (uint8_t s = 0; s < 4; s++) level_open[s] = 0xFF;
     level_open[2] = IN_DOOR;
     uint8_t plates = below(2), floor = plates ? TS_LUNAR_INT_PLATES : TS_LUNAR_INT_FLOOR;

@@ -74,6 +74,22 @@ in the world's own art (it's the combat trials' room), your health carried in
 A whole area now plays through: the entrance room's briefing, its maps (camps,
 chests, buildings to go into), the miniboss at the shaft, and down to the next.
 
+## Containers (built 2026-10-25)
+
+Lockers, chests and loot boxes stand against an exterior map's set pieces (level.c
+`place_containers`): 3 lockers, a chest, and a loot box one map in two, each beside
+a set piece's front and kept only if everything still connects (they're solid:
+cover). Walk up to one and it opens (pickups.c): its open look, and its loot in
+front of it: a locker, credits and rounds for a gun you carry; a chest, a gun and
+credits; a loot box, a better gun (luckier), credits and rounds. Opened ones stay
+open for the expedition (`area_conts_opened`, saved as `profile.exp_conts`; save
+version 6, which still reads version 5 files).
+
+The art is shared by every world (the user's lockers, chest and gun box from the
+ice sheet: `artwork/tiles/containers.png`, in LunarBase's light lilac, dark grey
+and orange so they sit in its palettes); a world's tileset stamps it over its
+ground (tileset `"sheets"`, a piece's `"stamp_from"`).
+
 ## Missions
 
 The board in town (a terminal or an NPC) offers a few missions at a time; each says

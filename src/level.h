@@ -70,6 +70,16 @@ extern uint8_t pf_count, pipe_count;
 // the block below the door), in the order set pieces were placed. Each leads to
 // an interior (level_build_interior); its chest is bit 3 + k of the map's
 // area_chests_opened.
+// Containers (the shared art, artwork/tiles/containers.png): lockers, chests and
+// loot boxes against the set pieces, opened by walking up to them (pickups.c), a
+// bit each in area_conts_opened (saved: profile.exp_conts).
+#define CONT_MAX 6
+#define CONT_LOCKER 0  // 1x2 blocks: credits, ammo
+#define CONT_CHEST 1   // 1x1: a gun
+#define CONT_BOX 2     // 2x2, rare: a better gun, credits, ammo
+extern uint8_t level_conts, cont_bx[CONT_MAX], cont_by[CONT_MAX], cont_kind[CONT_MAX];
+extern uint8_t area_conts_opened[12];  // (AREA_CELLS)
+void level_draw_container(uint8_t k) BANKED;  // its look, opened or not (and onto the screen)
 #define DOORS_MAX 4
 extern uint8_t level_doors, door_bx[DOORS_MAX], door_by[DOORS_MAX];
 // A building's interior: one screen in the interior tileset, from a seed, its way

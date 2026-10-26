@@ -34,9 +34,11 @@ static uint8_t *copy_at(uint8_t slot, uint8_t copy) {
     return SRAM + ((uint16_t)slot << 9) + (copy ? COPY_SIZE : 0);
 }
 
+// A copy's magic, a version we read (SAVE_OLDEST on: an older one is the start of
+// the Profile, its size in byte 6), and its checksum.
 static uint8_t valid(const uint8_t *r) {
-    if (r[0] != 'S' || r[1] != 'K' || r[2] != SAVE_VERSION || r[6] != sizeof(Profile)) return 0;
-    return checksum(r + HEADER, sizeof(Profile)) == (r[4] | ((uint16_t)r[5] << 8));
+    if (r[0] != 'S' || r[1] != 'K' || r[2] < SAVE_OLDEST || r[2] > SAVE_VERSION || r[6] > sizeof(Profile)) return 0;
+    return checksum(r + HEADER, r[6]) == (r[4] | ((uint16_t)r[5] << 8));
 }
 
 // The newer valid copy of a slot, or 0. Cartridge RAM must be enabled.
@@ -96,7 +98,8 @@ void save_open(uint8_t slot) BANKED {
     SWITCH_RAM(0);
     uint8_t *r = newest(slot);
     if (r) {
-        memcpy(&profile, r + HEADER, sizeof(profile));
+        memset(&profile, 0, sizeof(profile));  // (fields an older file doesn't have)
+        memcpy(&profile, r + HEADER, r[6]);
         slot_seq = r[3];
     } else {
         slot_seq = 0;
