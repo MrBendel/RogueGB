@@ -385,3 +385,6 @@ throw, with crouch/landing pauses and a moving ground shadow.
 
 - Wireweaver enemy playtest: SGQ spider, aimed web patches with a brief grounded
   snare, release grace, airborne avoidance, and a warned close-range lunge. Enemies -> Wireweaver.
+
+- Bulwark enemy playtest: directional frontal shield, deliberate turns, exposed
+  three-round burst, and warned shield bash. Enemies -> Bulwark.

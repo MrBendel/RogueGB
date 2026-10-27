@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import {assert,bootToTitle,settle,PLAY,FRAME_LIMIT} from './helpers.mjs';
 const at=(e,n)=>e.symbols.addr(n),put=(e,n,v)=>e.write8(at(e,n),v),put16=(e,n,v)=>e.writeBytes(at(e,n),[v&255,(v>>8)&255]);
-function trial(){const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP').idle(9);assert.equal(e.v('title_choice'),4);e.shot('weaver-menu');return settle(e.tap('A'),PLAY).idle(3);}
+function trial(){const e=bootToTitle().tap('DOWN').tap('DOWN').tap('DOWN').tap('A').tap('UP').tap('UP').idle(9);assert.equal(e.v('title_choice'),4);e.shot('weaver-menu');return settle(e.tap('A'),PLAY).idle(3);}
 test('weaver: scuttles, locks a warned web shot, then leaves a bounded persistent patch',()=>{
  const e=trial();assert.equal(e.v('actor_scripted'),16);assert.equal(e.v('play_actor_oam'),15);
  const x=e.v('actor_x','u16');e.idle(12);assert.notEqual(e.v('actor_x','u16'),x);e.shot('weaver-scuttle');

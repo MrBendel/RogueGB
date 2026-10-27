@@ -15,7 +15,7 @@ extern uint16_t saved_seconds;  // descent.c
 extern uint16_t enemies_killed;  // aim.c
 
 static const char *const causes[] = {"", "A SLIME", "A PEASHOOTER", "A PEA", "A PIT",
-    "A SPORE HUSK", "A RAGEBOUND", "A CONTRACTOR", "A BASTION", "A SCRAP HOUND", "THE COLLECTOR", "ACID SKIMMER", "A MERCENARY", "AN ACID WOLF", "SCRAPBACK", "CAPTAIN FLYNT", "CRAGBACK", "GLOBFATHER", "A RIFT STALKER", "A WIREWEAVER"};
+    "A SPORE HUSK", "A RAGEBOUND", "A CONTRACTOR", "A BASTION", "A SCRAP HOUND", "THE COLLECTOR", "ACID SKIMMER", "A MERCENARY", "AN ACID WOLF", "SCRAPBACK", "CAPTAIN FLYNT", "CRAGBACK", "GLOBFATHER", "A RIFT STALKER", "A WIREWEAVER", "A BULWARK"};
 static uint8_t len(const char *s) {
     uint8_t n = 0;
     while (s[n]) n++;

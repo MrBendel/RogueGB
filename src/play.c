@@ -48,6 +48,7 @@
 #include "mercenary.h"
 #include "acid_wolf.h"
 #include "wireweaver.h"
+#include "bulwark.h"
 #include "scrapback.h"
 #include "flynt.h"
 #include "globfather.h"
@@ -297,6 +298,7 @@ void play_enter(void) BANKED {
     gfx_sprite_split(hud_y);  // no sprites over the HUD
     player_draw();
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
+    else if(play_mode==MODE_ENEMY && enemy_trial_kind==5)bulwark_draw();
     talk_init();  // after the room: it added its talkers
     if (play_mode == MODE_YARD && save_slot != SAVE_NONE) shop_restock();  // new stock each time you're in town
 }
@@ -602,6 +604,7 @@ void play_update(void) BANKED {
     aim_update();
     player_draw();
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
+    else if(play_mode==MODE_ENEMY && enemy_trial_kind==5)bulwark_draw();
     health_update();
     if (card_drop == CARD_NONE) hud_update();  // (a gun's card has the window: the HUD redraws when it closes)
     if (boss_kind != BOSS_NONE) {

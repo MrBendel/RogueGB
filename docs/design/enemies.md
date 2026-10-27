@@ -1,6 +1,6 @@
 # Enemies
 
-Acid Skimmer, Mercenary, Acid Wolf, Rift Stalker, and Wireweaver are the active enemy playtests. Acid Skimmer remains
+Acid Skimmer, Mercenary, Acid Wolf, Rift Stalker, Wireweaver, and Bulwark are the active enemy playtests. Acid Skimmer remains
 the reference for future enemy quality. From the title, press DOWN, select
 Enemies, then an encounter. B goes back;
 START pauses and SELECT while paused ends the attempt.
@@ -155,3 +155,28 @@ Body sprites use OAM 15 onward. Warning/projectile and web use props 11–14;
 optional gun overlays yield when necessary to preserve the player and spider.
 Controller: src/wireweaver.c (scripted actor 16). Art: tools/weaver-art.mjs.
 This is a standalone trial; mixed enemy encounters remain future work.
+
+
+## Bulwark trial (2026-10-26)
+
+A 24-HP corporate shield trooper using the local 8bitadventure shielder sprites.
+Select **Enemies → Bulwark**. Amber armor and a cyan shield mark its facing.
+
+- Advances half a pixel per frame and reassesses its cardinal facing every
+  25 frames, leaving a deliberate opportunity to circle around it.
+- While advancing or warning a bash, the shield intercepts incoming frontal
+  projectiles. Side and rear shots deal normal damage. Frontal melee is blocked
+  in the same guarded states. Blocks flash the shield.
+- Lowers the shield for a 28-frame warning, locks its aim, then fires three
+  rounds eight frames apart. Each enemy round deals 10 damage. Recovery is
+  40 frames, with the shield still down.
+- At close range it instead warns for 22 frames, then commits to a 12-frame
+  bash for 16 damage. Jumping avoids it; walls end the bash. No passive contact
+  damage, and no tracking during an attack.
+- Death clears enemy bullets and shield artwork. Pause freezes the sequence.
+
+The directional block checks individual projectile trajectories rather than
+using the player's position to grant whole-body invulnerability. The ordinary
+actor remains targetable. Controller: src/bulwark.c (scripted actor 17); art
+conversion: tools/bulwark-art.mjs. The body uses two dynamic sprites and the
+shield uses at most two prop sprites (11–12). Mixed squads are future work.
