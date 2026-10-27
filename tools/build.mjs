@@ -99,7 +99,13 @@ const FIXED_AREAS = ['_HEADER', '_HOME', '_BASE', '_CODE', '_LIT', '_GSINIT', '_
 // Work RAM: globals start at 0xC0A0 and grow up; the room maps and the tables
 // beside them sit at fixed addresses from ROOM_MAP_ADDR (src/room.h), and the
 // linker won't notice globals growing into them. Fail the build if they do.
-const ROOM_MAP_ADDR = 0xd400;
+// The bosses' state is overlaid just below the room map (src/room.h BOSSES_ADDR,
+// src/bosses.s): only one boss fights at a time, so each of these files' globals
+// start at BOSSES_ADDR. Only files whose state is untouched outside their own
+// fight belong here (play_enter zeroes the area for every fight).
+export const BOSSES_ADDR = 0xd3c0;
+const BOSSES_SIZE = 0x40;
+const BOSS_FILES = ['cragback.c', 'flynt.c', 'globfather.c', 'gunship.c', 'scrapback.c', 'warden.c'];
 export function checkRam(noiPath) {
   const syms = new Map();
   for (const m of fs.readFileSync(noiPath, 'utf8').matchAll(/^DEF (\S+) 0x([0-9A-F]+)/gim)) syms.set(m[1], parseInt(m[2], 16));
@@ -108,11 +114,16 @@ export function checkRam(noiPath) {
     const start = syms.get('s_' + area), len = syms.get('l_' + area);
     if (start !== undefined && len && start >= 0xc000 && start < 0xe000) end = Math.max(end, start + len);
   }
-  if (end > ROOM_MAP_ADDR) {
-    return { ok: false, error: `[build] globals end at 0x${end.toString(16)}, into the room map at 0x${ROOM_MAP_ADDR.toString(16)} ` +
-      '(src/room.h). Shrink or bank them, or move the map tables.' };
+  const bosses = syms.get('l___BOSSES') || 0;
+  if (syms.get('s___BOSSES') !== BOSSES_ADDR || bosses > BOSSES_SIZE) {
+    return { ok: false, error: `[build] the bosses' state is ${bosses} bytes at 0x${(syms.get('s___BOSSES') || 0).toString(16)}: ` +
+      `it must fit ${BOSSES_SIZE} at 0x${BOSSES_ADDR.toString(16)} (src/room.h BOSSES_ADDR; is src/bosses.s linked first?)` };
   }
-  return { ok: true, end };
+  if (end > BOSSES_ADDR) {
+    return { ok: false, error: `[build] globals end at 0x${end.toString(16)}, into the bosses' state at 0x${BOSSES_ADDR.toString(16)} ` +
+      '(src/room.h). Shrink them, or move cold data to far RAM (src/far.h).' };
+  }
+  return { ok: true, end, bosses };
 }
 
 export function checkBank0(noiPath) {
@@ -163,7 +174,8 @@ export function build({ clean = false, quiet = false } = {}) {
     objs.push(obj);
     if (mtime(obj) > Math.max(mtime(src), newestHeader)) continue;
     if (!quiet) console.log(`[build] cc ${path.relative(ROOT, src)}`);
-    const r = run(lcc, [...CONFIG.cflags, '-debug', `-I${srcDir}`, `-I${GEN_DIR}`, '-c', '-o', obj, src], quiet);
+    const seg = BOSS_FILES.includes(path.basename(src)) ? ['-Wf--dataseg', '-Wf_BOSSES'] : [];  // (checkRam)
+    const r = run(lcc, [...CONFIG.cflags, ...seg, '-debug', `-I${srcDir}`, `-I${GEN_DIR}`, '-c', '-o', obj, src], quiet);
     if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
     compiled++;
   }
@@ -176,12 +188,15 @@ export function build({ clean = false, quiet = false } = {}) {
       '-debug', '-autobank', '-Wb-ext=.rel',
       `-Wm-yt${CONFIG.cartType}`, `-Wm-yo${CONFIG.romBanks}`, `-Wm-ya${CONFIG.ramBanks}`,
       `-Wm-yn${CONFIG.title}`, '-Wm-yS',
+      `-Wl-b__BOSSES=0x${BOSSES_ADDR.toString(16)}`,
     ];
     if (CONFIG.cgb === 'only') flags.push('-Wm-yC');
     else if (CONFIG.cgb) flags.push('-Wm-yc');
     if (CONFIG.sgb) flags.push('-Wm-ys');
     if (!quiet) console.log(`[build] link ${path.relative(ROOT, out)}`);
-    const r = run(lcc, [...flags, '-o', out, ...objs], quiet);
+    // (bosses.o first: its area's flags make the bosses' state overlay: checkRam)
+    const first = objs.filter((o) => path.basename(o) === 'bosses.o');
+    const r = run(lcc, [...flags, '-o', out, ...first, ...objs.filter((o) => !first.includes(o))], quiet);
     if (!r.ok) return { ok: false, ms: Date.now() - t0, error: r.out };
 
     const bank0 = checkBank0(out.replace(/\.gb$/, '.noi'));
@@ -192,8 +207,8 @@ export function build({ clean = false, quiet = false } = {}) {
       return { ok: false, ms: Date.now() - t0, error: ram.error };
     }
     // Work RAM headroom, every build (far RAM, src/far.h, is the place for cold data).
-    const free = ROOM_MAP_ADDR - ram.end;
-    console.log(`[build] work RAM: globals end at 0x${ram.end.toString(16)}, ${free} bytes before the room map${free < 64 ? ' (tight: move cold data to far RAM, src/far.h)' : ''}`);
+    const free = BOSSES_ADDR - ram.end;
+    console.log(`[build] work RAM: globals end at 0x${ram.end.toString(16)}, ${free} bytes before the bosses' state (${ram.bosses} of ${BOSSES_SIZE})${free < 64 ? ' (tight: move cold data to far RAM, src/far.h)' : ''}`);
     if (!bank0.ok) {
       // Remove the ROM so the next build can't treat it as up to date and skip this check.
       fs.rmSync(out, { force: true });

@@ -20,6 +20,7 @@
 #include "input.h"
 #include "gfx.h"
 #include "run.h"
+#include <string.h>
 #include "room.h"
 #include "tiles_lunar_ext.h"
 #include "player.h"
@@ -227,6 +228,7 @@ void play_enter(void) BANKED {
     talk_clear();    // a room adds its own
     saved_seconds = 0;  // (run_start began the clock again)
     pickups_init();  // a descent map loads its chests (descent.c)
+    memset((uint8_t *)BOSSES_ADDR, 0, BOSSES_SIZE);  // (every boss's state: room.h)
     if (play_mode == MODE_DESCENT) {
         player_init(0, 0);
         // A file (save.h): its expedition, if one is under way.

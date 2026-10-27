@@ -10,6 +10,7 @@
 #include "chunks.h"
 #include "descent.h"
 #include "save.h"
+#include "world.h"
 
 uint8_t area_type[AREA_CELLS];
 uint8_t area_links[AREA_CELLS];
@@ -1071,7 +1072,7 @@ void level_build_interior(uint16_t seed) BANKED {
 // The combat trials' room (boss.c boss_room: 10x8, a rim, open ground: the fights
 // are tuned to it) drawn in the world's exterior art instead of the test tiles.
 void level_build_arena(void) BANKED {
-    tiles_lunar_ext_load();
+    world_load_tiles(0);
     room_w = IN_W;
     room_h = IN_H;
     room_px_w = IN_W * BLOCK_SIZE;

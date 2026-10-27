@@ -6,13 +6,11 @@
 // map has a shaft in its middle: dropping in leads to a new area, deeper.
 // Banked: a few compares a frame, the rest only on a map change.
 #include <gb/gb.h>
-#include <rand.h>
 #include <gb/metasprites.h>
 #include "descent.h"
 #include "level.h"
 #include "room.h"
-#include "tiles_lunar_ext.h"
-#include "tiles_lunar_int.h"
+#include "world.h"
 #include "player.h"
 #include "camera.h"
 #include "actor.h"
@@ -52,6 +50,7 @@ static void start_area(void) {
 }
 
 void descent_start(uint16_t seed) BANKED {
+    world_enter(WORLD_LUNAR);  // (the only world so far)
     layer_depth = 1;
     ammo_fill();  // a new expedition: full reserves
     maps_entered = 0;
@@ -65,6 +64,7 @@ void descent_start(uint16_t seed) BANKED {
 // its cleared camps put back, and the player at an opening of its map (or the
 // middle of the start map).
 void descent_resume(void) BANKED {
+    world_enter(WORLD_LUNAR);
     layer_depth = profile.exp_depth;
     maps_entered = 0;
     saved_seconds = 0;
@@ -87,10 +87,9 @@ void descent_save(void) BANKED {
     autosave();
 }
 
-// The area's miniboss, in turn with depth (play.c: MODE_MINIBOSS's kinds: the
-// Claimjaw, Scrapback, Cragback).
+// The area's miniboss: the world's, in turn with depth (play.c: MODE_MINIBOSS's kinds).
 uint8_t descent_miniboss(void) BANKED {
-    return (uint8_t)((layer_depth - 1) % 3);
+    return world_miniboss(layer_depth);
 }
 
 // A vending machine (the vendor post: level.h): its price by depth, paid in credits,
@@ -161,8 +160,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_inside = 0xFF;
     chest_bit0 = camp_bit0 = 0;
     // Each map's tileset (the display is off): the entrance room is indoors.
-    if (map == area_start) tiles_lunar_int_load();
-    else tiles_lunar_ext_load();
+    world_load_tiles(map == area_start);
     level_build_map(map);  // (an exit map's shaft included)
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
@@ -193,7 +191,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     autosave();
 }
 
-// Wake camp c: its enemies at its slots, a third of them peashooters, up to
+// Wake camp c: its enemies at its slots, from the world's roster, up to
 // 2 + depth of them.
 static void wake(uint8_t c) {
     uint8_t n = 2 + layer_depth;
@@ -201,7 +199,7 @@ static void wake(uint8_t c) {
     for (uint8_t s = 0; s < camp_slots[c] && n; s++) {
         uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
         if (room_block_at(x + 8, y + 8) != BLK_FLOOR) continue;
-        uint8_t a = actor_spawn((rand() & 3) == 0 ? ACTOR_PEASHOOTER : ACTOR_SLIME, x, y);
+        uint8_t a = actor_spawn(world_enemy(), x, y);
         if (a >= ACTOR_MAX) break;
         for (uint8_t o = 0; o < LEVEL_CAMPS; o++) camp_actors[o] &= ~(1 << a);  // a reused slot
         camp_actors[c] |= 1 << a;
@@ -234,7 +232,7 @@ void descent_update(void) BANKED {
 // its south door. Its chest is bit 3 + k of the map's.
 static void enter_building(uint8_t k) {
     level_inside = k;
-    tiles_lunar_int_load();
+    world_load_tiles(1);
     level_build_interior(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map << 8) ^ (k * 97 + 1));
     chest_bit0 = 3 + k;
     camp_bit0 = INSIDE_CAMP_BIT + k;

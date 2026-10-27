@@ -1,6 +1,7 @@
 # Memory: where things live, and how the game grows
 
-Status: 2026-10-25. Decisions: one world at a time; far RAM for cold data.
+Status: 2026-10-27. Decisions: one world at a time; far RAM for cold data; the world
+table and the bosses' shared RAM are in.
 
 ## The budgets
 
@@ -13,9 +14,22 @@ Status: 2026-10-25. Decisions: one world at a time; far RAM for cold data.
 | Video RAM | 2 x 8 KB | per scene: 176 background tiles, 128 blocks, 6 + 2 palettes, sprite tiles | per map, not per game |
 | Save RAM (battery) | 8 KB (MBC5: up to 128 KB) | three files, settings | |
 
-Bank 1's layout (src/room.h): globals up to 0xD3FF, the room map (block types)
-0xD400, the looks 0xD700, the block tables (a page per quadrant) 0xDA00, the stack
+Bank 1's layout (src/room.h): globals up to 0xD3BF, the bosses' state 0xD3C0
+(below), the room map (block types) 0xD400, the looks 0xD700, the block tables (a page per quadrant) 0xDA00, the stack
 0xDE00-0xDFFF. Maps are at most 32 x 24 blocks.
+
+## The bosses' shared RAM (src/bosses.s, room.h BOSSES_ADDR)
+
+Only one boss fights at a time, so the boss files (tools/build.mjs `BOSS_FILES`:
+the Cragback, Flynt, Globfather, Gunship, Scrapback, Warden) compile their globals
+into one area, `_BOSSES`, which the linker overlays (OVR) at 0xD3C0: each file's
+state starts there and the biggest sets its size (43 of 64 bytes). Their names
+stay as they were (tests and the harness read them). `play_enter` zeroes the area
+for every fight, so each boss starts as if the console were just switched on.
+It freed ~160 bytes. A boss belongs in the list only if nothing outside its own
+fight touches its state; the ordinary enemy kinds (acid wolf, bulwark, ...) stay
+out: several may share a level, and play.c clears the webs every frame. The build
+checks the area's place and size; tests/banks.test.mjs checks the overlay.
 
 ## Far RAM (src/far.c, src/far.h)
 
@@ -41,7 +55,14 @@ A run only ever visits one world (LunarBase now; others later), plus the town. S
   against video RAM, RAM and CPU.
 - **World-specific state shares one RAM region** (a union, one member per world):
   the biggest world sets its size; adding worlds adds no RAM.
-- **A world table** lists each world's parts; entering a world loads from it, and a
-  run reads from it (to come: LunarBase becomes world 1).
+- **The world table** (src/world.c, world.h) lists each world's parts: its map
+  pieces (chunk theme), its camps' enemy roster, its minibosses in turn with
+  depth, and its tilesets (world_load_tiles). A run enters a world (world_enter)
+  and the descent, level generator and miniboss flow read from it. LunarBase is
+  world 0 and the only one so far; a new world adds a row, its tilesets and a case
+  in world_load_tiles. Still LunarBase's own: level.c's looks (the set pieces,
+  interiors and entrance use its piece names); a second world gives them its own
+  look functions or shares the piece names. The world isn't saved yet: a later
+  field in the profile reads as 0 (LunarBase) from older files.
 - Shared everywhere: the player, guns, HUD, loot, camera, the town, and things the
   user wants the same in every world (lockers and loot boxes).

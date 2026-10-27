@@ -25,6 +25,9 @@
   - `play_actor_oam = FIRST_ACTOR_OAM` (15); never increase unless reserving for mode-specific hardware fields (Warden).
 - Memory map, far RAM (work RAM banks 2-7) and the one-world-at-a-time rule: `docs/design/memory.md`.
   Cold data goes in far RAM (`src/far.h`); the build prints the work RAM left.
+  A boss's state shares RAM with the other bosses: add a new boss's file to `BOSS_FILES`
+  (tools/build.mjs) if nothing outside its fight touches its globals.
+  What differs between worlds (art, enemy roster, minibosses) comes from `src/world.c`.
 - Bank 0 is for hot code; cold code/data goes in `#pragma bank 255` files or `bank: true` assets
   (README, "ROM banks"). The build fails if bank 0 overflows or passes 90%.
 - Game Boy Color only, double speed: a frame is 140,448 CPU cycles (131,328 after vblank,

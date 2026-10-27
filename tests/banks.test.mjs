@@ -31,6 +31,20 @@ test('global RAM sections stay below the fixed room map', () => {
   }
 });
 
+test('the bosses share one stretch of RAM, below the room map and above the globals', () => {
+  const room = fs.readFileSync(path.join(ROOT, 'src', 'room.h'), 'utf8');
+  const at = parseInt(room.match(/#define BOSSES_ADDR (0x[0-9A-Fa-f]+)/)[1], 16);
+  const size = parseInt(room.match(/#define BOSSES_SIZE (0x[0-9A-Fa-f]+)/)[1], 16);
+  // (one global from each boss's file: all at the start, overlaid)
+  for (const name of ['crag_target_x', 'flynt_state', 'glob_size', 'gunship_x', 'scrap_facing', 'warden_zone_x'])
+    assert.equal(syms.get('_' + name), at, `${name} at the bosses' state`);
+  assert.ok(syms.get('l___BOSSES') <= size && at + size <= 0xd400, 'it fits its stretch, below the room map');
+  for (const section of ['DATA', 'BSS', 'INITIALIZED'])
+    assert.ok(syms.get(`s__${section}`) + syms.get(`l__${section}`) <= at, `${section} ends below it`);
+  // An ordinary enemy's state isn't in it (its kind may share a level with others).
+  assert.ok(syms.get('_wolf_slot') < at);
+});
+
 test('cold code and once-per-scene data live in switchable banks', () => {
   for (const name of [
     'title_enter', 'title_update', 'play_enter', 'play_update', 'run_over_enter', 'run_over_update',

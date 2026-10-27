@@ -35,7 +35,8 @@ extern uint8_t room_h;
 extern uint16_t room_px_w;  // size in pixels
 extern uint16_t room_px_h;
 // Work RAM layout (globals start at 0xC0A0 and grow up; tools/build.mjs fails the
-// build if they reach ROOM_MAP_ADDR):
+// build if they reach BOSSES_ADDR):
+//   0xD3C0  the bosses' state, all at once (BOSSES_ADDR): one boss fights at a time
 //   0xD400  room_map: each block's type (BLK_*): collision, pits, height (24 rows)
 //   0xD700  room_vis: each block's look: a visual block id (0-127) into the LUT
 //   0xDA00  room_lut: a 256-byte page per quadrant of a block (top left, top right,
@@ -46,6 +47,11 @@ extern uint16_t room_px_h;
 // ADDR + (by << 5 | bx) with the high byte ADDR's plus by >> 3 (no tables);
 // room_fill.s, bullets.s and shots.s rely on it.
 #define ROOM_MAP_ADDR 0xD400
+// Each boss's file (tools/build.mjs BOSS_FILES) puts its state in the area _BOSSES,
+// which overlays them: they all start here, the biggest sets its size. play_enter
+// zeroes it for every fight (as if just switched on).
+#define BOSSES_ADDR 0xD3C0
+#define BOSSES_SIZE 0x40
 #define ROOM_VIS_ADDR 0xD700
 #define ROOM_LUT_ADDR 0xDA00
 #define VIS_BLOCKS 128  // visual blocks per theme
