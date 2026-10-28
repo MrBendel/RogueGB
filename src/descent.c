@@ -92,23 +92,54 @@ uint8_t descent_miniboss(void) BANKED {
     return world_miniboss(layer_depth);
 }
 
-// A vending machine (the vendor post: level.h): its price by depth, paid in credits,
-// for every reserve full or full health; nothing charged if you're full already.
+// Each shield tier's price in town (credits).
+static const uint16_t shield_prices[SHIELD_TIERS] = {100, 250, 500, 900};
+
+// A vending machine: the vendor post's (level.h), its price by depth, for every
+// reserve full or full health (nothing charged if you're full already); or the
+// town's, beside Marro: a random gun at your level for twice a common one's
+// price (as lucky as his stock), dropped in front of the machine with its card;
+// or the shield, then each tier up. Paid in credits.
 void descent_vend(uint8_t what) BANKED {
-    uint8_t ammo = what == TALK_DO_VEND_AMMO;
-    uint16_t price = (uint16_t)(ammo ? 25 : 40) * layer_depth;
+    uint16_t price;
     char t[8] = "-    CR";
-    if (ammo ? ammo_full() : player_hp == player_hp_max) {
-        hud_say("FULL   ");
-        return;
+    if (what == TALK_DO_VEND_GUN) {
+        price = (uint16_t)(15 + 5 * profile.level) << 1;
+    } else if (what == TALK_DO_VEND_SHIELD) {
+        if (profile.has_shield >= SHIELD_TIERS) {
+            hud_say("MAX    ");
+            return;
+        }
+        price = shield_prices[profile.has_shield];
+    } else {
+        uint8_t ammo = what == TALK_DO_VEND_AMMO;
+        price = (uint16_t)(ammo ? 25 : 40) * layer_depth;
+        if (ammo ? ammo_full() : player_hp == player_hp_max) {
+            hud_say("FULL   ");
+            return;
+        }
     }
     if (profile.credits < price) {
         hud_say("NO CR  ");
         return;
     }
+    if (what == TALK_DO_VEND_GUN) {
+        Gun g;
+        loot_roll(&g, profile.level, profile.best_depth * 3);
+        // Below the machine (talk_near's block): out of its reach, so A takes the gun.
+        if (!pickups_drop_gun((uint16_t)talk_bx[talk_near] << 4, ((uint16_t)talk_by[talk_near] + 2) << 4, &g)) {
+            hud_say("NO ROOM");  // (three on the floor already)
+            return;
+        }
+    } else if (what == TALK_DO_VEND_SHIELD) {
+        profile.has_shield++;
+        health_give_shield(SHIELD_TIER_CAP(profile.has_shield), shield_delay, SHIELD_START_RATE);
+    } else if (what == TALK_DO_VEND_AMMO) {
+        ammo_fill();
+    } else {
+        player_hp = player_hp_max;
+    }
     profile.credits -= price;
-    if (ammo) ammo_fill();
-    else player_hp = player_hp_max;
     for (int8_t k = 3; k >= 1; k--) {  // "-nnn CR"
         t[k] = '0' + price % 10;
         price /= 10;

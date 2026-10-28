@@ -348,8 +348,8 @@ static void take_action(void) {
     } else if (a == TALK_DO_SHOP) {
         menu_page = PAGE_SHOP;  // the pause menu's shop page: the world waits while you browse
         set_paused(1);
-    } else if (a == TALK_DO_VEND_AMMO || a == TALK_DO_VEND_HEALTH) {
-        descent_vend(a);
+    } else if (a >= TALK_DO_VEND_AMMO) {
+        descent_vend(a);  // (the descent's and the town's)
     }
 }
 

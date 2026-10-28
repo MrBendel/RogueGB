@@ -16,7 +16,7 @@
 #define AREA_BOSS_BEATEN 0x80
 void descent_save(void) BANKED;          // the expedition into the file now (before leaving for an arena)
 uint8_t descent_miniboss(void) BANKED;   // the miniboss guarding this area's shaft (play.c's MODE_MINIBOSS kind)
-void descent_vend(uint8_t what) BANKED;  // A on a vending machine (TALK_DO_VEND_*): pay, and fill up
+void descent_vend(uint8_t what) BANKED;  // A on a vending machine (TALK_DO_VEND_*): pay, and fill up (or the town's: a gun, a shield)
 extern uint8_t level_inside;  // the door of the building the player is in, or 0xFF (outside)
 
 #define CAMP_ASLEEP 0

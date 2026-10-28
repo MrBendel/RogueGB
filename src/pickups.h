@@ -40,5 +40,6 @@ void pickups_take(void) BANKED;           // A on the card: take the gun
 void pickups_card_refresh(void) BANKED;    // the held gun changed: the card's comparison again
 void pickups_card_off(void) BANKED;       // put the card away (before the pause menu takes the window)
 void loot_kill_drop(void) BANKED;         // maybe credits where the last enemy died
+uint8_t pickups_drop_gun(uint16_t x, uint16_t y, const Gun *g) BANKED;  // a gun on the floor: 1, or 0 if there's no room
 
 #endif

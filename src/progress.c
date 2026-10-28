@@ -33,6 +33,8 @@ void progress_apply(void) BANKED {
     skills_refresh();
     player_hp_max = HEALTH_START + (uint8_t)((profile.level - 1) * HP_PER_LEVEL) + (HAS_FX(SKILL_FX_HP15) ? 15 : 0);
     player_hp = player_hp_max;
+    // The shield bought in town (a file's; the playtests give their own).
+    if (profile.has_shield) health_give_shield(SHIELD_TIER_CAP(profile.has_shield), shield_delay, SHIELD_START_RATE);
     xp_kills_seen = enemies_killed;
 }
 

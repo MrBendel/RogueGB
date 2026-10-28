@@ -124,14 +124,14 @@ static uint8_t loadout_ammo_type(void) {
     return t < AMMO_TYPES ? t : profile.guns[profile.gun_sel].type;
 }
 
-static void drop_gun(uint16_t x, uint16_t y, const Gun *g) {
+static uint8_t drop_gun(uint16_t x, uint16_t y, const Gun *g) {
     uint8_t used = 0;
     for (uint8_t i = 0; i < DROP_MAX; i++)
         if (drop_kind[i] == DROP_GUN) used |= 1 << drop_value[i];
     uint8_t r = 0;
     while (r < DROP_GUNS && (used & (1 << r))) r++;
     uint8_t d = free_drop();
-    if (r == DROP_GUNS || d == 0xFF) return;
+    if (r == DROP_GUNS || d == 0xFF) return 0;
     floor_gun[r] = *g;
     weapon_icon(g->type, floor_icon[r]);
     drop_kind[d] = DROP_GUN;
@@ -139,6 +139,11 @@ static void drop_gun(uint16_t x, uint16_t y, const Gun *g) {
     drop_y[d] = y;
     drop_value[d] = r;
     pickups_on = 1;
+    return 1;
+}
+
+uint8_t pickups_drop_gun(uint16_t x, uint16_t y, const Gun *g) BANKED {
+    return drop_gun(x, y, g);
 }
 
 // A chest's loot: credits and a gun, on the floor in front of it. Caches (not

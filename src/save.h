@@ -32,7 +32,7 @@ typedef struct {
     uint8_t play_seconds;   // ... and seconds (16-bit math only: no 32-bit division on this CPU's library)
     uint8_t best_depth;
     uint16_t kills;
-    uint8_t has_shield;
+    uint8_t has_shield;     // the shield bought in town: its tier (health.h SHIELD_TIERS), 0 for none
     Gun guns[LOADOUT];      // the loadout (loot.h); type GUN_NONE: an empty slot
     uint8_t gun_sel;        // the one held
     uint32_t last_fee;      // credits the last reconstruction cost

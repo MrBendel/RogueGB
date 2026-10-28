@@ -14,6 +14,10 @@
 #define SHIELD_START_CAP 40
 #define SHIELD_START_DELAY 150  // frames without a hit before it recharges
 #define SHIELD_START_RATE 2     // frames per point recharged (0 counts as 1)
+// A file's shield, bought in town (profile.has_shield: its tier, 0 for none):
+// 25, 40, 55, 70 capacity.
+#define SHIELD_TIERS 4
+#define SHIELD_TIER_CAP(t) (10 + 15 * (t))
 
 // What hurt the player (set by whoever calls player_hurt / health_damage just
 // before): the first two match the actor types (actor.h), so a touch passes its type.

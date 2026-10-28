@@ -164,3 +164,61 @@ test('a bigger backpack carries half again as much ammo on the next expedition',
   takeLiftDown(emu);
   assert.equal(prof(emu, 198), 108, 'pistol rounds: 72 and half again');
 });
+
+const HAS_SHIELD = 17;  // Profile offset: the shield's tier
+/** In town with credits, in front of a vending machine beside Marro's shop (0: guns, 1: shields). */
+function atMachine(credits, k) {
+  const emu = newFileInTown();
+  emu.writeBytes(A(emu, 'zones_done'), [0xff]);
+  emu.writeBytes(A(emu, 'profile') + CREDITS, [credits & 255, (credits >> 8) & 255, 0, 0]);
+  w16(emu, 'player_x', (20 + k) * 16);
+  w16(emu, 'player_y', 10 * 16 - 4);
+  emu.idle(60).hold('UP', 4).idle(4);  // (the camera catches up)
+  assert.equal(emu.v('talk_near'), 4 + k, 'the machine in reach');
+  return emu;
+}
+
+test("the town's gun machine: yellow; a random gun at your level for twice a common one's price, with its card", () => {
+  const emu = atMachine(500, 0);
+  emu.shot('town-vending');
+  emu.tap('A').idle(4);
+  const price = (15 + 5 * 1) * 2;
+  assert.equal(prof(emu, CREDITS, 4), 500 - price, 'paid');
+  assert.equal(emu.v('drop_kind'), 2, 'a gun on the floor');
+  assert.equal(emu.read8(A(emu, 'floor_gun') + 2), 1, 'at your level');
+  // Down onto it: its card, and A takes it into the second slot.
+  emu.hold('DOWN', 20).idle(4);
+  assert.notEqual(emu.v('card_drop'), 0xff, 'its card shows');
+  emu.shot('town-vending-card');
+  emu.tap('A').idle(4);
+  assert.notEqual(emu.read8(A(emu, 'profile') + GUNS + GUN_SIZE), GUN_NONE, 'taken');
+});
+
+test("the town's shield machine: red; the shield, then bigger ones, kept by the file", () => {
+  const emu = atMachine(2000, 1);
+  assert.equal(emu.v('shield_cap'), 0, 'a new file has none');
+  emu.tap('A').idle(4);
+  assert.equal(prof(emu, HAS_SHIELD), 1);
+  assert.equal(emu.v('shield_cap'), 25, 'worn at once');
+  assert.equal(prof(emu, CREDITS, 4), 2000 - 100);
+  for (let i = 0; i < 3; i++) emu.tap('A').idle(4);
+  assert.equal(prof(emu, HAS_SHIELD), 4);
+  assert.equal(emu.v('shield_cap'), 70);
+  assert.equal(prof(emu, CREDITS, 4), 2000 - 100 - 250 - 500 - 900);
+  emu.tap('A').idle(4);
+  assert.equal(prof(emu, CREDITS, 4), 250, 'the biggest: nothing more to buy');
+  // Down into the descent: worn there too, full.
+  takeLiftDown(emu);
+  assert.equal(emu.v('shield_cap'), 70);
+  assert.equal(emu.v('shield_hp'), 70);
+});
+
+test("the town's machines: not enough credits, nothing changes", () => {
+  for (const k of [0, 1]) {
+    const emu = atMachine(10, k);
+    emu.tap('A').idle(4);
+    assert.equal(prof(emu, CREDITS, 4), 10);
+    assert.equal(prof(emu, HAS_SHIELD), 0);
+    assert.equal(emu.v('drop_kind'), 0);
+  }
+});

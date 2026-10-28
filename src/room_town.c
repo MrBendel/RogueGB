@@ -12,6 +12,8 @@
 #include "save.h"
 #include "dialogue.h"
 #include "tiles_ice.h"
+#include "level.h"
+#include "pickups.h"
 
 #define TOWN_W TS_ICE_MAP_TOWN_W
 #define TOWN_H TS_ICE_MAP_TOWN_H
@@ -49,5 +51,12 @@ void room_load_town(void) BANKED {
     talk_add(20, 4, TALK_POST, DLG_VOICE_CEO);
     talk_add(20, 13, TALK_POST, DLG_VOICE_MERIDIAN);
     talk_add(18, 10, TALK_MARRO, TALK_DO_SHOP);
+    // Beside his shop, the vending machines (drawn by the map): guns, shields.
+    talk_add(20, 9, TALK_COMMS, TALK_DO_VEND_GUN);
+    talk_add(21, 9, TALK_COMMS, TALK_DO_VEND_SHIELD);
     talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
+    // No chests or containers (the last area's are still listed): the floor
+    // only holds what the gun machine drops.
+    level_chests = level_conts = 0;
+    pickups_load_map(0);
 }

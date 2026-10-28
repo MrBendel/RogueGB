@@ -83,6 +83,18 @@ only if everything still connects): **ammo, green and black**, every reserve ful
 red and black; guns and shields are sold in town). A on one (a talker with no
 sprite: the nearest talker in reach answers).
 
+**The town's machines** (built 2026-10-27): beside Marro's shop, a **gun machine,
+yellow and black**, and a **shield machine, red and black** (the yellow one is our
+own recolour in `artwork/tiles/containers.png`; both are stamped into the ice
+tileset, sharing one palette). The gun machine rolls a random gun at your level, as
+lucky as Marro's stock (best depth x 3), for twice a common gun's price at that
+level (15 + 5 x level, doubled: with no luck a rolled gun is worth about that on
+average). It drops in front of the machine, and its card compares it with your gun as
+in the descent. The shield machine sells **the shield, then bigger ones**: 25, 40, 55
+and 70 capacity for 100, 250, 500 and 900 credits. The tier is kept by the file
+(`profile.has_shield`, a byte the save already had, so no new save version) and worn
+on every expedition (progress.c `progress_apply`).
+
 A whole area now plays through: the entrance room's briefing, its maps (camps,
 chests, buildings to go into), the miniboss at the shaft, and down to the next.
 

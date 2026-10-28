@@ -16,7 +16,7 @@
 #include <gb/gb.h>
 #include <stdint.h>
 
-#define TALK_MAX 6
+#define TALK_MAX 8
 #define TALK_ZONES 2
 #define TALK_NONE 0xFF
 // Kinds (their art: tools/assets.mjs spr_talk_*).
@@ -33,6 +33,8 @@
 #define TALK_DO_UP 0x82    // a start map's lift: back up to town
 #define TALK_DO_VEND_AMMO 0x83    // a vending machine (descent.c descent_vend): every reserve full
 #define TALK_DO_VEND_HEALTH 0x84  // ... health full
+#define TALK_DO_VEND_GUN 0x85     // the town's: a random gun at your level, on the floor in front
+#define TALK_DO_VEND_SHIELD 0x86  // ... the shield, then a bigger one (SHIELD_TIERS)
 
 // --- watchable state ---
 extern uint8_t talk_count;
