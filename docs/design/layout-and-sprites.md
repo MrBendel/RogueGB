@@ -113,11 +113,13 @@ Tile numbers 0..127:
 
 ```
 [000 .. 009] : Player body frames & air jump shadow (SHADOW_VRAM = 8)
+[010 .. 015] : Duelist actor tiles, columns 0-2 (duelist.c; the descent, the lab)
 [016 .. 023] : Slime actor tiles (SPR_SLIME)
 [024 .. 039] : Peashooter actor tiles (SPR_PEASHOOTER)
 [040 .. 043] : Bullet projectile tiles (SPR_PEA)
 [044 .. 045] : Reticle tiles
 [088 .. 095] : Hound actor tiles (hound.c; the descent, the lab)
+[106 .. 107] : Duelist actor tiles, column 3 (after the chest's item, outside boss fights)
 [096 .. 127] : MACHINE_VRAM (32 tiles = 8 metasprite frames, 4 tiles each)
                - Frame 0: Closed Warden
                - Frame 1: Exposed Warden

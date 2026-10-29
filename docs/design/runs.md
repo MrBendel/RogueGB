@@ -192,6 +192,19 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   `WORLD_TIERS`): LunarBase's first area is slimes and a peashooter in four; from the
   second, a hound takes one slime's place. The trials' Acid Wolf (one at a time,
   scripted) is unchanged.
+- **Built (2026-10-28): the duelist, and each world's colours.** `ACTOR_DUELIST`
+  (src/duelist.c), a pool kind like the hound. It keeps to 44-80 px, sidestepping
+  across your line of fire; then it stands and flashes for 20 frames (the burst is
+  aimed now, in 8 directions), fires three peas 8 frames apart, and stands
+  reloading for 40 frames. Shot while it strafes, it dashes aside once (until its
+  next burst). 6 health, 10 XP; "A CORP MERC" on the death screen. Its art is a
+  16x16 trooper with a visor and rifle, 8 tiles in the last free sprite gaps
+  (10-15, 106-107). From area 2 the Moon's roster is a peashooter, a slime, a hound
+  and a duelist. The world table also gives each world its enemies' colours:
+  creatures (slime, hound: odd kinds) in one palette, machines and mercs
+  (peashooter, duelist: even kinds) in the other. The Moon's drones and hounds are
+  slate blue with a cyan eye; its turrets and mercs the corporation's yellow, a red
+  visor. The save keeps the expedition's world (`exp_world`, version 8).
 - **Elites** (Borderlands' "badass"): one in some camps: more health, a name, one
   modifier (shielded, fast, acid trail, explodes), and a better drop.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones

@@ -19,11 +19,14 @@ typedef struct {
     uint8_t theme;                         // chunks.mjs CHUNK_THEME_*: its map pieces
     uint8_t roster[WORLD_TIERS][WORLD_ROSTER];  // ACTOR_*, by tier
     uint8_t minibosses[WORLD_MINIBOSSES];  // MODE_MINIBOSS kinds (play.c), in turn with depth
+    // Its enemies' colours 1-3 (accent, body, outline): creatures' and machines'
+    // (actor.h: odd and even kinds).
+    uint16_t creature_pal[3], machine_pal[3];
 } World;
 
 extern uint8_t world_id;  // the world the run is in (WORLD_*)
 
-void world_enter(uint8_t id) BANKED;         // a run into world id: its map pieces
+void world_enter(uint8_t id) BANKED;         // a run into world id: its map pieces, its enemies' colours
 void world_load_tiles(uint8_t indoor) BANKED;  // its outdoor or indoor tileset (the display off)
 uint8_t world_enemy(uint8_t depth) BANKED;    // a camp's next enemy kind at depth (one rand)
 uint8_t world_miniboss(uint8_t depth) BANKED; // the miniboss guarding depth's shaft

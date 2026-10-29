@@ -16,6 +16,8 @@
 #define SRAM ((uint8_t *)0xA000)
 #define COPY_SIZE 256
 #define HEADER 8
+// A profile fits in its copy, after the header (the build fails if not).
+typedef char profile_fits[sizeof(Profile) <= COPY_SIZE - HEADER ? 1 : -1];
 
 Profile profile;
 uint8_t save_slot = SAVE_NONE;

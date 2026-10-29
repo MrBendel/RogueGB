@@ -18,6 +18,7 @@
 #include "cragback.h"
 #include "globfather.h"
 #include "hound.h"
+#include "duelist.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -67,7 +68,10 @@ uint8_t shooter_spread;
 uint8_t slime_frames[SPR_SLIME_FRAME_COUNT * 4];
 uint8_t shooter_frames[SPR_PEASHOOTER_FRAME_COUNT * 4];
 uint8_t pea_frames[SPR_PEA_FRAME_COUNT * 4];
-static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames, hound_frames};
+static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames, hound_frames, duelist_frames};
+// Per type: XP for a kill, and the cause of a touch (health.h CAUSE_*).
+static const uint8_t type_xp[ACTOR_TYPE_COUNT] = {0, XP_SLIME, XP_PEASHOOTER, XP_HOUND, XP_DUELIST};
+static const uint8_t type_cause[ACTOR_TYPE_COUNT] = {0, CAUSE_SLIME, CAUSE_PEASHOOTER, CAUSE_HOUND, CAUSE_DUELIST};
 uint8_t type_vram[ACTOR_TYPE_COUNT];
 uint8_t bullet_vram;
 
@@ -96,7 +100,7 @@ void actor_cache_frame(uint8_t i) {
     const uint8_t *f = type_frames[type] + (actor_frame[i] << 2);
     uint8_t base = type_vram[type];
     actor_t0[i] = base + (f[0] << 1);
-    uint8_t pal = type == ACTOR_SLIME ? SPR_PAL_SLIME : SPR_PAL_SHOOTER;
+    uint8_t pal = type & 1 ? SPR_PAL_SLIME : SPR_PAL_SHOOTER;  // (actor.h)
     actor_p0[i] = f[1] | pal;
     actor_t1[i] = base + (f[2] << 1);
     actor_p1[i] = f[3] | pal;
@@ -250,7 +254,7 @@ static void reap(void) {
     shots_killed = 0;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
-        xp_pending += actor_type[i] == ACTOR_PEASHOOTER ? XP_PEASHOOTER : actor_type[i] == ACTOR_HOUND ? XP_HOUND : XP_SLIME;  // (play awards it)
+        xp_pending += type_xp[actor_type[i]];  // (play awards it)
         kill_x = actor_x[i];  // (loot may drop there: pickups.c)
         kill_y = actor_y[i];
         actor_type[i] = ACTOR_NONE;
@@ -278,7 +282,8 @@ void actors_update(uint8_t first_oam) {
             if (!actor_scripted[i]) {
                 if (type == ACTOR_SLIME) update_slime(i);
                 else if (type == ACTOR_PEASHOOTER) shooter_update(i);
-                else hound_update(i);
+                else if (type == ACTOR_HOUND) hound_update(i);
+                else duelist_update(i);
                 if (actor_frame[i] != frame) actor_cache_frame(i);
             }
             // Hit by a shot: flash for a few think steps.
@@ -291,7 +296,7 @@ void actors_update(uint8_t first_oam) {
             // Scripted actors 15+ own their contact windows; others hurt on touch.
             if (hittable && actor_scripted[i] < 15 && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
-                hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : type == ACTOR_HOUND ? CAUSE_HOUND : type;
+                hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : type_cause[type];
                 player_hurt(TOUCH_DAMAGE, actor_x[i] + 8, actor_y[i] + 11);
                 hittable = 0;
             }

@@ -9,6 +9,7 @@
 #include "aim.h"
 #include "health.h"
 #include "hound.h"
+#include "duelist.h"
 
 void actors_init(void) BANKED {
     enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
@@ -30,6 +31,8 @@ void actors_init(void) BANKED {
     aim_init(v + SPR_PEA_COLUMN_COUNT * 2);
     type_vram[ACTOR_HOUND] = HOUND_VRAM;
     hound_init(HOUND_VRAM);
+    type_vram[ACTOR_DUELIST] = DUELIST_VRAM;
+    duelist_init(DUELIST_VRAM, DUELIST_VRAM2);
     actors_clear();
     bullets_fired = 0;
 }
@@ -75,6 +78,10 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
             actor_hp[i] = HOUND_HP + enemy_hp_bonus;
             actor_timer[i] = 30 + (i << 3);
             actor_try[i] = i & 1;  // (half circle each way)
+        } else if (type == ACTOR_DUELIST) {
+            actor_hp[i] = DUELIST_HP + enemy_hp_bonus;
+            actor_timer[i] = 40 + (i << 3);
+            actor_try[i] = i & 1;  // (half sidestep each way)
         } else {
             actor_hp[i] = SHOOTER_HP + enemy_hp_bonus;
             actor_timer[i] = shooter_interval + (i << 4);

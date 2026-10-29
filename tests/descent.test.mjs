@@ -288,7 +288,7 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   assert.fail('no camp found beside the start map');
 });
 
-test("the first area's camps are slimes and peashooters; from the second, hounds join them", () => {
+test("the first area's camps are slimes and peashooters; from the second, hounds and duelists join them", () => {
   const kinds = { 1: new Set(), 2: new Set() };
   for (const depth of [1, 2])
     for (let wait = 0; wait < 60; wait += 7) {
@@ -304,7 +304,15 @@ test("the first area's camps are slimes and peashooters; from the second, hounds
       for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
     }
   assert.deepEqual([...kinds[1]].sort(), [1, 2], 'area 1: slimes and peashooters');
-  assert.ok(kinds[2].has(3), 'area 2: hounds too');
+  assert.ok(kinds[2].has(3) && kinds[2].has(4), `area 2: hounds and duelists too (${[...kinds[2]]})`);
+});
+
+test("the world's colours: its drones and hounds in one palette, its turrets and mercs in another", () => {
+  const emu = startDescent();
+  const pal = (p) => [1, 2, 3].map((k) => emu.read16(addr(emu, 'pal_base_obj') + (p * 4 + k) * 2));
+  const rgb = (r, g, b) => r | (g << 5) | (b << 10);
+  assert.deepEqual(pal(2), [rgb(10, 30, 31), rgb(11, 15, 26), rgb(2, 3, 10)], 'creatures: slate blue, a cyan eye');
+  assert.deepEqual(pal(3), [rgb(31, 8, 6), rgb(28, 22, 4), rgb(5, 3, 9)], 'machines: yellow, a red visor');
 });
 
 test('the exit map has a shaft: dropping in leads to a new area, one deeper', () => {

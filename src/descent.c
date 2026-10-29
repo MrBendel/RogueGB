@@ -50,7 +50,7 @@ static void start_area(void) {
 }
 
 void descent_start(uint16_t seed) BANKED {
-    world_enter(WORLD_LUNAR);  // (the only world so far)
+    world_enter(WORLD_LUNAR);  // (the only world so far: the town's lift will choose)
     layer_depth = 1;
     ammo_fill();  // a new expedition: full reserves
     maps_entered = 0;
@@ -64,7 +64,7 @@ void descent_start(uint16_t seed) BANKED {
 // its cleared camps put back, and the player at an opening of its map (or the
 // middle of the start map).
 void descent_resume(void) BANKED {
-    world_enter(WORLD_LUNAR);
+    world_enter(profile.exp_world < WORLD_COUNT ? profile.exp_world : WORLD_LUNAR);
     layer_depth = profile.exp_depth;
     maps_entered = 0;
     saved_seconds = 0;
@@ -158,6 +158,7 @@ static void autosave(void) {
     profile.exp_active = 1;
     profile.exp_seed = area_seed_base;
     profile.exp_depth = layer_depth;
+    profile.exp_world = world_id;
     profile.exp_map = level_map;
     memcpy(profile.exp_camps, area_camps_cleared, sizeof(profile.exp_camps));
     memcpy(profile.exp_chests, area_chests_opened, sizeof(profile.exp_chests));

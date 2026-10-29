@@ -8,7 +8,7 @@ const OPENING_W = 4;
 const SIDE = { 1: 0, 2: 1, 4: 2, 8: 3 };
 const DIR = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' };
 // Profile field offsets (save.h; SDCC packs structs).
-const P = { level: 1, xp: 2, credits: 7, play_minutes: 11, best_depth: 14, guns: 18, gun_sel: 54, last_fee: 55, exp_active: 59, exp_seed: 60, exp_depth: 62, exp_map: 63 };
+const P = { level: 1, xp: 2, credits: 7, play_minutes: 11, best_depth: 14, guns: 18, gun_sel: 54, last_fee: 55, exp_active: 59, exp_seed: 60, exp_depth: 62, exp_map: 63, exp_world: 226 };
 
 const A = (emu, n) => emu.symbols.addr(n);
 const prof = (emu, field, len = 1) => {
@@ -121,20 +121,37 @@ test('a version 5 file (before the containers) still loads: the new fields start
   const emu = startDescent().idle(2);
   const level = prof(emu, 'level'), credits = prof(emu, 'credits', 4);
   const sram = new Uint8Array(emu.sram());
-  // Rewrite both copies of slot 0 as version 5: 12 bytes shorter (no exp_conts),
-  // its checksum over those bytes (save.c).
+  // Rewrite both copies of slot 0 as version 5: 25 bytes shorter (no exp_conts,
+  // exp_inside, exp_world), its checksum over those bytes (save.c).
   for (const at of [0, 256]) {
     const r = sram.subarray(at, at + 256);
     if (r[0] !== 0x53) continue;
-    const n = r[6] - 12;
+    const n = r[6] - 25;
     let c = 0x5afe;
     for (let i = 0; i < n; i++) c = (((c << 1) | (c >> 15)) & 0xffff) ^ r[8 + i];
     r[2] = 5; r[4] = c & 255; r[5] = c >> 8; r[6] = n;
-    for (let i = 0; i < 12; i++) r[8 + n + i] = 0xee;  // (bytes past its size: ignored)
+    for (let i = 0; i < 25; i++) r[8 + n + i] = 0xee;  // (bytes past its size: ignored)
   }
   const again = settle(withSram(sram).tap('START').tap('A'), PLAY, 'continued');
   assert.equal(prof(again, 'level'), level, 'the file read');
   assert.equal(prof(again, 'credits', 4), credits);
   const conts = Array.from(again.readBytes(A(again, 'profile') + 202, 12));
   assert.deepEqual(conts, new Array(12).fill(0), 'containers: none opened yet');
+});
+
+test("the file keeps the expedition's world; one it doesn't know continues on the Moon", () => {
+  const emu = nextMap(startDescent());
+  assert.equal(prof(emu, 'exp_world'), emu.v('world_id'), 'saved with the world');
+  const sram = new Uint8Array(emu.sram());
+  for (const at of [0, 256]) {
+    const r = sram.subarray(at, at + 256);
+    if (r[0] !== 0x53) continue;
+    r[8 + P.exp_world] = 9;  // (no such world)
+    let c = 0x5afe;
+    for (let i = 0; i < r[6]; i++) c = (((c << 1) | (c >> 15)) & 0xffff) ^ r[8 + i];
+    r[4] = c & 255; r[5] = c >> 8;
+  }
+  const again = settle(withSram(sram).tap('START').tap('A'), PLAY, 'continued');
+  assert.equal(again.v('world_id'), 0, 'the Moon');
+  assert.equal(again.v('level_map'), emu.v('level_map'), 'at the saved map');
 });

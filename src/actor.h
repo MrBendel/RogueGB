@@ -23,7 +23,11 @@
 #define ACTOR_SLIME 1       // chaser: hops toward the player, hurts on contact
 #define ACTOR_PEASHOOTER 2  // shooter: turns to face the player, telegraphs, fires
 #define ACTOR_HOUND 3       // flanker: circles, warns, lunges, rests (hound.c)
-#define ACTOR_TYPE_COUNT 4
+#define ACTOR_DUELIST 4     // duelist: sidesteps, aims, fires a burst, reloads (duelist.c)
+#define ACTOR_TYPE_COUNT 5
+// Odd kinds (slime, hound) are creatures, drawn in SPR_PAL_SLIME; even ones
+// (peashooter, duelist) machines and mercs, in SPR_PAL_SHOOTER: a world sets both
+// (world.c).
 
 // Directions for facing (art order).
 #define FACE_DOWN 0

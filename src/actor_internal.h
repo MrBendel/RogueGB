@@ -11,9 +11,12 @@
 
 // Sprite VRAM: the player owns tiles 0-9 (frame slot + shadow); enemy graphics
 // are loaded from here on, one block per type. The hound's 8 fit between the
-// pickups' (pickups.c) and the chest's (chest.h).
+// pickups' (pickups.c) and the chest's (chest.h); the duelist's 8 in the last
+// gaps: 6 after the player's, 2 after the chest's item.
 #define ENEMY_VRAM 16
 #define HOUND_VRAM 88
+#define DUELIST_VRAM 10
+#define DUELIST_VRAM2 106
 
 // Slime: rests (slime_rest frames), then hops toward the player.
 #define SLIME_HOP 24
