@@ -8,6 +8,7 @@
 #include "gfx.h"
 #include "aim.h"
 #include "health.h"
+#include "hound.h"
 
 void actors_init(void) BANKED {
     enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
@@ -27,6 +28,8 @@ void actors_init(void) BANKED {
     banked_sprite_data(v, SPR_PEA_COLUMN_COUNT * 2, spr_pea_tiles, BANK(spr_pea));
     banked_memcpy(pea_frames, spr_pea_frames, sizeof(pea_frames), BANK(spr_pea));
     aim_init(v + SPR_PEA_COLUMN_COUNT * 2);
+    type_vram[ACTOR_HOUND] = HOUND_VRAM;
+    hound_init(HOUND_VRAM);
     actors_clear();
     bullets_fired = 0;
 }
@@ -68,6 +71,10 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
         if (type == ACTOR_SLIME) {
             actor_hp[i] = SLIME_HP + enemy_hp_bonus;
             actor_timer[i] = slime_rest + (i << 3);
+        } else if (type == ACTOR_HOUND) {
+            actor_hp[i] = HOUND_HP + enemy_hp_bonus;
+            actor_timer[i] = 30 + (i << 3);
+            actor_try[i] = i & 1;  // (half circle each way)
         } else {
             actor_hp[i] = SHOOTER_HP + enemy_hp_bonus;
             actor_timer[i] = shooter_interval + (i << 4);

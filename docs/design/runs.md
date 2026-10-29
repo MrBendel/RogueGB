@@ -182,6 +182,16 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
 
 - **Squad templates** by depth: area 1 is chasers and shooters; duelists and flankers
   join in area 2; tanks and support in area 3. A camp is 3-6 enemies.
+- **Built (2026-10-28): the hound, the first flanker.** An actor kind like the slime
+  and peashooter (`ACTOR_HOUND`, src/hound.c), so any number run at once. It closes to
+  28-52 px and circles you, then crouches flashing for 16 frames, lunges about 48 px
+  at where you were, and rests for 30 frames: the moment to hit it. 5 health (plus
+  the depth's bonus), 8 XP; it hurts on touch like the others. Its body is the Acid
+  Wolf trial's running stride in the enemies' palette (green, a peach eye), 8 sprite
+  tiles at 88-95. The world table's roster now has a tier per depth (world.c
+  `WORLD_TIERS`): LunarBase's first area is slimes and a peashooter in four; from the
+  second, a hound takes one slime's place. The trials' Acid Wolf (one at a time,
+  scripted) is unchanged.
 - **Elites** (Borderlands' "badass"): one in some camps: more health, a name, one
   modifier (shielded, fast, acid trail, explodes), and a better drop.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones

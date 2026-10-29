@@ -22,7 +22,8 @@
 #define ACTOR_NONE 0
 #define ACTOR_SLIME 1       // chaser: hops toward the player, hurts on contact
 #define ACTOR_PEASHOOTER 2  // shooter: turns to face the player, telegraphs, fires
-#define ACTOR_TYPE_COUNT 3
+#define ACTOR_HOUND 3       // flanker: circles, warns, lunges, rests (hound.c)
+#define ACTOR_TYPE_COUNT 4
 
 // Directions for facing (art order).
 #define FACE_DOWN 0

@@ -288,6 +288,25 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   assert.fail('no camp found beside the start map');
 });
 
+test("the first area's camps are slimes and peashooters; from the second, hounds join them", () => {
+  const kinds = { 1: new Set(), 2: new Set() };
+  for (const depth of [1, 2])
+    for (let wait = 0; wait < 60; wait += 7) {
+      const emu = startDescent(bootToTitle(), 4242 + wait);
+      const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+      leaveBy(emu, [1, 2, 4, 8].find((x) => links & x));
+      if (!emu.v('level_camps')) continue;
+      w8(emu, 'layer_depth', depth);  // (the roster's tier: world.c)
+      const cx = words(emu, 'camp_x', 1)[0], cy = words(emu, 'camp_y', 1)[0];
+      w16(emu, 'player_x', cx);
+      w16(emu, 'player_y', cy);
+      emu.idle(2);
+      for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
+    }
+  assert.deepEqual([...kinds[1]].sort(), [1, 2], 'area 1: slimes and peashooters');
+  assert.ok(kinds[2].has(3), 'area 2: hounds too');
+});
+
 test('the exit map has a shaft: dropping in leads to a new area, one deeper', () => {
   const emu = startDescent();
   const firstLinks = bytes(emu, 'area_links');

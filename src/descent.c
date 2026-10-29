@@ -230,7 +230,7 @@ static void wake(uint8_t c) {
     for (uint8_t s = 0; s < camp_slots[c] && n; s++) {
         uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
         if (room_block_at(x + 8, y + 8) != BLK_FLOOR) continue;
-        uint8_t a = actor_spawn(world_enemy(), x, y);
+        uint8_t a = actor_spawn(world_enemy(layer_depth), x, y);
         if (a >= ACTOR_MAX) break;
         for (uint8_t o = 0; o < LEVEL_CAMPS; o++) camp_actors[o] &= ~(1 << a);  // a reused slot
         camp_actors[c] |= 1 << a;

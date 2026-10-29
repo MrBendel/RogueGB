@@ -56,7 +56,7 @@ A run only ever visits one world (LunarBase now; others later), plus the town. S
 - **World-specific state shares one RAM region** (a union, one member per world):
   the biggest world sets its size; adding worlds adds no RAM.
 - **The world table** (src/world.c, world.h) lists each world's parts: its map
-  pieces (chunk theme), its camps' enemy roster, its minibosses in turn with
+  pieces (chunk theme), its camps' enemy roster (a tier per depth), its minibosses in turn with
   depth, and its tilesets (world_load_tiles). A run enters a world (world_enter)
   and the descent, level generator and miniboss flow read from it. LunarBase is
   world 0 and the only one so far; a new world adds a row, its tilesets and a case

@@ -12,11 +12,12 @@
 #define WORLD_COUNT 1
 
 #define WORLD_ROSTER 4  // a camp's enemy kinds, one drawn per spawn (ACTOR_*: repeats weight them)
+#define WORLD_TIERS 2   // rosters by depth: the first area's, then every deeper one's
 #define WORLD_MINIBOSSES 3
 
 typedef struct {
     uint8_t theme;                         // chunks.mjs CHUNK_THEME_*: its map pieces
-    uint8_t roster[WORLD_ROSTER];          // ACTOR_*
+    uint8_t roster[WORLD_TIERS][WORLD_ROSTER];  // ACTOR_*, by tier
     uint8_t minibosses[WORLD_MINIBOSSES];  // MODE_MINIBOSS kinds (play.c), in turn with depth
 } World;
 
@@ -24,7 +25,7 @@ extern uint8_t world_id;  // the world the run is in (WORLD_*)
 
 void world_enter(uint8_t id) BANKED;         // a run into world id: its map pieces
 void world_load_tiles(uint8_t indoor) BANKED;  // its outdoor or indoor tileset (the display off)
-uint8_t world_enemy(void) BANKED;             // a camp's next enemy kind (one rand)
+uint8_t world_enemy(uint8_t depth) BANKED;    // a camp's next enemy kind at depth (one rand)
 uint8_t world_miniboss(uint8_t depth) BANKED; // the miniboss guarding depth's shaft
 
 #endif

@@ -10,8 +10,10 @@
 #include "spr_pea.h"
 
 // Sprite VRAM: the player owns tiles 0-9 (frame slot + shadow); enemy graphics
-// are loaded from here on, one block per type.
+// are loaded from here on, one block per type. The hound's 8 fit between the
+// pickups' (pickups.c) and the chest's (chest.h).
 #define ENEMY_VRAM 16
+#define HOUND_VRAM 88
 
 // Slime: rests (slime_rest frames), then hops toward the player.
 #define SLIME_HOP 24
@@ -65,6 +67,8 @@ void actor_cache_frame(uint8_t i);
 uint8_t enemy_box_free(uint16_t x, uint16_t y);
 // Velocity of `speed` along an 8-way direction; diag is its diagonal component (actor.c).
 void set_velocity(int8_t sx, int8_t sy, int16_t speed, int16_t diag, int16_t *vx, int16_t *vy);
+// A peashooter's think step (actor_shooter.c, banked).
+void shooter_update(uint8_t i) BANKED;
 // A peashooter's shot (actor_setup.c, banked: it's rare).
 void fire_bullet(uint8_t i, int8_t sx, int8_t sy) BANKED;
 // A peashooter's shot: one pea toward (sx, sy), or three with shooter_spread.

@@ -17,6 +17,7 @@
 #include "boss.h"
 #include "cragback.h"
 #include "globfather.h"
+#include "hound.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -66,7 +67,7 @@ uint8_t shooter_spread;
 uint8_t slime_frames[SPR_SLIME_FRAME_COUNT * 4];
 uint8_t shooter_frames[SPR_PEASHOOTER_FRAME_COUNT * 4];
 uint8_t pea_frames[SPR_PEA_FRAME_COUNT * 4];
-static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames};
+static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames, hound_frames};
 uint8_t type_vram[ACTOR_TYPE_COUNT];
 uint8_t bullet_vram;
 
@@ -210,29 +211,6 @@ static void update_slime(uint8_t i) {
 }
 
 
-static void update_shooter(uint8_t i) {
-    uint8_t t = actor_timer[i] = tick(actor_timer[i]);
-    // Turning to face the player is the expensive part (16-bit distances), so a
-    // turret re-aims every 4th think step (~7 times a second) and when it fires.
-    if (!(t & (AI_STEP * 4 - 1)) || !t) {
-        int16_t dx = (int16_t)(player_x - actor_x[i]);
-        int16_t dy = (int16_t)(player_y - actor_y[i]);
-        uint16_t ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-        actor_face[i] = ax > ay ? (dx > 0 ? FACE_RIGHT : FACE_LEFT) : (dy > 0 ? FACE_DOWN : FACE_UP);
-        if (!t) {
-            // Fire, aimed in 8 directions: diagonal when the axes are within 2:1.
-            int8_t sx = (ax << 1) > ay ? (dx > 0 ? 1 : -1) : 0;
-            int8_t sy = (ay << 1) > ax ? (dy > 0 ? 1 : -1) : 0;
-            fire_volley(i, sx, sy);
-            actor_timer[i] = shooter_interval;
-        }
-    }
-    uint8_t telegraph = t && t < shooter_telegraph;
-    // Warning: flash and open up before firing.
-    actor_flash[i] = telegraph && (t & 4);
-    actor_frame[i] = (actor_face[i] << 1) + telegraph;
-}
-
 // Do the spans [a, a+aw) and [b, b+bw) overlap? One unsigned compare: the
 // difference a + aw - b must be in 1..aw+bw-1 (anything else wraps to a large value).
 #define SPAN_OVERLAP(a, aw, b, bw) ((uint16_t)((a) + (aw) - (b) - 1) < (uint16_t)((aw) + (bw) - 1))
@@ -272,7 +250,7 @@ static void reap(void) {
     shots_killed = 0;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
-        xp_pending += actor_type[i] == ACTOR_PEASHOOTER ? XP_PEASHOOTER : XP_SLIME;  // (play awards it)
+        xp_pending += actor_type[i] == ACTOR_PEASHOOTER ? XP_PEASHOOTER : actor_type[i] == ACTOR_HOUND ? XP_HOUND : XP_SLIME;  // (play awards it)
         kill_x = actor_x[i];  // (loot may drop there: pickups.c)
         kill_y = actor_y[i];
         actor_type[i] = ACTOR_NONE;
@@ -299,7 +277,8 @@ void actors_update(uint8_t first_oam) {
             uint8_t frame = actor_frame[i];
             if (!actor_scripted[i]) {
                 if (type == ACTOR_SLIME) update_slime(i);
-                else update_shooter(i);
+                else if (type == ACTOR_PEASHOOTER) shooter_update(i);
+                else hound_update(i);
                 if (actor_frame[i] != frame) actor_cache_frame(i);
             }
             // Hit by a shot: flash for a few think steps.
@@ -312,7 +291,7 @@ void actors_update(uint8_t first_oam) {
             // Scripted actors 15+ own their contact windows; others hurt on touch.
             if (hittable && actor_scripted[i] < 15 && SPAN_OVERLAP(actor_x[i] + ENEMY_HB_X, ENEMY_HB_W, px, PLAYER_HB_W) &&
                 SPAN_OVERLAP(actor_y[i] + ENEMY_HB_Y, ENEMY_HB_H, py, PLAYER_HB_H)) {
-                hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : actor_type[i];
+                hurt_cause = actor_scripted[i] >= 2 ? actor_scripted[i] + 3 : type == ACTOR_HOUND ? CAUSE_HOUND : type;
                 player_hurt(TOUCH_DAMAGE, actor_x[i] + 8, actor_y[i] + 11);
                 hittable = 0;
             }

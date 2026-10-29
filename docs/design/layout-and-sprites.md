@@ -117,6 +117,7 @@ Tile numbers 0..127:
 [024 .. 039] : Peashooter actor tiles (SPR_PEASHOOTER)
 [040 .. 043] : Bullet projectile tiles (SPR_PEA)
 [044 .. 045] : Reticle tiles
+[088 .. 095] : Hound actor tiles (hound.c; the descent, the lab)
 [096 .. 127] : MACHINE_VRAM (32 tiles = 8 metasprite frames, 4 tiles each)
                - Frame 0: Closed Warden
                - Frame 1: Exposed Warden
