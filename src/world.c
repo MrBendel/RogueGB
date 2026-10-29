@@ -1,4 +1,4 @@
-﻿#pragma bank 255
+#pragma bank 255
 // The world table (world.h): one row per world. A new world adds a row, its
 // tilesets (content/tilesets) and its case in world_load_tiles; the descent, the
 // level generator's plan and the miniboss flow read it from here.
