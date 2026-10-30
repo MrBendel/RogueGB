@@ -17,13 +17,14 @@
 static const World worlds[WORLD_COUNT] = {
     // LunarBase: slimes, a peashooter in four; from the second area, a hound and
     // a duelist in place of two slimes (docs/design/runs.md: flankers and duelists
-    // join in area 2); from the third, a loader in the last slime's. The Claimjaw, Scrapback, Cragback. Its maintenance drones
+    // join in area 2); from the third, a loader and a medic drone in place of the
+    // slime and the peashooter. The Claimjaw, Scrapback, Cragback. Its maintenance drones
     // and patrol hounds slate blue with a cyan eye; its turrets and mercs in the
     // corporation's yellow, a red visor; its bullets and elites hot magenta.
     {CHUNK_THEME_LUNAR,
      {{ACTOR_PEASHOOTER, ACTOR_SLIME, ACTOR_SLIME, ACTOR_SLIME},
       {ACTOR_PEASHOOTER, ACTOR_SLIME, ACTOR_HOUND, ACTOR_DUELIST},
-      {ACTOR_PEASHOOTER, ACTOR_TANK, ACTOR_HOUND, ACTOR_DUELIST}},
+      {ACTOR_MEDIC, ACTOR_TANK, ACTOR_HOUND, ACTOR_DUELIST}},
      {0, 1, 2},
      {RGB(10, 30, 31), RGB(11, 15, 26), RGB(2, 3, 10)},
      {RGB(31, 8, 6), RGB(28, 22, 4), RGB(5, 3, 9)},

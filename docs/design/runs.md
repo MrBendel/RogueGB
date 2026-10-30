@@ -178,7 +178,7 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
 | Flanker | fast, comes from the side | Acid Wolf | patrol hound |
 | Area denial | leaves hazards | Acid Skimmer | coolant leaker |
 | Tank / shielded | soaks damage, wants electro or acid | loader | armored loader |
-| Support | heals or shields the others | (new) | medic drone |
+| Support | heals or shields the others | medic | medic drone |
 
 - **Squad templates** by depth: area 1 is chasers and shooters; duelists and flankers
   join in area 2; tanks and support in area 3. A camp is 3-6 enemies.
@@ -227,8 +227,15 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   creatures' palette (odd kind). From area 3 the Moon's roster is a peashooter, a
   loader, a hound and a duelist (`WORLD_TIERS` 3). Room for it: the reload bar now
   fills from the middle out, its right half the left's tiles mirrored, so it takes
-  16 sprite tiles, not 32 (52-67); the loader has 68-75, and 76-83 are free for
-  the support role. The descent's chests moved to the
+  16 sprite tiles, not 32 (52-67); the loader has 68-75.
+- **Built (2026-10-30): the medic drone, the first support.** `ACTOR_MEDIC`
+  (src/medic.c). It never shoots: it backs off within 48 px of you, drifts to its
+  most hurt squadmate (closing in from beyond 88 px when nobody is), and every 90
+  frames glows for 16 (flashing) and heals everyone within 48 px by 3, never past
+  their full health (their kind's plus the depth's bonus, or an elite's). 5 health,
+  10 XP; "A MEDIC DRONE" on the death screen. A yellow box with a red cross and
+  rotor arms, bobbing (the machines' palette), tiles 76-83. From area 3 the Moon's
+  roster is a medic, a loader, a hound and a duelist. The descent's chests moved to the
   shots' warm orange, glinting white when they can open.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.

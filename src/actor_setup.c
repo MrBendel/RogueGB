@@ -11,6 +11,7 @@
 #include "hound.h"
 #include "duelist.h"
 #include "tank.h"
+#include "medic.h"
 
 void actors_init(void) BANKED {
     enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
@@ -36,6 +37,8 @@ void actors_init(void) BANKED {
     duelist_init(DUELIST_VRAM, DUELIST_VRAM2);
     type_vram[ACTOR_TANK] = TANK_VRAM;
     tank_init(TANK_VRAM);
+    type_vram[ACTOR_MEDIC] = MEDIC_VRAM;
+    medic_init(MEDIC_VRAM);
     actors_clear();
     bullets_fired = 0;
 }
@@ -88,6 +91,10 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
         } else if (type == ACTOR_TANK) {
             actor_hp[i] = TANK_HP + enemy_hp_bonus;
             actor_timer[i] = 30 + (i << 3);
+        } else if (type == ACTOR_MEDIC) {
+            actor_hp[i] = MEDIC_HP + enemy_hp_bonus;
+            actor_timer[i] = 60 + (i << 3);
+            actor_try[i] = 0xFF;  // (nobody to drift to yet)
         } else {
             actor_hp[i] = SHOOTER_HP + enemy_hp_bonus;
             actor_timer[i] = shooter_interval + (i << 4);

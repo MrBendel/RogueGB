@@ -95,7 +95,7 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
   assert.ok(found, 'a camp woke an elite');
   const { emu, i } = found;
   const type = r8(emu, 'actor_type', i), hp = r8(emu, 'actor_hp', i);
-  const base = { 1: 3, 2: 4, 3: 5, 4: 6, 5: 14 }[type] + emu.v('enemy_hp_bonus');
+  const base = { 1: 3, 2: 4, 3: 5, 4: 6, 5: 14, 6: 5 }[type] + emu.v('enemy_hp_bonus');
   assert.equal(hp, base * 2 + 2, 'twice the health');
   const elite = r8(emu, 'actor_elite', i);
   assert.equal(r8(emu, 'actor_p0', i) & 7, SPR_PAL_BULLET, 'drawn hot');
