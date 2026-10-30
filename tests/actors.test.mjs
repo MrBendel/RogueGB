@@ -168,7 +168,8 @@ test('CPU budget: a fight in the arena never slows down, with room to spare', ()
   // a peashooter firing), plus the chest and the HUD (~1k) and sound effects (~1.5k a frame, a few hundred more per sound started).
   // The frame is 131k at the Color's double speed: the cap is a tripwire for regressions.
   // Measured worst: ~61.0k (2026-10-15, with XP from kills, talkers and the dialogue
-  // box's handlers in; raised from 61k with ~1.5k of headroom).
+  // box's handlers in; raised from 61k with ~1.5k of headroom). ~62.8k (2026-10-29,
+  // with the hound, duelist and elites' checks in each think step; cap 64k).
   const emu = inArena();
   let worst = 0;
   for (let f = 0; f < 600; f++) {
@@ -176,7 +177,7 @@ test('CPU budget: a fight in the arena never slows down, with room to spare', ()
     worst = Math.max(worst, emu.lastFrameCycles);
     if (emu.v('next_state') === RUN_OVER) break;
   }
-  assert.ok(worst < 62500, `worst frame used ${worst} cycles past vblank`);
+  assert.ok(worst < 64000, `worst frame used ${worst} cycles past vblank`);
 });
 
 test('CPU budget: fighting with A held (auto-aim and shots) stays within the cap', () => {

@@ -27,6 +27,8 @@
 #include "health.h"
 #include "sfx.h"
 #include <string.h>
+#include <rand.h>
+#include "elite.h"
 
 uint8_t layer_depth;      // 1 for the first area
 uint16_t maps_entered;    // map changes this run (watchable)
@@ -224,9 +226,9 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
 }
 
 // Wake camp c: its enemies at its slots, from the world's roster, up to
-// 2 + depth of them.
+// 2 + depth of them; in 1 + depth camps in 8, its first is an elite (elite.h).
 static void wake(uint8_t c) {
-    uint8_t n = 2 + layer_depth;
+    uint8_t n = 2 + layer_depth, first = 0xFF;
     camp_state[c] = CAMP_AWAKE;
     for (uint8_t s = 0; s < camp_slots[c] && n; s++) {
         uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
@@ -235,8 +237,10 @@ static void wake(uint8_t c) {
         if (a >= ACTOR_MAX) break;
         for (uint8_t o = 0; o < LEVEL_CAMPS; o++) camp_actors[o] &= ~(1 << a);  // a reused slot
         camp_actors[c] |= 1 << a;
+        if (first == 0xFF) first = a;
         n--;
     }
+    if (first != 0xFF && (rand() & 7) <= layer_depth) elite_make(first);
 }
 
 void descent_update(void) BANKED {

@@ -14,6 +14,7 @@
 #define XP_PEASHOOTER 6
 #define XP_HOUND 8
 #define XP_DUELIST 10
+#define XP_ELITE 15       // on top of its kind's
 #define XP_CAMP 10        // + 5 a depth: clearing a camp
 #define XP_SHAFT 20       // x depth: down the shaft into the next area
 #define XP_MINIBOSS 40    // x depth: an area's miniboss, the way down opened

@@ -307,12 +307,13 @@ test("the first area's camps are slimes and peashooters; from the second, hounds
   assert.ok(kinds[2].has(3) && kinds[2].has(4), `area 2: hounds and duelists too (${[...kinds[2]]})`);
 });
 
-test("the world's colours: its drones and hounds in one palette, its turrets and mercs in another", () => {
+test("the world's colours: drones and hounds in one palette, turrets and mercs in another, bullets and elites a third", () => {
   const emu = startDescent();
   const pal = (p) => [1, 2, 3].map((k) => emu.read16(addr(emu, 'pal_base_obj') + (p * 4 + k) * 2));
   const rgb = (r, g, b) => r | (g << 5) | (b << 10);
   assert.deepEqual(pal(2), [rgb(10, 30, 31), rgb(11, 15, 26), rgb(2, 3, 10)], 'creatures: slate blue, a cyan eye');
   assert.deepEqual(pal(3), [rgb(31, 8, 6), rgb(28, 22, 4), rgb(5, 3, 9)], 'machines: yellow, a red visor');
+  assert.deepEqual(pal(4), [rgb(31, 26, 31), rgb(31, 4, 16), rgb(6, 0, 4)], 'bullets and elites: hot magenta');
 });
 
 test('the exit map has a shaft: dropping in leads to a new area, one deeper', () => {

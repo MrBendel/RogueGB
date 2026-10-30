@@ -19,6 +19,7 @@
 #include "globfather.h"
 #include "hound.h"
 #include "duelist.h"
+#include "elite.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -37,6 +38,7 @@ uint8_t actor_frame[ACTOR_MAX];
 uint8_t actor_flash[ACTOR_MAX];
 uint8_t actor_scripted[ACTOR_MAX];
 uint8_t actor_guard[ACTOR_MAX];
+uint8_t actor_elite[ACTOR_MAX];
 // Sprite data for the current frame (tile and flags per column), cached when the
 // frame changes so drawing just copies bytes. Read by actor_draw.s.
 uint8_t actor_t0[ACTOR_MAX];
@@ -100,7 +102,7 @@ void actor_cache_frame(uint8_t i) {
     const uint8_t *f = type_frames[type] + (actor_frame[i] << 2);
     uint8_t base = type_vram[type];
     actor_t0[i] = base + (f[0] << 1);
-    uint8_t pal = type & 1 ? SPR_PAL_SLIME : SPR_PAL_SHOOTER;  // (actor.h)
+    uint8_t pal = actor_elite[i] ? SPR_PAL_BULLET : type & 1 ? SPR_PAL_SLIME : SPR_PAL_SHOOTER;  // (actor.h)
     actor_p0[i] = f[1] | pal;
     actor_t1[i] = base + (f[2] << 1);
     actor_p1[i] = f[3] | pal;
@@ -254,7 +256,8 @@ static void reap(void) {
     shots_killed = 0;
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
-        xp_pending += type_xp[actor_type[i]];  // (play awards it)
+        xp_pending += type_xp[actor_type[i]];
+        if (actor_elite[i]) elite_fell(i);  // (play awards it)
         kill_x = actor_x[i];  // (loot may drop there: pickups.c)
         kill_y = actor_y[i];
         actor_type[i] = ACTOR_NONE;
@@ -280,10 +283,13 @@ void actors_update(uint8_t first_oam) {
             if (type == ACTOR_NONE) continue;
             uint8_t frame = actor_frame[i];
             if (!actor_scripted[i]) {
-                if (type == ACTOR_SLIME) update_slime(i);
-                else if (type == ACTOR_PEASHOOTER) shooter_update(i);
-                else if (type == ACTOR_HOUND) hound_update(i);
-                else duelist_update(i);
+                uint8_t n = actor_elite[i] == ELITE_SWIFT ? 2 : 1;  // (a swift elite: twice)
+                do {
+                    if (type == ACTOR_SLIME) update_slime(i);
+                    else if (type == ACTOR_PEASHOOTER) shooter_update(i);
+                    else if (type == ACTOR_HOUND) hound_update(i);
+                    else duelist_update(i);
+                } while (--n);
                 if (actor_frame[i] != frame) actor_cache_frame(i);
             }
             // Hit by a shot: flash for a few think steps.

@@ -57,7 +57,7 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
     for (uint8_t i = 0; i < ACTOR_MAX; i++) {
         if (actor_type[i] != ACTOR_NONE) continue;
         actor_type[i] = type;
-        actor_scripted[i] = actor_guard[i] = 0;
+        actor_scripted[i] = actor_guard[i] = actor_elite[i] = 0;
         actor_x[i] = x;
         actor_y[i] = y;
         actor_xs[i] = actor_ys[i] = 0;

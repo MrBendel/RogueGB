@@ -207,6 +207,15 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   visor. The save keeps the expedition's world (`exp_world`, version 8).
 - **Elites** (Borderlands' "badass"): one in some camps: more health, a name, one
   modifier (shielded, fast, acid trail, explodes), and a better drop.
+- **Built (2026-10-29): elites** (src/elite.c). In 1 + depth camps in 8 (a quarter in
+  area 1, three eighths in area 2 ...), the first enemy to wake is an elite: twice
+  its health plus 2, drawn in the world's hot palette (the Moon's: magenta, shared
+  with the enemies' bullets, so "magenta is danger"), and its modifier named on the
+  HUD as it wakes. SWIFT thinks twice a step (it moves, warns and fires twice as
+  fast); BOMBER bursts into a ring of 8 peas when it falls. Either way it drops a
+  gun (luck as a guarded locker's) and 15 XP on top of its kind's. Still to come:
+  shielded and acid-trail modifiers, and names. The descent's chests moved to the
+  shots' warm orange, glinting white when they can open.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
 

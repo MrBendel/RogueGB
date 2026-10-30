@@ -20,8 +20,8 @@ typedef struct {
     uint8_t roster[WORLD_TIERS][WORLD_ROSTER];  // ACTOR_*, by tier
     uint8_t minibosses[WORLD_MINIBOSSES];  // MODE_MINIBOSS kinds (play.c), in turn with depth
     // Its enemies' colours 1-3 (accent, body, outline): creatures' and machines'
-    // (actor.h: odd and even kinds).
-    uint16_t creature_pal[3], machine_pal[3];
+    // (actor.h: odd and even kinds), and its bullets' and elites' (elite.h).
+    uint16_t creature_pal[3], machine_pal[3], hot_pal[3];
 } World;
 
 extern uint8_t world_id;  // the world the run is in (WORLD_*)

@@ -401,7 +401,9 @@ uint8_t pickups_draw(uint8_t oam) BANKED {
         uint8_t open = chest_open_bits & (1 << c) ? 4 : 0;
         uint8_t camp = chest_camp[c];
         uint8_t ready = !open && (camp == 0xFF || camp_state[camp] == CAMP_CLEARED);
-        uint8_t pal = ready && (pickups_tick & 16) ? SPR_PAL_SHOT : SPR_PAL_BULLET;  // glows when it can open
+        // The shots' warm orange (the bullets' palette is the world's hot one,
+        // world.c), glinting white when it can open.
+        uint8_t pal = ready && (pickups_tick & 16) ? SPR_PAL_UI : SPR_PAL_SHOT;
         f[0] = CHEST_VRAM + (chest_frames[open] << 1);
         f[1] = (chest_frames[open + 1] & 0xF8) | pal;
         f[2] = CHEST_VRAM + (chest_frames[open + 2] << 1);
