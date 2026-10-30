@@ -10,6 +10,7 @@
 #include "health.h"
 #include "hound.h"
 #include "duelist.h"
+#include "tank.h"
 
 void actors_init(void) BANKED {
     enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
@@ -33,6 +34,8 @@ void actors_init(void) BANKED {
     hound_init(HOUND_VRAM);
     type_vram[ACTOR_DUELIST] = DUELIST_VRAM;
     duelist_init(DUELIST_VRAM, DUELIST_VRAM2);
+    type_vram[ACTOR_TANK] = TANK_VRAM;
+    tank_init(TANK_VRAM);
     actors_clear();
     bullets_fired = 0;
 }
@@ -82,6 +85,9 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
             actor_hp[i] = DUELIST_HP + enemy_hp_bonus;
             actor_timer[i] = 40 + (i << 3);
             actor_try[i] = i & 1;  // (half sidestep each way)
+        } else if (type == ACTOR_TANK) {
+            actor_hp[i] = TANK_HP + enemy_hp_bonus;
+            actor_timer[i] = 30 + (i << 3);
         } else {
             actor_hp[i] = SHOOTER_HP + enemy_hp_bonus;
             actor_timer[i] = shooter_interval + (i << 4);
@@ -133,7 +139,7 @@ void actors_debug_stress(uint16_t px, uint16_t py) BANKED {
 // Knock enemy i back by (dx, dy) px: all the way if it lands on plain floor, else
 // half way, else not at all (so it can't be pushed into a wall or a pit).
 void actor_push(uint8_t i, int8_t dx, int8_t dy) BANKED {
-    if (actor_scripted[i] == 1) return; // boss machines are anchored
+    if (actor_scripted[i] == 1 || actor_type[i] == ACTOR_TANK) return; // boss machines and loaders are anchored
     uint16_t x = actor_x[i] + dx, y = actor_y[i] + dy;
     if (!enemy_box_free(x, y)) {
         x = actor_x[i] + (dx >> 1);

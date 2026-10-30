@@ -12,7 +12,7 @@
 #define WORLD_COUNT 1
 
 #define WORLD_ROSTER 4  // a camp's enemy kinds, one drawn per spawn (ACTOR_*: repeats weight them)
-#define WORLD_TIERS 2   // rosters by depth: the first area's, then every deeper one's
+#define WORLD_TIERS 3   // rosters by depth: the first area's, the second's, then every deeper one's
 #define WORLD_MINIBOSSES 3
 
 typedef struct {

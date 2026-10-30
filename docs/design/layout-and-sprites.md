@@ -118,6 +118,10 @@ Tile numbers 0..127:
 [024 .. 039] : Peashooter actor tiles (SPR_PEASHOOTER)
 [040 .. 043] : Bullet projectile tiles (SPR_PEA)
 [044 .. 045] : Reticle tiles
+[052 .. 067] : Reload bar (aim.c): 8 fills of its left half; the right half is mirrored
+[068 .. 075] : Loader (tank) actor tiles (tank.c)
+[076 .. 083] : free (the support role's)
+[084 .. 087] : Coin, ammo pickups (pickups.c)
 [088 .. 095] : Hound actor tiles (hound.c; the descent, the lab)
 [106 .. 107] : Duelist actor tiles, column 3 (after the chest's item, outside boss fights)
 [096 .. 127] : MACHINE_VRAM (32 tiles = 8 metasprite frames, 4 tiles each)

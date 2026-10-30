@@ -449,9 +449,12 @@ test('while reloading, a bar over the head fills up (in place of the reticle)', 
     return { y, x, tile };
   };
   const base = emu.v('reload_vram');
+  // From the middle out: both halves show the same tile, the right one mirrored.
   const fill = () => {
-    const l = (bar().tile - base) >> 1, r = (emu.readBytes(0xc000 + (RETICLE_OAM + 1) * 4 + 2, 1)[0] - base - 16) >> 1;
-    return l + r;
+    const [rtile, rflags] = emu.readBytes(0xc000 + (RETICLE_OAM + 1) * 4 + 2, 2);
+    assert.equal(rtile, bar().tile, 'the same fill each side');
+    assert.ok(rflags & 0x20, 'the right half mirrored');
+    return (bar().tile - base) & ~1;  // (each half fills (tile - base) / 2 px)
   };
   // Over the player's head: the player is at screen y = 96 - cam_y.
   const sy = 96 - emu.v('cam_y', 'u16');
@@ -463,7 +466,7 @@ test('while reloading, a bar over the head fills up (in place of the reticle)', 
   }
   assert.ok(px.every((p, i) => !i || p >= px[i - 1]), `fills steadily: ${px.join(',')}`);
   // (the first sample is ~30 frames in: the last shot's cooldown)
-  assert.ok(px[0] <= 4 && px.at(-1) >= 11, `from nearly empty to full: ${px.join(',')}`);
+  assert.ok(px[0] <= 4 && px.at(-1) >= 10, `from nearly empty to full: ${px.join(',')}`);
 });
 
 test('screen: reloading', () => {

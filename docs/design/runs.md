@@ -177,7 +177,7 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
 | Duelist | strafes and trades shots | Mercenary | corporate merc |
 | Flanker | fast, comes from the side | Acid Wolf | patrol hound |
 | Area denial | leaves hazards | Acid Skimmer | coolant leaker |
-| Tank / shielded | soaks damage, wants electro or acid | (new) | armored loader |
+| Tank / shielded | soaks damage, wants electro or acid | loader | armored loader |
 | Support | heals or shields the others | (new) | medic drone |
 
 - **Squad templates** by depth: area 1 is chasers and shooters; duelists and flankers
@@ -218,7 +218,17 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   48 frames it recharges a point every 10 frames, shimmering (the UI palette every
   other 4 frames) back to full; shot to half or below it breaks for good ("BROKEN!"
   on the HUD). So it wants burst damage, not chip. Still to come: the acid-trail
-  modifier (needs sprite VRAM for its pools) and names. The descent's chests moved to the
+  modifier (needs sprite VRAM for its pools) and names.
+- **Built (2026-10-30): the loader, the first tank.** `ACTOR_TANK` (src/tank.c), a
+  pool kind. It rolls at you at half a pixel a frame and shots don't push it; within
+  40 px (and 30 frames after its last slam) it stops and flashes for 24 frames,
+  slams a ring of 8 peas, and stands for 44 frames. 14 health, 12 XP; "A LOADER" on
+  the death screen. A squat armoured box with a cyan visor and lit treads, in the
+  creatures' palette (odd kind). From area 3 the Moon's roster is a peashooter, a
+  loader, a hound and a duelist (`WORLD_TIERS` 3). Room for it: the reload bar now
+  fills from the middle out, its right half the left's tiles mirrored, so it takes
+  16 sprite tiles, not 32 (52-67); the loader has 68-75, and 76-83 are free for
+  the support role. The descent's chests moved to the
   shots' warm orange, glinting white when they can open.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.

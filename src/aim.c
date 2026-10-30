@@ -83,7 +83,7 @@ uint8_t aim_facing = 0xFF;  // art direction the body faces while shooting (play
 #define KICK_FRAMES 4    // recoil: 2 px for 2 frames, then 1 px for 2
 #define FLASH_FRAMES 4   // muzzle flash: the big burst for 2 frames, then the small one
 #define HOLD_FRAMES 20   // keep facing the aim for 1/3 s after a shot
-uint8_t reload_vram;      // the reload bar's tiles: 8 left halves, then 8 right halves
+uint8_t reload_vram;      // the reload bar's tiles: 8 fills of its left half (the right: mirrored)
 uint16_t reload_fill;     // the bar's fill, px 8.8
 uint16_t reload_step;     // ... added each frame
 uint8_t flash_vram;
@@ -106,26 +106,24 @@ extern int16_t *spawn_vx, *spawn_vy;
 // --- Reloading (see weapon.h) ---
 // The bar over the player's head while reloading: 2 sprites (the reticle's: no
 // target is shown while you can't shoot), 14 px inside an ink outline, white
-// filling a grey track, in the top 4 rows of 8x16 sprites. Tiles: for each fill
-// 0-7, a left half then (8 pairs on) a right half; each sprite's lower tile is
-// blank.
+// filling a grey track from the middle out, in the top 4 rows of 8x16 sprites.
+// Tiles: the left half for each fill 0-7 (from its right edge); the right half is
+// the same tile mirrored. Each sprite's lower tile is blank.
 #define RELOAD_BAR_PX 14
+#define RELOAD_TILES 16
 
 static void reload_bar_tiles(uint8_t v) {
     uint8_t t[32];
     for (uint8_t i = 0; i < 32; i++) t[i] = 0;
-    for (uint8_t half = 0; half < 2; half++) {
-        for (uint8_t n = 0; n < 8; n++) {
-            // The ink edge and the n px filled from the left (inside the edge).
-            uint8_t ink = half ? 0x01 : 0x80;
-            uint8_t fill = half ? 0xFF ^ (0xFF >> n) : 0x7F ^ (0x7F >> n);
-            uint8_t track = (uint8_t)~(ink | fill);
-            t[0] = t[1] = t[6] = t[7] = 0xFF;  // the top and bottom edges (rows 0, 3)
-            t[2] = t[4] = ink | fill;          // rows 1-2: color 1 = fill, 2 = track, 3 = ink
-            t[3] = t[5] = ink | track;
-            set_sprite_data(v, 2, t);  // from RAM: no bank to switch
-            v += 2;
-        }
+    for (uint8_t n = 0; n < 8; n++) {
+        // The ink edge and the n px filled from the right (the bar's middle).
+        uint8_t fill = (uint8_t)((1 << n) - 1);
+        uint8_t track = (uint8_t)~(0x80 | fill);
+        t[0] = t[1] = t[6] = t[7] = 0xFF;  // the top and bottom edges (rows 0, 3)
+        t[2] = t[4] = 0x80 | fill;         // rows 1-2: color 1 = fill, 2 = track, 3 = ink
+        t[3] = t[5] = 0x80 | track;
+        set_sprite_data(v, 2, t);  // from RAM: no bank to switch
+        v += 2;
     }
 }
 
@@ -145,14 +143,14 @@ void aim_reload(void) BANKED {
 static void draw_reload_bar(void) {
     uint8_t px = reload_fill >> 8;
     if (px > RELOAD_BAR_PX) px = RELOAD_BAR_PX;
-    uint8_t l = px > 7 ? 7 : px;
+    uint8_t tile = reload_vram + ((px >> 1) << 1);  // each half fills px / 2
     // Hardware coordinates: (8, 16) offset; the bar's 4 rows sit 2 px above the head.
     uint8_t x = (uint8_t)(player_x - cam_x) + 8;
     uint8_t y = (uint8_t)(player_y - cam_y) - (uint8_t)(player_z >> 8) + 16 - 6;
-    set_sprite_tile(OAM_RETICLE, reload_vram + (l << 1));
-    set_sprite_tile(OAM_RETICLE + 1, reload_vram + 16 + ((px - l) << 1));
+    set_sprite_tile(OAM_RETICLE, tile);
+    set_sprite_tile(OAM_RETICLE + 1, tile);
     set_sprite_prop(OAM_RETICLE, SPR_PAL_UI);
-    set_sprite_prop(OAM_RETICLE + 1, SPR_PAL_UI);
+    set_sprite_prop(OAM_RETICLE + 1, SPR_PAL_UI | S_FLIPX);
     move_sprite(OAM_RETICLE, x, y);
     move_sprite(OAM_RETICLE + 1, x + 8, y);
 }
@@ -176,7 +174,7 @@ void aim_init(uint8_t v) BANKED {
     v += SPR_FLASH_COLUMN_COUNT * 2;
     reload_vram = v;
     reload_bar_tiles(v);
-    v += 32;
+    v += RELOAD_TILES;
     weapon_init();  // the weapons' art (VRAM bank 1)
 
     aim_target = AIM_NONE;

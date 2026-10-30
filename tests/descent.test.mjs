@@ -288,9 +288,9 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   assert.fail('no camp found beside the start map');
 });
 
-test("the first area's camps are slimes and peashooters; from the second, hounds and duelists join them", () => {
-  const kinds = { 1: new Set(), 2: new Set() };
-  for (const depth of [1, 2])
+test("the first area's camps are slimes and peashooters; from the second, hounds and duelists join them; from the third, loaders", () => {
+  const kinds = { 1: new Set(), 2: new Set(), 3: new Set() };
+  for (const depth of [1, 2, 3])
     for (let wait = 0; wait < 60; wait += 7) {
       const emu = startDescent(bootToTitle(), 4242 + wait);
       const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
@@ -305,6 +305,8 @@ test("the first area's camps are slimes and peashooters; from the second, hounds
     }
   assert.deepEqual([...kinds[1]].sort(), [1, 2], 'area 1: slimes and peashooters');
   assert.ok(kinds[2].has(3) && kinds[2].has(4), `area 2: hounds and duelists too (${[...kinds[2]]})`);
+  // (a camp by the entrance can wake at depth 1, before the test sets the depth)
+  assert.ok(kinds[3].has(5), `area 3: loaders (${[...kinds[3]]})`);
 });
 
 test("the world's colours: drones and hounds in one palette, turrets and mercs in another, bullets and elites a third", () => {
