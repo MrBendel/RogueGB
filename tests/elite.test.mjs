@@ -1,9 +1,10 @@
 // Elites (elite.c): twice the health, a modifier, the bullets' hot colours, and a
-// gun when one falls. A swift one thinks twice a step; a bomber bursts into peas.
+// gun when one falls. A swift one thinks twice a step; a bomber bursts into peas;
+// a shielded one's top half recharges until it's broken.
 import { test } from 'node:test';
 import { assert, startRun, startDescent } from './helpers.mjs';
 
-const SLIME = 1, DUELIST = 4, SWIFT = 1, BOMBER = 2, DROP_GUN = 2, SPR_PAL_BULLET = 4;
+const SLIME = 1, DUELIST = 4, SWIFT = 1, BOMBER = 2, SHIELDED = 3, BROKEN = 4, SPR_PAL_UI = 7, DROP_GUN = 2, SPR_PAL_BULLET = 4;
 const addr = (emu, name) => emu.symbols.addr(name);
 const w8 = (emu, name, v, i = 0) => emu.write8(addr(emu, name) + i, v);
 const w16 = (emu, name, v, i = 0) => emu.writeBytes(addr(emu, name) + i * 2, [v & 0xff, (v >> 8) & 0xff]);
@@ -48,6 +49,27 @@ test('a swift elite thinks twice a step', () => {
   assert.equal(swift, plain * 2, `timer ran ${swift} vs ${plain}`);
 });
 
+test('a shielded elite recharges when left alone, until shot below half', () => {
+  const emu = startRun().idle(2);
+  const i = spawn(emu, DUELIST, emu.v('player_x', 'u16') + 200, emu.v('player_y', 'u16'));
+  w8(emu, 'actor_elite', SHIELDED, i);
+  w8(emu, 'elite_top', 14, i);
+  w8(emu, 'actor_hp', 10, i);
+  w8(emu, 'actor_hurt', 4, i);
+  emu.idle(42);
+  assert.equal(r8(emu, 'actor_hp', i), 10, 'waits after a hit');
+  const pals = new Set();
+  for (let f = 0; f < 90; f++) emu.idle(1), pals.add(r8(emu, 'actor_p0', i) & 7);
+  assert.equal(r8(emu, 'actor_hp', i), 14, 'back to full');
+  assert.deepEqual([...pals].sort(), [SPR_PAL_BULLET, SPR_PAL_UI], 'shimmering as it recharged');
+  w8(emu, 'actor_hp', 7, i);
+  w8(emu, 'actor_hurt', 4, i);
+  emu.idle(2);
+  assert.equal(r8(emu, 'actor_elite', i), BROKEN, 'broken at half');
+  emu.idle(120);
+  assert.equal(r8(emu, 'actor_hp', i), 7, 'no more recharging');
+});
+
 test('an elite in a camp: twice the health, its name on the HUD, the hot colours', () => {
   let found = null;
   for (let wait = 0; wait < 120 && !found; wait += 7) {
@@ -75,7 +97,8 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
   const type = r8(emu, 'actor_type', i), hp = r8(emu, 'actor_hp', i);
   const base = { 1: 3, 2: 4, 3: 5, 4: 6 }[type] + emu.v('enemy_hp_bonus');
   assert.equal(hp, base * 2 + 2, 'twice the health');
+  const elite = r8(emu, 'actor_elite', i);
   assert.equal(r8(emu, 'actor_p0', i) & 7, SPR_PAL_BULLET, 'drawn hot');
   const name = String.fromCharCode(...emu.readBytes(addr(emu, 'hud_text'), 7));
-  assert.ok(['SWIFT! ', 'BOMBER!'].includes(name), `named: "${name}"`);
+  assert.equal(name, { 1: 'SWIFT! ', 2: 'BOMBER!', 3: 'SHIELD!' }[elite], 'named');
 });

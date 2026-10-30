@@ -11,9 +11,12 @@
 #define ELITE_NONE 0
 #define ELITE_SWIFT 1   // thinks twice a step: everything it does, twice as fast
 #define ELITE_BOMBER 2  // bursts into a ring of 8 peas when it falls
-#define ELITE_KINDS 2
+#define ELITE_SHIELDED 3  // its top half of health recharges (shimmering), until shot to half
+#define ELITE_KINDS 3
+#define ELITE_BROKEN 4  // a shielded one whose shield broke: no modifier left
 
 void elite_make(uint8_t i) BANKED;  // actor i becomes one (a random modifier); its name on the HUD
+void elite_shield(uint8_t i) BANKED;  // a shielded one's think step (actor.c)
 void elite_fell(uint8_t i) BANKED;  // it's down (actor.c reap, before the slot is freed)
 
 #endif

@@ -283,7 +283,11 @@ void actors_update(uint8_t first_oam) {
             if (type == ACTOR_NONE) continue;
             uint8_t frame = actor_frame[i];
             if (!actor_scripted[i]) {
-                uint8_t n = actor_elite[i] == ELITE_SWIFT ? 2 : 1;  // (a swift elite: twice)
+                uint8_t n = 1, elite = actor_elite[i];
+                if (elite) {
+                    if (elite == ELITE_SWIFT) n = 2;  // (a swift elite: twice)
+                    else if (elite == ELITE_SHIELDED) elite_shield(i);
+                }
                 do {
                     if (type == ACTOR_SLIME) update_slime(i);
                     else if (type == ACTOR_PEASHOOTER) shooter_update(i);

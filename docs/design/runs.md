@@ -213,8 +213,12 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   with the enemies' bullets, so "magenta is danger"), and its modifier named on the
   HUD as it wakes. SWIFT thinks twice a step (it moves, warns and fires twice as
   fast); BOMBER bursts into a ring of 8 peas when it falls. Either way it drops a
-  gun (luck as a guarded locker's) and 15 XP on top of its kind's. Still to come:
-  shielded and acid-trail modifiers, and names. The descent's chests moved to the
+  gun (luck as a guarded locker's) and 15 XP on top of its kind's.
+  **2026-10-30: SHIELDED.** The top half of its health is a shield: left unhurt for
+  48 frames it recharges a point every 10 frames, shimmering (the UI palette every
+  other 4 frames) back to full; shot to half or below it breaks for good ("BROKEN!"
+  on the HUD). So it wants burst damage, not chip. Still to come: the acid-trail
+  modifier (needs sprite VRAM for its pools) and names. The descent's chests moved to the
   shots' warm orange, glinting white when they can open.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
