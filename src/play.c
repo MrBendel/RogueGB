@@ -221,7 +221,7 @@ static void draw_page(void) {
     else menu_draw();
 }
 
-extern uint8_t boss_campaign, campaign_timer, carry_hp;  // (an area's miniboss: below)
+extern uint8_t boss_campaign, campaign_timer, carry_hp, campaign_depth, campaign_reward;  // (an area's miniboss: below)
 
 void play_enter(void) BANKED {
     play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
@@ -283,6 +283,7 @@ void play_enter(void) BANKED {
                    play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
                    enemy_trial_kind == 2 ? BOSS_DUO :
                    enemy_trial_kind == 4 ? BOSS_GLOBFATHER : enemy_trial_kind == 3 ? BOSS_FLYNT : BOSS_WARDEN);
+        if (boss_campaign) boss_campaign_scale(campaign_depth);
     }
     sfx_watch_reset();
     waves_init();
@@ -303,6 +304,10 @@ void play_enter(void) BANKED {
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
     else if(play_mode==MODE_ENEMY && enemy_trial_kind==5)bulwark_draw();
     talk_init();  // after the room: it added its talkers
+    if (campaign_reward && play_mode == MODE_DESCENT) {
+        campaign_reward = 0;
+        descent_reward();
+    }
     if (play_mode == MODE_YARD && save_slot != SAVE_NONE) shop_restock();  // new stock each time you're in town
 }
 
@@ -320,6 +325,8 @@ static void leave_scene(void) {
 // expedition kept in the file meanwhile; won, the way back is the descent again,
 // rebuilt from the file with the shaft open. 1 while that fight is on.
 uint8_t boss_campaign;
+uint8_t campaign_depth;   // the area's depth, going into its miniboss's arena (its health)
+uint8_t campaign_reward;  // a miniboss won: its gun, beside the shaft, back in the descent
 uint8_t campaign_timer;  // frames since it was won
 uint8_t carry_hp;        // health into the next scene (to the arena and back), or 0: full
 
@@ -563,6 +570,7 @@ void play_update(void) BANKED {
             carry_hp = player_hp;
             boss_campaign = 1;
             campaign_timer = 0;
+            campaign_depth = layer_depth;
             enemy_trial_kind = descent_miniboss();
             go(MODE_MINIBOSS);
             return;
@@ -580,6 +588,7 @@ void play_update(void) BANKED {
             boss_campaign = 0;
             profile.exp_chests[profile.exp_map] |= AREA_BOSS_BEATEN;
             xp_gain(XP_MINIBOSS * profile.exp_depth);
+            campaign_reward = 1;
             carry_hp = player_hp;  // (after the XP: a level up's heal counts)
             save_write();
             go(MODE_DESCENT);

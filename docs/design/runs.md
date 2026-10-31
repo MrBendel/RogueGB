@@ -67,7 +67,11 @@ the Claimjaw, Scrapback and Cragback in turn with depth; descent.c
 `descent_miniboss`). Won, a moment for the "CLEAR", then XP (`XP_MINIBOSS` x depth),
 and back to the descent, rebuilt from the file, beside the shaft, open: the beaten
 flag is bit 7 of the exit map's chest bits (`AREA_BOSS_BEATEN`), so it's saved.
-Dying there ends the run like dying anywhere in the descent. Your health carries
+**Built (2026-10-31): the miniboss pass.** Won, it leaves a gun at your feet back
+beside the shaft (descent.c `descent_reward`: luck (depth - 1) x 4 + 24, more than an
+elite's or a guarded locker's). And each lap of the world's three adds half the
+fight's health (boss.c `boss_campaign_scale`): areas 1-3 as tuned, area 4's Claimjaw
+27, area 7's 36. Dying there ends the run like dying anywhere in the descent. Your health carries
 into the arena and back (play.c `carry_hp`; only a level up from the win heals).
 The arena is the trials' room's shape (10x8, open ground: the fights are tuned to
 it) in the world's art (level.c `level_build_arena`), except the Scrapback's, which

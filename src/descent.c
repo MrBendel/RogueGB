@@ -89,6 +89,15 @@ void descent_save(void) BANKED {
     autosave();
 }
 
+// Back from beating the area's miniboss: a gun at your feet, luckier than an
+// elite's (elite.c) or a guarded locker's (pickups.c).
+#define MINIBOSS_LUCK 24
+void descent_reward(void) BANKED {
+    Gun g;
+    loot_roll(&g, profile.level, (layer_depth - 1) * 4 + MINIBOSS_LUCK);
+    pickups_drop_gun(player_x, player_y + 4, &g);
+}
+
 // The area's miniboss: the world's, in turn with depth (play.c: MODE_MINIBOSS's kinds).
 uint8_t descent_miniboss(void) BANKED {
     return world_miniboss(layer_depth);

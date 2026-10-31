@@ -2,6 +2,7 @@
 // Small-screen encounter experiments. Reuse the collision/projectile pools;
 // scripted actors get their own state machine and compact machine sprites.
 #include "boss.h"
+#include "world.h"
 #include "actor_internal.h"
 #include "aim.h"
 #include "room.h"
@@ -852,4 +853,14 @@ void boss_status(void) BANKED {
     uint8_t n = 0;
     for (; n < 18 && s[n]; n++) row[n] = FONT_TILES + s[n] - ' ';
     for (; n < 18; n++) row[n] = FONT_TILES;
+}
+
+// A world has WORLD_MINIBOSSES in turn; each lap of them adds half the fight's
+// health (the 4th area's Claimjaw 27, the 7th's 36 ...).
+void boss_campaign_scale(uint8_t depth) BANKED {
+    uint8_t laps = depth ? (uint8_t)(depth - 1) / WORLD_MINIBOSSES : 0;
+    if (!laps || boss_slot == 0xFF) return;
+    uint16_t hp = boss_hp_max + (uint16_t)(boss_hp_max >> 1) * laps;
+    if (hp > 250) hp = 250;
+    boss_hp = boss_hp_max = actor_hp[boss_slot] = (uint8_t)hp;
 }
