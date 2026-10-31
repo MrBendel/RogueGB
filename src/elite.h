@@ -16,7 +16,7 @@
 #define ELITE_KINDS 4
 #define ELITE_BROKEN 5  // a shielded one whose shield broke: no modifier left
 
-// Acid puddles: sprite tiles 252-255, the last of the shared background tiles (a
+// Acid puddles (in the creatures' palette): sprite tiles 252-255, the last of the shared background tiles (a
 // scene's tileset stops short of them: tools/tileset.mjs MAX_TILES).
 #define ACID_VRAM 252
 #define ACID_MAX 4

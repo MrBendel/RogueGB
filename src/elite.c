@@ -89,25 +89,26 @@ uint16_t puddle_x[ACID_MAX], puddle_y[ACID_MAX];  // the 8x16 sprite's top-left,
 uint8_t puddle_life[ACID_MAX];                     // frames left; 0: none
 uint8_t puddle_next;                               // the slot the next one takes (the oldest)
 
-// A puddle in the bottom 5 rows of an 8x16 sprite, bubbling (the hot palette:
-// 1 the shine, 2 the acid, 3 its rim).
-static const char puddle_art[2][6][9] = {
- {"00000000","00333300","03211230","32122223","03222230","00333300"},
- {"00001000","00333300","03222130","32221123","03222230","00333300"}};
+// A flat splat in the bottom 4 rows of an 8x16 sprite, its shine shifting (the
+// creatures' palette, world.c: on the Moon a cyan coolant; not the hot palette's
+// round peas, so it doesn't read as a bullet. 1 the shine, 2 the acid, 3 its rim).
+static const char puddle_art[2][4][9] = {
+ {"00333000","03111330","31222213","03333330"},
+ {"00033300","03311130","31222213","03333330"}};
 
 void elite_init(void) BANKED {
     uint8_t data[32];
     for (uint8_t f = 0; f < 2; f++) {
         for (uint8_t k = 0; k < 32; k++) data[k] = 0;
-        for (uint8_t y = 0; y < 6; y++) {
+        for (uint8_t y = 0; y < 4; y++) {
             uint8_t lo = 0, hi = 0;
             for (uint8_t x = 0; x < 8; x++) {
                 uint8_t c = puddle_art[f][y][x] - '0';
                 lo = (lo << 1) | (c & 1);
                 hi = (hi << 1) | (c >> 1);
             }
-            data[(10 + y) * 2] = lo;
-            data[(10 + y) * 2 + 1] = hi;
+            data[(12 + y) * 2] = lo;
+            data[(12 + y) * 2 + 1] = hi;
         }
         set_sprite_data(ACID_VRAM + f * 2, 2, data);
     }
@@ -145,17 +146,17 @@ uint8_t elite_puddles(uint8_t oam) BANKED {
             continue;
         }
         uint16_t x = puddle_x[k], y = puddle_y[k];
-        // Its box: the acid's 6 x 4 px at the sprite's rows 11-14.
+        // Its box: the acid's 6 x 3 px at the sprite's rows 13-15.
         if (touch && (uint16_t)(x + 1 + 6 - px - 1) < (uint16_t)(6 + PLAYER_HB_W - 1) &&
-            (uint16_t)(y + 11 + 4 - py - 1) < (uint16_t)(4 + PLAYER_HB_H - 1)) {
+            (uint16_t)(y + 13 + 3 - py - 1) < (uint16_t)(3 + PLAYER_HB_H - 1)) {
             hurt_cause = CAUSE_ACID_POOL;
-            player_hurt(ACID_DAMAGE, x + 4, y + 13);
+            player_hurt(ACID_DAMAGE, x + 4, y + 14);
             touch = 0;
         }
         uint16_t sx = x - cam_x + 8, sy = y - cam_y + 16;
         if (sx >= 168 || sy >= VIEW_H + 16 + 16) continue;
         set_sprite_tile(oam, tile);
-        set_sprite_prop(oam, SPR_PAL_BULLET);
+        set_sprite_prop(oam, SPR_PAL_SLIME);
         move_sprite(oam++, (uint8_t)sx, (uint8_t)sy);
     }
     return oam;
