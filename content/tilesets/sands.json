@@ -1,0 +1,176 @@
+{
+  "comment": "Sands town: original four-colour artwork by the user. 16px blocks; solid roofs/frontages, open main street and market square. See docs/design/town.md.",
+  "src": "artwork/tiles/sands.png",
+  "backdrop": [
+    139,
+    190,
+    108
+  ],
+  "sheets": {
+    "containers": "artwork/tiles/containers.png"
+  },
+  "palettes": 6,
+  "pieces": {
+    "sand": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "path": [
+      128,
+      128,
+      16,
+      16
+    ],
+    "cliff": [
+      64,
+      32,
+      16,
+      32
+    ],
+    "roof": [
+      64,
+      96,
+      48,
+      32
+    ],
+    "front": [
+      64,
+      128,
+      48,
+      16
+    ],
+    "fence": [
+      32,
+      224,
+      16,
+      16
+    ],
+    "crate": [
+      80,
+      80,
+      16,
+      16
+    ],
+    "tower": [
+      128,
+      208,
+      16,
+      48
+    ],
+    "scrub": [
+      64,
+      272,
+      32,
+      16
+    ],
+    "hut": [
+      112,
+      32,
+      32,
+      32
+    ],
+    "vend_gun": {
+      "tiles": [
+        "00 00",
+        "00 00",
+        "00 00",
+        "00 00"
+      ],
+      "stamp": [
+        "44 54",
+        "45 55",
+        "46 56",
+        "47 57"
+      ],
+      "stamp_from": "containers"
+    },
+    "vend_shield": {
+      "tiles": [
+        "00 00",
+        "00 00",
+        "00 00",
+        "00 00"
+      ],
+      "stamp": [
+        "24 34",
+        "25 35",
+        "26 36",
+        "27 37"
+      ],
+      "stamp_from": "containers"
+    }
+  },
+  "legend": {
+    ".": {
+      "piece": "sand"
+    },
+    ":": {
+      "piece": "path"
+    },
+    "C": {
+      "piece": "cliff",
+      "solid": true
+    },
+    "R": {
+      "piece": "roof",
+      "solid": true
+    },
+    "D": {
+      "piece": "front",
+      "solid": true
+    },
+    "F": {
+      "piece": "fence",
+      "solid": true
+    },
+    "x": {
+      "piece": "crate",
+      "solid": true
+    },
+    "T": {
+      "piece": "tower",
+      "solid": true
+    },
+    "H": {
+      "piece": "hut",
+      "solid": true
+    },
+    "y": {
+      "piece": "vend_gun",
+      "solid": true
+    },
+    "s": {
+      "piece": "vend_shield",
+      "solid": true
+    },
+    "g": {
+      "piece": "scrub"
+    }
+  },
+  "maps": {
+    "town": [
+      "CCCCCCCCCCCCCCCCCCCCCCCC",
+      "CCCCCCCCCCCCCCCCCCCCCCCC",
+      "C.RRR..:::HH.RRR..RRR..C",
+      "C.RRR..:::HH.RRR..RRR..C",
+      "C.DDD..::::..DDD..DDD..C",
+      "C::::::::::::::::::::::C",
+      "C::::::::::::::RRR:::::C",
+      "C......::::..x.RRR.....C",
+      "C......::::..x.DDD..ys.C",
+      "C.FFFF.:::::::::::::ys:C",
+      "C:F::::::::::::::::::::C",
+      "C:F::T:::::::::::::::::C",
+      "C.F::T:::::::::::::::::C",
+      "C.F::T::::::::::x::::::C",
+      "C.FFFF.::::::::::::::::C",
+      "C......::::.RRR...RRR..C",
+      "C..gg..::::.RRR...RRR..C",
+      "C......::::.DDD...DDD..C",
+      "CCCCCCCCCCCCCCCCCCCCCCCC",
+      "CCCCCCCCCCCCCCCCCCCCCCCC"
+    ]
+  }
+}

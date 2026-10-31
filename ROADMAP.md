@@ -388,3 +388,9 @@ throw, with crouch/landing pauses and a moving ground shadow.
 
 - Bulwark enemy playtest: directional frontal shield, deliberate turns, exposed
   three-round burst, and warned shield bash. Enemies -> Bulwark.
+
+### Sands town layout (2026-10-31)
+
+Replace the ice hub with the original Sands sheet: a compact 24×20 frontier town,
+main street, market square, residential buildings, and fenced departure yard.
+Existing hub services remain functional. Details: [town design](docs/design/town.md).
