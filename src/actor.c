@@ -289,6 +289,7 @@ void actors_update(uint8_t first_oam) {
                 if (elite) {
                     if (elite == ELITE_SWIFT) n = 2;  // (a swift elite: twice)
                     else if (elite == ELITE_SHIELDED) elite_shield(i);
+                    else if (elite == ELITE_ACID) elite_drip(i);
                 }
                 do {
                     if (type == ACTOR_SLIME) update_slime(i);

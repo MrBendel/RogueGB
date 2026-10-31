@@ -29,7 +29,9 @@ import { decodePng, GEN_DIR } from './assets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = path.join(ROOT, 'content', 'tilesets');
-export const MAX_TILES = 176;
+// Background tiles 80-251 (gfx.h SCENE_TILES); 252-255 are the acid puddles' sprite
+// tiles (elite.h ACID_VRAM), shared memory, so a tileset stops short of them.
+export const MAX_TILES = 172;
 
 // Art packs (bought, not ours to publish: never in the repository) are named
 // "pack:<folder>/<file>" and found in the first of: $ROGUEGB_ART_PACKS, the
@@ -40,7 +42,7 @@ export function artPath(src) {
   const rel = src.slice(5);
   for (const r of PACK_ROOTS) if (fs.existsSync(path.join(r, rel))) return path.join(r, rel);
   return path.join(PACK_ROOTS[PACK_ROOTS.length - 1], rel);  // (missing: the stand-in path reports it)
-}  // background tiles 80-255 (gfx.h SCENE_TILES)
+}
 const MAX_BLOCKS = 128;        // room.h VIS_BLOCKS
 
 // --- colours: 0xRRGGBB, rounded to 5 bits a channel ---

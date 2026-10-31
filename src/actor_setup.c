@@ -12,6 +12,7 @@
 #include "duelist.h"
 #include "tank.h"
 #include "medic.h"
+#include "elite.h"
 
 void actors_init(void) BANKED {
     enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
@@ -39,6 +40,7 @@ void actors_init(void) BANKED {
     tank_init(TANK_VRAM);
     type_vram[ACTOR_MEDIC] = MEDIC_VRAM;
     medic_init(MEDIC_VRAM);
+    elite_init();  // (acid puddles' tiles)
     actors_clear();
     bullets_fired = 0;
 }
@@ -52,6 +54,7 @@ void actors_clear(void) BANKED {
     for (uint8_t i = 0; i < BULLET_MAX; i++) bullets[i].alive = 0;
     for (uint8_t i = 0; i < SHOT_MAX; i++) shots[i].alive = 0;
     shot_count = 0;
+    elite_clear();
     actors_active = bullets_active = 0;
     actor_count = bullet_count = 0;
     oam_end_last = 0;

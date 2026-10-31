@@ -217,8 +217,14 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   **2026-10-30: SHIELDED.** The top half of its health is a shield: left unhurt for
   48 frames it recharges a point every 10 frames, shimmering (the UI palette every
   other 4 frames) back to full; shot to half or below it breaks for good ("BROKEN!"
-  on the HUD). So it wants burst damage, not chip. Still to come: the acid-trail
-  modifier (needs sprite VRAM for its pools) and names.
+  on the HUD). So it wants burst damage, not chip.
+  **2026-10-30: ACID.** It drips a puddle where it stands every 26 frames; each
+  lasts 120, so a trail of 4 follows it. Standing in one burns for 1 ("AN ACID
+  POOL" on the death screen); jumping over them is safe. Puddles are 8x16 sprites
+  in the hot palette, drawn with the loot; their tiles are sprite tiles 252-255,
+  the top of the background's shared range, so tilesets now stop at 172 tiles
+  (tools/tileset.mjs; the biggest, ice, is 165). With this, all four modifiers
+  from the plan are in. Still to come: names.
 - **Built (2026-10-30): the loader, the first tank.** `ACTOR_TANK` (src/tank.c), a
   pool kind. It rolls at you at half a pixel a frame and shots don't push it; within
   40 px (and 30 frames after its last slam) it stops and flashes for 24 frames,

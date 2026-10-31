@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import { assert, startRun, startDescent } from './helpers.mjs';
 
-const SLIME = 1, DUELIST = 4, SWIFT = 1, BOMBER = 2, SHIELDED = 3, BROKEN = 4, SPR_PAL_UI = 7, DROP_GUN = 2, SPR_PAL_BULLET = 4;
+const SLIME = 1, DUELIST = 4, SWIFT = 1, BOMBER = 2, SHIELDED = 3, ACID = 4, BROKEN = 5, SPR_PAL_UI = 7, DROP_GUN = 2, SPR_PAL_BULLET = 4;
 const addr = (emu, name) => emu.symbols.addr(name);
 const w8 = (emu, name, v, i = 0) => emu.write8(addr(emu, name) + i, v);
 const w16 = (emu, name, v, i = 0) => emu.writeBytes(addr(emu, name) + i * 2, [v & 0xff, (v >> 8) & 0xff]);
@@ -70,6 +70,31 @@ test('a shielded elite recharges when left alone, until shot below half', () => 
   assert.equal(r8(emu, 'actor_hp', i), 7, 'no more recharging');
 });
 
+test('an acid elite leaves a trail of puddles that hurt to stand in', () => {
+  const emu = startRun().idle(2);
+  const px = emu.v('player_x', 'u16'), py = emu.v('player_y', 'u16');
+  const i = spawn(emu, DUELIST, px + 64, py);
+  w8(emu, 'actor_elite', ACID, i);
+  emu.idle(30);
+  assert.ok(emu.v('acid_puddles') >= 1, 'a puddle down');
+  emu.idle(200);
+  assert.equal(emu.v('acid_puddles'), 4, 'a trail of four at most');
+  // Stand in the newest one.
+  const k = (emu.v('puddle_next') + 3) & 3;
+  const x = emu.read16(addr(emu, 'puddle_x') + k * 2), y = emu.read16(addr(emu, 'puddle_y') + k * 2);
+  w8(emu, 'actor_hp', 0, i);
+  w8(emu, 'shots_killed', 1);  // (its own shots out of the way)
+  emu.idle(1);
+  const hp = emu.v('player_hp');
+  w16(emu, 'player_x', x - 4);
+  w16(emu, 'player_y', y + 2);
+  emu.idle(2);
+  assert.ok(emu.v('player_hp') < hp, 'burned');
+  assert.equal(emu.v('hurt_cause'), 25, 'by an acid pool');
+  emu.idle(130);
+  assert.equal(emu.v('acid_puddles'), 0, 'dried up');
+});
+
 test('an elite in a camp: twice the health, its name on the HUD, the hot colours', () => {
   let found = null;
   for (let wait = 0; wait < 120 && !found; wait += 7) {
@@ -100,5 +125,5 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
   const elite = r8(emu, 'actor_elite', i);
   assert.equal(r8(emu, 'actor_p0', i) & 7, SPR_PAL_BULLET, 'drawn hot');
   const name = String.fromCharCode(...emu.readBytes(addr(emu, 'hud_text'), 7));
-  assert.equal(name, { 1: 'SWIFT! ', 2: 'BOMBER!', 3: 'SHIELD!' }[elite], 'named');
+  assert.equal(name, { 1: 'SWIFT! ', 2: 'BOMBER!', 3: 'SHIELD!', 4: 'ACID!  ' }[elite], 'named');
 });

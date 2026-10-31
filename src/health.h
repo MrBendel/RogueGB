@@ -30,6 +30,7 @@
 #define CAUSE_DUELIST 22
 #define CAUSE_TANK 23
 #define CAUSE_MEDIC 24
+#define CAUSE_ACID_POOL 25
 extern uint8_t hurt_cause;   // the hit being dealt
 extern uint8_t death_cause;  // the hit that ended the run (CAUSE_NONE: the run was ended from the pause panel)
 

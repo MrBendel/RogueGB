@@ -39,6 +39,7 @@
 #include "skills.h"
 #include "menu.h"
 #include "loot.h"
+#include "elite.h"
 #include "pickups.h"
 #include "dialogue.h"
 #include "boss.h"
@@ -593,6 +594,7 @@ void play_update(void) BANKED {
     // standing still; never in a boss's room), then actors and shots.
     uint8_t first = talk_count ? talk_draw(play_actor_oam) : play_actor_oam;
     if (pickups_on) first = pickups_draw(first);
+    if (acid_puddles) first = elite_puddles(first);
     actors_update(first);
     // Kills' XP (actor.c), every 8th frame: not on the kill's own frame, the busiest.
     if (xp_pending && (run_ticks & 7) == 3) progress_award();
