@@ -3,6 +3,7 @@
 // hit); the hit checks that call it are in bank 0 (player.c, actor.c).
 #include <gb/gb.h>
 #include "health.h"
+#include "elite.h"
 
 // How long the HUD's effects last (frames).
 #define SHIELD_FLASH_FRAMES 8
@@ -18,7 +19,7 @@ uint8_t regen_tick;
 uint16_t player_hits;
 uint16_t shield_hits;
 uint8_t shield_flash, shield_broke;
-uint8_t hurt_cause, death_cause;
+uint8_t hurt_cause, death_cause, death_led;
 
 void health_start(void) BANKED {
     if (!player_hp_max) player_hp_max = HEALTH_START;  // later runs keep a tuned max
@@ -31,6 +32,7 @@ void health_start(void) BANKED {
     regen_tick = 0;
     player_hits = shield_hits = 0;
     hurt_cause = death_cause = CAUSE_NONE;
+    death_led = 0;
 }
 
 void health_give_shield(uint8_t cap, uint8_t delay, uint8_t rate) BANKED {
@@ -62,6 +64,7 @@ uint8_t health_damage(uint8_t dmg, uint8_t flags) BANKED {
     if (dmg >= player_hp) {
         player_hp = 0;
         death_cause = hurt_cause;
+        death_led = elite_living;
     } else {
         player_hp -= dmg;
     }

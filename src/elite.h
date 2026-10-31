@@ -20,7 +20,9 @@
 // scene's tileset stops short of them: tools/tileset.mjs MAX_TILES).
 #define ACID_VRAM 252
 #define ACID_MAX 4
-extern uint8_t acid_puddles;  // how many are down (play draws them while any are)
+extern uint8_t acid_puddles;
+extern uint8_t elite_living;  // elites up in this room (elite_make; elite_fell, elite_clear)
+extern char elite_name[8];    // the last one's name, 7 letters  // how many are down (play draws them while any are)
 
 void elite_make(uint8_t i) BANKED;  // actor i becomes one (a random modifier); its name on the HUD
 void elite_shield(uint8_t i) BANKED;  // a shielded one's think step (actor.c)

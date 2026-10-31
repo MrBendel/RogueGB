@@ -115,6 +115,11 @@ void gfx_sprite_split(uint8_t line) BANKED {
 void gfx_clear(void) BANKED {
     gfx_sprite_split(0);
     fill_bkg_rect(0, 0, 32, 32, FONT_TILES);  // tile 0 = space
+    // ... and plain attributes: a scene's (the descent's flips, palettes, tiles in
+    // the second bank) would garble the next one's text.
+    VBK_REG = 1;
+    fill_bkg_rect(0, 0, 32, 32, BG_PAL_SCENE);
+    VBK_REG = 0;
     hide_sprites_range(0, MAX_HARDWARE_SPRITES);
     HIDE_WIN;
     scroll_x = scroll_y = 0;

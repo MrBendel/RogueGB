@@ -38,13 +38,27 @@ static void say(const char *s) {
     hud_say(t);
 }
 
+uint8_t elite_living;
+char elite_name[8];
+
+// Its name: two pieces, Borderlands style (RUSTJAW, NULLBOB ...), 7 letters to fit
+// the HUD.
+static const char name_a[8][5] = {"RUST", "VOLT", "SCAB", "GRIM", "NULL", "DUST", "BOLT", "SLAG"};
+static const char name_b[8][4] = {"JAW", "BOB", "GUT", "REX", "MAW", "VEX", "TOE", "HAM"};
+
 void elite_make(uint8_t i) BANKED {
     uint8_t m = 1 + (rand() & (ELITE_KINDS - 1));
+    uint8_t r = rand();
+    for (uint8_t k = 0; k < 4; k++) elite_name[k] = name_a[r & 7][k];
+    for (uint8_t k = 0; k < 3; k++) elite_name[4 + k] = name_b[(r >> 3) & 7][k];
+    elite_name[7] = 0;
+    elite_living++;
     actor_elite[i] = m;
     actor_hp[i] = elite_top[i] = (actor_hp[i] << 1) + 2;
     elite_calm[i] = 0;
     actor_cache_frame(i);  // (its colours)
     say(m == ELITE_SWIFT ? "SWIFT! " : m == ELITE_BOMBER ? "BOMBER!" : m == ELITE_SHIELDED ? "SHIELD!" : "ACID!  ");
+    hud_say_next(elite_name);
 }
 
 // Hurt, its shield waits CALM steps, then recharges a point at a time up to full,
@@ -102,7 +116,7 @@ void elite_init(void) BANKED {
 
 void elite_clear(void) BANKED {
     for (uint8_t k = 0; k < ACID_MAX; k++) puddle_life[k] = 0;
-    acid_puddles = puddle_next = 0;
+    acid_puddles = puddle_next = elite_living = 0;
 }
 
 // Every DRIP think steps, a puddle where it stands (over the oldest, when all 4 are down).
@@ -158,4 +172,5 @@ void elite_fell(uint8_t i) BANKED {
     loot_roll(&g, profile.level, (layer_depth - 1) * 4 + ELITE_LUCK);
     if (pickups_map) pickups_drop_gun(actor_x[i], actor_y[i] + 4, &g);
     actor_elite[i] = ELITE_NONE;
+    if (elite_living) elite_living--;
 }

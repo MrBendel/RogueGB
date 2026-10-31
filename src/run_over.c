@@ -8,6 +8,7 @@
 #include "gfx.h"
 #include "run.h"
 #include "health.h"
+#include "elite.h"
 #include "save.h"
 
 extern uint16_t saved_seconds;  // descent.c
@@ -44,12 +45,18 @@ void run_over_enter(void) BANKED {
     run_over_timer = 0;
     settle();
     palettes_menu();
-    bkg_frame(2, 2, 16, 12);
+    bkg_frame(1, 2, 18, 12);
     bkg_text(6, 3, "RUN OVER");
     if (death_cause) {
         const char *c = causes[death_cause];
         bkg_text(5, 5, "KILLED BY");
         bkg_text((SCREEN_TW - len(c)) >> 1, 6, c);
+        if (death_led) {
+            // (An elite was up: its squad got you.)
+            char t[15] = "LED BY ";
+            for (uint8_t k = 0; k < 8; k++) t[7 + k] = elite_name[k];
+            bkg_text((SCREEN_TW - len(t)) >> 1, 7, t);
+        }
     } else {
         bkg_text(5, 5, "RUN ENDED");
     }

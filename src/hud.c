@@ -60,6 +60,7 @@ uint8_t hud_ammo = 0xFF;       // rounds shown (0xFF: none, a weapon without a m
 uint8_t hud_gun = 0xFF;        // the weapon whose icon is loaded
 uint8_t hud_name_t;            // frames left showing hud_text (a weapon's name, a message)
 char hud_text[8];
+char hud_next[8];              // a second message, shown when hud_text's time is up (hud_say_next)
 uint8_t hud_rows[2][ROW_LEN];  // what the copies read: must last until vblank
 uint8_t hud_right[2][RIGHT_LEN];
 
@@ -265,7 +266,14 @@ void hud_say(const char *s) BANKED {
     for (; i < 7 && s[i]; i++) hud_text[i] = s[i];
     for (; i < 8; i++) hud_text[i] = i < 7 ? ' ' : 0;
     hud_name_t = NAME_FRAMES;
+    hud_next[0] = 0;
     hud_ammo = 0xFE;  // the weapon side redraws at the next update
+}
+
+void hud_say_next(const char *s) BANKED {
+    uint8_t i = 0;
+    for (; i < 7 && s[i]; i++) hud_next[i] = s[i];
+    for (; i < 8; i++) hud_next[i] = i < 7 ? ' ' : 0;
 }
 
 void hud_hide(void) BANKED {
@@ -321,12 +329,20 @@ weapon:;
         if (hud_gun != 0xFF) {
             weapon_get_name(hud_text);
             hud_name_t = NAME_FRAMES;
+            hud_next[0] = 0;
         }
         hud_gun = weapon_cur;
         load_gun_icon();
         right = 1;
     }
-    if (hud_name_t && !--hud_name_t) right = 1;
+    if (hud_name_t && !--hud_name_t) {
+        right = 1;
+        if (hud_next[0]) {
+            for (uint8_t i = 0; i < 8; i++) hud_text[i] = hud_next[i];
+            hud_next[0] = 0;
+            hud_name_t = NAME_FRAMES;
+        }
+    }
     uint8_t ammo = wpn.mag ? weapon_ammo[weapon_cur] : 0xFF;
     if (ammo != hud_ammo) {
         hud_ammo = ammo;

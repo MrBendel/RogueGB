@@ -2,7 +2,7 @@
 // gun when one falls. A swift one thinks twice a step; a bomber bursts into peas;
 // a shielded one's top half recharges until it's broken.
 import { test } from 'node:test';
-import { assert, startRun, startDescent } from './helpers.mjs';
+import { assert, startRun, startDescent, settle, RUN_OVER } from './helpers.mjs';
 
 const SLIME = 1, DUELIST = 4, SWIFT = 1, BOMBER = 2, SHIELDED = 3, ACID = 4, BROKEN = 5, SPR_PAL_UI = 7, DROP_GUN = 2, SPR_PAL_BULLET = 4;
 const addr = (emu, name) => emu.symbols.addr(name);
@@ -126,4 +126,19 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
   assert.equal(r8(emu, 'actor_p0', i) & 7, SPR_PAL_BULLET, 'drawn hot');
   const name = String.fromCharCode(...emu.readBytes(addr(emu, 'hud_text'), 7));
   assert.equal(name, { 1: 'SWIFT! ', 2: 'BOMBER!', 3: 'SHIELD!', 4: 'ACID!  ' }[elite], 'named');
+  // Then its name, and a squad that kills you was led by it.
+  const named = String.fromCharCode(...emu.readBytes(addr(emu, 'elite_name'), 7));
+  assert.match(named, /^[A-Z]{7}$/, 'a name');
+  emu.idle(62);
+  assert.equal(String.fromCharCode(...emu.readBytes(addr(emu, 'hud_text'), 7)), named, 'its name on the HUD next');
+  assert.equal(emu.v('elite_living'), 1);
+  w8(emu, 'player_hp', 1);
+  w8(emu, 'debug_type', SLIME);
+  w16(emu, 'debug_x', emu.v('player_x', 'u16'));
+  w16(emu, 'debug_y', emu.v('player_y', 'u16'));
+  w8(emu, 'debug_cmd', 2);
+  emu.until((e) => e.v('next_state') === RUN_OVER, 120, 'the run to end');
+  assert.equal(emu.v('death_led'), 1, 'led by the elite');
+  settle(emu, RUN_OVER, 'run over');
+  emu.shot('elite-led');
 });

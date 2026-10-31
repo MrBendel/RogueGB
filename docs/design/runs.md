@@ -224,7 +224,11 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   in the hot palette, drawn with the loot; their tiles are sprite tiles 252-255,
   the top of the background's shared range, so tilesets now stop at 172 tiles
   (tools/tileset.mjs; the biggest, ice, is 165). With this, all four modifiers
-  from the plan are in. Still to come: names.
+  from the plan are in.
+  **2026-10-30: names.** Each elite gets a 7-letter name from two pieces (RUSTJAW,
+  NULLBOB, SCABGUT: 8 x 8). The HUD shows its modifier for a second, then its
+  name (hud_say_next). If the run ends while an elite is up, the death screen adds
+  "LED BY" and its name under what killed you.
 - **Built (2026-10-30): the loader, the first tank.** `ACTOR_TANK` (src/tank.c), a
   pool kind. It rolls at you at half a pixel a frame and shots don't push it; within
   40 px (and 30 frames after its last slam) it stops and flashes for 24 frames,
