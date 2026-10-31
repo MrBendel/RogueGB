@@ -222,3 +222,32 @@ test("the town's machines: not enough credits, nothing changes", () => {
     assert.equal(emu.v('drop_kind'), 0);
   }
 });
+
+
+test('Sands town: connected streets reach every service, with solid buildings and borders', () => {
+  const emu = newFileInTown();
+  assert.equal(emu.v('room_w'), 24);
+  assert.equal(emu.v('room_h'), 20);
+  const map = emu.readBytes(A(emu, 'room_map'), 32 * 24);
+  const seen = new Set([4 * 32 + 5]), queue = [...seen];
+  for (let i = 0; i < queue.length; i++) {
+    const k = queue[i], x = k % 32, y = Math.floor(k / 32);
+    for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
+      const n = ny * 32 + nx;
+      if (nx < 0 || nx >= 24 || ny < 0 || ny >= 20 || map[n] || seen.has(n)) continue;
+      seen.add(n); queue.push(n);
+    }
+  }
+  for (const [x,y] of [[9,4],[19,5],[19,13],[17,10],[20,10],[21,10],[3,12]])
+    assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
+  for (let x = 0; x < 24; x++) {
+    assert.equal(map[x], 1); assert.equal(map[19 * 32 + x], 1);
+  }
+  assert.equal(map[3 * 32 + 3], 1, 'house roof is solid');
+  emu.idle(60).shot('sands-town-arrival');
+  emu.writeBytes(A(emu, 'zones_done'), [0xff]);
+  for (const [name,x,y] of [['market',17,11],['yard',4,12],['homes',15,14]]) {
+    w16(emu, 'player_x', x * 16); w16(emu, 'player_y', y * 16);
+    emu.idle(90).shot(`sands-town-${name}`);
+  }
+});
