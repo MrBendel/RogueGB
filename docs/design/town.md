@@ -1,34 +1,54 @@
-# Sands town — preserve the composition
+# Town layout and interiors
 
-The earlier grid of repeated roofs, cliff columns, and plain paths discarded the
-character of Sands.png. This revision preserves the complete original 240x192
-northwest composition, including its irregular silhouettes, broken ground edges,
-cracks, shadow strips, and distinct building shapes. The service court to the east
-and departure yard to the south extend connected patches rather than repeating a
-single transition tile as a floor. The town is 24x16 blocks.
+## Outdoor rules
 
-Source art: artwork/tiles/sands.png, unchanged. Authored blocks and collision:
-content/tilesets/sands.json. Each legend character names an exact source block;
-collision is separate from its appearance. Optional authoring helper:
-`python tools/sands-town.py` (requires Pillow), then `node tools/tileset.mjs sands`.
-Do not replace unique source blocks with generic terrain to simplify the map.
+Sands is a compact 16x16-block settlement, using the original 240x192 composition
+plus its southern departure yard. The duplicate eastern market wing and repeated
+southern cliff formation are removed. The original three complete buildings are
+quarters, Echo's relay room, and Marro's shop.
 
-The detailed map uses 88 visual blocks and 214 unique hardware tiles. It explicitly
-opts into two VRAM banks: 172 tiles in bank 0 and 42 in bank 1 at tile indices
-80..121 ($9500..$979f). The loader sets the background bank bit per quadrant.
-This stays above bank-1 weapon/portrait sprite art; generated combat worlds retain
-their existing 172-tile limit. The compiler caps this authored-scene mode at 220.
+- Keep connected cliff caps, faces and bases together; do not repeat isolated edge
+  tiles as ground or paste another whole cliff behind an existing one.
+- Preserve each complete roof/frontage silhouette. Its solid facade and visible
+  doorway must agree with collision.
+- Every door has an unobstructed ground approach connected to the town's paths.
+  Keep props and NPCs out of those approaches.
+- Furniture stays against room edges or in small groups, leaving the central aisle
+  from the south doorway clear. Tables, desks, machines and walls are solid.
+- Walking UP into a facade enters; walking DOWN through the interior's south door
+  exits onto the same outdoor doorstep. Jumping/rolling cannot trigger a doorway.
 
-Echo now stands on the path outside the original relay building. Marro, the
-company posts, vending machines, and lift retain their functions. Building doors
-remain decorative. Tests preserve the original composition shading slot for shading slot, independently of display colours, check service reachability, and exercise town interactions.
+Outdoor doors (facade block coordinates): quarters (5,8), relay (7,3), shop (11,6).
+Rescued residents stand clear of door approaches at (3,11), (10,8), (7,13),
+and (2,12). The lift (4,12) and contracts board (7,10) stay outside. Company posts are at
+(12,8) and (8,12). Marro and the gun/shield machines are inside the shop.
 
-Town HUD names use seven on-demand glyph tiles at 44..50 instead of the full
-64..127 font. Pause/menu text borrows the detail range while covering the scene;
-HUD initialization reloads the detail tiles on close. Dialogue/loot-card tiles
-192..253 and weapon sprite tiles remain separate.
+## Interior art and behavior
 
-Sands source greens are index guides, not a final aesthetic. Palette 0 now uses
-Cragback rock colours (RGB555 28/25/17, 18/13/8, 6/5/4), with the menu paper
-highlight (248/240/216). Vending colours remain separate. `paletteOverrides`
-changes the display ramp after tile fitting, preserving all source pixel indices.
+content/tilesets/town_inside.json cuts the wooden room trim, floorboards, tables,
+chairs, desk and bench from the user's artwork/tiles/ice.png. Three authored 10x8
+rooms share one tile set. Their southern two-block doorway is the exit.
+
+Town room changes preserve health, shields, ammo, inventory, shop stock, mission
+state and elapsed run state. Floor loot is cached separately for all four rooms
+in far RAM; an uncollected vending purchase stays in the shop during other room
+visits. This is session-local, like other floor loot. Loading a saved town file
+starts outdoors rather than inside a building.
+
+## Reuse and colours
+
+Source image: artwork/tiles/sands.png, unchanged. The source greens are shading
+slots; paletteOverrides applies Cragback's warm stone colours and the menu's
+paper highlight after indexing, preserving the source's shading detail.
+
+Optional layout authoring: python tools/sands-town.py (requires Pillow). Compile
+with node tools/tileset.mjs sands. The helper removes unused pieces; the normal
+compiler deduplicates all 8x8 tiles including horizontal, vertical and combined
+flips. Outdoor: 332 quadrant references -> 249 unique unflipped -> 198 stored.
+Interiors: 84 references -> 74 unflipped -> 47 stored, shared by all three rooms.
+
+Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
+26 in bank 1 at background indices 80..105. Town HUD names use seven on-demand
+glyphs at 44..50; closing a menu restores outdoor detail tiles. The interiors fit
+entirely in bank 0. Tests cover source shading preservation, absence of unused
+pieces, service/door reachability, transitions, purchases and graphics restoration.

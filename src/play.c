@@ -22,6 +22,7 @@
 #include "run.h"
 #include <string.h>
 #include "room.h"
+#include "town.h"
 #include "tiles_lunar_ext.h"
 #include "player.h"
 #include "camera.h"
@@ -239,6 +240,7 @@ void play_enter(void) BANKED {
         if (save_slot != SAVE_NONE && profile.exp_active) descent_resume();
         else descent_start(run_seed);  // builds the start room and places the player
     } else if (play_mode == MODE_YARD) {
+        town_reset();
         room_load_yard();
         player_init(5 * BLOCK_SIZE, 4 * BLOCK_SIZE);
     } else if (play_mode >= MODE_MINIBOSS) {
@@ -563,7 +565,10 @@ void play_update(void) BANKED {
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_pre();
     else web_trap=web_grace=0;
     player_update();
-    if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
+    if (talk_count | zone_count) {  // town rooms always have a talker; combat maps skip this whole path
+        if (play_mode == MODE_YARD && save_slot != SAVE_NONE && town_update()) return;
+        talk_update();
+    }
     if (pickups_on) pickups_update();
     if (play_mode == MODE_LAB) {
         waves_update();

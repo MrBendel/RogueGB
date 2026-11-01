@@ -9,6 +9,7 @@
 #define FAR_BANK 2  // the bank far.c uses (banks 3-7: unused so far)
 
 // What lives in it (bank 2, 0xD000-0xDFFF), each at a fixed address:
+#define FAR_TOWN_LOOT ((uint8_t *)0xD040) // four 128-byte room-local loot caches, through 0xD23F
 #define FAR_MENU_PAL ((uint8_t *)0xD000)  // menu.c: the background palettes under the menu (48)
 
 extern const uint8_t *far_src;

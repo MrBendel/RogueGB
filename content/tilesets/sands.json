@@ -1,5 +1,5 @@
 {
-  "comment": "The original 240x192 Sands composition occupies the northwest unchanged. The eastern court and southern yard extend connected patches of the sheet. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.",
+  "comment": "The original 240x192 Sands composition occupies the northwest unchanged. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.",
   "src": "artwork/tiles/sands.png",
   "backdrop": [
     136,
@@ -494,12 +494,6 @@
       16,
       16
     ],
-    "art_64_272": [
-      64,
-      272,
-      16,
-      16
-    ],
     "art_80_272": [
       80,
       272,
@@ -523,37 +517,7 @@
       240,
       16,
       16
-    ],
-    "vend_gun": {
-      "tiles": [
-        "00 00",
-        "00 00",
-        "00 00",
-        "00 00"
-      ],
-      "stamp": [
-        "44 54",
-        "45 55",
-        "46 56",
-        "47 57"
-      ],
-      "stamp_from": "containers"
-    },
-    "vend_shield": {
-      "tiles": [
-        "00 00",
-        "00 00",
-        "00 00",
-        "00 00"
-      ],
-      "stamp": [
-        "24 34",
-        "25 35",
-        "26 36",
-        "27 37"
-      ],
-      "stamp_from": "containers"
-    }
+    ]
   },
   "legend": {
     "Ā": {
@@ -581,11 +545,11 @@
       "solid": true
     },
     "Ć": {
-      "piece": "art_80_16",
-      "solid": true
+      "piece": "sand"
     },
     "ć": {
-      "piece": "sand"
+      "piece": "art_80_16",
+      "solid": true
     },
     "Ĉ": {
       "piece": "art_112_16",
@@ -608,10 +572,12 @@
       "solid": true
     },
     "č": {
-      "piece": "art_208_16"
+      "piece": "art_208_16",
+      "solid": true
     },
     "Ď": {
-      "piece": "art_224_16"
+      "piece": "art_224_16",
+      "solid": true
     },
     "ď": {
       "piece": "art_112_32",
@@ -622,347 +588,308 @@
       "solid": true
     },
     "đ": {
-      "piece": "art_160_32"
-    },
-    "Ē": {
-      "piece": "art_176_32"
-    },
-    "ē": {
-      "piece": "art_192_32"
-    },
-    "Ĕ": {
-      "piece": "art_208_32"
-    },
-    "ĕ": {
-      "piece": "art_224_32"
-    },
-    "Ė": {
       "piece": "art_160_32",
       "solid": true
     },
-    "ė": {
-      "piece": "art_48_48",
-      "solid": true
-    },
-    "Ę": {
-      "piece": "art_192_32",
-      "solid": true
-    },
-    "ę": {
-      "piece": "art_80_48",
-      "solid": true
-    },
-    "Ě": {
+    "Ē": {
       "piece": "art_176_32",
       "solid": true
     },
-    "ě": {
-      "piece": "art_48_48"
-    },
-    "Ĝ": {
-      "piece": "art_80_48"
-    },
-    "ĝ": {
-      "piece": "art_112_48",
+    "ē": {
+      "piece": "art_192_32",
       "solid": true
     },
-    "Ğ": {
-      "piece": "art_128_48",
-      "solid": true
-    },
-    "ğ": {
-      "piece": "art_160_48",
-      "solid": true
-    },
-    "Ġ": {
-      "piece": "art_176_48",
-      "solid": true
-    },
-    "ġ": {
-      "piece": "art_192_16"
-    },
-    "Ģ": {
-      "piece": "art_224_48"
-    },
-    "ģ": {
-      "piece": "art_176_48"
-    },
-    "Ĥ": {
-      "piece": "art_48_64"
-    },
-    "ĥ": {
-      "piece": "art_64_64"
-    },
-    "Ħ": {
-      "piece": "art_80_64"
-    },
-    "ħ": {
-      "piece": "art_96_64"
-    },
-    "Ĩ": {
-      "piece": "art_112_64"
-    },
-    "ĩ": {
-      "piece": "art_128_64"
-    },
-    "Ī": {
-      "piece": "art_144_64",
-      "solid": true
-    },
-    "ī": {
-      "piece": "art_160_64",
-      "solid": true
-    },
-    "Ĭ": {
-      "piece": "art_224_48",
-      "solid": true
-    },
-    "ĭ": {
-      "piece": "art_208_64"
-    },
-    "Į": {
-      "piece": "art_192_0"
-    },
-    "į": {
-      "piece": "art_208_16",
-      "solid": true
-    },
-    "İ": {
-      "piece": "art_16_80"
-    },
-    "ı": {
-      "piece": "art_208_64",
-      "solid": true
-    },
-    "Ĳ": {
-      "piece": "art_96_80"
-    },
-    "ĳ": {
-      "piece": "art_112_80"
-    },
-    "Ĵ": {
-      "piece": "art_128_80"
-    },
-    "ĵ": {
-      "piece": "art_144_80",
-      "solid": true
-    },
-    "Ķ": {
-      "piece": "art_160_80",
-      "solid": true
-    },
-    "ķ": {
-      "piece": "art_176_80",
-      "solid": true
-    },
-    "ĸ": {
-      "piece": "art_192_80",
-      "solid": true
-    },
-    "Ĺ": {
-      "piece": "art_224_32",
-      "solid": true
-    },
-    "ĺ": {
+    "Ĕ": {
       "piece": "art_208_32",
       "solid": true
     },
-    "Ļ": {
+    "ĕ": {
+      "piece": "art_224_32",
+      "solid": true
+    },
+    "Ė": {
+      "piece": "art_48_48",
+      "solid": true
+    },
+    "ė": {
+      "piece": "art_80_48",
+      "solid": true
+    },
+    "Ę": {
+      "piece": "art_112_48",
+      "solid": true
+    },
+    "ę": {
+      "piece": "art_128_48",
+      "solid": true
+    },
+    "Ě": {
+      "piece": "art_160_48",
+      "solid": true
+    },
+    "ě": {
+      "piece": "art_176_48",
+      "solid": true
+    },
+    "Ĝ": {
+      "piece": "art_224_48",
+      "solid": true
+    },
+    "ĝ": {
+      "piece": "art_176_48"
+    },
+    "Ğ": {
+      "piece": "art_48_64"
+    },
+    "ğ": {
+      "piece": "art_64_64"
+    },
+    "Ġ": {
+      "piece": "art_80_64"
+    },
+    "ġ": {
+      "piece": "art_96_64"
+    },
+    "Ģ": {
+      "piece": "art_112_64"
+    },
+    "ģ": {
+      "piece": "art_128_64"
+    },
+    "Ĥ": {
+      "piece": "art_144_64",
+      "solid": true
+    },
+    "ĥ": {
+      "piece": "art_160_64",
+      "solid": true
+    },
+    "Ħ": {
+      "piece": "art_208_64",
+      "solid": true
+    },
+    "ħ": {
+      "piece": "art_16_80",
+      "solid": true
+    },
+    "Ĩ": {
+      "piece": "art_96_80"
+    },
+    "ĩ": {
+      "piece": "art_112_80"
+    },
+    "Ī": {
+      "piece": "art_128_80"
+    },
+    "ī": {
+      "piece": "art_144_80",
+      "solid": true
+    },
+    "Ĭ": {
+      "piece": "art_160_80",
+      "solid": true
+    },
+    "ĭ": {
+      "piece": "art_176_80",
+      "solid": true
+    },
+    "Į": {
+      "piece": "art_192_80",
+      "solid": true
+    },
+    "į": {
       "piece": "art_48_96",
       "solid": true
     },
-    "ļ": {
+    "İ": {
       "piece": "art_64_96",
       "solid": true
     },
-    "Ľ": {
+    "ı": {
       "piece": "art_80_96",
       "solid": true
     },
-    "ľ": {
+    "Ĳ": {
       "piece": "art_96_96",
       "solid": true
     },
-    "Ŀ": {
+    "ĳ": {
       "piece": "art_160_96",
       "solid": true
     },
-    "ŀ": {
+    "Ĵ": {
       "piece": "art_176_96",
       "solid": true
     },
-    "Ł": {
+    "ĵ": {
       "piece": "art_192_96",
       "solid": true
     },
-    "ł": {
+    "Ķ": {
       "piece": "art_208_96"
     },
-    "Ń": {
+    "ķ": {
+      "piece": "art_224_96"
+    },
+    "ĸ": {
       "piece": "art_224_96",
       "solid": true
     },
-    "ń": {
+    "Ĺ": {
       "piece": "art_64_112",
       "solid": true
     },
-    "Ņ": {
+    "ĺ": {
       "piece": "art_80_112",
       "solid": true
     },
-    "ņ": {
+    "Ļ": {
       "piece": "art_96_112",
       "solid": true
     },
-    "Ň": {
+    "ļ": {
+      "piece": "art_64_64",
+      "solid": true
+    },
+    "Ľ": {
       "piece": "art_48_128"
     },
-    "ň": {
+    "ľ": {
       "piece": "art_112_128"
     },
-    "ŉ": {
+    "Ŀ": {
       "piece": "art_128_128"
     },
-    "Ŋ": {
+    "ŀ": {
       "piece": "art_144_128",
       "solid": true
     },
-    "ŋ": {
+    "Ł": {
       "piece": "art_144_64"
     },
-    "Ō": {
+    "ł": {
       "piece": "art_176_128"
     },
-    "ō": {
+    "Ń": {
+      "piece": "art_224_48"
+    },
+    "ń": {
       "piece": "art_224_128"
     },
-    "Ŏ": {
-      "piece": "vend_gun",
+    "Ņ": {
+      "piece": "art_224_128",
       "solid": true
     },
-    "ŏ": {
-      "piece": "vend_shield",
-      "solid": true
-    },
-    "Ő": {
+    "ņ": {
       "piece": "art_208_96",
       "solid": true
     },
-    "ő": {
+    "Ň": {
       "piece": "art_32_144"
     },
-    "Œ": {
+    "ň": {
       "piece": "art_96_144"
     },
-    "œ": {
+    "ŉ": {
       "piece": "art_112_144"
     },
-    "Ŕ": {
+    "Ŋ": {
       "piece": "art_144_144",
       "solid": true
     },
-    "ŕ": {
+    "ŋ": {
       "piece": "art_112_0"
     },
-    "Ŗ": {
+    "Ō": {
       "piece": "art_128_0"
     },
-    "ŗ": {
+    "ō": {
       "piece": "art_160_0"
     },
-    "Ř": {
+    "Ŏ": {
       "piece": "art_96_144",
       "solid": true
     },
-    "ř": {
+    "ŏ": {
       "piece": "art_48_160",
       "solid": true
     },
-    "Ś": {
+    "Ő": {
       "piece": "art_64_160",
       "solid": true
     },
-    "ś": {
+    "ő": {
       "piece": "art_80_160",
       "solid": true
     },
-    "Ŝ": {
+    "Œ": {
       "piece": "art_96_160"
     },
-    "ŝ": {
+    "œ": {
       "piece": "art_128_160"
     },
-    "Ş": {
+    "Ŕ": {
       "piece": "art_144_160",
       "solid": true
     },
-    "ş": {
+    "ŕ": {
       "piece": "art_0_176",
       "solid": true
     },
-    "Š": {
+    "Ŗ": {
       "piece": "art_16_176"
     },
-    "š": {
+    "ŗ": {
       "piece": "art_32_176"
     },
-    "Ţ": {
+    "Ř": {
       "piece": "art_80_176"
     },
-    "ţ": {
+    "ř": {
       "piece": "art_96_176"
     },
-    "Ť": {
+    "Ś": {
       "piece": "art_32_176",
       "solid": true
     },
-    "ť": {
+    "ś": {
       "piece": "art_128_208",
       "solid": true
     },
-    "Ŧ": {
+    "Ŝ": {
       "piece": "art_128_224",
       "solid": true
     },
-    "ŧ": {
-      "piece": "art_48_160"
-    },
-    "Ũ": {
-      "piece": "art_64_160"
-    },
-    "ũ": {
-      "piece": "art_80_160"
-    },
-    "Ū": {
+    "ŝ": {
       "piece": "art_32_224",
       "solid": true
     },
-    "ū": {
+    "Ş": {
       "piece": "art_128_240",
       "solid": true
     },
-    "Ŭ": {
+    "ş": {
       "piece": "art_80_272"
     }
   },
   "maps": {
     "town": [
-      "ĀĀĀĀĀĀĀāĂĀăĄąĀĀĀăĂąĆĄăĄą",
-      "ĀćăĂąĆĄĈĉąĊċČčĎćĊĉČċċĊċČ",
-      "ĀāĊĉČċċďĐČđĒēĔĕćĖėĘęĚĖĚĘ",
-      "ĀĈĖěēĜĒĝĞēğĠĀġĢććććććććĀ",
-      "ĀđģĤĥĦħĨĩĪīĀĬĭĮćģĤĥĦħĨĩĀ",
-      "įİćććıĲĳĴĵĶķĸĔĹććććććććĀ",
-      "ĺĕąĻļĽľććĪĿŀŁłŃććğĠĀćććĀ",
-      "ĺĕČėńŅņĤĥĦħĨĩĤĥććīĀĬćććĀ",
-      "ĺĹĘŇŀĿŀňŉŊŋŌĢģōććĶķĸŎŏćŊ",
-      "ŐŃőĤĥĦŒœŉŔćŕŖćŗĤĥĿŀŁŎŏćŔ",
-      "ŘœŉřŚśŜŉŝŞĄĈĉąĊňŉććććććŞ",
-      "şŠšššŢţššŤŤŤŤŤŤœŉćħĨĩĤĥĀ",
-      "ĀćććććťćććććććććććŋŌĢģōĀ",
-      "ĀćććććŦććŉŧŨũććććććććććĀ",
-      "ĀŪŪŪŪćūŬćšššŢćććććŞĄĈĉąĀ",
-      "ĀĀĀĀĀĀĀĀĀĀĀĀĀĀĀĀĀĀŤŤŤŤŤĀ"
+      "ĀĀĀĀĀĀĀāĂĀăĄąĀĀĀ",
+      "ĀĆăĂąćĄĈĉąĊċČčĎĎ",
+      "ĀāĊĉČċċďĐČđĒēĔĕĕ",
+      "ĀĈđĖēėĒĘęēĚěĀČĜĜ",
+      "ĀđĝĞğĠġĢģĤĥĀĜĦąą",
+      "čħĆĆĆĦĨĩĪīĬĭĮĔĕĕ",
+      "ĔĕąįİıĲĆĆĤĳĴĵĶķĸ",
+      "ĔĕČĖĹĺĻĞğĠġĢģĞğļ",
+      "ĔĕēĽĴĳĴľĿŀŁłŃĝńŅ",
+      "ņķŇĞğĠňŉĿŊĆŋŌĆōă",
+      "ŎŉĿŏŐőŒĿœŔĄĈĉąĊĊ",
+      "ŕŖŗŗŗŘřŗŗŗŗŗŗŗŗŚ",
+      "ĀĆĆĆĆĆśĆĆĆĆĆĆĆĆĀ",
+      "ĀĆĆĆĆĆŜĆĆĆĆĆĆĆĆĀ",
+      "ĀŝŝŝŝĆŞşĆĆŝŝŝŝĆĀ",
+      "ĀĀĀĀĀĀĀĀĀĀĀĀĀĀĀĀ"
     ]
   }
 }

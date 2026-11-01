@@ -1,0 +1,352 @@
+{
+  "comment": "Town interiors from the user-authored ice sheet: its complete wooden room trim plus floor, desk, tables and chairs. Door gap centered south; two-block central approach stays clear.",
+  "src": "artwork/tiles/ice.png",
+  "backdrop": [
+    184,
+    112,
+    64
+  ],
+  "sheets": {
+    "containers": "artwork/tiles/containers.png"
+  },
+  "palettes": 6,
+  "pieces": {
+    "nw": [
+      272,
+      32,
+      16,
+      16
+    ],
+    "north": [
+      288,
+      32,
+      16,
+      16
+    ],
+    "ne": [
+      304,
+      32,
+      16,
+      16
+    ],
+    "west": [
+      272,
+      48,
+      16,
+      16
+    ],
+    "floor": [
+      288,
+      48,
+      16,
+      16
+    ],
+    "east": [
+      304,
+      48,
+      16,
+      16
+    ],
+    "sw": [
+      272,
+      64,
+      16,
+      16
+    ],
+    "south": [
+      288,
+      64,
+      16,
+      16
+    ],
+    "se": [
+      304,
+      64,
+      16,
+      16
+    ],
+    "table": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          304,
+          96,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "chair": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          336,
+          64,
+          8,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "desk_l": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          336,
+          96,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "desk_m": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          352,
+          96,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "desk_r": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          368,
+          96,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "bench_l": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          304,
+          128,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "bench_r": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          320,
+          128,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "barrel": {
+      "rect": [
+        288,
+        48,
+        16,
+        16
+      ],
+      "overlay": [
+        [
+          0,
+          144,
+          16,
+          16,
+          0,
+          0
+        ]
+      ]
+    },
+    "vend_gun": {
+      "tiles": [
+        "00 00",
+        "00 00",
+        "00 00",
+        "00 00"
+      ],
+      "stamp": [
+        "44 54",
+        "45 55",
+        "46 56",
+        "47 57"
+      ],
+      "stamp_from": "containers"
+    },
+    "vend_shield": {
+      "tiles": [
+        "00 00",
+        "00 00",
+        "00 00",
+        "00 00"
+      ],
+      "stamp": [
+        "24 34",
+        "25 35",
+        "26 36",
+        "27 37"
+      ],
+      "stamp_from": "containers"
+    }
+  },
+  "legend": {
+    ".": {
+      "piece": "floor"
+    },
+    "a": {
+      "piece": "nw",
+      "solid": true
+    },
+    "-": {
+      "piece": "north",
+      "solid": true
+    },
+    "b": {
+      "piece": "ne",
+      "solid": true
+    },
+    "|": {
+      "piece": "west",
+      "solid": true
+    },
+    "!": {
+      "piece": "east",
+      "solid": true
+    },
+    "c": {
+      "piece": "sw",
+      "solid": true
+    },
+    "_": {
+      "piece": "south",
+      "solid": true
+    },
+    "d": {
+      "piece": "se",
+      "solid": true
+    },
+    "t": {
+      "piece": "table",
+      "solid": true
+    },
+    "h": {
+      "piece": "chair",
+      "solid": true
+    },
+    "l": {
+      "piece": "desk_l",
+      "solid": true
+    },
+    "m": {
+      "piece": "desk_m",
+      "solid": true
+    },
+    "r": {
+      "piece": "desk_r",
+      "solid": true
+    },
+    "B": {
+      "piece": "bench_l",
+      "solid": true
+    },
+    "C": {
+      "piece": "bench_r",
+      "solid": true
+    },
+    "o": {
+      "piece": "barrel",
+      "solid": true
+    },
+    "y": {
+      "piece": "vend_gun",
+      "solid": true
+    },
+    "s": {
+      "piece": "vend_shield",
+      "solid": true
+    }
+  },
+  "maps": {
+    "quarters": [
+      "a--------b",
+      "|......o.!",
+      "|.t......!",
+      "|.h......!",
+      "|.....BC.!",
+      "|........!",
+      "|........!",
+      "c___..___d"
+    ],
+    "relay": [
+      "a--------b",
+      "|.o......!",
+      "|....lmr.!",
+      "|........!",
+      "|.th.....!",
+      "|........!",
+      "|........!",
+      "c___..___d"
+    ],
+    "market": [
+      "a--------b",
+      "|........!",
+      "|.t..lmr.!",
+      "|.h....ys!",
+      "|......ys!",
+      "|........!",
+      "|........!",
+      "c___..___d"
+    ]
+  }
+}

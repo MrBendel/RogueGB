@@ -2,7 +2,9 @@
 // an area's entrance room's south door leads back up; a run that ends returns you there; Echo's
 // first contact plays once per file.
 import { test } from 'node:test';
-import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
+import { convert } from '../tools/tileset.mjs';
+const DETAIL_TILES = convert('sands').stored.length - 172;
+import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, TITLE, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
 
 const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
@@ -66,8 +68,9 @@ function atShop(credits) {
   const emu = newFileInTown();
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
   emu.writeBytes(A(emu, 'profile') + CREDITS, [credits & 255, (credits >> 8) & 255, 0, 0]);
-  w16(emu, 'player_x', 17 * 16);
-  w16(emu, 'player_y', 10 * 16 - 4);
+  enterTownBuilding(emu);
+  w16(emu, 'player_x', 3 * 16);
+  w16(emu, 'player_y', 3 * 16 - 4);
   emu.idle(4).tap('A').idle(4);
   return emu;
 }
@@ -171,10 +174,11 @@ function atMachine(credits, k) {
   const emu = newFileInTown();
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
   emu.writeBytes(A(emu, 'profile') + CREDITS, [credits & 255, (credits >> 8) & 255, 0, 0]);
-  w16(emu, 'player_x', (20 + k) * 16);
-  w16(emu, 'player_y', 10 * 16 - 4);
+  enterTownBuilding(emu);
+  w16(emu, 'player_x', (7 + k) * 16);
+  w16(emu, 'player_y', 5 * 16 - 4);
   emu.idle(60).hold('UP', 4).idle(4);  // (the camera catches up)
-  assert.equal(emu.v('talk_near'), 4 + k, 'the machine in reach');
+  assert.equal(emu.v('talk_near'), 1 + k, 'the machine in reach');
   return emu;
 }
 
@@ -226,7 +230,7 @@ test("the town's machines: not enough credits, nothing changes", () => {
 
 test('Sands town: connected streets reach every service, with solid buildings and borders', () => {
   const emu = newFileInTown();
-  assert.equal(emu.v('room_w'), 24);
+  assert.equal(emu.v('room_w'), 16);
   assert.equal(emu.v('room_h'), 16);
   const map = emu.readBytes(A(emu, 'room_map'), 32 * 24);
   const seen = new Set([4 * 32 + 5]), queue = [...seen];
@@ -234,19 +238,23 @@ test('Sands town: connected streets reach every service, with solid buildings an
     const k = queue[i], x = k % 32, y = Math.floor(k / 32);
     for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
       const n = ny * 32 + nx;
-      if (nx < 0 || nx >= 24 || ny < 0 || ny >= 16 || map[n] || seen.has(n)) continue;
+      if (nx < 0 || nx >= 16 || ny < 0 || ny >= 16 || map[n] || seen.has(n)) continue;
       seen.add(n); queue.push(n);
     }
   }
-  for (const [x,y] of [[8,4],[19,5],[19,13],[17,10],[20,10],[21,10],[3,12]])
+  for (const [x,y] of [[7,4],[5,9],[11,7],[11,8],[7,12],[6,10],[3,12]])
     assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
-  for (let x = 0; x < 24; x++) {
+  for (let x = 0; x < 16; x++) {
     assert.equal(map[x], 1); assert.equal(map[15 * 32 + x], 1);
   }
   assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
+  for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5]])
+    assert.equal(map[y * 32 + x], 1, 'visible cliff face is solid');
+  for (const [x,y] of [[1,9],[10,11],[13,11],[14,6]])
+    assert.equal(map[y * 32 + x], 0, 'ground below cliffs is walkable');
   emu.idle(60).shot('sands-town-arrival');
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
-  for (const [name,x,y] of [['market',17,11],['yard',4,12],['homes',15,14]]) {
+  for (const [name,x,y] of [['market',11,8],['yard',4,13],['homes',5,9]]) {
     w16(emu, 'player_x', x * 16); w16(emu, 'player_y', y * 16);
     emu.idle(90).shot(`sands-town-${name}`);
   }
@@ -255,7 +263,7 @@ test('Sands town: connected streets reach every service, with solid buildings an
 test('Sands detail tiles survive pause, portrait dialogue, and a round trip to the descent', () => {
   const emu = newFileInTown().idle(60);
   const detail = () => {
-    return [...emu.snapshot().vram.slice(0x2000 + 0x1500, 0x2000 + 0x1500 + 42 * 16)];
+    return [...emu.snapshot().vram.slice(0x2000 + 0x1500, 0x2000 + 0x1500 + DETAIL_TILES * 16)];
   };
   const before = detail();
   assert.ok(new Set(before).size > 4, 'second-bank art is populated');
@@ -271,4 +279,68 @@ test('Sands detail tiles survive pause, portrait dialogue, and a round trip to t
   assert.deepEqual(detail(), before, 'portrait retains detail art');
   takeLiftDown(emu); leaveToTown(emu);
   assert.deepEqual(detail(), before, 'return reloads detail art');
+});
+
+
+test('three intact facades lead into furnished rooms and back to their own doorstep', () => {
+  const emu = newFileInTown().idle(40);
+  const stock = [...emu.readBytes(A(emu, 'shop_stock'), 27)];
+  emu.writeBytes(A(emu, 'player_hp'), [31]);
+  const ammo = [...emu.readBytes(A(emu, 'weapon_ammo'), 5)];
+  for (let k = 0; k < 3; k++) {
+    enterTownBuilding(emu, k);
+    assert.equal(emu.v('room_w'), 10); assert.equal(emu.v('room_h'), 8);
+    assert.equal(emu.v('player_hp'), 31, 'doors do not heal');
+    assert.deepEqual([...emu.readBytes(A(emu, 'weapon_ammo'), 5)], ammo, 'doors do not refill ammo');
+    emu.shot(['town-quarters','town-relay','town-market-interior'][k]);
+    emu.tap('START').idle(3).tap('START').idle(3);
+    leaveTownBuilding(emu);
+    assert.equal(emu.v('room_w'), 16);
+    assert.equal(emu.v('player_x', 'u16'), TOWN_DOORS[k][0] * 16);
+    assert.equal(emu.v('player_y', 'u16'), (TOWN_DOORS[k][1] + 1) * 16 + 4);
+    assert.deepEqual([...emu.readBytes(A(emu, 'shop_stock'), 27)], stock, 'stock is not rerolled by a doorway');
+  }
+});
+
+test('an uncollected vending gun stays inside its shop across other room visits', () => {
+  const emu = atMachine(500, 0).tap('A').idle(4);
+  const gun = [...emu.readBytes(A(emu, 'floor_gun'), 9)];
+  assert.equal(emu.v('drop_kind'), 2);
+  leaveTownBuilding(emu);
+  assert.equal(emu.v('drop_kind'), 0, 'no indoor gun leaks into the yard');
+  enterTownBuilding(emu, 0);
+  assert.equal(emu.v('drop_kind'), 0, 'quarters have their own floor');
+  leaveTownBuilding(emu);
+  enterTownBuilding(emu, 2);
+  assert.equal(emu.v('drop_kind'), 2, 'purchase is still waiting');
+  assert.deepEqual([...emu.readBytes(A(emu, 'floor_gun'), 9)], gun);
+});
+
+
+test('rescued residents stay on open ground without blocking the compact town doors', () => {
+  const emu = newFileInTown();
+  emu.writeBytes(A(emu, 'profile') + 242, [15]);
+  enterTownBuilding(emu, 0); leaveTownBuilding(emu);
+  const authored = convert('sands').maps.town;
+  const kinds = [...emu.readBytes(A(emu, 'talk_kind'), emu.v('talk_count'))];
+  assert.equal(kinds.filter(k => k >= 8).length, 4);
+  kinds.forEach((kind,i) => {
+    if (kind < 8) return;
+    const x = emu.read8(A(emu, 'talk_bx') + i), y = emu.read8(A(emu, 'talk_by') + i);
+    assert.equal(authored.type[y * authored.w + x], 0, 'resident stands on floor');
+    assert.ok(TOWN_DOORS.every(([dx,dy]) => x !== dx || y !== dy + 1), 'doorstep stays clear');
+  });
+  for (let k = 0; k < 3; k++) { enterTownBuilding(emu,k); leaveTownBuilding(emu); }
+  emu.shot('town-residents');
+});
+
+
+test('saving inside a town building resumes safely outside', () => {
+  const emu = enterTownBuilding(newFileInTown(), 2);
+  emu.tap('START').idle(2).tap('SELECT');
+  settle(emu, TITLE);
+  settle(emu.tap('START').tap('A'), PLAY);
+  assert.equal(emu.v('town_inside'), 0xff);
+  assert.equal(emu.v('room_w'), 16);
+  assert.equal(emu.v('play_mode'), MODE_TOWN);
 });

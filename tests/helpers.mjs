@@ -168,6 +168,8 @@ export const TOWN_LIFT = [4, 12];  // its block (room_yard.c)
 
 /** In the town: walk up to the lift, A, and wait for the descent. */
 export function takeLiftDown(emu) {
+  if (emu.v('town_inside') !== 0xff) leaveTownBuilding(emu);
+  for (let i = 0; i < 90 && emu.v('dlg_active'); i++) emu.tap('A');
   emu.writeBytes(emu.symbols.addr('zones_done'), [0xff]);  // (no first contact on the way)
   const x = TOWN_LIFT[0] * 16 - 16, y = TOWN_LIFT[1] * 16 - 2;
   emu.writeBytes(emu.symbols.addr('player_x'), [x & 255, x >> 8]);
@@ -188,4 +190,24 @@ export function leaveToTown(emu) {
   emu.until((e) => e.v('play_mode') === MODE_TOWN, 60, 'back to town');
   emu.until((e) => e.v('in_transition'), 60, 'the scene change');
   return settle(emu, PLAY, 'the town');
+}
+
+
+export const TOWN_DOORS = [[5,8],[7,3],[11,6]];
+export function enterTownBuilding(emu, k = 2) {
+  if (emu.v('town_inside') !== 0xff) leaveTownBuilding(emu);
+  for (let i = 0; i < 90 && emu.v('dlg_active'); i++) emu.tap('A');
+  emu.writeBytes(emu.symbols.addr('zones_done'), [0xff]);
+  const [x,y] = TOWN_DOORS[k];
+  const px = x * 16, py = (y + 1) * 16 + 4;
+  emu.writeBytes(emu.symbols.addr('player_x'), [px & 255, px >> 8]);
+  emu.writeBytes(emu.symbols.addr('player_y'), [py & 255, py >> 8]);
+  emu.hold('UP', 1).until(e => e.v('town_inside') === k, 90, 'building interior').idle(40);
+  return emu;
+}
+export function leaveTownBuilding(emu) {
+  emu.writeBytes(emu.symbols.addr('player_x'), [64, 0]);
+  emu.writeBytes(emu.symbols.addr('player_y'), [100, 0]);
+  emu.hold('DOWN', 1).until(e => e.v('town_inside') === 0xff, 90, 'building exit').idle(40);
+  return emu;
 }

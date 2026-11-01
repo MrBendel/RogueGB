@@ -10,6 +10,7 @@
 #include "tiles_sands.h"
 #include "level.h"
 #include "pickups.h"
+#include "town.h"
 #include "rescue.h"
 
 #if TILES_SANDS_TILE_COUNT <= 172 || TILES_SANDS_TILE_COUNT > 220
@@ -52,20 +53,15 @@ void room_load_town(void) BANKED {
     }
     // Who's here (docs/design/voices.md): Echo's relay (walking up to it plays her
     // first contact once), the company's posts, Marro at his shop, and the lift down.
-    talk_add(7, 4, TALK_RELAY, DLG_VOICE_ECHO);
     talk_zone(7, 4, 10, 6, DLG_RELAY_FIRST_CONTACT, STORY_MET_ECHO);
-    talk_add(20, 5, TALK_POST, DLG_VOICE_CEO);
-    talk_add(20, 13, TALK_POST, DLG_VOICE_MERIDIAN);
-    talk_add(18, 10, TALK_MARRO, TALK_DO_SHOP);
-    // Beside his shop, the vending machines (drawn by the map): guns, shields.
-    talk_add(20, 9, TALK_COMMS, TALK_DO_VEND_GUN);
-    talk_add(21, 9, TALK_COMMS, TALK_DO_VEND_SHIELD);
+    talk_add(12, 8, TALK_POST, DLG_VOICE_CEO);
+    talk_add(8, 12, TALK_POST, DLG_VOICE_MERIDIAN);
     talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
     // The company's contracts board, by the yard: jobs to take down (board.c).
     talk_add(7, 10, TALK_POST, TALK_DO_BOARD);
     // The people you've rescued (rescue.h), about town. Their tiles go where the
     // enemies' would (no enemies here).
-    static const uint8_t folk_x[PEOPLE] = {11, 15, 12, 2}, folk_y[PEOPLE] = {7, 4, 12, 11};
+    static const uint8_t folk_x[PEOPLE] = {3, 10, 7, 2}, folk_y[PEOPLE] = {11, 8, 13, 12};
     static const uint8_t folk_say[PEOPLE] = {DLG_TOWN_TESS, DLG_TOWN_OKAFOR, DLG_TOWN_NELL, DLG_TOWN_PIP};
     talk_people_at = 16;  // (actor.c ENEMY_VRAM)
     for (uint8_t p = 0; p < PEOPLE; p++)
@@ -73,5 +69,5 @@ void room_load_town(void) BANKED {
     // No chests or containers (the last area's are still listed): the floor
     // only holds what the gun machine drops.
     level_chests = level_conts = 0;
-    pickups_load_map(0);
+    if (!town_changing) pickups_load_map(0);
 }
