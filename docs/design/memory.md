@@ -18,6 +18,16 @@ Bank 1's layout (src/room.h): globals up to 0xD3BF, the bosses' state 0xD3C0
 (below), the room map (block types) 0xD400, the looks 0xD700, the block tables (a page per quadrant) 0xDA00, the stack
 0xDE00-0xDFFF. Maps are at most 32 x 24 blocks.
 
+## Detailed authored backgrounds
+
+Sands town explicitly uses a second VRAM bank for background detail. Its first
+172 tiles use the normal scene range in bank 0; up to 48 additional tiles use
+bank 1 background indices 80..127 ($9500..$97ff), above the weapon and portrait
+sprite area. The authored loader splits uploads and sets attribute bit 3 per tile.
+`vramBanks: 2` opts into a 220-tile compiler budget; generated themes cannot opt in
+without a loader change. Visual-block RAM remains limited to 128. Scene exit and
+menu/dialogue attribute restoration still apply normally.
+
 ## The bosses' shared RAM (src/bosses.s, room.h BOSSES_ADDR)
 
 Only one boss fights at a time, so the boss files (tools/build.mjs `BOSS_FILES`:
@@ -67,3 +77,8 @@ A run only ever visits one world (LunarBase now; others later), plus the town. S
   field in the profile reads as 0 (LunarBase) from older files.
 - Shared everywhere: the player, guns, HUD, loot, camera, the town, and things the
   user wants the same in every world (lockers and loot boxes).
+
+Town HUD names use seven on-demand glyph tiles at 44..50 instead of the full
+64..127 font. Pause/menu text borrows the detail range while covering the scene;
+HUD initialization reloads the detail tiles on close. Dialogue/loot-card tiles
+192..253 and weapon sprite tiles remain separate.

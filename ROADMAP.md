@@ -394,3 +394,12 @@ throw, with crouch/landing pauses and a moving ground shadow.
 Replace the ice hub with the original Sands sheet: a compact 24×20 frontier town,
 main street, market square, residential buildings, and fenced departure yard.
 Existing hub services remain functional. Details: [town design](docs/design/town.md).
+
+Sands revision: preserve the original composed terrain and buildings, extend connected
+art patches, and use a bounded second VRAM bank for unique details. The town is
+now 24×16; avoid reducing this artwork to repeated generic terrain tiles.
+
+Sands source greens are index guides, not a final aesthetic. Palette 0 now uses
+Cragback rock colours (RGB555 28/25/17, 18/13/8, 6/5/4), with the menu paper
+highlight (248/240/216). Vending colours remain separate. `paletteOverrides`
+changes the display ramp after tile fitting, preserving all source pixel indices.

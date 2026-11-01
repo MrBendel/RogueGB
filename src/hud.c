@@ -21,6 +21,9 @@
 #include "font.h"
 #include "boss.h"
 #include "warden.h"
+#include "run.h"
+#include "save.h"
+#include "tiles_sands.h"
 
 #define WIN_MAP ((uint8_t *)0x9C00)
 #define BAR_COLS 11              // cells: 8 px each
@@ -143,8 +146,13 @@ void hud_init(void) BANKED {
         t[0] = t[1] = 0xFF;
         put_tiles(T_DIGIT + d * 2, 2, t);
     }
-    // The font with the top line, for weapon names.
-    for (uint8_t c = 0; c < FONT_TILE_COUNT; c++) {
+    // Town detail shares the menu's scratch range. Restore it after a menu;
+    // town names use seven on-demand glyphs at 44..50 instead of this full font.
+    if (play_mode == MODE_YARD && save_slot != SAVE_NONE) {
+        VBK_REG = 1;
+        banked_bkg_data(80, TILES_SANDS_TILE_COUNT - 172, tiles_sands_tiles + 172u * 16u, BANK(tiles_sands));
+        VBK_REG = 0;
+    } else for (uint8_t c = 0; c < FONT_TILE_COUNT; c++) {
         banked_memcpy(t, font_tiles + (uint16_t)c * 16, 16, BANK(font));
         t[0] = t[1] = 0xFF;
         put_tiles(T_FONT + c, 1, t);
@@ -209,6 +217,17 @@ static void build_row(uint8_t *r, uint8_t icon, uint8_t px, uint8_t len, uint8_t
     }
 }
 
+// Keep town-only glyph uploads out of the combat HUD's stack/register footprint.
+static void town_name(uint8_t *top) {
+    uint8_t glyph[16];
+    for (uint8_t i = 0; i < RIGHT_LEN && hud_text[i]; i++) {
+        banked_memcpy(glyph, font_tiles + (uint16_t)(hud_text[i] - ' ') * 16, 16, BANK(font));
+        glyph[0] = glyph[1] = 0xFF;
+        put_tiles(44 + i, 1, glyph);
+        top[i] = 44 + i;
+    }
+}
+
 // The weapon side: the name for a moment after a switch, else the icon and the
 // rounds left.
 static void build_right(void) {
@@ -218,7 +237,8 @@ static void build_right(void) {
         bot[i] = T_BLANK;
     }
     if (hud_name_t) {
-        for (uint8_t i = 0; i < RIGHT_LEN && hud_text[i]; i++) top[i] = T_FONT + (hud_text[i] - ' ');
+        if (play_mode == MODE_YARD && save_slot != SAVE_NONE) town_name(top);
+        else for (uint8_t i = 0; i < RIGHT_LEN && hud_text[i]; i++) top[i] = T_FONT + (hud_text[i] - ' ');
         return;
     }
     top[1] = T_GUN;
