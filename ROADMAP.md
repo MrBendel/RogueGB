@@ -403,3 +403,12 @@ Sands source greens are index guides, not a final aesthetic. Palette 0 now uses
 Cragback rock colours (RGB555 28/25/17, 18/13/8, 6/5/4), with the menu paper
 highlight (248/240/216). Vending colours remain separate. `paletteOverrides`
 changes the display ramp after tile fitting, preserving all source pixel indices.
+
+### Town rules and interiors (2026-11-01)
+
+Compact Sands to 16×16 with the original three buildings: quarters, relay, shop.
+Use the artist's ice-sheet wooden interior tiles for three furnished rooms; enter
+by walking into doors and exit onto the matching doorstep. Marro and vending
+machines move indoors; lift and contracts stay outside. Preserve resources, stock
+and room-local floor purchases on door transitions. Deduplicate/flips: 198 outdoor
+tiles and 47 shared interior tiles, loaded separately. See docs/design/town.md.

@@ -53,7 +53,7 @@ colours and the merges take from the rarer art.
 
 ## Limits (the build fails past them)
 
-- **176 tiles** per scene (background tiles 80-255). The ice town uses 139.
+- **172 tiles** per ordinary scene (background tiles 80-251). Sands explicitly uses a bounded second-bank extension; see docs/design/memory.md.
 - **128 blocks** per tileset (the block look-up tables: room.h; 64 until 2026-10-24). The ice set has 54.
 - **4 colours per 8x8 tile**, 6 palettes. Art that keeps to shared ramps (one
   outline colour, one snow white, a ramp per material) converts without loss.
@@ -96,3 +96,11 @@ folder) to regenerate `src/globfather_art.inc`. Builds use this committed tile
 array and do not require the Drive mount. The converter drops transparent
 8x16 parts and merges the two greens into one GBC sprite color, retaining cream
 highlights and brown outlines. No AI generation is needed for these sheets.
+
+## Indexed source colours and reuse
+
+`paletteOverrides` maps a fitted palette index to four #RRGGBB display colours,
+light to dark. It runs after tile indexing/deduplication, so recolouring an indexed
+sheet preserves every shading slot. The compiler reuses identical 8x8 patterns
+across pieces and palettes, including X, Y and XY flips. Authored layouts should
+prune unused pieces before conversion; tools/sands-town.py does this.

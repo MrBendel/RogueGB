@@ -82,3 +82,7 @@ Town HUD names use seven on-demand glyph tiles at 44..50 instead of the full
 64..127 font. Pause/menu text borrows the detail range while covering the scene;
 HUD initialization reloads the detail tiles on close. Dialogue/loot-card tiles
 192..253 and weapon sprite tiles remain separate.
+
+Town floor-loot caches: far bank 2, 0xD040..0xD23F, four 128-byte slots.
+Each room keeps its six drop entries, three gun records and icon frames. Near RAM
+uses a valid-room bitmask; room changes do not copy an entire map or reset inventory.

@@ -10,6 +10,7 @@
 #include "tiles_sands.h"
 #include "level.h"
 #include "pickups.h"
+#include "town.h"
 
 #if TILES_SANDS_TILE_COUNT <= 172 || TILES_SANDS_TILE_COUNT > 220
 #error Sands loader expects 173..220 tiles across two VRAM banks
@@ -51,19 +52,14 @@ void room_load_town(void) BANKED {
     }
     // Who's here (docs/design/voices.md): Echo's relay (walking up to it plays her
     // first contact once), the company's posts, Marro at his shop, and the lift down.
-    talk_add(7, 4, TALK_RELAY, DLG_VOICE_ECHO);
     talk_zone(7, 4, 10, 6, DLG_RELAY_FIRST_CONTACT, STORY_MET_ECHO);
-    talk_add(20, 5, TALK_POST, DLG_VOICE_CEO);
-    talk_add(20, 13, TALK_POST, DLG_VOICE_MERIDIAN);
-    talk_add(18, 10, TALK_MARRO, TALK_DO_SHOP);
-    // Beside his shop, the vending machines (drawn by the map): guns, shields.
-    talk_add(20, 9, TALK_COMMS, TALK_DO_VEND_GUN);
-    talk_add(21, 9, TALK_COMMS, TALK_DO_VEND_SHIELD);
+    talk_add(12, 8, TALK_POST, DLG_VOICE_CEO);
+    talk_add(8, 12, TALK_POST, DLG_VOICE_MERIDIAN);
     talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
     // The company's contracts board, by the yard: jobs to take down (board.c).
     talk_add(7, 10, TALK_POST, TALK_DO_BOARD);
     // No chests or containers (the last area's are still listed): the floor
     // only holds what the gun machine drops.
     level_chests = level_conts = 0;
-    pickups_load_map(0);
+    if (!town_changing) pickups_load_map(0);
 }

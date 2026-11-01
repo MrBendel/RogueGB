@@ -9,7 +9,7 @@ test('Sands preserves every shading slot of the original composed 240x192 scene'
   const src = decodePng(fs.readFileSync('artwork/tiles/sands.png'));
   const round = v => ((v >> 3) << 3) | (v >> 5);
   for (let y = 0; y < 192; y++) for (let x = 0; x < 240; x++) {
-    const b = ts.maps.town.vis[(y >> 4) * 24 + (x >> 4)];
+    const b = ts.maps.town.vis[(y >> 4) * ts.maps.town.w + (x >> 4)];
     const tile = ts.tiles[ts.blocks[b][((y & 15) >> 3) * 2 + ((x & 15) >> 3)]];
     const actual = tile.idx[(y & 7) * 8 + (x & 7)];
     const i = (y * src.width + x) * 4;
@@ -30,4 +30,15 @@ test('extra background tiles require an explicit authored-scene loader', () => {
   assert.equal(tileBudget({ vramBanks: 2 }), 220);
   assert.throws(() => tileBudget({ vramBanks: 2, theme: {} }));
   assert.throws(() => tileBudget({ vramBanks: 3 }));
+});
+
+
+test('authored town pieces are used, and tile flips save VRAM without losing detail', () => {
+  for (const name of ['sands', 'town_inside']) {
+    const ts = convert(name), used = new Set(Object.values(ts.maps).flatMap(m => m.vis));
+    assert.equal(used.size, ts.blocks.length, `${name}: no unused blocks`);
+    const unflipped = new Set(ts.tiles.map(t => t.idx.join(''))).size;
+    assert.ok(ts.stored.length < unflipped, `${name}: flipped reuse is active`);
+    assert.ok(ts.stored.length < ts.tiles.length, `${name}: repeated pieces are deduplicated`);
+  }
 });
