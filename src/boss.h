@@ -25,6 +25,9 @@
 #define BOSS_GLOBFATHER 12
 extern uint8_t boss_kind, boss_slot, boss_state, boss_timer, boss_phase;
 extern uint8_t boss_hp, boss_hp_max, boss_relays, boss_reward;
+// An area's miniboss: tougher each time the world's turn of them comes round again
+// (by its area's depth). After boss_start.
+void boss_campaign_scale(uint8_t depth) BANKED;
 extern uint16_t boss_attacks, boss_cycles;
 extern int8_t boss_dx, boss_dy;
 void boss_room(void) BANKED;

@@ -410,6 +410,9 @@ test("a hab module's door leads into its interior and back out onto its step", (
 
 test("the exit map's shaft is guarded: its miniboss's arena, then back beside the shaft, open", () => {
   const emu = startDescent();
+  emu.writeBytes(addr(emu, 'profile') + 227, [3]);  // a bounty job (mission.h) ...
+  emu.writeBytes(addr(emu, 'profile') + 230, [0]);  // ... on the Claimjaw ...
+  emu.writeBytes(addr(emu, 'profile') + 233, [1]);  // ... once
   walkTo(emu, emu.v('area_exit'));
   const exit = emu.v('area_exit');
   for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
@@ -437,8 +440,11 @@ test("the exit map's shaft is guarded: its miniboss's arena, then back beside th
   const up = emu.read8(addr(emu, 'profile') + 1) > level;
   assert.equal(emu.v('player_hp'), up ? emu.v('player_hp_max') : 3, up ? 'levelled up: full' : 'as it went in');
   assert.ok(emu.read8(addr(emu, 'area_chests_opened') + exit) & AREA_BOSS_BEATEN, 'its miniboss beaten');
+  assert.equal(emu.read8(addr(emu, 'profile') + 236), 1, 'the bounty job done');
   const px = emu.v('player_x', 'u16'), py = emu.v('player_y', 'u16');
   assert.ok(Math.abs(px - sx) < 48 && Math.abs(py - sy) < 48, `beside the shaft: ${px},${py}`);
+  const drops = Array.from(emu.readBytes(addr(emu, 'drop_kind'), 8));
+  assert.ok(drops.includes(2), 'its reward: a gun at your feet');
   // Into it: the next area.
   for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
   for (let f = 0; f < 200 && emu.v('layer_depth') === 1; f++) emu.hold('RIGHT', 1);
@@ -468,6 +474,25 @@ test('containers beside the set pieces open as you walk up: their look, their lo
     return;
   }
   assert.fail('no map with containers found');
+});
+
+test("each lap of the world's minibosses is tougher: area 4's Claimjaw has half again its health", () => {
+  const hp = {};
+  for (const depth of [1, 4]) {
+    const emu = startDescent();
+    walkTo(emu, emu.v('area_exit'));
+    emu.write8(addr(emu, 'layer_depth'), depth);
+    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+    const w = emu.v('room_w'), h = emu.v('room_h');
+    w16(emu, 'player_x', ((w >> 1) - 1) * 16 - 56);
+    w16(emu, 'player_y', ((h >> 1) - 1) * 16);
+    for (let f = 0; f < 120 && emu.v('play_mode') !== MODE_MINIBOSS; f++) emu.hold('RIGHT', 1);
+    emu.until((e) => e.v('in_transition'), 60, 'the scene change');
+    settle(emu, PLAY, 'the arena');
+    hp[depth] = emu.v('boss_hp_max');
+  }
+  assert.equal(hp[1], 18, "area 1's Claimjaw");
+  assert.equal(hp[4], 27, "area 4's: half again");
 });
 
 test("the vendor post before the miniboss: green for ammo, red for health, paid in credits", () => {

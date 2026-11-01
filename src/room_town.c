@@ -60,6 +60,8 @@ void room_load_town(void) BANKED {
     talk_add(20, 9, TALK_COMMS, TALK_DO_VEND_GUN);
     talk_add(21, 9, TALK_COMMS, TALK_DO_VEND_SHIELD);
     talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
+    // The company's contracts board, by the yard: jobs to take down (board.c).
+    talk_add(7, 10, TALK_POST, TALK_DO_BOARD);
     // No chests or containers (the last area's are still listed): the floor
     // only holds what the gun machine drops.
     level_chests = level_conts = 0;

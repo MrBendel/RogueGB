@@ -6,6 +6,7 @@
 #include <gb/cgb.h>
 #include <string.h>
 #include "menu.h"
+#include "board.h"
 #include "text.h"
 #include "gfx.h"
 #include "input.h"
@@ -390,6 +391,13 @@ void menu_draw(void) BANKED {
     if (menu_page == PAGE_SHOP) {
         clear_row(1);
         draw_shop();
+        return;
+    }
+    if (menu_page == PAGE_BOARD) {
+        clear_row(1);
+        tiles_a = 12;
+        tiles_b = 192;
+        board_draw();
         return;
     }
     menu_tabs();
@@ -817,7 +825,31 @@ void menu_next_page(void) BANKED {
     if (menu_page >= PAGES) menu_page = 0;
 }
 
+uint8_t menu_say(uint8_t x, uint8_t ty, const char *s, uint8_t pal, uint8_t at) BANKED {
+    return say(x, ty, s, pal, at);
+}
+
+uint8_t menu_alloc(uint8_t n) BANKED {
+    return alloc(n);
+}
+
+void menu_clear_row(uint8_t row) BANKED {
+    clear_row(row);
+}
+
+uint8_t menu_arrow_at(uint8_t ty) BANKED {
+    return arrow_at(ty);
+}
+
+void menu_move_arrow(uint8_t marker, uint8_t from, uint8_t to) BANKED {
+    move_arrow(marker, from, to);
+}
+
 void menu_update(void) BANKED {
+    if (menu_page == PAGE_BOARD) {
+        board_update();
+        return;
+    }
     if (menu_page == PAGE_SHOP) {
         shop_update();
         return;

@@ -40,6 +40,7 @@
 #include "menu.h"
 #include "loot.h"
 #include "elite.h"
+#include "mission.h"
 #include "pickups.h"
 #include "dialogue.h"
 #include "boss.h"
@@ -221,7 +222,7 @@ static void draw_page(void) {
     else menu_draw();
 }
 
-extern uint8_t boss_campaign, campaign_timer, carry_hp;  // (an area's miniboss: below)
+extern uint8_t boss_campaign, campaign_timer, carry_hp, campaign_depth, campaign_reward;  // (an area's miniboss: below)
 
 void play_enter(void) BANKED {
     play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
@@ -283,6 +284,7 @@ void play_enter(void) BANKED {
                    play_mode == MODE_GUNSHIP ? BOSS_GUNSHIP :
                    enemy_trial_kind == 2 ? BOSS_DUO :
                    enemy_trial_kind == 4 ? BOSS_GLOBFATHER : enemy_trial_kind == 3 ? BOSS_FLYNT : BOSS_WARDEN);
+        if (boss_campaign) boss_campaign_scale(campaign_depth);
     }
     sfx_watch_reset();
     waves_init();
@@ -303,7 +305,15 @@ void play_enter(void) BANKED {
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
     else if(play_mode==MODE_ENEMY && enemy_trial_kind==5)bulwark_draw();
     talk_init();  // after the room: it added its talkers
-    if (play_mode == MODE_YARD && save_slot != SAVE_NONE) shop_restock();  // new stock each time you're in town
+    if (campaign_reward && play_mode == MODE_DESCENT) {
+        campaign_reward = 0;
+        descent_reward();
+    }
+    if (play_mode == MODE_YARD && save_slot != SAVE_NONE) {
+        shop_restock();     // new stock each time you're in town ...
+        mission_restock();  // ... and new jobs on the board
+    }
+    mission_refresh(play_mode == MODE_DESCENT && save_slot != SAVE_NONE);
 }
 
 // Leaving this scene for another (a lift): the file gets the time and kills so far.
@@ -320,6 +330,8 @@ static void leave_scene(void) {
 // expedition kept in the file meanwhile; won, the way back is the descent again,
 // rebuilt from the file with the shaft open. 1 while that fight is on.
 uint8_t boss_campaign;
+uint8_t campaign_depth;   // the area's depth, going into its miniboss's arena (its health)
+uint8_t campaign_reward;  // a miniboss won: its gun, beside the shaft, back in the descent
 uint8_t campaign_timer;  // frames since it was won
 uint8_t carry_hp;        // health into the next scene (to the arena and back), or 0: full
 
@@ -346,8 +358,9 @@ static void take_action(void) {
     } else if (a == TALK_DO_UP) {
         profile.exp_active = 0;  // back up with everything: the expedition is over (no fee)
         go(MODE_YARD);
-    } else if (a == TALK_DO_SHOP) {
-        menu_page = PAGE_SHOP;  // the pause menu's shop page: the world waits while you browse
+    } else if (a == TALK_DO_SHOP || a == TALK_DO_BOARD) {
+        // The pause menu's shop or contracts page: the world waits while you browse.
+        menu_page = a == TALK_DO_SHOP ? PAGE_SHOP : PAGE_BOARD;
         set_paused(1);
     } else if (a >= TALK_DO_VEND_AMMO) {
         descent_vend(a);  // (the descent's and the town's)
@@ -436,7 +449,7 @@ void play_update(void) BANKED {
         dlg_update();
         return;
     }
-    if (paused && menu_page == PAGE_SHOP) {
+    if (paused && menu_page >= PAGE_SHOP) {  // (the shop, the board)
         if (joy_pressed & (J_START | J_B)) {
             set_paused(0);
             menu_page = PAGE_CHARACTER;
@@ -563,6 +576,7 @@ void play_update(void) BANKED {
             carry_hp = player_hp;
             boss_campaign = 1;
             campaign_timer = 0;
+            campaign_depth = layer_depth;
             enemy_trial_kind = descent_miniboss();
             go(MODE_MINIBOSS);
             return;
@@ -580,6 +594,8 @@ void play_update(void) BANKED {
             boss_campaign = 0;
             profile.exp_chests[profile.exp_map] |= AREA_BOSS_BEATEN;
             xp_gain(XP_MINIBOSS * profile.exp_depth);
+            mission_beat(enemy_trial_kind);
+            campaign_reward = 1;
             carry_hp = player_hp;  // (after the XP: a level up's heal counts)
             save_write();
             go(MODE_DESCENT);

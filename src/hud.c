@@ -291,6 +291,10 @@ void hud_say(const char *s) BANKED {
 }
 
 void hud_say_next(const char *s) BANKED {
+    if (!hud_name_t) {  // nothing showing: now
+        hud_say(s);
+        return;
+    }
     uint8_t i = 0;
     for (; i < 7 && s[i]; i++) hud_next[i] = s[i];
     for (; i < 8; i++) hud_next[i] = i < 7 ? ' ' : 0;

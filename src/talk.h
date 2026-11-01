@@ -35,6 +35,7 @@
 #define TALK_DO_VEND_HEALTH 0x84  // ... health full
 #define TALK_DO_VEND_GUN 0x85     // the town's: a random gun at your level, on the floor in front
 #define TALK_DO_VEND_SHIELD 0x86  // ... the shield, then a bigger one (SHIELD_TIERS)
+#define TALK_DO_BOARD 0x87  // the contracts board: missions (board.c)
 
 // --- watchable state ---
 extern uint8_t talk_count;

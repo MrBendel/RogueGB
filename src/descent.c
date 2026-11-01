@@ -24,6 +24,7 @@
 #include "run.h"
 #include "weapon.h"
 #include "loot.h"
+#include "mission.h"
 #include "health.h"
 #include "sfx.h"
 #include <string.h>
@@ -87,6 +88,15 @@ static void autosave(void);
 
 void descent_save(void) BANKED {
     autosave();
+}
+
+// Back from beating the area's miniboss: a gun at your feet, luckier than an
+// elite's (elite.c) or a guarded locker's (pickups.c).
+#define MINIBOSS_LUCK 24
+void descent_reward(void) BANKED {
+    Gun g;
+    loot_roll(&g, profile.level, (layer_depth - 1) * 4 + MINIBOSS_LUCK);
+    pickups_drop_gun(player_x, player_y + 4, &g);
 }
 
 // The area's miniboss: the world's, in turn with depth (play.c: MODE_MINIBOSS's kinds).
@@ -258,6 +268,7 @@ void descent_update(void) BANKED {
                 char t[8] = "CLEAR! ";
                 hud_say(t);
                 xp_gain(XP_CAMP + 5 * layer_depth);
+                mission_found();  // (a retrieve job's data core)
             }
         }
     }

@@ -67,7 +67,11 @@ the Claimjaw, Scrapback and Cragback in turn with depth; descent.c
 `descent_miniboss`). Won, a moment for the "CLEAR", then XP (`XP_MINIBOSS` x depth),
 and back to the descent, rebuilt from the file, beside the shaft, open: the beaten
 flag is bit 7 of the exit map's chest bits (`AREA_BOSS_BEATEN`), so it's saved.
-Dying there ends the run like dying anywhere in the descent. Your health carries
+**Built (2026-10-31): the miniboss pass.** Won, it leaves a gun at your feet back
+beside the shaft (descent.c `descent_reward`: luck (depth - 1) x 4 + 24, more than an
+elite's or a guarded locker's). And each lap of the world's three adds half the
+fight's health (boss.c `boss_campaign_scale`): areas 1-3 as tuned, area 4's Claimjaw
+27, area 7's 36. Dying there ends the run like dying anywhere in the descent. Your health carries
 into the arena and back (play.c `carry_hp`; only a level up from the win heals).
 The arena is the trials' room's shape (10x8, open ground: the fights are tuned to
 it) in the world's art (level.c `level_build_arena`), except the Scrapback's, which
@@ -130,6 +134,27 @@ where, what and how far:
   the extraction ship at the next lift or the current area's exit, so you can go home
   with everything (or keep going, for more risk and loot, until you lift out).
 - The areas, their levels and the boss come from the mission's region and depth.
+
+**Built (2026-10-31): the contracts board** (src/mission.c, src/board.c). The user's
+kinds: kill a number of one enemy kind, collect and bring back items, beat a
+boss, and pay off debt (earning gold and paying the debt are one goal). A company
+terminal by the town's yard (block 7, 10) is a pause-menu page like Marro's shop:
+4 offers (from `profile.mis_seed`, new each time you come into town, so offers
+cost no save space), and your jobs, 3 at most. A takes an offer, turns a finished
+job in (credits and XP), or pays a debt; SELECT drops a job. Saved in the profile
+(`mis_*`, save version 9).
+
+| Kind | Asks | Counts | Pays |
+|---|---|---|---|
+| Cull | 4-10 of one kind from the areas you've reached | each kill (actor.c, via `mission_cull`) | 8 + level CR and 6 XP each |
+| Retrieve | 2-4 data cores | one per camp cleared; **lost if you die** | 30 + 3 x level CR and 20 XP each |
+| Bounty | a miniboss you can reach | its win (play.c) | 120 + 60 a boss step + 10 x level CR, 60+ XP |
+| Debt | (3 + level / 2 + 0-3) x 50 CR | paid at the board | 15 XP a 50 CR |
+
+Progress shows on the HUD ("JOB 3/8"). Kills and bounties are kept if you die.
+Debt is only a mission for now: no standing debt (decisions.md still has no debt
+system). Next (Borderlands): bounties on named elites, a choice of two guns at
+turn-in, bonus objectives, and challenges.
 
 ## The shape (first proposal, before the decisions)
 
