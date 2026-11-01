@@ -9,6 +9,8 @@
 #include "gfx.h"
 #include "spr_player.h"
 #include "player.h"
+#include "loot.h"
+#include "run.h"
 #include "spr_slime.h"
 #include "spr_peashooter.h"
 #include "spr_pea.h"
@@ -71,12 +73,43 @@ void palettes_play(void) BANKED {
     set_obj(SPR_PAL_WEAPON, weapon);
     set_obj(SPR_PAL_UI, ui_spr);
     // SPR_PAL_FLASH stays the inverted greys (gfx_init).
+    palettes_weapon();  // (the held gun's, where it has its own)
+}
+
+// The held gun: its type's body and outline, its glint the rarity's colour
+// (loot.h RARITY_*), Borderlands style. Not where a boss or a test enemy draws
+// with the weapon palette too (the Warden, Flynt, the gunship, the mercenary's
+// rifle): there it stays gunmetal.
+static const uint16_t gun_body[WEAPON_COUNT][2] = {
+    {C(88, 92, 112), C(20, 20, 28)},    // pistol: charcoal
+    {C(150, 92, 48), C(40, 24, 16)},    // shotgun: wood
+    {C(96, 112, 64), C(24, 28, 16)},    // rifle: olive
+    {C(64, 80, 128), C(16, 20, 40)},    // sniper: navy
+    {C(120, 136, 168), C(24, 24, 48)},  // sword: steel
+};
+static const uint16_t rarity_glint[RARITIES] = {
+    C(232, 236, 240), C(120, 232, 96), C(96, 176, 255), C(208, 120, 255), C(255, 168, 48),
+};
+extern uint8_t in_transition;  // main.c
+extern uint16_t pal_obj[PAL_COUNT * 4];
+extern volatile uint8_t pal_dirty;
+
+void palettes_weapon(void) BANKED {
+    if (play_mode == MODE_BOSS || play_mode == MODE_ENEMY || play_mode == MODE_GUNSHIP) return;
+    uint8_t w = weapon_cur < WEAPON_COUNT ? weapon_cur : 0;
+    uint8_t r = gun_mods && gun_held.type == w && gun_held.rarity < RARITIES ? gun_held.rarity : RARITY_COMMON;
+    uint16_t *p = &pal_base_obj[SPR_PAL_WEAPON << 2];
+    p[1] = rarity_glint[r];
+    p[2] = gun_body[w][0];
+    p[3] = gun_body[w][1];
+    if (in_transition) return;  // (the fade puts it on screen)
+    for (uint8_t i = 1; i < 4; i++) pal_obj[(SPR_PAL_WEAPON << 2) + i] = p[i];
+    pal_dirty = 1;
 }
 
 // Palette 6 on screen now, too (play runs unfaded, so the displayed palette is
 // the base): the pause panel's parchment, or the HUD's blue back.
 extern uint16_t pal_bg[PAL_COUNT * 4];
-extern volatile uint8_t pal_dirty;
 static void window_pal(const uint16_t *c) {
     set_bg(BG_PAL_UI, c);
     memcpy(&pal_bg[BG_PAL_UI << 2], c, 8);

@@ -161,6 +161,7 @@ void weapon_select(uint8_t w) BANKED {
             gun_place[row][d] = k <= 1 ? sign : k == 2 ? v : v + sign;
         }
     }
+    palettes_weapon();
 }
 
 void weapon_icon(uint8_t type, uint8_t *f) BANKED {

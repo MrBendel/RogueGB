@@ -31,121 +31,45 @@ const OUT_ART = path.join(ROOT, 'artwork', 'weapons');
 // and sniper are new; the sword is a slimmer take on the Volt Sabre
 // (melee_sword), so it keeps its shape at every swing angle.
 const WEAPONS = {
+  // The guns are drawn as solid parts, [x0, y0, x1, y1, shade] in a right-facing
+  // 16x16 drawing (half-open; the outline goes around them, so leave a pixel for
+  // it): shade 2 is the body (its top edge turns into the bright glint), 1 always
+  // bright (a lens), 4 a dark detail. Each direction turns the parts, then outlines
+  // and shades them (parted()), so every angle gets a closed outline and a glint
+  // on the gun's top, which a turned drawing doesn't keep.
+  // Blaster pistol: a slide, the grip under its back half, the trigger.
   pistol: {
-    right: parseAsciiGrid([
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '.......3333333..',
-      '......32111112..',
-      '......32233333..',
-      '......3233......',
-      '......333.......',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-    ]),
-    grip: { x: 7.5, y: 9.5 },
-    muzzle: { x: 13.5, y: 7.5 },
+    parts: [[3, 5, 12, 7, 2], [4, 7, 7, 10, 2], [8, 7, 9, 8, 4]],
+    // (the muzzle 6 px ahead of the grip and 2 up, as the first pistol's: the same shots)
+    grip: { x: 5.5, y: 8.5 },
+    muzzle: { x: 11.5, y: 6.5 },
   },
-  // Double-barrel: long and low, a stock behind the grip.
+  // Pump shotgun: a stock, a fat barrel, the grooved pump under it.
   shotgun: {
-    right: parseAsciiGrid([
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '.....3333333333.',
-      '..33311111111123',
-      '.322222223333333',
-      '.32233223.......',
-      '..33..33........',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-    ]),
-    grip: { x: 6.5, y: 8.5 },
+    parts: [[1, 6, 4, 9, 2], [4, 5, 15, 7, 2], [6, 7, 12, 9, 2], [8, 7, 9, 9, 4], [10, 7, 11, 9, 4]],
+    grip: { x: 4.5, y: 7.5 },
+    muzzle: { x: 15.5, y: 5.5 },
+  },
+  // Assault rifle: stock, receiver with a sight, thin barrel, magazine.
+  rifle: {
+    parts: [[0, 6, 3, 9, 2], [3, 5, 11, 8, 2], [11, 6, 15, 7, 2], [7, 8, 9, 11, 2], [6, 4, 9, 5, 2]],
+    grip: { x: 5.5, y: 8.5 },
     muzzle: { x: 15.5, y: 6.5 },
   },
-  // Assault rifle: stock, receiver with a sight rail, magazine, long barrel.
-  rifle: {
-    right: parseAsciiGrid([
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '.......333......',
-      '3...33322233333.',
-      '3333311112111113',
-      '3223333233333...',
-      '.33..323........',
-      '......33........',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-    ]),
-    grip: { x: 6.5, y: 9.5 },
-    muzzle: { x: 15.5, y: 7.5 },
-  },
-  // Long rifle with a scope on top.
+  // Sniper: a stock, a long thin barrel, the scope (its lens bright) over it.
   sniper: {
-    right: parseAsciiGrid([
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '.....3333.......',
-      '....311113......',
-      '.33333333333333.',
-      '3222221111111113',
-      '.3333223333333..',
-      '....3223........',
-      '....333.........',
-      '................',
-      '................',
-      '................',
-      '................',
-    ]),
+    parts: [[0, 8, 3, 11, 2], [3, 8, 9, 10, 2], [9, 8, 15, 9, 2], [5, 5, 11, 7, 2], [10, 5, 11, 7, 1], [5, 10, 7, 12, 2]],
     grip: { x: 5.5, y: 10.5 },
     muzzle: { x: 15.5, y: 8.5 },
   },
-  // Sabre: pommel and grip, a crossguard, and a blade with a bright core.
+  // Energy sabre: a dark hilt, a crossguard, a two-row blade (its top edge the glint).
   sword: {
-    right: parseAsciiGrid([
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '....3...........',
-      '...3233333333...',
-      '3323121111111333',
-      '...3233333333...',
-      '....3...........',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-      '................',
-    ]),
-    grip: { x: 1.5, y: 7.5 },
+    parts: [[1, 7, 4, 9, 4], [4, 5, 5, 11, 2], [5, 7, 15, 9, 2]],
+    grip: { x: 2.5, y: 8.5 },
     muzzle: { x: 15.5, y: 7.5 },
-    // Also drawn with motion-smear wings, shown while a swing can hit (see smeared()).
-    smear: { centre: 7 },
+    // Also drawn with motion-smear wings, shown while a swing can hit (see smeared()):
+    // its blade's middle row.
+    smear: { centre: 8 },
   },
 };
 
@@ -211,6 +135,39 @@ function rotated(weapon, c, deg) {
   return out;
 }
 
+/** The parts' outlined middle, on a pixel corner (what a gun turns around). */
+function partsCentre(parts) {
+  const x0 = Math.min(...parts.map((p) => p[0])) - 1, x1 = Math.max(...parts.map((p) => p[2])) + 1;
+  const y0 = Math.min(...parts.map((p) => p[1])) - 1, y1 = Math.max(...parts.map((p) => p[3])) + 1;
+  return { x: Math.round((x0 + x1) / 2), y: Math.round((y0 + y1) / 2) };
+}
+
+/** The parts turned clockwise by `deg` around c, placed at (8, 8): filled, then
+ * outlined (4 neighbours), the body's top edge (the drawing's up, turned) bright. */
+function parted(parts, c, deg) {
+  const t = (deg * Math.PI) / 180, cos = Math.cos(t), sin = Math.sin(t);
+  const fill = new Uint8Array(256);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const ox = x + 0.5 - 8, oy = y + 0.5 - 8;
+    const lx = c.x + (ox * cos + oy * sin), ly = c.y + (-ox * sin + oy * cos);
+    for (const [x0, y0, x1, y1, shade] of parts) if (lx >= x0 && lx < x1 && ly >= y0 && ly < y1) fill[y * 16 + x] = shade;
+  }
+  const ux = Math.round(sin), uy = Math.round(-cos);  // up, turned
+  const at = (x, y) => (x >= 0 && x < 16 && y >= 0 && y < 16 ? fill[y * 16 + x] : 0);
+  const out = new Uint8Array(256);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const v = fill[y * 16 + x];
+    if (v === 4) out[y * 16 + x] = 3;
+    else if (v === 1) out[y * 16 + x] = 1;
+    else if (v) out[y * 16 + x] = at(x + ux, y + uy) ? 2 : 1;
+    else if (at(x + 1, y) || at(x - 1, y) || at(x, y + 1) || at(x, y - 1)) out[y * 16 + x] = 3;
+  }
+  return out;
+}
+
+/** The parts as the right-facing drawing (in its own pixels: what a smear is added to). */
+const partsDrawing = (parts) => parted(parts, { x: 8, y: 8 }, 0);
+
 const mirrorX = (g) => {
   const out = new Uint8Array(256);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) out[y * 16 + x] = g[y * 16 + 15 - x];
@@ -246,7 +203,7 @@ const mirrorOf = (d) => (16 + 8 - d) % 16;
 /** The 16 direction frames: rotate the right half, mirror it for the left half. */
 function directions(weapon, c) {
   const frames = new Array(16);
-  for (const d of RIGHT_HALF) frames[d] = rotated(weapon, c, d * 22.5);
+  for (const d of RIGHT_HALF) frames[d] = weapon.parts ? parted(weapon.parts, c, d * 22.5) : rotated(weapon, c, d * 22.5);
   for (let d = 0; d < 16; d++) if (isLeft(d)) frames[d] = mirrorX(frames[mirrorOf(d)]);
   return frames;
 }
@@ -330,14 +287,15 @@ static const int8_t weapon_${name}_place[7][16] = {
 
 fs.mkdirSync(OUT_ART, { recursive: true });
 for (const [name, weapon] of Object.entries(WEAPONS)) {
-  const c = centre(weapon.right);
+  const c = weapon.parts ? partsCentre(weapon.parts) : centre(weapon.right);
   const frames = directions(weapon, c);
   frames.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name} (${d + 1}).png`), png(g)));
   fs.writeFileSync(path.join(ROOT, 'src', `weapon_${name}.h`), header(name, placement(weapon, c)));
   console.log(`[weapon-art] ${name}: 16 directions -> artwork/weapons/, src/weapon_${name}.h`);
   if (weapon.smear) {
     // Turned around the same centre as the plain drawing, so the placement table fits both.
-    const sm = directions({ ...weapon, right: smeared(weapon.right, weapon.smear.centre) }, c);
+    const drawing = weapon.parts ? partsDrawing(weapon.parts) : weapon.right;
+    const sm = directions({ ...weapon, parts: null, right: smeared(drawing, weapon.smear.centre) }, c);
     sm.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name}_smear (${d + 1}).png`), png(g)));
     console.log(`[weapon-art] ${name}_smear: 16 directions -> artwork/weapons/`);
     if (process.argv.includes('--show')) {
