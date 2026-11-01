@@ -419,10 +419,11 @@ static void fire(uint8_t damage) {
 extern uint8_t bullet_count;  // enemy bullets alive (actor.c)
 
 // --- Melee ---
-// A swing lasts SWING_FRAMES: a short windup, SWING_ACTIVE frames that hit, then
-// recovery. The sword sprite sweeps through its directions around the aim (the
-// offsets below, in 16ths of a turn); step 2 sweeps the other way; step 3 is a
-// thrust straight at the aim, with a longer lunge and double damage. While the
+// The sword doesn't aim: it swings the way you face (4 ways: diagonals swing
+// sideways). A swing lasts SWING_FRAMES: a short windup, SWING_ACTIVE frames that
+// hit, then recovery, drawn as 3 poses: windup, the smeared swing, follow-through
+// (its frames are facing x 4 + pose: make-weapon-art.mjs); step 2 sweeps back the
+// other way; step 3 is a thrust, with a longer lunge and double damage. While the
 // swing is active, a box in front of the player (reach wpn.range) hits each enemy
 // once (knocking it back wpn.kick px) and turns enemy bullets into the player's.
 #define SWING_FRAMES 14
@@ -430,7 +431,13 @@ extern uint8_t bullet_count;  // enemy bullets alive (actor.c)
 #define SWING_ACTIVE_TO 6    // inclusive
 #define SWING_HALF_W 14      // half the hit box: width ...
 #define SWING_HALF_H 12      // ... and height (enemy hitbox middles inside it are hit)
-static const int8_t sweep[SWING_FRAMES] = {-4, -4, -3, -2, -1, 1, 2, 3, 3, 3, 3, 3, 3, 3};
+#define POSE_REST 0
+#define POSE_WINDUP 1
+#define POSE_SWING 2
+#define POSE_FOLLOW 3
+uint8_t swing_face;  // the swing's facing: 0 right, 1 down, 2 left, 3 up
+// player_facing (8 ways, 0 up, clockwise) to the sword's 4 (diagonals: sideways).
+static const uint8_t sword_faces[8] = {3, 0, 0, 0, 1, 2, 2, 2};
 int16_t swing_cx, swing_cy;  // the hit box's centre offset from the player's middle
 int8_t swing_kx, swing_ky;   // the knockback, px
 
@@ -443,7 +450,8 @@ static int16_t along(uint8_t d, uint8_t px, uint8_t axis) {
 }
 
 static void swing_start(uint8_t step) {
-    uint8_t d = aim_dir32;
+    swing_face = sword_faces[player_facing & 7];
+    uint8_t d = swing_face << 3;  // (aim_dir32's steps: 8 a quarter turn)
     swing_t = 1;
     swing_step = step;
     swing_dir = d;
@@ -531,13 +539,15 @@ static uint8_t swing(uint8_t pressed, uint8_t able) {
     } else if (combo_left && !--combo_left) {
         swing_step = 0;
     }
+    // The pose: the windup, the swing while it can hit, then the follow-through
+    // (step 2 back the other way; the thrust from and to the rest pose).
+    uint8_t pose = POSE_REST, face = sword_faces[player_facing & 7];
     if (swing_t) {
-        // The sword sweeps through its directions around the aim (step 2 the
-        // other way); the thrust points straight at it.
-        int8_t o = swing_step == 3 ? 0 : sweep[swing_t - 1];
-        if (swing_step == 2) o = -o;
-        gun_dir16 = (((swing_dir + 1) >> 1) + o) & 15;
+        face = swing_face;
+        if (swing_t >= SWING_ACTIVE_FROM && swing_t <= SWING_ACTIVE_TO) pose = POSE_SWING;
+        else if (swing_step != 3) pose = (swing_t < SWING_ACTIVE_FROM) == (swing_step == 1) ? POSE_WINDUP : POSE_FOLLOW;
     }
+    gun_dir16 = (face << 2) + pose;
     return swing_t != 0;
 }
 
@@ -905,16 +915,16 @@ void aim_update(void) BANKED {
     if (aim_hold) aim_hold--;
     uint8_t firing = trigger();
     move_slow = firing && wpn.slow;
-    aim_facing = (firing || aim_hold) ? aim_art_dir[((aim_dir32 + 4) >> 3) & 3] : 0xFF;
-    if (reload_t) draw_reload_bar();
-    else aim_draw_reticle();
-    // The sword shows its smear while a swing can hit (the thrust too). Other
-    // weapons keep what weapon_select set.
     if (wpn.mode == FIRE_MELEE) {
-        uint8_t smear = swing_t >= SWING_ACTIVE_FROM && swing_t <= SWING_ACTIVE_TO;
-        draw_frames = smear ? smear_frames : gun_frames;
-        draw_vram = smear ? smear_vram : gun_vram;
-        draw_blank = smear ? smear_blank : gun_blank;
+        // The sword: the body keeps facing the swing (and walks as it likes
+        // between them); no reticle, it doesn't aim.
+        aim_facing = swing_t ? aim_art_dir[swing_face] : 0xFF;
+        hide_sprite(OAM_RETICLE);
+        hide_sprite(OAM_RETICLE + 1);
+    } else {
+        aim_facing = (firing || aim_hold) ? aim_art_dir[((aim_dir32 + 4) >> 3) & 3] : 0xFF;
+        if (reload_t) draw_reload_bar();
+        else aim_draw_reticle();
     }
     draw_gun();
 }

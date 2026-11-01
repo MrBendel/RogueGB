@@ -93,10 +93,8 @@ extern uint8_t gun_tiles_bank;
 // The held weapon's name (7 characters, space-padded, and a 0) into dst[8].
 void weapon_get_name(char *dst) BANKED;
 extern int8_t gun_place[7][16];
-// The sword's smeared frames (the same placement), shown while a swing can hit.
-extern uint8_t smear_vram, smear_blank;
-extern uint8_t smear_frames[16 * 4];
-// What draw_gun (aim.c) draws this frame: the held weapon's frames, or the smear's.
+// What draw_gun (aim.c) draws: the held weapon's frames (the sword's are its
+// facings and poses, not directions: make-weapon-art.mjs).
 extern uint8_t draw_vram, draw_blank;
 extern uint8_t *draw_frames;
 

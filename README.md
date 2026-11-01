@@ -145,9 +145,11 @@ switched in) or bank 0 is over 90% full; `tests/banks.test.mjs` checks what live
 Artwork is converted at build time. Small UI sprites the packs don't have (the aim
 reticle, the player's shot, the muzzle flash) are drawn as ASCII art in
 `tools/make-ui-art.mjs`, which writes them to `artwork/ui/`. Held weapons are described
-once, pointing right, in `tools/make-weapon-art.mjs` as a few solid parts: it turns the
-parts into 16 directions, then outlines them and puts the glint on each gun's top edge
-(`artwork/weapons/`), and writes their placement table (`src/weapon_<name>.h`). Their
+once, pointing right, in `tools/make-weapon-art.mjs` as a few solid parts (and a gun's
+top, seen from above, for aiming steeply up or down the screen): it turns the parts into
+16 directions, then outlines them and puts the glint on the lit edge (`artwork/weapons/`),
+and writes their placement table (`src/weapon_<name>.h`). The sword doesn't aim: its 16
+frames are 4 facings x 4 poses (rest, windup, the smeared swing, follow-through). Their
 colours are set in play (palettes.c `palettes_weapon`): the gun type's body and outline,
 its glint the gun's rarity colour. `tools/make-aim-table.mjs` writes the direction lookup auto-aim
 uses. Rerun these after editing them; their output is committed. `tools/assets.mjs` turns the PNGs listed in its

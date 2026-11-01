@@ -4,8 +4,9 @@
 //
 // Writes, per weapon:
 //   artwork/weapons/<name> (1..16).png   one 16x16 frame per direction (dir16 0 =
-//                                        right, clockwise; y grows downward)
-//   src/weapon_<name>.h                  per-direction placement (see header())
+//                                        right, clockwise; y grows downward); the
+//                                        sword's are its facings x poses (swingFrames())
+//   src/weapon_<name>.h                  per-frame placement (see header())
 //
 // Rotation is RotSprite-style, so small pixel art survives 22.5-degree steps:
 // upscale 8x with Scale2x (three times), rotate with nearest-neighbour sampling,
@@ -41,24 +42,32 @@ const WEAPONS = {
   pistol: {
     parts: [[3, 5, 12, 7, 2], [4, 7, 7, 10, 2], [8, 7, 9, 8, 4]],
     // (the muzzle 6 px ahead of the grip and 2 up, as the first pistol's: the same shots)
+    // Seen from above (aiming up or down the screen): the slide, its rear sight, the bore.
+    top: [[3, 5, 12, 8, 2], [4, 6, 5, 7, 4], [11, 6, 12, 7, 4]],
     grip: { x: 5.5, y: 8.5 },
     muzzle: { x: 11.5, y: 6.5 },
   },
   // Pump shotgun: a stock, a fat barrel, the grooved pump under it.
   shotgun: {
     parts: [[1, 6, 4, 9, 2], [4, 5, 15, 7, 2], [6, 7, 12, 9, 2], [8, 7, 9, 9, 4], [10, 7, 11, 9, 4]],
+    // Seen from above (aiming up or down the screen): stock, barrel, the wider pump, the bore.
+    top: [[1, 5, 4, 8, 2], [4, 5, 15, 7, 2], [6, 4, 12, 8, 2], [8, 4, 9, 8, 4], [10, 4, 11, 8, 4], [14, 5, 15, 7, 4]],
     grip: { x: 4.5, y: 7.5 },
     muzzle: { x: 15.5, y: 5.5 },
   },
   // Assault rifle: stock, receiver with a sight, thin barrel, magazine.
   rifle: {
     parts: [[0, 6, 3, 9, 2], [3, 5, 11, 8, 2], [11, 6, 15, 7, 2], [7, 8, 9, 11, 2], [6, 4, 9, 5, 2]],
+    // Seen from above (aiming up or down the screen): stock, receiver with its sight rail, barrel, bore.
+    top: [[0, 5, 3, 8, 2], [3, 5, 11, 8, 2], [11, 6, 15, 7, 2], [5, 6, 9, 7, 4], [14, 6, 15, 7, 4]],
     grip: { x: 5.5, y: 8.5 },
     muzzle: { x: 15.5, y: 6.5 },
   },
   // Sniper: a stock, a long thin barrel, the scope (its lens bright) over it.
   sniper: {
     parts: [[0, 8, 3, 11, 2], [3, 8, 9, 10, 2], [9, 8, 15, 9, 2], [5, 5, 11, 7, 2], [10, 5, 11, 7, 1], [5, 10, 7, 12, 2]],
+    // Seen from above (aiming up or down the screen): stock, body, the wide scope (its lens), barrel, bore.
+    top: [[0, 7, 3, 10, 2], [3, 7, 9, 10, 2], [9, 8, 15, 9, 2], [5, 6, 11, 11, 2], [10, 6, 11, 11, 1], [5, 6, 6, 11, 4], [14, 8, 15, 9, 4]],
     grip: { x: 5.5, y: 10.5 },
     muzzle: { x: 15.5, y: 8.5 },
   },
@@ -67,9 +76,11 @@ const WEAPONS = {
     parts: [[1, 7, 4, 9, 4], [4, 5, 5, 11, 2], [5, 7, 15, 9, 2]],
     grip: { x: 2.5, y: 8.5 },
     muzzle: { x: 15.5, y: 7.5 },
-    // Also drawn with motion-smear wings, shown while a swing can hit (see smeared()):
-    // its blade's middle row.
+    // It doesn't aim: it swings the way you face (aim.c), so its 16 frames are
+    // 4 facings (right, down, left, up) x 4 poses (swingFrames()). The swing's
+    // frame has motion-smear wings (smeared()) around the blade's middle row.
     smear: { centre: 8 },
+    swing: true,
   },
 };
 
@@ -143,7 +154,7 @@ function partsCentre(parts) {
 }
 
 /** The parts turned clockwise by `deg` around c, placed at (8, 8): filled, then
- * outlined (4 neighbours), the body's top edge (the drawing's up, turned) bright. */
+ * outlined (4 neighbours), the body's lit edge bright. */
 function parted(parts, c, deg) {
   const t = (deg * Math.PI) / 180, cos = Math.cos(t), sin = Math.sin(t);
   const fill = new Uint8Array(256);
@@ -152,7 +163,11 @@ function parted(parts, c, deg) {
     const lx = c.x + (ox * cos + oy * sin), ly = c.y + (-ox * sin + oy * cos);
     for (const [x0, y0, x1, y1, shade] of parts) if (lx >= x0 && lx < x1 && ly >= y0 && ly < y1) fill[y * 16 + x] = shade;
   }
-  const ux = Math.round(sin), uy = Math.round(-cos);  // up, turned
+  // The glint's side: the drawing's up or down, whichever turns toward the light
+  // (from the upper left).
+  let ux = sin, uy = -cos;
+  if (ux + uy > 0.01) ux = -ux, uy = -uy;
+  ux = Math.round(ux), uy = Math.round(uy);
   const at = (x, y) => (x >= 0 && x < 16 && y >= 0 && y < 16 ? fill[y * 16 + x] : 0);
   const out = new Uint8Array(256);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -197,13 +212,18 @@ function smeared(grid, centre) {
 }
 
 const RIGHT_HALF = [0, 1, 2, 3, 4, 12, 13, 14, 15];
+// Aiming steeply up or down the screen, a gun shows its top (weapon.top), not its side.
+const TOP_DIRS = new Set([3, 4, 12, 13]);
 const isLeft = (d) => d >= 5 && d <= 11;
 const mirrorOf = (d) => (16 + 8 - d) % 16;
 
 /** The 16 direction frames: rotate the right half, mirror it for the left half. */
 function directions(weapon, c) {
   const frames = new Array(16);
-  for (const d of RIGHT_HALF) frames[d] = weapon.parts ? parted(weapon.parts, c, d * 22.5) : rotated(weapon, c, d * 22.5);
+  for (const d of RIGHT_HALF) {
+    const parts = weapon.top && TOP_DIRS.has(d) ? weapon.top : weapon.parts;
+    frames[d] = parts ? parted(parts, c, d * 22.5) : rotated(weapon, c, d * 22.5);
+  }
   for (let d = 0; d < 16; d++) if (isLeft(d)) frames[d] = mirrorX(frames[mirrorOf(d)]);
   return frames;
 }
@@ -261,6 +281,43 @@ function placement(weapon, c) {
   return rows;
 }
 
+// The sword's poses, per facing: at rest (by your side), the windup, the swing
+// (smeared: the frame that can hit), the follow-through. Blade angles in degrees
+// clockwise from right; left mirrors right. Facing up, it's behind the body.
+// Frame 0 (right, at rest) is also its icon on the floor.
+const FACINGS = [
+  { hand: 0, poses: [67.5, -90, 0, 67.5] },     // right
+  { hand: 90, poses: [112.5, 0, 90, 180] },     // down: across the front, right to left
+  null,                                          // left: the right's, mirrored
+  { hand: 270, poses: [112.5, 180, 270, 360], behind: 1 },  // up: over the head, left to right
+];
+
+/** The sword's 16 frames (facing x 4 + pose) and their placement rows. */
+function swingFrames(weapon, c) {
+  const drawing = partsDrawing(weapon.parts);
+  const smear = smeared(drawing, weapon.smear.centre);
+  const frames = new Array(16), rows = new Array(16);
+  for (let f = 0; f < 4; f++) {
+    const face = FACINGS[f === 2 ? 0 : f];
+    const t = (face.hand * Math.PI) / 180;
+    const hx = HAND.x + HAND.rx * Math.cos(t), hy = HAND.y + HAND.ry * Math.sin(t);
+    face.poses.forEach((deg, p) => {
+      let g = p === 2 ? rotated({ right: smear }, c, deg) : parted(weapon.parts, c, deg);
+      const r = (deg * Math.PI) / 180, turn2 = (v) => ({ x: v.x * Math.cos(r) - v.y * Math.sin(r), y: v.x * Math.sin(r) + v.y * Math.cos(r) });
+      const gr = turn2({ x: weapon.grip.x - c.x, y: weapon.grip.y - c.y }), tip = turn2({ x: weapon.muzzle.x - c.x, y: weapon.muzzle.y - c.y });
+      let fx = hx - gr.x, fy = hy - gr.y;
+      let row = { gx: Math.round(fx - 8), gy: Math.round(fy - 8), mx: Math.round(fx + tip.x), my: Math.round(fy + tip.y), kx: 0, ky: 0, behind: face.behind || 0 };
+      if (f === 2) {  // mirrored about the player's middle
+        g = mirrorX(g);
+        row = { ...row, gx: -row.gx, mx: 16 - row.mx };
+      }
+      frames[f * 4 + p] = g;
+      rows[f * 4 + p] = row;
+    });
+  }
+  return { frames, rows };
+}
+
 function header(name, rows) {
   const N = name.toUpperCase();
   const list = (key) => rows.map((r) => String(r[key]).padStart(3)).join(',');
@@ -288,23 +345,17 @@ static const int8_t weapon_${name}_place[7][16] = {
 fs.mkdirSync(OUT_ART, { recursive: true });
 for (const [name, weapon] of Object.entries(WEAPONS)) {
   const c = weapon.parts ? partsCentre(weapon.parts) : centre(weapon.right);
+  if (weapon.swing) {
+    const { frames, rows } = swingFrames(weapon, c);
+    frames.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name} (${d + 1}).png`), png(g)));
+    fs.writeFileSync(path.join(ROOT, 'src', `weapon_${name}.h`), header(name, rows));
+    console.log(`[weapon-art] ${name}: 4 facings x 4 poses -> artwork/weapons/, src/weapon_${name}.h`);
+    continue;
+  }
   const frames = directions(weapon, c);
   frames.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name} (${d + 1}).png`), png(g)));
   fs.writeFileSync(path.join(ROOT, 'src', `weapon_${name}.h`), header(name, placement(weapon, c)));
   console.log(`[weapon-art] ${name}: 16 directions -> artwork/weapons/, src/weapon_${name}.h`);
-  if (weapon.smear) {
-    // Turned around the same centre as the plain drawing, so the placement table fits both.
-    const drawing = weapon.parts ? partsDrawing(weapon.parts) : weapon.right;
-    const sm = directions({ ...weapon, parts: null, right: smeared(drawing, weapon.smear.centre) }, c);
-    sm.forEach((g, d) => fs.writeFileSync(path.join(OUT_ART, `${name}_smear (${d + 1}).png`), png(g)));
-    console.log(`[weapon-art] ${name}_smear: 16 directions -> artwork/weapons/`);
-    if (process.argv.includes('--show')) {
-      for (const d of [0, 2]) {
-        console.log(`${name}_smear dir ${d}`);
-        for (let y = 0; y < 16; y++) console.log('  ' + Array.from(sm[d].slice(y * 16, y * 16 + 16), (v) => '.123'[v]).join(''));
-      }
-    }
-  }
   if (process.argv.includes('--show')) {
     frames.forEach((g, d) => {
       if (![0, 2, 4, 14].includes(d)) return;

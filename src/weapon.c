@@ -10,7 +10,6 @@
 #include "spr_rifle.h"
 #include "spr_sniper.h"
 #include "spr_sword.h"
-#include "spr_sword_smear.h"
 #include "weapon_pistol.h"
 #include "weapon_shotgun.h"
 #include "weapon_rifle.h"
@@ -29,8 +28,6 @@ uint8_t gun_frames[16 * 4];
 const uint8_t *gun_tiles;  // the held weapon's art in ROM (the HUD's icon copies from it)
 uint8_t gun_tiles_bank;
 int8_t gun_place[7][16];
-uint8_t smear_vram, smear_blank;
-uint8_t smear_frames[16 * 4];
 uint8_t draw_vram, draw_blank;
 uint8_t *draw_frames;
 
@@ -83,11 +80,6 @@ void weapon_init(void) BANKED {
     weapon_vram[WEAPON_SWORD] = v;
     banked_sprite_data_vbk1(v, SPR_SWORD_COLUMN_COUNT * 2, spr_sword_tiles, BANK(spr_sword));
     v += SPR_SWORD_COLUMN_COUNT * 2;
-    smear_vram = v;
-    smear_blank = SPR_SWORD_SMEAR_BLANK_COLUMN;
-    banked_sprite_data_vbk1(v, SPR_SWORD_SMEAR_COLUMN_COUNT * 2, spr_sword_smear_tiles, BANK(spr_sword_smear));
-    banked_memcpy(smear_frames, spr_sword_smear_frames, sizeof(smear_frames), BANK(spr_sword_smear));
-    for (uint8_t i = 1; i < sizeof(smear_frames); i += 2) smear_frames[i] |= SPR_PAL_WEAPON | S_BANK;
     // First run: the presets. Later runs keep what was tuned (like movement).
     if (!stats_ready) {
         stats_ready = 1;
@@ -120,7 +112,7 @@ void weapon_select(uint8_t w) BANKED {
     if (weapon_ammo[w] > wpn.mag) weapon_ammo[w] = wpn.mag;
     gun_vram = weapon_vram[w];
     gun_blank = blanks[w];
-    draw_frames = gun_frames;  // what draw_gun draws (the sword swaps in its smear: aim.c)
+    draw_frames = gun_frames;  // what draw_gun draws
     draw_vram = gun_vram;
     draw_blank = gun_blank;
     switch (w) {
