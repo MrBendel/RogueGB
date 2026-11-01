@@ -227,27 +227,48 @@ test("the town's machines: not enough credits, nothing changes", () => {
 test('Sands town: connected streets reach every service, with solid buildings and borders', () => {
   const emu = newFileInTown();
   assert.equal(emu.v('room_w'), 24);
-  assert.equal(emu.v('room_h'), 20);
+  assert.equal(emu.v('room_h'), 16);
   const map = emu.readBytes(A(emu, 'room_map'), 32 * 24);
   const seen = new Set([4 * 32 + 5]), queue = [...seen];
   for (let i = 0; i < queue.length; i++) {
     const k = queue[i], x = k % 32, y = Math.floor(k / 32);
     for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
       const n = ny * 32 + nx;
-      if (nx < 0 || nx >= 24 || ny < 0 || ny >= 20 || map[n] || seen.has(n)) continue;
+      if (nx < 0 || nx >= 24 || ny < 0 || ny >= 16 || map[n] || seen.has(n)) continue;
       seen.add(n); queue.push(n);
     }
   }
-  for (const [x,y] of [[9,4],[19,5],[19,13],[17,10],[20,10],[21,10],[3,12]])
+  for (const [x,y] of [[8,4],[19,5],[19,13],[17,10],[20,10],[21,10],[3,12]])
     assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
   for (let x = 0; x < 24; x++) {
-    assert.equal(map[x], 1); assert.equal(map[19 * 32 + x], 1);
+    assert.equal(map[x], 1); assert.equal(map[15 * 32 + x], 1);
   }
-  assert.equal(map[3 * 32 + 3], 1, 'house roof is solid');
+  assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
   emu.idle(60).shot('sands-town-arrival');
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
   for (const [name,x,y] of [['market',17,11],['yard',4,12],['homes',15,14]]) {
     w16(emu, 'player_x', x * 16); w16(emu, 'player_y', y * 16);
     emu.idle(90).shot(`sands-town-${name}`);
   }
+});
+
+test('Sands detail tiles survive pause, portrait dialogue, and a round trip to the descent', () => {
+  const emu = newFileInTown().idle(60);
+  const detail = () => {
+    return [...emu.snapshot().vram.slice(0x2000 + 0x1500, 0x2000 + 0x1500 + 42 * 16)];
+  };
+  const before = detail();
+  assert.ok(new Set(before).size > 4, 'second-bank art is populated');
+  emu.tap('START').idle(4).tap('START').idle(4);
+  assert.equal(emu.v('paused'), 0);
+  assert.deepEqual(detail(), before, 'pause retains detail art');
+  emu.tap('SELECT').idle(4);
+  assert.deepEqual(detail(), before, 'weapon-name glyphs retain detail art');
+  w16(emu, 'player_x', 8 * 16); w16(emu, 'player_y', 4 * 16);
+  emu.idle(2);
+  assert.equal(emu.v('dlg_active'), 1);
+  for (let i = 0; i < 60 && emu.v('dlg_active'); i++) emu.tap('A');
+  assert.deepEqual(detail(), before, 'portrait retains detail art');
+  takeLiftDown(emu); leaveToTown(emu);
+  assert.deepEqual(detail(), before, 'return reloads detail art');
 });

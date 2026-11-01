@@ -32,6 +32,14 @@ const DIR = path.join(ROOT, 'content', 'tilesets');
 // Background tiles 80-251 (gfx.h SCENE_TILES); 252-255 are the acid puddles' sprite
 // tiles (elite.h ACID_VRAM), shared memory, so a tileset stops short of them.
 export const MAX_TILES = 172;
+// Authored scenes may explicitly load another 48 background tiles into bank 1,
+// indices 80..127 ($9500..$97ff). This avoids the weapon/portrait sprite area.
+// The scene loader must split the upload and set attribute bit 3 itself.
+export function tileBudget(def) {
+  if (def.vramBanks === undefined || def.vramBanks === 1) return MAX_TILES;
+  if (def.vramBanks !== 2 || def.theme) throw new Error('vramBanks: 2 requires an authored scene loader');
+  return MAX_TILES + 48;
+}
 
 // Art packs (bought, not ours to publish: never in the repository) are named
 // "pack:<folder>/<file>" and found in the first of: $ROGUEGB_ART_PACKS, the
@@ -308,6 +316,13 @@ export function convert(name) {
       stored.push(idx);
     }
     out.push({ ...found, pal: best.k, idx });
+  }
+  // Indexed source art can supply shading slots rather than final colours.
+  // Apply display ramps after fitting/deduplication so every pixel index survives.
+  for (const [slot, ramp] of Object.entries(def.paletteOverrides || {})) {
+    if (!palettes[slot] || !Array.isArray(ramp) || ramp.length !== 4 || ramp.some(c => !/^#[0-9a-f]{6}$/i.test(c)))
+      throw new Error(`tileset ${name}: palette override ${slot} needs four #RRGGBB colours`);
+    palettes[slot] = ramp.map(c => { const v = parseInt(c.slice(1), 16); return pack(R(v), G(v), B(v)); });
   }
   return { name, def, pieces, blocks, palettes, tiles: out, stored, art, totalErr, img, placeholder, maps: buildMaps(def, pieces), theme: buildTheme(def, pieces) };
 }
@@ -797,11 +812,11 @@ export function buildTilesets({ quiet = false } = {}) {
     const was = fs.existsSync(h) && /_STAND_IN 1/.test(fs.readFileSync(h, 'utf8'));
     if (fs.existsSync(c) && fs.statSync(c).mtimeMs > newest && was === missing) continue;
     const ts = convert(name);
-    if (ts.stored.length > MAX_TILES) throw new Error(`tileset ${name}: ${ts.stored.length} tiles; a scene has ${MAX_TILES} (cut pieces, or make more of them repeat)`);
+    if (ts.stored.length > tileBudget(ts.def)) throw new Error(`tileset ${name}: ${ts.stored.length} tiles; a scene has ${tileBudget(ts.def)} (cut pieces, or make more of them repeat)`);
     emit(ts);
     writeAtlas(ts);
     const png = preview(ts);
-    if (!quiet) console.log(`[tileset] ${name}: ${ts.blocks.length} blocks, ${ts.stored.length}/${MAX_TILES} tiles, ${ts.art.size} colours in ${ts.palettes.length} palettes${missing ? ' (stand-in art: the local-only sheet is missing)' : ''} -> ${path.relative(ROOT, png)}`);
+    if (!quiet) console.log(`[tileset] ${name}: ${ts.blocks.length} blocks, ${ts.stored.length}/${tileBudget(ts.def)} tiles, ${ts.art.size} colours in ${ts.palettes.length} palettes${missing ? ' (stand-in art: the local-only sheet is missing)' : ''} -> ${path.relative(ROOT, png)}`);
   }
   // Which tilesets are stand-ins in this build (the tests keep separate screens for them).
   fs.writeFileSync(path.join(GEN_DIR, 'art-mode.json'), JSON.stringify({ standIn }) + '\n');
@@ -817,7 +832,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     emit(ts);
     writeAtlas(ts);
     const png = preview(ts);
-    console.log(`${name}: ${ts.blocks.length}/${MAX_BLOCKS} blocks, ${ts.stored.length}/${MAX_TILES} tiles (of ${ts.tiles.length}), ${ts.art.size} colours -> ${ts.palettes.length} palettes`);
+    console.log(`${name}: ${ts.blocks.length}/${MAX_BLOCKS} blocks, ${ts.stored.length}/${tileBudget(ts.def)} tiles (of ${ts.tiles.length}), ${ts.art.size} colours -> ${ts.palettes.length} palettes`);
     ts.palettes.forEach((p, k) => console.log(`  palette ${k}: ${p.map((c) => '#' + c.toString(16).padStart(6, '0')).join(' ')}`));
     console.log(`  preview: ${path.relative(ROOT, png)}`);
   }
