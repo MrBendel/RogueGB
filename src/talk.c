@@ -11,6 +11,10 @@
 #include "spr_talk_post.h"
 #include "spr_talk_marro.h"
 #include "spr_talk_lift.h"
+#include "spr_person_tess.h"
+#include "spr_person_okafor.h"
+#include "spr_person_nell.h"
+#include "spr_person_pip.h"
 #include "save.h"
 
 // Sprite tiles (bank 0): after the chest's, below 128 (see chest.c). 4 a kind
@@ -28,7 +32,9 @@ uint8_t zone_x0[TALK_ZONES], zone_y0[TALK_ZONES], zone_x1[TALK_ZONES], zone_y1[T
 uint8_t zones_done;
 uint8_t zone_story[TALK_ZONES];
 uint16_t talks;
-uint8_t talk_frames[TALK_KINDS * 4];  // each kind's frame: left column, flags, right column, flags
+uint8_t talk_frames[(TALK_KINDS + TALK_PEOPLE) * 4];  // each kind's frame (then each person's): left column, flags, right column, flags
+uint8_t talk_people_at = TALK_VRAM;
+uint8_t person_vram[TALK_PEOPLE];  // where each person standing here has their tiles
 uint8_t talk_tick;
 uint8_t bubble_oam = 0xFF;  // where the bubble was drawn last frame
 
@@ -54,6 +60,7 @@ void talk_clear(void) BANKED {
     talk_count = zone_count = 0;
     zones_done = 0;
     talk_near = TALK_NONE;
+    talk_people_at = TALK_VRAM;
 }
 
 void talk_add(uint8_t bx, uint8_t by, uint8_t kind, uint8_t script) BANKED {
@@ -64,6 +71,18 @@ void talk_add(uint8_t bx, uint8_t by, uint8_t kind, uint8_t script) BANKED {
     talk_kind[i] = kind;
     talk_script[i] = script;
     room_map[((uint16_t)by << 5) | bx] = BLK_PROP;  // solid to walk into, drawn as what's under it
+}
+
+void talk_remove(uint8_t i) BANKED {
+    room_map[((uint16_t)talk_by[i] << 5) | talk_bx[i]] = BLK_FLOOR;
+    talk_count--;
+    for (; i < talk_count; i++) {
+        talk_bx[i] = talk_bx[i + 1];
+        talk_by[i] = talk_by[i + 1];
+        talk_kind[i] = talk_kind[i + 1];
+        talk_script[i] = talk_script[i + 1];
+    }
+    talk_near = TALK_NONE;
 }
 
 void talk_zone(uint8_t bx0, uint8_t by0, uint8_t bx1, uint8_t by1, uint8_t script, uint8_t story) BANKED {
@@ -77,6 +96,38 @@ void talk_zone(uint8_t bx0, uint8_t by0, uint8_t bx1, uint8_t by1, uint8_t scrip
     zone_story[i] = story;
 }
 
+// The people's art (TALK_PERSON + who): its tiles, frames (their palettes aren't used).
+static const uint8_t *const person_tiles[TALK_PEOPLE] = {spr_person_tess_tiles, spr_person_okafor_tiles, spr_person_nell_tiles, spr_person_pip_tiles};
+static const uint8_t *const person_frames[TALK_PEOPLE] = {spr_person_tess_frames, spr_person_okafor_frames, spr_person_nell_frames, spr_person_pip_frames};
+static uint8_t person_bank(uint8_t p) {
+    return p == 0 ? BANK(spr_person_tess) : p == 1 ? BANK(spr_person_okafor) : p == 2 ? BANK(spr_person_nell) : BANK(spr_person_pip);
+}
+
+static void load_person(uint8_t p, uint8_t v) {
+    person_vram[p] = v;
+    uint8_t bank = person_bank(p);
+    banked_sprite_data(v, 4, person_tiles[p], bank);
+    banked_memcpy(&talk_frames[(TALK_KINDS + p) << 2], person_frames[p], 4, bank);
+}
+
+void talk_person_load(uint8_t who) BANKED {
+    load_person(who, talk_people_at);
+}
+
+uint8_t talk_person_draw(uint8_t oam, uint8_t who, uint16_t x, uint16_t y, uint8_t pal) BANKED {
+    uint16_t sx = x - cam_x + 8, sy = y - cam_y + 16;
+    if (sx >= 168 + 8 || sy >= VIEW_H + 16 + 16) return oam;
+    const uint8_t *f = &talk_frames[(TALK_KINDS + who) << 2];
+    uint8_t v = person_vram[who];
+    set_sprite_tile(oam, v + (f[0] << 1));
+    set_sprite_prop(oam, f[1] | pal);
+    move_sprite(oam++, (uint8_t)sx, (uint8_t)sy);
+    set_sprite_tile(oam, v + (f[2] << 1));
+    set_sprite_prop(oam, f[3] | pal);
+    move_sprite(oam++, (uint8_t)sx + 8, (uint8_t)sy);
+    return oam;
+}
+
 static void load_kind(uint8_t k, const uint8_t *tiles, const uint8_t *frames, const uint16_t *pal, uint8_t bank) {
     banked_sprite_data(TALK_VRAM + (k << 2), 4, tiles, bank);
     banked_memcpy(&talk_frames[k << 2], frames, 4, bank);
@@ -86,8 +137,18 @@ static void load_kind(uint8_t k, const uint8_t *tiles, const uint8_t *frames, co
 void talk_init(void) BANKED {
     if (!talk_count && !zone_count) return;
     // Only the kinds standing here: their palettes are borrowed.
-    uint8_t kinds = 0;
-    for (uint8_t i = 0; i < talk_count; i++) kinds |= 1 << talk_kind[i];
+    uint8_t kinds = 0, people = 0;
+    for (uint8_t i = 0; i < talk_count; i++) {
+        uint8_t k = talk_kind[i];
+        if (k >= TALK_PERSON) people |= 1 << (k - TALK_PERSON);
+        else kinds |= 1 << k;
+    }
+    uint8_t v = talk_people_at;
+    for (uint8_t p = 0; p < TALK_PEOPLE; p++) {
+        if (!(people & (1 << p))) continue;
+        load_person(p, v);
+        v += 4;
+    }
     if (kinds & (1 << TALK_RELAY)) load_kind(TALK_RELAY, spr_talk_relay_tiles, spr_talk_relay_frames, spr_talk_relay_palette, BANK(spr_talk_relay));
     if (kinds & (1 << TALK_POST)) load_kind(TALK_POST, spr_talk_post_tiles, spr_talk_post_frames, spr_talk_post_palette, BANK(spr_talk_post));
     if (kinds & (1 << TALK_MARRO)) load_kind(TALK_MARRO, spr_talk_marro_tiles, spr_talk_marro_frames, spr_talk_marro_palette, BANK(spr_talk_marro));
@@ -150,9 +211,20 @@ uint8_t talk_draw(uint8_t oam) BANKED {
         // Screen position (hardware: +8, +16); skip those off the view.
         uint16_t sx = ((uint16_t)talk_bx[i] << 4) - cam_x + 8, sy = ((uint16_t)talk_by[i] << 4) - cam_y + 16;
         if (sx >= 168 + 8 || sy >= VIEW_H + 16 + 16) continue;
-        if (talk_kind[i] != TALK_COMMS) {  // (the comms device is the map's)
-            const uint8_t *f = &talk_frames[talk_kind[i] << 2];
-            uint8_t v = TALK_VRAM + (talk_kind[i] << 2), pal = kind_pal[talk_kind[i]];
+        uint8_t k = talk_kind[i];
+        if (k != TALK_COMMS) {  // (the comms device is the map's)
+            const uint8_t *f;
+            uint8_t v, pal;
+            if (k >= TALK_PERSON) {
+                k -= TALK_PERSON;
+                f = &talk_frames[(TALK_KINDS + k) << 2];
+                v = person_vram[k];
+                pal = SPR_PAL_PLAYER;
+            } else {
+                f = &talk_frames[k << 2];
+                v = TALK_VRAM + (k << 2);
+                pal = kind_pal[k];
+            }
             set_sprite_tile(oam, v + (f[0] << 1));
             set_sprite_prop(oam, f[1] | pal);
             move_sprite(oam++, (uint8_t)sx, (uint8_t)sy);

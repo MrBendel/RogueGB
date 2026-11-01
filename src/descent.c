@@ -30,6 +30,7 @@
 #include <string.h>
 #include <rand.h>
 #include "elite.h"
+#include "rescue.h"
 
 uint8_t layer_depth;      // 1 for the first area
 uint16_t maps_entered;    // map changes this run (watchable)
@@ -50,6 +51,7 @@ extern uint8_t actor_count;  // enemies alive (actor.c)
 
 static void start_area(void) {
     level_generate(area_seed_base + (uint16_t)layer_depth * 7919);
+    rescue_area();  // (someone held here?)
 }
 
 void descent_start(uint16_t seed) BANKED {
@@ -223,6 +225,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
     shaft_taken = 0;
     place_player(side);
+    rescue_enter(map);  // (after the player: a follower comes in behind them)
     maps_entered++;
     for (uint8_t c = 0; c < LEVEL_CAMPS; c++) {
         camp_state[c] = area_camps_cleared[map] & (1 << c) ? CAMP_CLEARED : CAMP_ASLEEP;
@@ -293,6 +296,8 @@ static void enter_building(uint8_t k) {
     player_x = (uint16_t)level_open[2] * BLOCK_SIZE;
     player_y = room_px_h - 3 * BLOCK_SIZE + 4;
     player_xs = player_ys = 0;
+    rescue_x = player_x;  // (a follower comes in too)
+    rescue_y = player_y;
 }
 
 // The linked map through side d, and the side of it the player comes in by.

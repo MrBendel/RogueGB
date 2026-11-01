@@ -41,6 +41,7 @@
 #include "loot.h"
 #include "elite.h"
 #include "mission.h"
+#include "rescue.h"
 #include "pickups.h"
 #include "dialogue.h"
 #include "boss.h"
@@ -230,6 +231,7 @@ void play_enter(void) BANKED {
     talk_clear();    // a room adds its own
     saved_seconds = 0;  // (run_start began the clock again)
     pickups_init();  // a descent map loads its chests (descent.c)
+    rescue_state = RS_NONE;  // (the descent's area says if someone's held)
     memset((uint8_t *)BOSSES_ADDR, 0, BOSSES_SIZE);  // (every boss's state: room.h)
     if (play_mode == MODE_DESCENT) {
         player_init(0, 0);
@@ -362,6 +364,8 @@ static void take_action(void) {
         // The pause menu's shop or contracts page: the world waits while you browse.
         menu_page = a == TALK_DO_SHOP ? PAGE_SHOP : PAGE_BOARD;
         set_paused(1);
+    } else if (a == TALK_DO_FREE) {
+        rescue_free();  // a captive (rescue.c)
     } else if (a >= TALK_DO_VEND_AMMO) {
         descent_vend(a);  // (the descent's and the town's)
     }
@@ -584,6 +588,7 @@ void play_update(void) BANKED {
             descent_change_room(door);
         }
         descent_update();
+        if (rescue_state >= RS_FOLLOW) rescue_update();
     } else if (play_mode == MODE_ENEMY) {
         enemy_trial_update();
     } else if (play_mode >= MODE_MINIBOSS && play_mode != MODE_YARD) {
@@ -609,6 +614,7 @@ void play_update(void) BANKED {
     // cannot hide damaging beams or floor claims. Talkers and loot come next (few,
     // standing still; never in a boss's room), then actors and shots.
     uint8_t first = talk_count ? talk_draw(play_actor_oam) : play_actor_oam;
+    if (rescue_state == RS_FOLLOW) first = rescue_draw(first);
     if (pickups_on) first = pickups_draw(first);
     if (acid_puddles) first = elite_puddles(first);
     actors_update(first);

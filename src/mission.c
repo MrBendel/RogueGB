@@ -11,6 +11,7 @@
 #include "progress.h"
 #include "hud.h"
 #include "sfx.h"
+#include "rescue.h"
 
 uint8_t mission_cull;
 
@@ -40,6 +41,21 @@ void mission_offer(uint8_t k, Mission *m) BANKED {
     } else if (m->kind == MIS_RETRIEVE) {
         m->target = 0;  // (data cores; more items later)
         m->need = 2 + ((uint8_t)(r >> 8) & 1) + (deepest >= 2);  // 2-4
+    } else if (m->kind == MIS_RESCUE) {
+        // Someone not yet rescued and not on a job already (nobody left: a cull instead).
+        uint8_t busy = profile.rescued;
+        for (uint8_t s = 0; s < MISSION_SLOTS; s++)
+            if (profile.mis_kind[s] == MIS_RESCUE) busy |= 1 << RESCUE_WHO(profile.mis_target[s]);
+        uint8_t p = (uint8_t)r & 3;
+        for (uint8_t k = 0; k < PEOPLE && (busy & (1 << p)); k++) p = (p + 1) & 3;
+        if (busy & (1 << p)) {
+            m->kind = MIS_CULL;
+            m->target = world_roster_kind(0, (uint8_t)(r >> 4) & (WORLD_ROSTER - 1));
+            m->need = 6;
+            return;
+        }
+        m->target = p | (((uint8_t)(r >> 4) % RESCUE_STYLES) << 4);
+        m->need = 1 + (uint8_t)(r >> 8) % (deepest ? deepest : 1);  // an area you've reached
     } else if (m->kind == MIS_BOUNTY) {
         uint8_t n = deepest >= WORLD_MINIBOSSES ? WORLD_MINIBOSSES : deepest + 1;
         m->target = world_miniboss_kind((uint8_t)(r % n));
@@ -82,6 +98,10 @@ uint16_t mission_credits(const Mission *m) BANKED {
     if (m->kind == MIS_CULL) return (uint16_t)m->need * (8 + lv);
     if (m->kind == MIS_RETRIEVE) return (uint16_t)m->need * (30 + 3 * lv);
     if (m->kind == MIS_BOUNTY) return 120 + 60 * (uint16_t)m->target + 10 * lv;
+    if (m->kind == MIS_RESCUE) {  // (escorts and holds: half again)
+        uint16_t c = 80 + 40 * (uint16_t)m->need + 10 * lv;
+        return RESCUE_HOW(m->target) ? c + (c >> 1) : c;
+    }
     return (uint16_t)m->need * DEBT_UNIT;  // a debt: what it costs
 }
 
@@ -89,6 +109,10 @@ uint16_t mission_xp(const Mission *m) BANKED {
     if (m->kind == MIS_CULL) return (uint16_t)m->need * 6;
     if (m->kind == MIS_RETRIEVE) return (uint16_t)m->need * 20;
     if (m->kind == MIS_BOUNTY) return 60 + 30 * (uint16_t)m->target;
+    if (m->kind == MIS_RESCUE) {
+        uint16_t x = 40 + 20 * (uint16_t)m->need;
+        return RESCUE_HOW(m->target) ? x + (x >> 1) : x;
+    }
     return (uint16_t)m->need * 15;  // a debt paid: the company's goodwill
 }
 
@@ -97,6 +121,7 @@ uint8_t mission_ready(uint8_t s) BANKED {
     mission_job(s, &m);
     if (m.kind == MIS_NONE) return 0;
     if (m.kind == MIS_DEBT) return profile.credits >= mission_credits(&m);
+    if (m.kind == MIS_RESCUE) return m.have;  // (need: the area)
     return m.have >= m.need;
 }
 
@@ -106,6 +131,7 @@ uint8_t mission_turn_in(uint8_t s) BANKED {
     mission_job(s, &m);
     if (m.kind == MIS_DEBT) profile.credits -= mission_credits(&m);
     else profile.credits += mission_credits(&m);
+    if (m.kind == MIS_RESCUE) profile.rescued |= 1 << RESCUE_WHO(m.target);  // (in town from now on)
     profile.mis_kind[s] = MIS_NONE;
     xp_gain(mission_xp(&m));
     return 1;
@@ -130,6 +156,7 @@ static char *put_num(char *p, uint16_t n) {
 // (Plural names by kind: the Moon's look; a world could name its own later.)
 static const char *const kinds[ACTOR_TYPE_COUNT] = {"", "DRONES", "TURRETS", "HOUNDS", "MERCS", "LOADERS", "MEDICS"};
 static const char *const bosses[WORLD_MINIBOSSES] = {"THE CLAIMJAW", "THE SCRAPBACK", "THE CRAGBACK"};
+static const char *const people[PEOPLE] = {"TESS", "OKAFOR", "NELL", "PIP"};
 
 void mission_text(char *out, const Mission *m) BANKED {
     char *p = out;
@@ -145,6 +172,9 @@ void mission_text(char *out, const Mission *m) BANKED {
     } else if (m->kind == MIS_BOUNTY) {
         p = put(p, "BEAT ");
         p = put(p, bosses[m->target]);
+    } else if (m->kind == MIS_RESCUE) {
+        p = put(p, "RESCUE ");
+        p = put(p, people[RESCUE_WHO(m->target)]);
     } else if (m->kind == MIS_DEBT) {
         p = put(p, "PAY ");
         p = put_num(p, mission_credits(m));
@@ -197,7 +227,23 @@ void mission_beat(uint8_t boss) BANKED {
         if (profile.mis_kind[s] == MIS_BOUNTY && profile.mis_target[s] == boss && !profile.mis_have[s]) progress(s);
 }
 
+void mission_rescued(uint8_t s) BANKED {
+    char t[8] = "SAFE!  ";
+    profile.mis_have[s] = 1;
+    hud_say_next(t);
+    sfx_play(SFX_PICKUP);
+}
+
 void mission_lost(void) BANKED {
     for (uint8_t s = 0; s < MISSION_SLOTS; s++)
-        if (profile.mis_kind[s] == MIS_RETRIEVE) profile.mis_have[s] = 0;
+        if (profile.mis_kind[s] == MIS_RETRIEVE || profile.mis_kind[s] == MIS_RESCUE) profile.mis_have[s] = 0;
+}
+
+// What a rescue asks, for the board: "Area 2: free them." ...
+void mission_rescue_text(char *out, const Mission *m) BANKED {
+    static const char *const how[RESCUE_STYLES] = {": free them.", ": walk them out.", ": hold while they cut free."};
+    char *p = put(out, "Area ");
+    p = put_num(p, m->need);
+    p = put(p, how[RESCUE_HOW(m->target)]);
+    *p = 0;
 }
