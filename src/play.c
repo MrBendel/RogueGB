@@ -565,8 +565,10 @@ void play_update(void) BANKED {
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_pre();
     else web_trap=web_grace=0;
     player_update();
-    if (play_mode == MODE_YARD && save_slot != SAVE_NONE && town_update()) return;
-    if (talk_count | zone_count) talk_update();  // (a banked call costs: skip it in maps with neither)
+    if (talk_count | zone_count) {  // town rooms always have a talker; combat maps skip this whole path
+        if (play_mode == MODE_YARD && save_slot != SAVE_NONE && town_update()) return;
+        talk_update();
+    }
     if (pickups_on) pickups_update();
     if (play_mode == MODE_LAB) {
         waves_update();

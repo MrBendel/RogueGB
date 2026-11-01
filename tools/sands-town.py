@@ -20,6 +20,16 @@ stamp(0,0,15,12,0,0)
 mask=['###############','..###########..','.#########.....','.##....##.###..','.........####..','.....#...####.#','..#####..####.#','#.#####........','###.###..#.....','##.......#.....','...###...######','.........######']
 for y,row in enumerate(mask):
  for x,c in enumerate(row):coll[y][x]=c=='#'
+# Face/base collision follows the source silhouettes; ground under a finished
+# cliff is walkable. The narrow plank bridge remains traversable.
+for x in range(1,10):coll[3][x]=True
+for x in range(10,13):coll[2][x]=True
+for y in range(6):
+ for x in (13,14):coll[y][x]=True
+for y in range(4,9):coll[y][1]=True
+coll[9][1]=False
+coll[6][14]=False
+for x in range(9,15):coll[11][x]=False
 # Three complete buildings from the original composition; no duplicate market wing.
 # Continue the original right edge into the room boundary.
 stamp(224,0,1,12,15,0,True)
@@ -27,8 +37,6 @@ stamp(224,0,1,12,15,0,True)
 stamp(32,224,4,1,1,14,True)
 stamp(64,272,2,1,6,14)
 stamp(128,208,1,3,6,12,True)
-stamp(32,160,4,1,9,13)
-stamp(32,176,4,1,9,14)
 # Finish the departure yard with a fence, not a second copy of the cliff formation.
 stamp(32,224,4,1,10,14,True)
 for x in range(16):coll[0][x]=coll[15][x]=True

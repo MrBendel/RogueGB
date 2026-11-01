@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import { convert } from '../tools/tileset.mjs';
 const DETAIL_TILES = convert('sands').stored.length - 172;
-import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
+import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, TITLE, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
 
 const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
@@ -248,6 +248,10 @@ test('Sands town: connected streets reach every service, with solid buildings an
     assert.equal(map[x], 1); assert.equal(map[15 * 32 + x], 1);
   }
   assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
+  for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5]])
+    assert.equal(map[y * 32 + x], 1, 'visible cliff face is solid');
+  for (const [x,y] of [[1,9],[10,11],[13,11],[14,6]])
+    assert.equal(map[y * 32 + x], 0, 'ground below cliffs is walkable');
   emu.idle(60).shot('sands-town-arrival');
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
   for (const [name,x,y] of [['market',11,8],['yard',4,13],['homes',5,9]]) {
@@ -328,4 +332,15 @@ test('rescued residents stay on open ground without blocking the compact town do
   });
   for (let k = 0; k < 3; k++) { enterTownBuilding(emu,k); leaveTownBuilding(emu); }
   emu.shot('town-residents');
+});
+
+
+test('saving inside a town building resumes safely outside', () => {
+  const emu = enterTownBuilding(newFileInTown(), 2);
+  emu.tap('START').idle(2).tap('SELECT');
+  settle(emu, TITLE);
+  settle(emu.tap('START').tap('A'), PLAY);
+  assert.equal(emu.v('town_inside'), 0xff);
+  assert.equal(emu.v('room_w'), 16);
+  assert.equal(emu.v('play_mode'), MODE_TOWN);
 });

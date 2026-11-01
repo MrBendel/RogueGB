@@ -699,8 +699,11 @@ function emit(ts) {
     '',
   ].join('\n');
   fs.mkdirSync(GEN_DIR, { recursive: true });
-  fs.writeFileSync(path.join(GEN_DIR, `${id}.h`), h);
-  fs.writeFileSync(path.join(GEN_DIR, `${id}.c`), c);
+  // Layout/palette-only edits should not invalidate every C object via an unchanged header.
+  for (const [ext, data] of [['h', h], ['c', c]]) {
+    const file = path.join(GEN_DIR, `${id}.${ext}`);
+    if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== data) fs.writeFileSync(file, data);
+  }
   return path.join(GEN_DIR, `${id}.c`);
 }
 
