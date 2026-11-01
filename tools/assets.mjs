@@ -67,6 +67,26 @@ export const ASSETS = [
     // Mirroring a clockwise roll gives a counter-clockwise one, right for rolling left.
     mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
   },
+  // The three classes' bodies, drawn by tools/make-character-art.mjs.
+  ...['hunter', 'hooded', 'cyborg'].map((who) => ({
+    name: `spr_${who}`,
+    kind: 'sprite',
+    bank: true,
+    dir: `artwork/${who}`,
+    anims: {
+      walk_down: numbered('player walk down', 4),
+      walk_up: numbered('player walk up', 4),
+      walk_right: numbered('player walk right', 4),
+      hurt_down: ['player hurt down.png'],
+      hurt_up: ['player hurt up.png'],
+      hurt_right: ['player hurt right.png'],
+      fall: numbered('player falling', 4),
+      roll_down: numbered('player roll down', 4),
+      roll_up: numbered('player roll up', 4),
+      roll_right: numbered('player roll right', 4),
+    },
+    mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
+  })),
   {
     name: 'spr_adventurer',
     kind: 'sprite',

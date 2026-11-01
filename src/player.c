@@ -115,6 +115,7 @@ SpriteSlot player_slot;  // also used by player_setup.c
 // sprite is in a switchable bank, and these are read every frame. The tiles stay
 // in ROM; the vblank handler switches their bank in to copy a frame.
 uint8_t player_character = CHAR_ADVENTURER;
+const char *const player_char_names[CHAR_COUNT] = {"ADVENT", "MARINE", "HUNTER", "HOODED", "CYBORG"};
 const uint8_t *player_tiles_ptr;
 uint8_t player_tiles_bank;
 uint8_t player_frames[SPR_PLAYER_FRAME_COUNT * 4];

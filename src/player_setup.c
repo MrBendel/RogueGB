@@ -10,27 +10,29 @@
 #include "oam.h"
 #include "spr_player.h"
 #include "spr_adventurer.h"
+#include "spr_hunter.h"
+#include "spr_hooded.h"
+#include "spr_cyborg.h"
 #include "sprite_slot.h"
 
-const char *player_character_name(uint8_t id) {
-    if (id == CHAR_ADVENTURER) return "ADVENTURER";
-    return "SPACE MARINE";
-}
+// Each character's art: its tiles stream from its bank; the small frame tables
+// and palette are copied to RAM.
+#define USE_ART(name, NAME) do { \
+        player_tiles_ptr = name##_tiles; \
+        player_tiles_bank = BANK(name); \
+        banked_memcpy(player_frames, name##_frames, NAME##_FRAME_COUNT * 4, BANK(name)); \
+        banked_memcpy(player_anims, name##_anims, NAME##_ANIM_COUNT * 2, BANK(name)); \
+        banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], name##_palette, 8, BANK(name)); \
+    } while (0)
 
 void player_select_character(uint8_t id) BANKED {
     player_character = id >= CHAR_COUNT ? 0 : id;
-    if (player_character == CHAR_SPACEMARINE) {
-        player_tiles_ptr = spr_player_tiles;
-        player_tiles_bank = BANK(spr_player);
-        banked_memcpy(player_frames, spr_player_frames, SPR_PLAYER_FRAME_COUNT * 4, BANK(spr_player));
-        banked_memcpy(player_anims, spr_player_anims, SPR_PLAYER_ANIM_COUNT * 2, BANK(spr_player));
-        banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_player_palette, 8, BANK(spr_player));
-    } else {
-        player_tiles_ptr = spr_adventurer_tiles;
-        player_tiles_bank = BANK(spr_adventurer);
-        banked_memcpy(player_frames, spr_adventurer_frames, SPR_ADVENTURER_FRAME_COUNT * 4, BANK(spr_adventurer));
-        banked_memcpy(player_anims, spr_adventurer_anims, SPR_ADVENTURER_ANIM_COUNT * 2, BANK(spr_adventurer));
-        banked_memcpy(&pal_base_obj[SPR_PAL_PLAYER << 2], spr_adventurer_palette, 8, BANK(spr_adventurer));
+    switch (player_character) {
+    case CHAR_SPACEMARINE: USE_ART(spr_player, SPR_PLAYER); break;
+    case CHAR_HUNTER: USE_ART(spr_hunter, SPR_HUNTER); break;
+    case CHAR_HOODED: USE_ART(spr_hooded, SPR_HOODED); break;
+    case CHAR_CYBORG: USE_ART(spr_cyborg, SPR_CYBORG); break;
+    default: USE_ART(spr_adventurer, SPR_ADVENTURER); break;
     }
     gfx_set_fade(0);
 }

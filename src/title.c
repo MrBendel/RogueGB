@@ -180,7 +180,7 @@ static void draw_playtests(void) {
         if (title_menu == 1 && i == 3) {
             char line[TEXT_MAX + 1];
             char *p = put(line, "CHAR: < ");
-            p = put(p, player_character == CHAR_SPACEMARINE ? "MARINE" : "ADVENT");
+            p = put(p, player_char_names[player_character]);
             p = put(p, " >");
             *p = 0;
             t += draw(FONT_COMPACT, 20, choice_row(i), line, t, TITLE_PAL_TEXT);
@@ -223,8 +223,7 @@ void title_update(void) BANKED {
             if (title_menu) draw_playtests();
             else draw_home();
         } else if (title_menu == 1 && title_choice == 3 && (joy_pressed & (J_LEFT | J_RIGHT))) {
-            player_character = player_character == CHAR_SPACEMARINE ? CHAR_ADVENTURER : CHAR_SPACEMARINE;
-            
+            player_character = (player_character + (joy_pressed & J_LEFT ? CHAR_COUNT - 1 : 1)) % CHAR_COUNT;
             draw_playtests();
         } else if (joy_pressed & (J_UP | J_DOWN)) {
             // (wraps around)

@@ -115,13 +115,16 @@ const char *move_preset_name(void);
 // Character selection (Character Lab / settings)
 #define CHAR_ADVENTURER  0
 #define CHAR_SPACEMARINE 1
-#define CHAR_COUNT       2
+#define CHAR_HUNTER      2
+#define CHAR_HOODED      3
+#define CHAR_CYBORG      4
+#define CHAR_COUNT       5
 
 extern uint8_t player_character;
+extern const char *const player_char_names[CHAR_COUNT];  // 6 letters each
 extern const uint8_t *player_tiles_ptr;
 extern uint8_t player_tiles_bank;
 void player_select_character(uint8_t id) BANKED;
-const char *player_character_name(uint8_t id);
 
 // RAM copies of the sprite's frame and animation tables (player_init).
 extern uint8_t player_frames[];

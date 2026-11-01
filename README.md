@@ -151,7 +151,10 @@ top, seen from above, for aiming steeply up or down the screen): it turns the pa
 and writes their placement table (`src/weapon_<name>.h`). The sword doesn't aim: its 16
 frames are 4 facings x 4 poses (rest, windup, the smeared swing, follow-through). Their
 colours are set in play (palettes.c `palettes_weapon`): the gun type's body and outline,
-its glint the gun's rarity colour. `tools/make-aim-table.mjs` writes the direction lookup auto-aim
+its glint the gun's rarity colour. The class characters (hunter, hooded, cyborg; picked
+with CHAR in the playtest menu) are hand-placed pixel grids in `tools/make-character-art.mjs`,
+in the style of the hooded figure's source art: no outline, a rim of light on the top-left
+edges, dark only for shadow (`artwork/<name>/`). `tools/make-aim-table.mjs` writes the direction lookup auto-aim
 uses. Rerun these after editing them; their output is committed. `tools/assets.mjs` turns the PNGs listed in its
 `ASSETS` table into C arrays in `build/gen/`:
 
