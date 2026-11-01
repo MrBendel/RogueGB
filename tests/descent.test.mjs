@@ -410,6 +410,9 @@ test("a hab module's door leads into its interior and back out onto its step", (
 
 test("the exit map's shaft is guarded: its miniboss's arena, then back beside the shaft, open", () => {
   const emu = startDescent();
+  emu.writeBytes(addr(emu, 'profile') + 227, [3]);  // a bounty job (mission.h) ...
+  emu.writeBytes(addr(emu, 'profile') + 230, [0]);  // ... on the Claimjaw ...
+  emu.writeBytes(addr(emu, 'profile') + 233, [1]);  // ... once
   walkTo(emu, emu.v('area_exit'));
   const exit = emu.v('area_exit');
   for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
@@ -437,6 +440,7 @@ test("the exit map's shaft is guarded: its miniboss's arena, then back beside th
   const up = emu.read8(addr(emu, 'profile') + 1) > level;
   assert.equal(emu.v('player_hp'), up ? emu.v('player_hp_max') : 3, up ? 'levelled up: full' : 'as it went in');
   assert.ok(emu.read8(addr(emu, 'area_chests_opened') + exit) & AREA_BOSS_BEATEN, 'its miniboss beaten');
+  assert.equal(emu.read8(addr(emu, 'profile') + 236), 1, 'the bounty job done');
   const px = emu.v('player_x', 'u16'), py = emu.v('player_y', 'u16');
   assert.ok(Math.abs(px - sx) < 48 && Math.abs(py - sy) < 48, `beside the shaft: ${px},${py}`);
   const drops = Array.from(emu.readBytes(addr(emu, 'drop_kind'), 8));

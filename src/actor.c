@@ -22,6 +22,7 @@
 #include "tank.h"
 #include "medic.h"
 #include "elite.h"
+#include "mission.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -260,6 +261,7 @@ static void reap(void) {
         if (actor_type[i] == ACTOR_NONE || actor_hp[i]) continue;
         xp_pending += type_xp[actor_type[i]];
         if (actor_elite[i]) elite_fell(i);  // (play awards it)
+        if (mission_cull & (1 << actor_type[i])) mission_kill(actor_type[i]);  // (a cull job's kind)
         kill_x = actor_x[i];  // (loot may drop there: pickups.c)
         kill_y = actor_y[i];
         actor_type[i] = ACTOR_NONE;

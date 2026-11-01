@@ -9,6 +9,7 @@
 #include "run.h"
 #include "health.h"
 #include "elite.h"
+#include "mission.h"
 #include "save.h"
 
 extern uint16_t saved_seconds;  // descent.c
@@ -36,6 +37,7 @@ static void settle(void) {
     profile.last_fee = profile.credits >> DEATH_FEE_SHIFT;
     profile.credits -= profile.last_fee;
     profile.exp_active = 0;
+    mission_lost();  // (the data cores you carried)
     profile.kills += enemies_killed;
     save_add_time(run_seconds - saved_seconds);
     save_write();

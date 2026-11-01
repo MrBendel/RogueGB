@@ -17,6 +17,7 @@
 #define PAGE_TUNE 4  // only without a file (the lab, the yard)
 #define PAGES 5
 #define PAGE_SHOP 5  // Marro's shop (opened by talking to him in town; not one of B's pages)
+#define PAGE_BOARD 6  // the contracts board (talking to its terminal in town; board.c)
 #define SHOP_STOCK 3  // guns; then the backpack upgrade, while there is one
 
 // --- watchable state ---
@@ -40,6 +41,17 @@ void menu_tabs(void) BANKED;    // just the page tabs (the tuning page draws the
 void menu_update(void) BANKED;  // the skills and options pages' cursors
 void menu_next_page(void) BANKED;  // B: the next page (the tuning page only without a file)
 uint8_t menu_back(void) BANKED;    // B on a page that uses it (a gun picked up: put back): 1 if used
-void shop_restock(void) BANKED;    // new guns at the shop (each time you come into town)
+void shop_restock(void) BANKED;
+// For the board's page (board.c): text from RAM at pixel x, row ty, in ink pal, into
+// tiles `at` (0xFF: the next free); a row cleared; the cursor arrow, and moved.
+uint8_t menu_say(uint8_t x, uint8_t ty, const char *s, uint8_t pal, uint8_t at) BANKED;
+uint8_t menu_alloc(uint8_t n) BANKED;  // n text tiles from the pool
+void menu_clear_row(uint8_t row) BANKED;
+uint8_t menu_arrow_at(uint8_t ty) BANKED;
+void menu_move_arrow(uint8_t marker, uint8_t from, uint8_t to) BANKED;
+#define MENU_INK 6  // menu.c's inks, for the board
+#define MENU_DIM 1
+#define MENU_LIT 2
+#define MENU_SEL 3    // new guns at the shop (each time you come into town)
 
 #endif

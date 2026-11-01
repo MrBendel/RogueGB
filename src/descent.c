@@ -24,6 +24,7 @@
 #include "run.h"
 #include "weapon.h"
 #include "loot.h"
+#include "mission.h"
 #include "health.h"
 #include "sfx.h"
 #include <string.h>
@@ -267,6 +268,7 @@ void descent_update(void) BANKED {
                 char t[8] = "CLEAR! ";
                 hud_say(t);
                 xp_gain(XP_CAMP + 5 * layer_depth);
+                mission_found();  // (a retrieve job's data core)
             }
         }
     }

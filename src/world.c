@@ -53,6 +53,14 @@ void world_load_tiles(uint8_t indoor) BANKED {
     }
 }
 
+uint8_t world_roster_kind(uint8_t tier, uint8_t j) BANKED {
+    return worlds[world_id].roster[tier][j];
+}
+
+uint8_t world_miniboss_kind(uint8_t i) BANKED {
+    return worlds[world_id].minibosses[i];
+}
+
 uint8_t world_enemy(uint8_t depth) BANKED {
     uint8_t tier = depth >= WORLD_TIERS ? WORLD_TIERS - 1 : depth ? depth - 1 : 0;
     return worlds[world_id].roster[tier][rand() & (WORLD_ROSTER - 1)];

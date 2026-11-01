@@ -28,6 +28,8 @@ extern uint8_t world_id;  // the world the run is in (WORLD_*)
 
 void world_enter(uint8_t id) BANKED;         // a run into world id: its map pieces, its enemies' colours
 void world_load_tiles(uint8_t indoor) BANKED;  // its outdoor or indoor tileset (the display off)
+uint8_t world_roster_kind(uint8_t tier, uint8_t j) BANKED;  // the roster's j-th kind at a tier (missions)
+uint8_t world_miniboss_kind(uint8_t i) BANKED;  // the world's i-th miniboss (MODE_MINIBOSS kind)
 uint8_t world_enemy(uint8_t depth) BANKED;    // a camp's next enemy kind at depth (one rand)
 uint8_t world_miniboss(uint8_t depth) BANKED; // the miniboss guarding depth's shaft
 
