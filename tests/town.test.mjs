@@ -311,3 +311,21 @@ test('an uncollected vending gun stays inside its shop across other room visits'
   assert.equal(emu.v('drop_kind'), 2, 'purchase is still waiting');
   assert.deepEqual([...emu.readBytes(A(emu, 'floor_gun'), 9)], gun);
 });
+
+
+test('rescued residents stay on open ground without blocking the compact town doors', () => {
+  const emu = newFileInTown();
+  emu.writeBytes(A(emu, 'profile') + 242, [15]);
+  enterTownBuilding(emu, 0); leaveTownBuilding(emu);
+  const authored = convert('sands').maps.town;
+  const kinds = [...emu.readBytes(A(emu, 'talk_kind'), emu.v('talk_count'))];
+  assert.equal(kinds.filter(k => k >= 8).length, 4);
+  kinds.forEach((kind,i) => {
+    if (kind < 8) return;
+    const x = emu.read8(A(emu, 'talk_bx') + i), y = emu.read8(A(emu, 'talk_by') + i);
+    assert.equal(authored.type[y * authored.w + x], 0, 'resident stands on floor');
+    assert.ok(TOWN_DOORS.every(([dx,dy]) => x !== dx || y !== dy + 1), 'doorstep stays clear');
+  });
+  for (let k = 0; k < 3; k++) { enterTownBuilding(emu,k); leaveTownBuilding(emu); }
+  emu.shot('town-residents');
+});

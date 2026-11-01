@@ -1,0 +1,30 @@
+{
+  "about": "The people you can rescue (src/rescue.c, mission.c MIS_RESCUE): freed, following you out, holding while they cut loose, and later in town. Placeholders, not the final script.",
+  "speakers": {
+    "tess": { "name": "TESS", "color": "#2c6e3a" },
+    "okafor": { "name": "OKAFOR", "color": "#a8401c" },
+    "nell": { "name": "NELL", "color": "#5a3c8c" },
+    "pip": { "name": "PIP", "color": "#1c5a84" }
+  },
+  "scripts": [
+    { "id": "freed_tess", "lines": [{ "who": "tess", "text": "Took you long enough. I know the way up from here. Go." }] },
+    { "id": "freed_okafor", "lines": [{ "who": "okafor", "text": "Three days in a cage. Tell Meridian I want overtime." }] },
+    { "id": "freed_nell", "lines": [{ "who": "nell", "text": "Thank you, dear. These old legs can still find the lift." }] },
+    { "id": "freed_pip", "lines": [{ "who": "pip", "text": "You came! I mean. Obviously you came. Bye!" }] },
+
+    { "id": "follow_tess", "lines": [{ "who": "tess", "text": "My leg's done. Get me back to the entrance and I'll stay behind you." }] },
+    { "id": "follow_okafor", "lines": [{ "who": "okafor", "text": "No gun, no plan. Lead the way to the entrance. I'll keep up." }] },
+    { "id": "follow_nell", "lines": [{ "who": "nell", "text": "Slowly, dear. The entrance, and mind the shooting." }] },
+    { "id": "follow_pip", "lines": [{ "who": "pip", "text": "Right behind you! Entrance, yes? Please say entrance." }] },
+
+    { "id": "hold_tess", "lines": [{ "who": "tess", "text": "This lock's welded. Twenty seconds with the cutter. Keep them off me." }] },
+    { "id": "hold_okafor", "lines": [{ "who": "okafor", "text": "Chain's thick. Give me twenty seconds and stay close." }] },
+    { "id": "hold_nell", "lines": [{ "who": "nell", "text": "I've a hairpin and twenty seconds of patience. Don't wander off." }] },
+    { "id": "hold_pip", "lines": [{ "who": "pip", "text": "I can hack it! Twenty seconds! Don't let them near me!" }] },
+
+    { "id": "town_tess", "lines": [{ "who": "tess", "text": "Back on my feet. If you find more of us down there, bring them home." }] },
+    { "id": "town_okafor", "lines": [{ "who": "okafor", "text": "Meridian docked my pay for the days I was gone. Of course they did." }] },
+    { "id": "town_nell", "lines": [{ "who": "nell", "text": "I've put the kettle on. It's all recycled water, but it's warm." }] },
+    { "id": "town_pip", "lines": [{ "who": "pip", "text": "I'm telling everyone you saved me. I've told everyone twice." }] }
+  ]
+}

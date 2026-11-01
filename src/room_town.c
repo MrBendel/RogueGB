@@ -11,6 +11,7 @@
 #include "level.h"
 #include "pickups.h"
 #include "town.h"
+#include "rescue.h"
 
 #if TILES_SANDS_TILE_COUNT <= 172 || TILES_SANDS_TILE_COUNT > 220
 #error Sands loader expects 173..220 tiles across two VRAM banks
@@ -58,6 +59,13 @@ void room_load_town(void) BANKED {
     talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
     // The company's contracts board, by the yard: jobs to take down (board.c).
     talk_add(7, 10, TALK_POST, TALK_DO_BOARD);
+    // The people you've rescued (rescue.h), about town. Their tiles go where the
+    // enemies' would (no enemies here).
+    static const uint8_t folk_x[PEOPLE] = {3, 10, 7, 2}, folk_y[PEOPLE] = {11, 8, 13, 12};
+    static const uint8_t folk_say[PEOPLE] = {DLG_TOWN_TESS, DLG_TOWN_OKAFOR, DLG_TOWN_NELL, DLG_TOWN_PIP};
+    talk_people_at = 16;  // (actor.c ENEMY_VRAM)
+    for (uint8_t p = 0; p < PEOPLE; p++)
+        if (profile.rescued & (1 << p)) talk_add(folk_x[p], folk_y[p], TALK_PERSON + p, folk_say[p]);
     // No chests or containers (the last area's are still listed): the floor
     // only holds what the gun machine drops.
     level_chests = level_conts = 0;

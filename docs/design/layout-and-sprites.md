@@ -124,6 +124,8 @@ Tile numbers 0..127:
 [252 .. 255] : Acid puddles (elite.c), shared with background tiles: tilesets stop at 251
 [084 .. 087] : Coin, ammo pickups (pickups.c)
 [088 .. 095] : Hound actor tiles (hound.c; the descent, the lab)
+[108 .. 125] : Talkers (talk.c): 4 kinds x 4, then the bubble's 2. In the descent a
+               rescued person (rescue.c) uses 108-111; in town people go at 16+ (no enemies)
 [106 .. 107] : Duelist actor tiles, column 3 (after the chest's item, outside boss fights)
 [096 .. 127] : MACHINE_VRAM (32 tiles = 8 metasprite frames, 4 tiles each)
                - Frame 0: Closed Warden

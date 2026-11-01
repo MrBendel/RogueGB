@@ -150,8 +150,30 @@ job in (credits and XP), or pays a debt; SELECT drops a job. Saved in the profil
 | Retrieve | 2-4 data cores | one per camp cleared; **lost if you die** | 30 + 3 x level CR and 20 XP each |
 | Bounty | a miniboss you can reach | its win (play.c) | 120 + 60 a boss step + 10 x level CR, 60+ XP |
 | Debt | (3 + level / 2 + 0-3) x 50 CR | paid at the board | 15 XP a 50 CR |
+| Rescue | free someone held in an area you've reached | done in the area; **lost if you die** | 80 + 40 x area + 10 x level CR, 40 + 20 x area XP; escort and hold half again |
 
 Progress shows on the HUD ("JOB 3/8"). Kills and bounties are kept if you die.
+
+**Built (2026-10-31): rescues** (src/rescue.c). The user's idea, all three ways at
+once. Four named people from town (Tess, Okafor, Nell, Pip; the 8bitadventure NPC
+art in the player's palette, the crew's colours) can be held. A job names who, the
+area (its `need`) and how (its `target`: who in the low nibble, how in the high).
+In that area they're held in one field map (from the area's seed), at the first
+camp's last enemy slot, as a talker (`TALK_PERSON` + who). A while the camp is up:
+"GUARDED". Cleared, A:
+- **Free:** they thank you and head home.
+- **Escort:** they follow you (2 px a frame when behind, warped to you if stuck), and
+  enemy bullets and touch hurt them (8 hits). Into the area's entrance room: safe.
+  Down: dragged back to where they were held; the job stays.
+- **Hold:** 20 seconds counted while you're within 80 px ("HOLD 12" on the HUD), an
+  enemy coming at the camp every 2.5 seconds from 60-96 px off.
+
+Nothing of a rescue under way is saved but the job: quit, die or go up to the
+miniboss's arena mid-rescue and they're held again. Turned in, they're in town
+(`profile.rescued`, save version 10) at spots about the square, each with a line.
+The board only asks for people not yet rescued or on a job. People's tiles: 108 in
+the descent (the town's talker tiles; nothing else there uses them), the enemies'
+tiles (16+) in town.
 Debt is only a mission for now: no standing debt (decisions.md still has no debt
 system). Next (Borderlands): bounties on named elites, a choice of two guns at
 turn-in, bonus objectives, and challenges.

@@ -164,6 +164,12 @@ export const ASSETS = [
   { name: 'spr_talk_marro', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['warden down (1).png'] } },
   // The lift between the town and the descent (a placeholder).
   { name: 'spr_talk_lift', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/Blocks', anims: { idle: ['switch_green.png'] } },
+  // People you can rescue (mission.c MIS_RESCUE), and who stand in town after
+  // (talk.c TALK_PERSON): drawn in the player's palette, the crew's colours.
+  { name: 'spr_person_tess', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['woman down (1).png'] } },
+  { name: 'spr_person_okafor', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['fighter down (1).png'] } },
+  { name: 'spr_person_nell', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['grandma down (1).png'] } },
+  { name: 'spr_person_pip', kind: 'sprite', bank: true, dir: 'artwork/8bitadventure/NPCs', anims: { idle: ['smarty down (1).png'] } },
   // Held weapons: 16 aiming directions each, drawn by tools/make-weapon-art.mjs
   // (which also writes src/weapon_<name>.h, where each direction is placed).
   {

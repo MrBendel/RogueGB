@@ -19,7 +19,8 @@ quarters, Echo's relay room, and Marro's shop.
   exits onto the same outdoor doorstep. Jumping/rolling cannot trigger a doorway.
 
 Outdoor doors (facade block coordinates): quarters (5,8), relay (7,3), shop (11,6).
-The lift (4,12) and contracts board (7,10) stay outside. Company posts are at
+Rescued residents stand clear of door approaches at (3,11), (10,8), (7,13),
+and (2,12). The lift (4,12) and contracts board (7,10) stay outside. Company posts are at
 (12,8) and (8,12). Marro and the gun/shield machines are inside the shop.
 
 ## Interior art and behavior

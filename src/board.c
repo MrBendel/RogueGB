@@ -76,8 +76,8 @@ static void job_row(uint8_t s) {
     mission_text(line, &m);
     uint8_t ready = mission_ready(s);
     menu_say(16, ty, line, ready ? MENU_LIT : MENU_INK, 0xFF);
-    if (m.kind == MIS_DEBT) {
-        say_c(STATUS_X, ty, ready ? "PAY" : "-", ready ? MENU_LIT : MENU_DIM, 0xFF);
+    if (m.kind == MIS_DEBT || m.kind == MIS_RESCUE) {  // (a rescue's area is in its detail)
+        say_c(STATUS_X, ty, !ready ? "-" : m.kind == MIS_DEBT ? "PAY" : "DONE", ready ? MENU_LIT : MENU_DIM, 0xFF);
     } else if (ready) {
         say_c(STATUS_X, ty, "DONE", MENU_LIT, 0xFF);
     } else {
@@ -120,8 +120,12 @@ static void detail(void) {
     if (!job) what = profile.mis_taken & (1 << board_sel) ? "Taken." : "A: take it (3 jobs at most).";
     else if (m.kind == MIS_DEBT) what = mission_ready(s) ? "A: pay it.  SELECT: drop" : "Earn the credits, then pay here.";
     else what = mission_ready(s) ? "A: turn it in." : m.kind == MIS_RETRIEVE ? "Cores are lost if you die. SELECT: drop" : "SELECT: drop it.";
-    p = put(l2, what);
-    *p = 0;
+    if (m.kind == MIS_RESCUE && !(job && mission_ready(s))) {
+        mission_rescue_text(l2, &m);  // where, and how
+    } else {
+        p = put(l2, what);
+        *p = 0;
+    }
     menu_say(8, DETAIL + 1, l2, mission_ready(s) && job ? MENU_LIT : MENU_DIM, board_tiles + 19);
 }
 
