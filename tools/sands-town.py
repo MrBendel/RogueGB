@@ -33,12 +33,24 @@ for x in range(9,15):coll[11][x]=False
 # Three complete buildings from the original composition; no duplicate market wing.
 # Continue the original right edge into the room boundary.
 stamp(224,0,1,12,15,0,True)
-# Southern departure ledge: fence sections, tower, grass tufts, and room to approach the lift.
-stamp(32,224,4,1,1,14,True)
+# Storage containers stack vertically as in the source demo, with darker lower
+# tiers. Palette-only aliases share the exact same hardware tile patterns.
+def containers(dx,top,tiers):
+ for tier in range(tiers):
+  for xx in range(4):
+   base=cell(32+xx*16,224)
+   n=f'{base}_storage_{tier}'
+   pieces[n]={'rect':pieces[base], 'palette':tier}
+   g[top+tier][dx+xx]=n;coll[top+tier][dx+xx]=True
+containers(1,13,2)
+containers(10,12,3)
 stamp(64,272,2,1,6,14)
 stamp(128,208,1,3,6,12,True)
-# Finish the departure yard with a fence, not a second copy of the cliff formation.
-stamp(32,224,4,1,10,14,True)
+# The elevated tank occludes the player; only the grounded feet block walking.
+for y in (12,13):
+ base=g[y][6];n=base+'_behind'
+ pieces[n]={'rect':pieces[base], 'behind':True}
+ g[y][6]=n;coll[y][6]=False
 for x in range(16):coll[0][x]=coll[15][x]=True
 for y in range(16):coll[y][0]=coll[y][15]=True
 # Door approaches and the central yard lane are explicitly walkable.
@@ -54,5 +66,5 @@ for y in range(16):
  rows.append(row)
 used={n for row in g for n in row}
 pieces={n:p for n,p in pieces.items() if n in used}
-d={'comment':'The original 240x192 Sands composition occupies the northwest unchanged. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f8f0d8','#e0c888','#906840','#302820']},'pieces':pieces,'legend':legend,'maps':{'town':rows}}
+d={'comment':'The original 240x192 Sands composition occupies the northwest unchanged. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f8f0d8','#e0c888','#906840','#302820']},'paletteVariants':[['#d8c098','#b09860','#705030','#282018'],['#b09870','#887040','#503820','#201810']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
 p.write_text(json.dumps(d,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')

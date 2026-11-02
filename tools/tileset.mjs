@@ -324,6 +324,19 @@ export function convert(name) {
       throw new Error(`tileset ${name}: palette override ${slot} needs four #RRGGBB colours`);
     palettes[slot] = ramp.map(c => { const v = parseInt(c.slice(1), 16); return pack(R(v), G(v), B(v)); });
   }
+  // Extra display ramps reuse indexed patterns; pieces choose only an attribute.
+  for (const ramp of def.paletteVariants || []) {
+    if (palettes.length >= def.palettes || !Array.isArray(ramp) || ramp.length !== 4 || ramp.some(c => !/^#[0-9a-f]{6}$/i.test(c)))
+      throw new Error(`tileset ${name}: palette variants need four colours and a free scene palette`);
+    palettes.push(ramp.map(c => { const v = parseInt(c.slice(1), 16); return pack(R(v), G(v), B(v)); }));
+  }
+  for (const piece of pieces) {
+    const pal = def.pieces[piece.piece].palette;
+    if (pal === undefined) continue;
+    if (!Number.isInteger(pal) || !palettes[pal]) throw new Error(`tileset ${name}: invalid piece palette ${pal}`);
+    for (let b = piece.first; b < piece.first + piece.w * piece.h; b++)
+      for (const t of blocks[b]) out[t].pal = pal;
+  }
   return { name, def, pieces, blocks, palettes, tiles: out, stored, art, totalErr, img, placeholder, maps: buildMaps(def, pieces), theme: buildTheme(def, pieces) };
 }
 

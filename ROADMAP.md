@@ -412,3 +412,7 @@ by walking into doors and exit onto the matching doorstep. Marro and vending
 machines move indoors; lift and contracts stay outside. Preserve resources, stock
 and room-local floor purchases on door transitions. Deduplicate/flips: 198 outdoor
 tiles and 47 shared interior tiles, loaded separately. See docs/design/town.md.
+
+- 2026-11-01: Corrected Sands yard ribbed pieces to stacked storage containers.
+  Two/three-tier stacks use darker lower palettes with no additional tile patterns.
+- 2026-11-01: Tower tank/supports draw over a walkable path; grounded feet stay solid. Two authored south-facing town cliffs support committed Down + jump drops while blocking walking and upward passage.

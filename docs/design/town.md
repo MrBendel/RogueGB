@@ -44,7 +44,7 @@ paper highlight after indexing, preserving the source's shading detail.
 Optional layout authoring: python tools/sands-town.py (requires Pillow). Compile
 with node tools/tileset.mjs sands. The helper removes unused pieces; the normal
 compiler deduplicates all 8x8 tiles including horizontal, vertical and combined
-flips. Outdoor: 332 quadrant references -> 249 unique unflipped -> 198 stored.
+flips. Outdoor: 340 quadrant references -> 249 unique unflipped -> 198 stored.
 Interiors: 84 references -> 74 unflipped -> 47 stored, shared by all three rooms.
 
 Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
@@ -52,3 +52,25 @@ Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
 glyphs at 44..50; closing a menu restores outdoor detail tiles. The interiors fit
 entirely in bank 0. Tests cover source shading preservation, absence of unused
 pieces, service/door reachability, transitions, purchases and graphics restoration.
+
+## Storage yard
+
+The ribbed pieces at (1,14)..(4,14) are storage containers, not fencing.
+The left stack occupies columns 1..4, rows 13..14; the right stack occupies
+columns 10..13, rows 12..14. Lower tiers use progressively darker warm ramps,
+following the source demo. All tiers are solid; the lift and resident approaches
+remain open. Palette attributes reuse identical indexed tile patterns: no extra
+hardware tiles are needed for the darker tiers.
+
+## Depth and cliff traversal
+
+The tower tank at (6,12) and upper supports at (6,13) are walkable background
+priority pieces: the player passes behind them. The grounded base (6,14) stays
+solid. Use this separation for tall props instead of blocking their silhouette.
+
+The south-facing cliff faces at row 10, columns 3..5 and 9..14, stay solid to
+walking and upward jumps. From the north lip, Down + jump starts a committed hop
+to the clear ground below. Releasing or reversing input mid-hop still completes
+the crossing, then normal gravity finishes the landing. Other cliff walls remain
+solid until they have an authored safe drop route. The traversal is town-only;
+combat movement and collision rules remain unchanged.
