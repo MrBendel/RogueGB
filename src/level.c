@@ -285,6 +285,7 @@ static void tidy(uint8_t w, uint8_t h) {
 
 // An exterior map's look: the theme's rules, then the set pieces and pipes over them.
 static void look_exterior(void);
+static void raise_low_props(uint8_t w, uint8_t h);
 
 // Set pieces (content/tilesets/lunar_ext.json "prefab" pieces, cut from the pack's
 // example: the hab module, the solar station, the tank, racks...). Each building
@@ -311,7 +312,8 @@ uint8_t area_conts_opened[AREA_CELLS];
 uint8_t area_inside_opened[AREA_CELLS];
 uint8_t level_vends, vend_bx[VENDS_MAX], vend_by[VENDS_MAX];
 static const uint8_t cont_w[3] = {1, 1, 2}, cont_h[3] = {2, 1, 2};
-#define PF_HAB 0  // (the first set piece: the hab module, the one with a door)
+#define PF_HAB 0  // (the first set piece: the hab module, with a door)
+#define PF_SOLAR 1  // (the solar station: a door too)
 #define HAB_DOOR_X 1  // its door's column, and its step's row
 #define HAB_STEP_Y 4
 static uint8_t *pf_x, *pf_y, *pf_id;
@@ -364,8 +366,12 @@ static uint8_t pf_room(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t x1, u
     return 1;
 }
 
+// The hab module and the solar station have a hatch in their front (both in
+// column 1, 4 rows down): the hab's step is part of it; the solar station's is
+// the ground under it, a door only if that's open.
 static void add_door(uint8_t pf, uint8_t x, uint8_t y) {
-    if (pf != PF_HAB || level_doors >= DOORS_MAX) return;
+    if (level_doors >= DOORS_MAX) return;
+    if (pf != PF_HAB && (pf != PF_SOLAR || y + HAB_STEP_Y >= room_h - 1 || (MAP(x + HAB_DOOR_X, y + HAB_STEP_Y) & 0x3F) != BLK_FLOOR)) return;
     door_bx[level_doors] = x + HAB_DOOR_X;
     door_by[level_doors++] = y + HAB_STEP_Y;
 }
@@ -396,6 +402,8 @@ static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
             if ((uint8_t)((camp_slot_x[c][s] >> 4) - x) < w && (uint8_t)((camp_slot_y[c][s] >> 4) - y) < h) return 0;
     for (uint8_t c = 0; c < level_chests; c++)
         if ((uint8_t)((chest_x[c] >> 4) - x) < w && (uint8_t)((chest_y[c] >> 4) - y) < h) return 0;
+    for (uint8_t d = 0; d < level_doors; d++)  // (a door's step, and the block in front of it)
+        if ((uint8_t)(door_bx[d] - x) < w && (uint8_t)(door_by[d] + 1 - y) < h + 1) return 0;  // (rows door_by and door_by + 1)
     return 1;
 }
 
@@ -635,8 +643,30 @@ static void place_vendors(uint8_t w, uint8_t h) {
 
 static void plan_set_pieces(uint8_t w, uint8_t h, uint8_t shaft) {
     pf_count = pipe_count = level_doors = 0;
-    if (shaft)
-        for (uint8_t b = 0; b < 4; b++) MAP(SHAFT_X(w) + (b & 1), SHAFT_Y(h) + (b >> 1)) = BLK_FLOOR;
+    // An exit map's shaft is dug first, so what's placed after keeps a way around
+    // it (a pipe once relied on walking over it). The middle, which must connect,
+    // becomes the first ground beside it.
+    if (shaft) {
+        static const int8_t side[8][2] = {{2, 0}, {2, 1}, {-1, 0}, {-1, 1}, {0, -1}, {1, -1}, {0, 2}, {1, 2}};
+        uint8_t sx = SHAFT_X(w), sy = SHAFT_Y(h);
+        for (uint8_t b = 0; b < 4; b++) MAP(sx + (b & 1), sy + (b >> 1)) = BLK_PIT;
+        for (uint8_t k = 0; k < 8; k++)
+            if (MAP(sx + side[k][0], sy + side[k][1]) == BLK_FLOOR) {
+                must_x[musts - 1] = sx + side[k][0];
+                must_y[musts - 1] = sy + side[k][1];
+                break;
+            }
+        // (In a narrow pass the shaft can cut a way: carve one round it again.)
+        if (!still_connected()) {
+            flood(must_x[0], must_y[0]);
+            uint8_t missed[MUST_MAX];
+            for (uint8_t k = 1; k < musts; k++) missed[k] = !(MAP(must_x[k], must_y[k]) & VISITED);
+            unvisit();
+            for (uint8_t k = 1; k < musts; k++)
+                if (missed[k]) carve(must_x[k], must_y[k], must_x[0], must_y[0]);
+            for (uint8_t b = 0; b < 4; b++) MAP(sx + (b & 1), sy + (b >> 1)) = BLK_PIT;
+        }
+    }
     // Raised platforms are buildings outdoors: with no stairs up to them they'd only
     // be walls that look like buildings (decided 2026-10-24). Both stop everything,
     // so nothing that connected stops connecting.
@@ -905,7 +935,20 @@ void level_build_map(uint8_t i) BANKED {
         pf_x = xs, pf_y = ys, pf_id = ids, pipes = runs;
         plan_set_pieces(w, h, area_type[i] == MAP_EXIT);
         look_exterior();
+        raise_low_props(w, h);
     }
+}
+
+// What's low enough to jump onto or over: pipes and lone crates are raised blocks.
+// (After the look: the theme's rules and the pipes' planning read them as solid.)
+static void raise_low_props(uint8_t w, uint8_t h) {
+    for (uint8_t y = 0; y < h; y++)
+        for (uint8_t x = 0; x < w; x++) {
+            uint16_t k = ((uint16_t)y << 5) | x;
+            uint8_t v = room_vis[k];
+            if ((v >= TS_LUNAR_EXT_PIPE_H && v <= TS_LUNAR_EXT_PIPE_BEND_U) || v == TS_LUNAR_EXT_CRATE || v == TS_LUNAR_EXT_CRATE_STACK)
+                room_map[k] = BLK_RAISED;
+        }
 }
 
 static void look_exterior(void) {

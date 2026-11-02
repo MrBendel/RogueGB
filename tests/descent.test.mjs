@@ -550,6 +550,17 @@ test("a building's lockers open and stay open (their own bits, saved)", () => {
   assert.equal(emu.read8(addr(emu, 'profile') + 214 + map) & 1, 1, 'in the file (exp_inside)');
 });
 
+test("every building's door leads inside (nothing's built on its step)", () => {
+  let doors = 0;
+  for (let seed = 4240; seed < 4280; seed++) {
+    const emu = intoBuilding(seed);
+    if (!emu) continue;
+    doors++;
+    assert.equal(emu.v('level_inside'), 0, `seed ${seed}: inside its first building`);
+  }
+  assert.ok(doors >= 5, `${doors} maps with a building`);
+});
+
 test('a guarded building: its camp wakes, and its chest waits until the camp is cleared', () => {
   const emu = intoBuilding(4260);  // (guarded)
   assert.equal(emu.v('level_camps'), 1);

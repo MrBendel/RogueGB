@@ -281,15 +281,15 @@ function placement(weapon, c) {
   return rows;
 }
 
-// The sword's poses, per facing: at rest (by your side), the windup, the swing
+// The sword's poses, per facing: at rest (held out the way you face), the windup, the swing
 // (smeared: the frame that can hit), the follow-through. Blade angles in degrees
 // clockwise from right; left mirrors right. Facing up, it's behind the body.
 // Frame 0 (right, at rest) is also its icon on the floor.
 const FACINGS = [
-  { hand: 0, poses: [67.5, -90, 0, 67.5] },     // right
-  { hand: 90, poses: [112.5, 0, 90, 180] },     // down: across the front, right to left
+  { hand: 0, poses: [0, -90, 0, 67.5] },     // right
+  { hand: 90, poses: [90, 0, 90, 180] },     // down: across the front, right to left
   null,                                          // left: the right's, mirrored
-  { hand: 270, poses: [112.5, 180, 270, 360], behind: 1 },  // up: over the head, left to right
+  { hand: 270, poses: [270, 180, 270, 360], behind: 1 },  // up: over the head, left to right
 ];
 
 /** The sword's 16 frames (facing x 4 + pose) and their placement rows. */

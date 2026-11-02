@@ -98,12 +98,29 @@ static uint8_t free_drop(void) {
     return 0xFF;
 }
 
+// Drop d at (x, y), or if its middle is in a wall or a prop, the first open floor
+// on the way from there to the player (who stands on floor next to what opened):
+// loot never lands where it can't be reached.
+static uint8_t open_floor(uint16_t x, uint16_t y) {
+    uint8_t b = room_block_at(x + 8, y + 8);
+    return b == BLK_FLOOR || b == BLK_DECK || b == BLK_STAIRS;
+}
+static void place(uint8_t d, uint16_t x, uint16_t y) {
+    int16_t dx = (int16_t)(player_x - x), dy = (int16_t)(player_y + 4 - y);
+    for (uint8_t k = 0; k < 4 && !open_floor(x, y); k++) {
+        x += dx >> 2;
+        y += dy >> 2;
+    }
+    if (!open_floor(x, y)) x = player_x, y = player_y + 4;
+    drop_x[d] = x;
+    drop_y[d] = y;
+}
+
 static void drop_credits(uint16_t x, uint16_t y, uint16_t value) {
     uint8_t d = free_drop();
     if (d == 0xFF) return;
     drop_kind[d] = DROP_CREDITS;
-    drop_x[d] = x;
-    drop_y[d] = y;
+    place(d, x, y);
     drop_value[d] = value;
     pickups_on = 1;
 }
@@ -112,8 +129,7 @@ static void drop_ammo(uint16_t x, uint16_t y, uint8_t type) {
     uint8_t d = free_drop();
     if (d == 0xFF || type >= AMMO_TYPES) return;
     drop_kind[d] = DROP_AMMO;
-    drop_x[d] = x;
-    drop_y[d] = y;
+    place(d, x, y);
     drop_value[d] = type;
     pickups_on = 1;
 }
@@ -135,8 +151,7 @@ static uint8_t drop_gun(uint16_t x, uint16_t y, const Gun *g) {
     floor_gun[r] = *g;
     weapon_icon(g->type, floor_icon[r]);
     drop_kind[d] = DROP_GUN;
-    drop_x[d] = x;
-    drop_y[d] = y;
+    place(d, x, y);
     drop_value[d] = r;
     pickups_on = 1;
     return 1;

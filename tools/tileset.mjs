@@ -141,9 +141,10 @@ function pieceRoles(def) {
 }
 
 // A set piece ("prefab": rows of block types, one character a block: "." ground,
-// "#" solid, "r" a roof you walk behind) is a piece the generator stamps whole
-// (level.c: buildings become set pieces). Its "r" blocks are walk-behind.
-const PREFAB_TYPE = { '.': 0, '#': 1, r: 0 };  // room.h BLK_*
+// "#" solid, "r" a roof) is a piece the generator stamps whole (level.c: buildings
+// become set pieces). Roofs are solid (walking behind a building's roof made it
+// look like a wall, not a building), still drawn over sprites where they overlap.
+const PREFAB_TYPE = { '.': 0, '#': 1, r: 1 };  // room.h BLK_*
 function blockBehind(spec, b, w) {
   if (spec.prefab) return spec.prefab[Math.floor(b / w)][b % w] === 'r';
   return !!spec.behind;
