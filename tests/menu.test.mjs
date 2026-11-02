@@ -6,32 +6,35 @@ import { assert, matchGolden, boot, bootToTitle, settle, startRun, startDescent,
 const PAGE_CHARACTER = 0, PAGE_GEAR = 1, PAGE_SKILLS = 2, PAGE_OPTIONS = 3, PAGE_TUNE = 4;
 const A = (emu, n) => emu.symbols.addr(n);
 const setting = (emu, i) => emu.read8(A(emu, 'settings') + i);  // text_speed, shake, sound
-/** B n times (a page takes a few frames to draw: a tap during it is missed). */
-const turn = (emu, n) => { for (let i = 0; i < n; i++) emu.tap('B').idle(4); return emu; };
+/** `key` n times (a page takes a few frames to draw: a tap during it is missed). */
+const turn = (emu, n, key = 'RIGHT') => { for (let i = 0; i < n; i++) emu.tap(key).idle(4); return emu; };
 
-test('a file pauses on the character page; B turns to gear, skills, options, and back (no tuning)', () => {
+test('a file pauses on the character page; RIGHT turns to gear, skills (its branches first), options, and back (no tuning); LEFT goes back', () => {
   const emu = startDescent().idle(2).tap('START').idle(2);
   assert.equal(emu.v('menu_page'), PAGE_CHARACTER);
   matchGolden(emu, 'pause-character');
   const pages = [];
-  for (let i = 0; i < 4; i++) pages.push(emu.tap('B').idle(2).v('menu_page'));
-  assert.deepEqual(pages, [PAGE_GEAR, PAGE_SKILLS, PAGE_OPTIONS, PAGE_CHARACTER]);
+  for (let i = 0; i < 6; i++) pages.push(emu.tap('RIGHT').idle(2).v('menu_page'));
+  assert.deepEqual(pages, [PAGE_GEAR, PAGE_SKILLS, PAGE_SKILLS, PAGE_SKILLS, PAGE_OPTIONS, PAGE_CHARACTER]);
+  pages.length = 0;
+  for (let i = 0; i < 6; i++) pages.push(emu.tap('LEFT').idle(2).v('menu_page'));
+  assert.deepEqual(pages, [PAGE_OPTIONS, PAGE_SKILLS, PAGE_SKILLS, PAGE_SKILLS, PAGE_GEAR, PAGE_CHARACTER]);
 });
 
 test('the lab pauses on tuning, and has all five pages', () => {
   const emu = startRun().idle(2).tap('START').idle(2);
   assert.equal(emu.v('menu_page'), PAGE_TUNE);
   const pages = [];
-  for (let i = 0; i < 5; i++) pages.push(emu.tap('B').idle(2).v('menu_page'));
-  assert.deepEqual(pages, [PAGE_CHARACTER, PAGE_GEAR, PAGE_SKILLS, PAGE_OPTIONS, PAGE_TUNE]);
+  for (let i = 0; i < 7; i++) pages.push(emu.tap('RIGHT').idle(2).v('menu_page'));
+  assert.deepEqual(pages, [PAGE_CHARACTER, PAGE_GEAR, PAGE_SKILLS, PAGE_SKILLS, PAGE_SKILLS, PAGE_OPTIONS, PAGE_TUNE]);
 });
 
-test('options change with LEFT/RIGHT and are kept on the cartridge', () => {
-  const emu = turn(startDescent().idle(2).tap('START').idle(4), 3);
+test('options change with A/B and are kept on the cartridge', () => {
+  const emu = turn(startDescent().idle(2).tap('START').idle(4), 1, 'LEFT');
   assert.equal(emu.v('menu_page'), PAGE_OPTIONS);
-  emu.tap('RIGHT');                 // text: fast
-  emu.tap('DOWN').tap('RIGHT');     // shake: off
-  emu.tap('DOWN').tap('LEFT');      // sound: low
+  emu.tap('A');                 // text: fast
+  emu.tap('DOWN').tap('A');     // shake: off
+  emu.tap('DOWN').tap('B');     // sound: low
   assert.deepEqual([0, 1, 2].map((i) => setting(emu, i)), [2, 0, 1]);
   matchGolden(emu.idle(2), 'pause-options');
   const again = boot();
@@ -41,13 +44,13 @@ test('options change with LEFT/RIGHT and are kept on the cartridge', () => {
 });
 
 // (The lab pauses on tuning: options are four pages on.)
-const labOptions = () => turn(startRun().idle(2).tap('START').idle(4), 4);
+const labOptions = () => turn(startRun().idle(2).tap('START').idle(4), 1, 'LEFT');
 
 test('text speed: instant puts a whole page out at once', () => {
   const emu = labOptions();
   assert.equal(emu.v('menu_page'), PAGE_OPTIONS);
-  emu.tap('LEFT');  // normal -> slow
-  emu.tap('LEFT');  // slow -> instant (it wraps)
+  emu.tap('B');  // normal -> slow
+  emu.tap('B');  // slow -> instant (it wraps)
   assert.equal(setting(emu, 0), 3);
   emu.tap('START').idle(2);
   emu.writeBytes(A(emu, 'debug_cmd'), [6, 0]);  // a script
@@ -57,7 +60,7 @@ test('text speed: instant puts a whole page out at once', () => {
 
 test('screen shake off: hits and kills leave the view still', () => {
   const emu = labOptions();
-  emu.tap('DOWN').tap('RIGHT');  // shake: off
+  emu.tap('DOWN').tap('A');  // shake: off
   emu.tap('START').idle(2);
   emu.writeBytes(A(emu, 'debug_cmd'), [4, 5, 0, 0, 0, 0]);  // hurt for 5
   emu.idle(1);
@@ -77,12 +80,12 @@ test('save and quit: SELECT in the pause menu goes to the title; the file contin
 
 // The gear page: the loadout's 4 rows, then the backpack's.
 const GUNS = 18, GUN_SIZE = 9, GUN_SEL = 54, PACK = 90;
-const gearPage = () => startDescent().idle(2).tap('START').tap('B').idle(2);
+const gearPage = () => startDescent().idle(2).tap('START').tap('RIGHT').idle(2);
 
 test('gear: A picks a gun up, A on a backpack slot swaps them; the held gun changes with it', () => {
   const emu = startDescent().idle(2);
   emu.writeBytes(A(emu, 'profile') + PACK + GUN_SIZE, [1, 2, 4, 0, 0, 0, 0, 0, 0]);  // a blue shotgun, backpack slot 2
-  emu.tap('START').tap('B').idle(2);
+  emu.tap('START').tap('RIGHT').idle(2);
   assert.equal(emu.v('menu_page'), PAGE_GEAR);
   emu.tap('A').idle(2);
   assert.equal(emu.v('gear_pick'), 0, 'the pistol picked up');
@@ -112,7 +115,7 @@ test('gear: the backpack list scrolls', () => {
   const emu = startDescent().idle(2);
   emu.writeBytes(A(emu, 'profile') + 89, [12]);
   for (let s = 0; s < 12; s++) emu.writeBytes(A(emu, 'profile') + PACK + s * GUN_SIZE, s === 11 ? [2, 4, 9, 0, 0, 0, 0, 0, 0] : [0xff]);
-  emu.tap('START').tap('B').idle(2);
+  emu.tap('START').tap('RIGHT').idle(2);
   for (let i = 0; i < 15; i++) emu.tap('DOWN');
   emu.idle(2);
   assert.equal(emu.v('gear_sel'), 15);

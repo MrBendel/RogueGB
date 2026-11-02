@@ -129,7 +129,7 @@ test('the RIFLE row on the pause panel switches tap, burst and auto', () => {
   emu.tap('START').idle(8);
   for (let k = 0; k < 11; k++) emu.tap('DOWN');  // MOVE ... LEAD SPD -> RIFLE
   for (const m of [RIFLE_TAP, RIFLE_BURST, RIFLE_AUTO]) {
-    emu.tap('RIGHT');
+    emu.tap('A');
     assert.equal(emu.v('rifle_mode'), m);
   }
 });

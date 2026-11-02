@@ -38,7 +38,8 @@ Status: decided where marked; the rest is the working plan. Builds on
 - **Classes:** a new file picks one of the four Wayfarer classes (Ironclad,
   Volt-Weaver, Ballistician, Ghost-Stalker; skill-trees.md). They share the
   player's look for now.
-- **The pause menu** has pages, turned with B:
+- **The pause menu** has pages, turned with LEFT/RIGHT (on the skills page they
+  move between the branches first); A and B change a value (A up, B down):
   - **Character:** class and role, level and XP bar, health and shield, credits,
     time, deepest depth, kills, skill points, and the loadout (each gun in its
     rarity's color, the one held marked).

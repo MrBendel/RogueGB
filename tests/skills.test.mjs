@@ -16,8 +16,8 @@ function newFile(cls = 0) {
   for (let i = 0; i < cls; i++) emu.tap('RIGHT');
   return settle(emu.tap('A'), PLAY).idle(4);
 }
-/** Pause, on the skills page (B turns the pause menu's pages). */
-const skillsPage = (emu) => emu.tap('START').idle(2).tap('B').idle(4).tap('B').idle(4);  // (past the gear page)
+/** Pause, on the skills page (LEFT/RIGHT turn the pause menu's pages). */
+const skillsPage = (emu) => emu.tap('START').idle(2).tap('RIGHT').idle(4).tap('RIGHT').idle(4);  // (past the gear page)
 
 test('a new file asks for a class; it is saved with the file', () => {
   const emu = newFile(2);

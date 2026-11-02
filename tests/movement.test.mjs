@@ -28,7 +28,7 @@ function runWithPreset(i) {
   const emu = startRun().idle(2);
   if (i) {
     emu.tap('START').idle(8);
-    for (let k = 0; k < i; k++) emu.tap('RIGHT');
+    for (let k = 0; k < i; k++) emu.tap('A');
     emu.tap('START').idle(2);
   }
   assert.equal(emu.v('move_preset'), i);
@@ -48,11 +48,11 @@ test('the MOVE row of the pause panel cycles the movement presets', () => {
   const emu = startRun().idle(2).tap('START').idle(8);
   assert.equal(emu.v('move_preset'), 0);
   for (const i of [1, 2, 3, 0]) {
-    emu.tap('RIGHT');
+    emu.tap('A');
     assert.equal(emu.v('move_preset'), i);
     assert.equal(emu.v('move_accel_frames'), PRESETS[i].accel);
   }
-  emu.tap('LEFT');
+  emu.tap('B');
   assert.equal(emu.v('move_preset'), 3, 'and back');
 });
 
@@ -132,12 +132,12 @@ test('clipping a pillar corner by a pixel slides around it', () => {
 test('pause panel tunes movement values', () => {
   const emu = startRun().idle(2).tap('START').idle(8); // the pause panel takes a couple of frames to draw
   assert.equal(emu.v('paused'), 1);
-  emu.tap('DOWN').tap('RIGHT');  // MOVE -> SPEED
+  emu.tap('DOWN').tap('A');  // MOVE -> SPEED
   assert.equal(emu.v('move_top', 'u16'), 256 + 64, 'speed +0.25');
   assert.equal(emu.v('move_preset'), CUSTOM);
-  emu.tap('DOWN').tap('LEFT').tap('LEFT');
+  emu.tap('DOWN').tap('B').tap('B');
   assert.equal(emu.v('move_accel_frames'), 3);
-  emu.tap('DOWN').tap('RIGHT');
+  emu.tap('DOWN').tap('A');
   assert.equal(emu.v('move_decel_frames'), 5);
   emu.tap('START');
   // The tuned values take effect.
@@ -146,7 +146,7 @@ test('pause panel tunes movement values', () => {
   // The MOVE row from CUSTOM goes back to the first preset.
   emu.idle(30).tap('START').idle(8);
   for (let k = 0; k < 3; k++) emu.tap('UP');  // back to MOVE
-  emu.tap('RIGHT');
+  emu.tap('A');
   assert.equal(emu.v('move_preset'), 0);
   assert.equal(emu.v('move_top', 'u16'), 256);
 });
@@ -156,7 +156,7 @@ test('screen: movement lab after moving', () => {
 });
 
 test('screen: tuning panel', () => {
-  matchGolden(startRun().idle(2).tap('START').idle(8).tap('DOWN').tap('DOWN').tap('RIGHT').idle(2), 'tuning');
+  matchGolden(startRun().idle(2).tap('START').idle(8).tap('DOWN').tap('DOWN').tap('A').idle(2), 'tuning');
 });
 
 // --- wall contact and camera wobble (jitter reports) --------------------------

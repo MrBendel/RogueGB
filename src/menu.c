@@ -290,7 +290,8 @@ static void draw_options(void) {
         draw_option(i);
     }
     say_c(16, 12, "UP DOWN: choose", P_DIM);
-    say_c(16, 13, "LEFT RIGHT: change", P_DIM);
+    say_c(16, 13, "A B: change", P_DIM);
+    say_c(16, 14, "LEFT RIGHT: page", P_DIM);
     say_c(16, 15, "START: back to the game", P_DIM);
     say_c(16, 16, save_slot != SAVE_NONE ? "SELECT: save and quit" : "SELECT: end the run", P_DIM);
 }
@@ -304,7 +305,7 @@ static void options_update(void) {
         draw_option(menu_option);
         return;
     }
-    int8_t d = joy_pressed & J_RIGHT ? 1 : joy_pressed & J_LEFT ? -1 : 0;
+    int8_t d = joy_pressed & J_A ? 1 : joy_pressed & J_B ? -1 : 0;
     if (!d) return;
     if (menu_option == 0) settings.text_speed = (settings.text_speed + TEXT_SPEEDS + d) % TEXT_SPEEDS;
     else if (menu_option == 1) settings.shake ^= 1;
@@ -522,7 +523,7 @@ static void draw_gear(void) {
     scroll_marks(GEAR_PACK_ROW, GEAR_ROWS, gear_top, profile.pack_size);
     gear_marker = arrow_at(gear_row(gear_sel));
     gear_detail();
-    say_c(8, 16, gear_pick == GEAR_NONE ? "A: move a gun    B: next page" : "A: swap with it    B: put back", P_DIM);
+    say_c(8, 16, gear_pick == GEAR_NONE ? "A: move a gun    LEFT RIGHT: page" : "A: swap with it    B: put back", P_DIM);
 }
 
 // Swap two slots' guns (loadout or backpack), keeping a gun in your hands.
@@ -559,7 +560,11 @@ static void gear_update(void) {
     uint8_t total = LOADOUT + profile.pack_size, old = gear_sel;
     if ((joy_pressed & J_UP) && gear_sel) gear_sel--;
     else if ((joy_pressed & J_DOWN) && gear_sel < total - 1) gear_sel++;
-    else if (joy_pressed & J_A) {
+    else if ((joy_pressed & J_B) && gear_pick != GEAR_NONE) {  // put it back
+        gear_pick = GEAR_NONE;
+        menu_draw();
+        return;
+    } else if (joy_pressed & J_A) {
         if (gear_pick == GEAR_NONE) {
             if (gear_gun(gear_sel)->type == GUN_NONE) {
                 sfx_play(SFX_RELOAD);  // nothing there to move
@@ -586,13 +591,6 @@ static void gear_update(void) {
     }
     move_arrow(gear_marker, gear_row(old), gear_row(gear_sel));
     gear_detail();
-}
-
-uint8_t menu_back(void) BANKED {
-    if (menu_page != PAGE_GEAR || gear_pick == GEAR_NONE) return 0;
-    gear_pick = GEAR_NONE;
-    menu_draw();
-    return 1;
 }
 
 // --- Marro's shop ---
@@ -819,10 +817,17 @@ static void shop_update(void) {
     shop_detail();
 }
 
-void menu_next_page(void) BANKED {
-    menu_page++;
-    if (menu_page == PAGE_TUNE && save_slot != SAVE_NONE) menu_page++;  // (tuning: the lab and the yard)
-    if (menu_page >= PAGES) menu_page = 0;
+uint8_t menu_turn(void) BANKED {
+    int8_t d = joy_pressed & J_RIGHT ? 1 : joy_pressed & J_LEFT ? -1 : 0;
+    if (!d) return 0;
+    // The skills page's branches come first; past the outer one, the page turns.
+    if (menu_page == PAGE_SKILLS && (d > 0 ? menu_skill < 6 : menu_skill >= 3)) return 0;
+    gear_pick = GEAR_NONE;  // (a gun picked up goes back)
+    do menu_page = (menu_page + PAGES + d) % PAGES;
+    while (menu_page == PAGE_TUNE && save_slot != SAVE_NONE);  // (tuning: the lab and the yard)
+    // Into the skills page at the branch on the side it was entered from.
+    if (menu_page == PAGE_SKILLS) menu_skill = menu_skill % 3 + (d > 0 ? 0 : 6);
+    return 1;
 }
 
 uint8_t menu_say(uint8_t x, uint8_t ty, const char *s, uint8_t pal, uint8_t at) BANKED {

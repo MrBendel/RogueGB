@@ -31,9 +31,9 @@ hits, and falling into pits, cost 1. There's no attacking yet (auto-aim is next)
 
 | Button | In play | Paused |
 |---|---|---|
-| D-pad | Move (8 directions) | UP/DOWN pick a value, LEFT/RIGHT change it |
-| A | Fire at the auto-aim target (hold or tap, depending on the weapon) | |
-| B | Jump; B again in mid-air dashes toward the d-pad direction (once per jump) | |
+| D-pad | Move (8 directions) | UP/DOWN pick a value, LEFT/RIGHT turn the page |
+| A | Fire at the auto-aim target (hold or tap, depending on the weapon) | Raise the value |
+| B | Jump; B again in mid-air dashes toward the d-pad direction (once per jump) | Lower the value |
 | SELECT | Tap: next weapon (pistol, shotgun, assault rifle, sniper, sword), on release. **SELECT+B:** reload. SELECT+A: reserved (grenade/mine) | End the run |
 | START | Pause and open the tuning panel | Resume |
 

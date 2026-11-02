@@ -16,7 +16,7 @@
 #define PAGE_OPTIONS 3
 #define PAGE_TUNE 4  // only without a file (the lab, the yard)
 #define PAGES 5
-#define PAGE_SHOP 5  // Marro's shop (opened by talking to him in town; not one of B's pages)
+#define PAGE_SHOP 5  // Marro's shop (opened by talking to him in town; not one of the pages)
 #define PAGE_BOARD 6  // the contracts board (talking to its terminal in town; board.c)
 #define SHOP_STOCK 3  // guns; then the backpack upgrade, while there is one
 
@@ -39,8 +39,7 @@ void menu_close(void) BANKED;   // palettes back (the caller rebuilds the HUD)
 void menu_draw(void) BANKED;    // the current page (not the tuning page)
 void menu_tabs(void) BANKED;    // just the page tabs (the tuning page draws the rest)
 void menu_update(void) BANKED;  // the skills and options pages' cursors
-void menu_next_page(void) BANKED;  // B: the next page (the tuning page only without a file)
-uint8_t menu_back(void) BANKED;    // B on a page that uses it (a gun picked up: put back): 1 if used
+uint8_t menu_turn(void) BANKED;  // LEFT/RIGHT: the page before or after (tuning only without a file); 1 if turned
 void shop_restock(void) BANKED;
 // For the board's page (board.c): text from RAM at pixel x, row ty, in ink pal, into
 // tiles `at` (0xFF: the next free); a row cleared; the cursor arrow, and moved.

@@ -216,7 +216,7 @@ static void draw_pause(void) {
     VBK_REG = 0;
     menu_tabs();
     draw_tune_rows();
-    win_text(1, TUNE_ROW0 + TUNE_ROWS, "B:PAGE SEL:END RUN");
+    win_text(1, TUNE_ROW0 + TUNE_ROWS, "A+ B- SEL:END RUN ");
 }
 
 static void draw_page(void) {
@@ -407,17 +407,17 @@ static void tune_update(void) {
     }
     const Tunable *t = &tunables[tune_sel];
     if (t->kind == KIND_CHAR) {
-        if (joy_pressed & (J_LEFT | J_RIGHT)) {
-            player_select_character((player_character + (joy_pressed & J_LEFT ? CHAR_COUNT - 1 : 1)) % CHAR_COUNT);
+        if (joy_pressed & (J_A | J_B)) {
+            player_select_character((player_character + (joy_pressed & J_B ? CHAR_COUNT - 1 : 1)) % CHAR_COUNT);
             draw_tune_row(tune_sel);
         }
         return;
     }
     if (t->kind == KIND_PRESET) {
-        // LEFT/RIGHT step through the presets (from CUSTOM, back to the first).
+        // A/B step through the presets (from CUSTOM, back to the first).
         uint8_t p = move_preset;
-        if (joy_pressed & J_RIGHT) p = p >= MOVE_PRESET_COUNT - 1 ? 0 : p + 1;
-        else if (joy_pressed & J_LEFT) p = p == 0 || p >= MOVE_PRESET_COUNT ? MOVE_PRESET_COUNT - 1 : p - 1;
+        if (joy_pressed & J_A) p = p >= MOVE_PRESET_COUNT - 1 ? 0 : p + 1;
+        else if (joy_pressed & J_B) p = p == 0 || p >= MOVE_PRESET_COUNT ? MOVE_PRESET_COUNT - 1 : p - 1;
         else return;
         move_apply_preset(p);
         // It and the movement values under it change (rows 0-4); redrawing just
@@ -427,16 +427,16 @@ static void tune_update(void) {
     }
     uint16_t v = tune_get(t);
     if (t->kind == KIND_RIFLE) {
-        // LEFT/RIGHT cycle the three.
-        if (joy_pressed & J_RIGHT) v = v >= RIFLE_MODES - 1 ? 0 : v + 1;
-        else if (joy_pressed & J_LEFT) v = v == 0 ? RIFLE_MODES - 1 : v - 1;
+        // A/B cycle the three.
+        if (joy_pressed & J_A) v = v >= RIFLE_MODES - 1 ? 0 : v + 1;
+        else if (joy_pressed & J_B) v = v == 0 ? RIFLE_MODES - 1 : v - 1;
         else return;
         tune_set(t, v);
         draw_tune_row(tune_sel);
         return;
     }
-    if ((joy_pressed & J_RIGHT) && v + t->step <= t->max) v += t->step;
-    else if ((joy_pressed & J_LEFT) && v >= t->min + t->step) v -= t->step;
+    if ((joy_pressed & J_A) && v + t->step <= t->max) v += t->step;
+    else if ((joy_pressed & J_B) && v >= t->min + t->step) v -= t->step;
     else return;
     tune_set(t, v);
     if (t->flags & TUNE_MOVEMENT) {
@@ -479,11 +479,8 @@ void play_update(void) BANKED {
             } else {
                 state_change(STATE_RUN_OVER);
             }
-        } else if (joy_pressed & J_B) {
-            if (!menu_back()) {
-                menu_next_page();
-                draw_page();
-            }
+        } else if (menu_turn()) {
+            draw_page();
         } else if (menu_page == PAGE_TUNE) tune_update();
         else menu_update();
         return;

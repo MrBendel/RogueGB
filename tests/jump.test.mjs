@@ -139,9 +139,9 @@ test('B pressed just before landing (after the dash) jumps again on touchdown', 
 test('jump values can be tuned from the pause panel', () => {
   const emu = startRun().idle(2).tap('START').idle(8);
   for (let i = 0; i < 5; i++) emu.tap('DOWN'); // MOVE, SPEED, ACCEL, DECEL, REVERSE -> JUMP
-  emu.tap('RIGHT');
+  emu.tap('A');
   assert.equal(emu.v('jump_vel', 'u16'), JUMP_VEL + 32);
-  emu.tap('DOWN').tap('LEFT');
+  emu.tap('DOWN').tap('B');
   assert.equal(emu.v('jump_grav'), GRAV - 4);
   emu.tap('START').idle(2).hold('B', 1);
   assert.equal(1 + framesToLand(emu), airFrames(JUMP_VEL + 32, GRAV - 4));
