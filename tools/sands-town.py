@@ -46,6 +46,11 @@ containers(1,13,2)
 containers(10,12,3)
 stamp(64,272,2,1,6,14)
 stamp(128,208,1,3,6,12,True)
+# The elevated tank occludes the player; only the grounded feet block walking.
+for y in (12,13):
+ base=g[y][6];n=base+'_behind'
+ pieces[n]={'rect':pieces[base], 'behind':True}
+ g[y][6]=n;coll[y][6]=False
 for x in range(16):coll[0][x]=coll[15][x]=True
 for y in range(16):coll[y][0]=coll[y][15]=True
 # Door approaches and the central yard lane are explicitly walkable.

@@ -344,3 +344,43 @@ test('saving inside a town building resumes safely outside', () => {
   assert.equal(emu.v('room_w'), 16);
   assert.equal(emu.v('play_mode'), MODE_TOWN);
 });
+
+
+test('tower tank is walk-behind, with solid feet at its base', () => {
+  const e=newFileInTown().idle(40);
+  e.writeBytes(A(e,'zones_done'),[255]);
+  w16(e,'player_x',80);w16(e,'player_y',188);
+  e.hold('RIGHT',22).idle(4);
+  assert.ok(e.v('player_x','u16')>96,'walk under tank from the side');
+  e.shot('town-behind-tower');
+  const ts=convert('sands');
+  for(const y of [12,13]) {
+    assert.equal(ts.maps.town.type[y*16+6],0);
+    const b=ts.maps.town.vis[y*16+6];
+    const p=ts.pieces.find(p=>b>=p.first && b<p.first+p.w*p.h);
+    assert.equal(ts.def.pieces[p.piece].behind,true);
+    for(let q=0;q<4;q++) assert.ok(e.read8(A(e,'room_lut')+q*256+(b|128))&128,'runtime background priority');
+  }
+  assert.equal(ts.maps.town.type[14*16+6],1,'tower feet remain solid');
+});
+
+test('town cliff drops require a downward jump and finish safely after releasing controls', () => {
+  const e=newFileInTown().idle(40);
+  e.writeBytes(A(e,'zones_done'),[255]);
+  for(const x of [4*16,11*16]) {
+    w16(e,'player_x',x);w16(e,'player_y',144);
+    w16(e,'player_vx',0);w16(e,'player_vy',0);
+    e.hold('DOWN',20).idle(2);
+    assert.equal(e.v('player_y','u16'),144,'walking stops at cliff');
+    e.hold('DOWN+B',3);
+    assert.ok(e.v('town_drop_end'),'downward jump starts a committed drop');
+    e.idle(3).shot(x===64?'town-cliff-hop-left':'town-cliff-hop-right');
+    e.idle(35);
+    assert.equal(e.v('town_drop_end'),0);
+    assert.equal(e.v('player_y','u16'),168,'land beyond the entire cliff face');
+    assert.equal(e.v('player_air'),0);
+    assert.equal(e.v('player_z','u16'),0);
+    e.hold('UP',20).idle(2).hold('UP+B',30).idle(10);
+    assert.ok(e.v('player_y','u16')>=168,'cannot climb back through the cliff');
+  }
+});

@@ -61,3 +61,16 @@ columns 10..13, rows 12..14. Lower tiers use progressively darker warm ramps,
 following the source demo. All tiers are solid; the lift and resident approaches
 remain open. Palette attributes reuse identical indexed tile patterns: no extra
 hardware tiles are needed for the darker tiers.
+
+## Depth and cliff traversal
+
+The tower tank at (6,12) and upper supports at (6,13) are walkable background
+priority pieces: the player passes behind them. The grounded base (6,14) stays
+solid. Use this separation for tall props instead of blocking their silhouette.
+
+The south-facing cliff faces at row 10, columns 3..5 and 9..14, stay solid to
+walking and upward jumps. From the north lip, Down + jump starts a committed hop
+to the clear ground below. Releasing or reversing input mid-hop still completes
+the crossing, then normal gravity finishes the landing. Other cliff walls remain
+solid until they have an authored safe drop route. The traversal is town-only;
+combat movement and collision rules remain unchanged.

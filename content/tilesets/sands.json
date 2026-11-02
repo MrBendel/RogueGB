@@ -535,24 +535,30 @@
       16,
       16
     ],
-    "art_128_208": [
-      128,
-      208,
-      16,
-      16
-    ],
-    "art_128_224": [
-      128,
-      224,
-      16,
-      16
-    ],
     "art_128_240": [
       128,
       240,
       16,
       16
-    ]
+    ],
+    "art_128_208_behind": {
+      "rect": [
+        128,
+        208,
+        16,
+        16
+      ],
+      "behind": true
+    },
+    "art_128_224_behind": {
+      "rect": [
+        128,
+        224,
+        16,
+        16
+      ],
+      "behind": true
+    }
   },
   "legend": {
     "Ā": {
@@ -888,16 +894,14 @@
       "solid": true
     },
     "ś": {
-      "piece": "art_128_208",
-      "solid": true
+      "piece": "art_128_208_behind"
     },
     "Ŝ": {
       "piece": "art_32_224_storage_0",
       "solid": true
     },
     "ŝ": {
-      "piece": "art_128_224",
-      "solid": true
+      "piece": "art_128_224_behind"
     },
     "Ş": {
       "piece": "art_32_224_storage_1",
