@@ -25,9 +25,12 @@ build, other worktrees) need a fallback:
 - **Placeholder art:** the tileset tool draws a plain stand-in for each piece when
   the sheet is missing, so the ROM still builds and plays.
 - **Tests:** screenshot goldens of LunarBase scenes run only where the art exists.
-- **Later, optional:** a GitHub secret holding the sheets (they're ~20 KB), decoded
-  by the workflow, would put the real art in the Pages build without the files in
-  the repo.
+- **The Pages build (2026-11-01):** the `ART_PACKS` secret holds the three sheets (a
+  base64 tar.gz); the workflow unpacks it into artwork/packs/, so the phone build has
+  the real art. The world viewer's data leaves the packs' atlases out (they'd be
+  the art as plain images).
+  To refresh it: tar the sheets from `G:\My Drive\Artwork\Assets` (paths
+  `LunarBase/Tiles/...`), base64 it, `gh secret set ART_PACKS < file`.
 
 ## What fits
 

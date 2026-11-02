@@ -38,6 +38,19 @@ jobs:
         run: |
           curl -fSL -o tools/gbdk-linux64.tar.gz https://github.com/gbdk-2020/gbdk-2020/releases/download/4.5.0/gbdk-linux64.tar.gz
 
+      # Bought art (LunarBase): never in the repository. The ART_PACKS secret is a
+      # base64 tar.gz of its sheets; tools/tileset.mjs finds them in artwork/packs/
+      # (gitignored). Without the secret the build draws stand-ins.
+      - name: Unpack the art packs
+        env:
+          ART_PACKS: ${{ secrets.ART_PACKS }}
+        run: |
+          if [ -n "$ART_PACKS" ]; then
+            mkdir -p artwork/packs
+            echo "$ART_PACKS" | base64 -d | tar -xz -C artwork/packs
+            find artwork/packs -type f
+          fi
+
       - name: Build ROM and run headless tests
         run: node tools/test.mjs
 
