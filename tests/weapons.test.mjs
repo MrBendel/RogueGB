@@ -176,7 +176,11 @@ test('CPU budget: an arena fight with each weapon, A held, stays within the fram
       if (emu.v('next_state') !== emu.v('game_state')) break;
     }
     assert.ok(emu.v('shots_hit', 'u16') + emu.v('melee_hits', 'u16') > 0, `${names[w]}: the hits land`);
-    assert.ok(worst < 72000, `${names[w]}: worst frame ${worst} cycles past vblank`);  // ~half the frame: sound, and wave 2 arrives
+    // ~half the frame: sound, and wave 2 arrives. The sword swings the way you face,
+    // so in this blind strafe more of the wave lives on and shoots (5 enemies, 5
+    // bullets): ~77k at worst, still well inside the frame (FRAME_LIMIT).
+    const cap = w === SWORD ? 80000 : 72000;
+    assert.ok(worst < cap, `${names[w]}: worst frame ${worst} cycles past vblank`);
   }
 });
 
@@ -198,11 +202,30 @@ test('sword: taps chain a 3-hit combo, and it starts over after a pause', () => 
   assert.equal(emu.v('swing_step'), 1, 'after a pause, from the top');
 });
 
-test('sword: the blade sweeps across the aim during a swing', () => {
-  const emu = holding(SWORD).hold('A', 1);
-  const dirs = [];
-  for (let f = 0; f < 8; f++) dirs.push(emu.idle(1).v('gun_dir16'));
-  assert.ok(new Set(dirs).size >= 4, `the sprite turns: ${dirs}`);
+test('sword: a swing plays its poses the way you face: windup, the swing, follow-through', () => {
+  // Its frames are facing x 4 + pose (make-weapon-art.mjs): right 0, down 1, left 2, up 3;
+  // rest 0, windup 1, swing 2, follow-through 3.
+  const emu = holding(SWORD);
+  assert.equal(emu.v('gun_dir16'), 0, 'at rest, facing right');
+  emu.hold('A', 1);
+  const poses = [];
+  for (let f = 0; f < 13; f++) poses.push(emu.v('gun_dir16')), emu.idle(1);
+  assert.deepEqual([...new Set(poses)], [1, 2, 3], `windup, swing, follow-through: ${poses}`);
+  emu.idle(20);
+  w8(emu, 'player_facing', 4);  // down
+  emu.idle(2).hold('A', 1).idle(3);
+  assert.equal(emu.v('gun_dir16'), 4 + 2, 'facing down, mid-swing');
+});
+
+test('sword: it swings the way you face, not at the enemy auto-aim picked', () => {
+  const emu = holding(SWORD, 136, 10);
+  const t = spawnStill(emu, 116, 10);  // just behind, to the left
+  emu.idle(24).hold('A', 1).idle(14);
+  assert.equal(emu.v('melee_hits', 'u16'), 0, 'facing right: missed');
+  w8(emu, 'player_facing', 6);  // left
+  emu.idle(30).hold('A', 1).idle(14);
+  assert.equal(emu.v('melee_hits', 'u16'), 1, 'facing it: hit');
+  assert.ok(hp(emu, t) < 255);
 });
 
 test('sword: a swing hits an enemy in front once, knocks it back, and freezes the game for a moment', () => {
@@ -267,29 +290,15 @@ test('screen: mid-swing', () => {
   matchGolden(emu, 'sword-swing');
 });
 
-test('sword: the blade shows its motion smear while the swing can hit, then the plain blade', () => {
+test('sword: the smeared swing pose shows exactly while the swing can hit', () => {
   const emu = holding(SWORD, 136, 10);
-  const smear = emu.v('smear_vram'), plain = emu.v('gun_vram');
-  // The blade's sprites: OAM 1-2 in front of the body or 5-6 behind (oam.h); the
-  // tile of whichever is shown.
-  const bladeTile = () => {
-    for (const i of [1, 2, 5, 6]) {
-      const [y, , tile] = emu.readBytes(0xc000 + i * 4, 3);
-      if (y) return tile;
-    }
-    return -1;
-  };
-  const isSmear = (t) => t >= smear && t < 256;
-  const isPlain = (t) => t >= plain && t < smear;
-  assert.ok(isPlain(bladeTile()), 'at rest: the plain blade');
-  emu.hold('A', 1);
+  emu.idle(30).hold('A', 1);
   const seen = [];
   for (let f = 0; f < 14; f++) {
+    seen.push(emu.v('gun_dir16') === 2 ? 'S' : 'p');
     emu.idle(1);
-    seen.push(isSmear(bladeTile()) ? 'S' : 'p');
   }
-  assert.ok(seen.join('').includes('SSS'), `smeared through the active frames: ${seen.join('')}`);
-  assert.ok(isPlain(bladeTile()), 'and plain again after');
+  assert.ok(/^p+S{4}p+$/.test(seen.join('')), `the swing pose through the active frames: ${seen.join('')}`);
 });
 
 test('screen: the sword smear mid-swing', () => {

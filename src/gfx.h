@@ -122,6 +122,7 @@ void palettes_menu(void) BANKED;
 #define TITLE_PAL_PROMPT 3
 void palettes_title(void) BANKED;
 void palettes_play(void) BANKED;
+void palettes_weapon(void) BANKED;  // the held gun's colours (its type, its rarity's glint) into SPR_PAL_WEAPON
 // Palette 6 for the pause panel's parchment, or back to the HUD's.
 void palettes_window_ui(void) BANKED;
 void palettes_window_hud(void) BANKED;

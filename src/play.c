@@ -184,7 +184,7 @@ static void draw_tune_row(uint8_t i) {
     win_text(1, y, i == tune_sel ? ">" : " ");
     win_text(2, y, t->label);
     if (t->kind == KIND_CHAR) {
-        win_text(10, y, player_character == CHAR_SPACEMARINE ? "MARINE " : "ADVENT.");
+        win_text(10, y, player_char_names[player_character]);
     } else if (t->kind == KIND_PRESET) {
         win_text(11, y, move_preset_name());
     } else if (t->kind == KIND_RIFLE) {
@@ -408,7 +408,7 @@ static void tune_update(void) {
     const Tunable *t = &tunables[tune_sel];
     if (t->kind == KIND_CHAR) {
         if (joy_pressed & (J_LEFT | J_RIGHT)) {
-            player_select_character(player_character == CHAR_SPACEMARINE ? CHAR_ADVENTURER : CHAR_SPACEMARINE);
+            player_select_character((player_character + (joy_pressed & J_LEFT ? CHAR_COUNT - 1 : 1)) % CHAR_COUNT);
             draw_tune_row(tune_sel);
         }
         return;

@@ -53,7 +53,7 @@ test('bulwark: shield also blocks frontal sword swings while rear swings land',(
   const e=trial();for(let n=0;n<4;n++)e.tap('SELECT');
   fixed(e,1);put16(e,'player_x',72);put16(e,'player_y',rear?42:78);
   for(let f=0;f<45&&e.v('actor_hp');f++) {
-   put16(e,'actor_x',72);put16(e,'actor_y',60);e.hold('A');
+   put16(e,'actor_x',72);put16(e,'actor_y',60);put(e,'player_facing',rear?4:0);e.hold('A');  // (it swings the way you face: at the bulwark)
   }
   if(rear)assert.ok(e.v('actor_hp')<24,'rear sword hit');else assert.equal(e.v('actor_hp'),24,'front sword blocked');
  }
