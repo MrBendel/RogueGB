@@ -759,6 +759,14 @@ static void entrance_room(void) {
         open_door(((uint16_t)(room_h - 1) << 5) | level_open[2], 1, TS_LUNAR_INT_DOOR_NS, TS_LUNAR_INT_JAMB_NS_L, TS_LUNAR_INT_JAMB_NS_R);
     if (level_open[3] != 0xFF)
         open_door((uint16_t)level_open[3] << 5, 32, TS_LUNAR_INT_DOOR_W, TS_LUNAR_INT_JAMB_W_UP, TS_LUNAR_INT_JAMB_W_DOWN);
+    // The side walls are drawn as a strip in their outer half: solid only there.
+    for (uint8_t y = 1; y + 1 < room_h; y++) {
+        uint16_t k = (uint16_t)y << 5;
+        uint8_t v = room_vis[k];
+        if (v == TS_LUNAR_INT_WALL_W || v == TS_LUNAR_INT_WALL_W_PLATES) room_map[k] = BLK_WALL_W;
+        v = room_vis[k + room_w - 1];
+        if (v == TS_LUNAR_INT_WALL_E || v == TS_LUNAR_INT_WALL_E_PLATES) room_map[k + room_w - 1] = BLK_WALL_E;
+    }
 }
 
 // Lay out the chunk roles: a rock cluster or two, camps (fields only), maybe a
@@ -1035,14 +1043,14 @@ void level_build_interior(uint16_t seed) BANKED {
                 t = BLK_SOLID;
                 v = !x ? (y ? TS_LUNAR_INT_CORNER_SW : TS_LUNAR_INT_CORNER_NW)
                   : x == IN_W - 1 ? (y ? TS_LUNAR_INT_CORNER_SE : TS_LUNAR_INT_CORNER_NE) : TS_LUNAR_INT_WALL_N;
-            } else if (!x) {
-                t = BLK_SOLID;
+            } else if (!x) {  // (side walls: a strip in the outer half, its shadow in the inner)
+                t = BLK_WALL_W;
                 v = plates ? TS_LUNAR_INT_WALL_W_PLATES : TS_LUNAR_INT_WALL_W;
             } else if (x == IN_W - 1) {
-                t = BLK_SOLID;
+                t = BLK_WALL_E;
                 v = plates ? TS_LUNAR_INT_WALL_E_PLATES : TS_LUNAR_INT_WALL_E;
-            } else if (y == 2 && !plates) {
-                v = TS_LUNAR_INT_FLOOR_SHADOW;  // (the top wall's shadow)
+            } else if (y == 2) {
+                v = plates ? TS_LUNAR_INT_PLATES_SHADOW : TS_LUNAR_INT_FLOOR_SHADOW;  // (the top wall's shadow)
             }
             in_put(x, y, v, t);
         }

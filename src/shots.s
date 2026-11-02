@@ -27,6 +27,7 @@ B_SIZE = 13         ; sizeof(Bullet): alive 0, vx 1-2, vx_sign 3, xs 4, x 5-6,
 ACTOR_MAX = 8       ; actor.h
 HURT_STEPS = 4      ; think steps an enemy flashes when hit (actor.c)
 BLK_SOLID = 1       ; room.h
+BLK_WALL_W = 7
 BLK_RAISED = 3
 MAP_HI = 0xD4       ; room map at 0xD400 (room.h ROOM_MAP_ADDR), rows of 32 blocks
 E_SIZE = 5          ; enemy table entry: x - 4 (2 bytes), y - 4 (2), slot
@@ -223,10 +224,14 @@ _shots_update::
     add a, #MAP_HI
     ld h, a
     ld a, (hl)
+    or a, a                 ; BLK_FLOOR, nearly always: nothing to test
+    jp z, 60$
     cp a, #BLK_SOLID
     jp z, 80$
     cp a, #BLK_RAISED
     jp z, 80$
+    cp a, #BLK_WALL_W       ; (and BLK_WALL_E: the last types)
+    jp nc, 80$
     jr 60$
 
 30$:

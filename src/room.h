@@ -28,7 +28,10 @@
                       // shots, bullets and line of sight pass (they test SOLID/RAISED)
 #define BLK_STAIRS 5 // traversable steps in authored terrace arenas
 #define BLK_DECK 6   // traversable upper terrace surface
-#define BLK_TYPES 7
+#define BLK_WALL_W 7 // a side wall drawn as a strip in its west half: solid there, floor in
+#define BLK_WALL_E 8 // the other half (an interior's walls); _E the mirror. Shots stop at the block.
+                     // (The last types: player.c, bullets.s and shots.s test >= BLK_WALL_W.)
+#define BLK_TYPES 9
 
 extern uint8_t room_w;  // size in blocks
 extern uint8_t room_h;

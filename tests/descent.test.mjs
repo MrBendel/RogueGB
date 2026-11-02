@@ -401,6 +401,15 @@ test("a hab module's door leads into its interior and back out onto its step", (
   assert.deepEqual([emu.v('room_w'), emu.v('room_h')], [10, 8], 'one screen');
   assert.equal(emu.v('level_chests'), 1, 'its chest');
   matchGolden(emu, 'interior');
+  // The side walls are a strip in the outer half of their blocks: you walk right up to them.
+  const [px, py] = [emu.v('player_x', 'u16'), emu.v('player_y', 'u16')];
+  w16(emu, 'player_y', 5 * 16 - 8);  // (the row between the couches and the counters)
+  emu.hold('LEFT', 60);
+  assert.equal(emu.v('player_x', 'u16') + 3, 8, 'the hitbox against the west wall strip');
+  emu.hold('RIGHT', 150);
+  assert.equal(emu.v('player_x', 'u16') + 3 + 10, 9 * 16 + 8, 'and against the east one');
+  w16(emu, 'player_x', px);
+  w16(emu, 'player_y', py);
   // Out of its south door: the same map, on the step.
   for (let f = 0; f < 120 && emu.v('level_inside') !== 0xff; f++) emu.hold('DOWN', 1);
   emu.idle(10);

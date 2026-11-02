@@ -178,7 +178,7 @@ export function convert(name) {
     return pack(mix(img.rgba[i], br), mix(img.rgba[i + 1], bg), mix(img.rgba[i + 2], bb));
   };
   // The pieces' blocks, and their tiles' pixels.
-  const pieces = [], blocks = [], tiles = [], weights = [], roles = pieceRoles(def);
+  const pieces = [], blocks = [], tiles = [], weights = [], shades = [], roles = pieceRoles(def);
   for (const [piece, spec] of Object.entries(def.pieces)) {
     // Each piece reads its pixels at piece-local (lx, ly). Three forms:
     // [x, y, w, h]: a rectangle of the sheet.
@@ -188,6 +188,9 @@ export function convert(name) {
     //   optionally flipped (x, y); rows of codes, 2 per block across and down.
     // A tiles piece can add "stamp": rows of codes like its tiles, from the "decals"
     // sheet (or "stamp_from": one of the tileset's "sheets"), drawn over it ("..": none).
+    // Any form can add "shade": rows of 0 and 1, a flag per tile; a 1 draws that tile
+    // a step darker in its own palette (each colour as the next one down: a wall's
+    // shadow on the floor, with no colours or palettes of its own).
     // Any form can add "behind": true: drawn over sprites, and walkable in a generated
     // map (a roof you walk behind).
     let w, h, pixel, x = 0, y = 0;
@@ -234,6 +237,8 @@ export function convert(name) {
       }
     }
     pieces.push({ piece, first: blocks.length, w: w / 16, h: h / 16, pixel });
+    const shade = spec.shade && spec.shade.map((r) => r.trim().split(/\s+/).map((c) => c === '1'));
+    if (shade && (shade.length * 8 !== h || shade.some((r) => r.length * 8 !== w))) throw new Error(`${name}.${piece}: "shade" needs a flag per tile`);
     for (let by = 0; by < h / 16; by++)
       for (let bx = 0; bx < w / 16; bx++) {
         const q = [];
@@ -244,6 +249,7 @@ export function convert(name) {
             q.push(tiles.length);
             tiles.push(px);
             weights.push(spec.weight || 1);
+            shades.push(!!(shade && shade[oy >> 3][ox >> 3]));
           }
         blocks.push(q);
       }
@@ -297,15 +303,16 @@ export function convert(name) {
     return r.join('');
   };
   let totalErr = 0;
-  for (const px of tiles) {
+  tiles.forEach((px, t) => {
     let best = null;
     palettes.forEach((p, k) => {
-      const e = error(hists[tiles.indexOf(px)], p);
+      const e = error(hists[t], p);
       if (!best || e < best.e) best = { k, e };
     });
     totalErr += best.e;
     const p = palettes[best.k];
-    const idx = px.map((c) => p.reduce((bi, pc, i) => (dist(c, pc) < dist(c, p[bi]) ? i : bi), 0));
+    let idx = px.map((c) => p.reduce((bi, pc, i) => (dist(c, pc) < dist(c, p[bi]) ? i : bi), 0));
+    if (shades[t]) idx = idx.map((i) => Math.min(i + 1, 3));  // (index 3 the darkest)
     let found = null;
     for (const [fx, fy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
       const k = flip(idx, fx, fy);
@@ -317,7 +324,7 @@ export function convert(name) {
       stored.push(idx);
     }
     out.push({ ...found, pal: best.k, idx });
-  }
+  });
   // Indexed source art can supply shading slots rather than final colours.
   // Apply display ramps after fitting/deduplication so every pixel index survives.
   for (const [slot, ramp] of Object.entries(def.paletteOverrides || {})) {
@@ -402,8 +409,10 @@ export function buildMaps(def, pieces) {
 //     edge; roof_sl roof_s roof_sr for a roof only one row deep, both edges), then one
 //     row of front (face_l face_c face_r) where the block below isn't solid. A lone
 //     block, or a one-block-wide column, is a prop.
-//   shade: { style: "shade", blocks, under }: under where the block above isn't the
-//     same type (a wall's shadow on the floor below it), else blocks.
+//   shade: { style: "shade", blocks, under, left, corner }: under where the block above
+//     isn't the same type (a wall's shadow on the floor below it), else blocks. Optional:
+//     left where the block to the left isn't (the shadow of a wall on the left), corner
+//     where neither is.
 //   pattern: { style: "pattern", w, h, blocks }: blocks in a w x h grid (powers of two)
 //     by map position, row by row (a floor of plates that must line up).
 // A piece's blocks are named piece (its first) or piece.n (the nth, row-major).
@@ -470,7 +479,9 @@ export function buildTheme(def, pieces) {
       if (Array.isArray(r)) {
         list = r;
       } else if (r.style === 'shade') {
-        list = m & 1 ? r.blocks : r.under;  // (N: the block above is the same type)
+        // (N: the block above is the same type; W: the block to the left)
+        const west = !(m & 8);
+        list = m & 1 ? (west && r.left || r.blocks) : (west && r.corner || r.under);
       } else if (pattern) {
         list = r.blocks;  // (picked by position, not by the neighbours)
       } else if (r.style === 'module') {

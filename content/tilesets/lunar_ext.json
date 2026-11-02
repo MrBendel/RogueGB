@@ -1,5 +1,5 @@
 {
-  "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, the map's rim (plain wall plate all round, its lower lip on the inside), pits, and lone blocks drawn as props (crates, a boulder). Buildings are set pieces (\"prefab\": cut whole from the pack's example and stamped by level.c), with pipes (pipe_*) run between neighbouring ones. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs (a set piece's \"r\" blocks) are drawn over sprites and can be walked behind. Decals (the pack's white marks) are stamped onto set pieces: building numbers and hazard stripes.",
+  "comment": "LunarBase exterior (the purchased pack: local only, docs/design/lunar-base.md). A theme for generated maps: regolith ground, the map's rim (plain wall plate all round, its lower lip on the inside), pits, and lone blocks drawn as props (crates, a boulder). Buildings are set pieces (\"prefab\": cut whole from the pack's example and stamped by level.c), with pipes (pipe_*) run between neighbouring ones. Pieces are built from the sheet's 8x8 tiles (column and row in hex, x/y flips), as the pack's example builds its scenes. Without the sheet the build uses plain stand-ins. Roofs (a set piece's \"r\" blocks) are drawn over sprites, and solid like the rest of a building. Ground under or right of anything solid is in its shadow (g_*_shadow*: the top row or left column a step darker). Decals (the pack's white marks) are stamped onto set pieces: building numbers and hazard stripes.",
   "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Exterior_Standard.png",
   "decals": "pack:LunarBase/Tiles/LunarBase_Tiles_Decals_Standard.png",
   "sheets": { "containers": "artwork/tiles/containers.png" },
@@ -9,6 +9,10 @@
   "pieces": {
     "g_a": { "tiles": ["00 10", "20 00x"], "weight": 16 },
     "g_b": { "tiles": ["21 00xy", "00 10"], "weight": 16 },
+    "g_a_shadow": { "tiles": ["00 10", "20 00x"], "shade": ["1 1", "0 0"] },
+    "g_b_shadow": { "tiles": ["21 00xy", "00 10"], "shade": ["1 1", "0 0"] },
+    "g_a_shadow_l": { "tiles": ["00 10", "20 00x"], "shade": ["1 0", "1 0"] },
+    "g_a_shadow_c": { "tiles": ["00 10", "20 00x"], "shade": ["1 1", "1 0"] },
     "g_c": { "tiles": ["70 00", "00xy 90"], "weight": 16 },
     "g_d": { "tiles": ["00 20", "91 70"], "weight": 16 },
     "crater": { "tiles": ["30 40", "31 41"], "weight": 16 },
@@ -62,7 +66,13 @@
     "pf_panels": { "tiles": ["8b 9b 8b 9b", "8c 9c 8c 9c", "8d 9d 8d 9d", "8e 8ex 8e 8ex"], "prefab": ["##", "##"] }
   },
   "theme": {
-    "floor": ["g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_b", "g_b", "g_b", "g_b", "g_b", "g_c", "g_d", "rocks", "crater"],
+    "floor": {
+      "style": "shade",
+      "blocks": ["g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_a", "g_b", "g_b", "g_b", "g_b", "g_b", "g_c", "g_d", "rocks", "crater"],
+      "under": ["g_a_shadow", "g_a_shadow", "g_b_shadow"],
+      "left": ["g_a_shadow_l"],
+      "corner": ["g_a_shadow_c"]
+    },
     "solid": {
       "style": "module",
       "prop": ["crate", "crate", "crate_stack", "boulder"]

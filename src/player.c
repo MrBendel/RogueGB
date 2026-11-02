@@ -153,10 +153,12 @@ static int16_t step_axis(int16_t v, int16_t t) {
     return v;
 }
 
-// Does the pixel (x, y) block the player? Walls always do; raised blocks only
-// while the player is lower than their top.
+// Does the pixel (x, y) block the player? Walls always do (a side wall only in
+// its drawn half); raised blocks only while the player is lower than their top.
 static uint8_t blocked(uint16_t x, uint16_t y) {
     uint8_t t = room_block_at(x, y);
+    if (t == BLK_FLOOR) return 0;  // (nearly always: the rest isn't tested)
+    if (t >= BLK_WALL_W) return (t == BLK_WALL_W) ^ (((uint8_t)x >> 3) & 1);  // (the last types)
     return t == BLK_SOLID || t == BLK_PROP || (t == BLK_RAISED && player_z < RAISED_Z);
 }
 

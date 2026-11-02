@@ -19,6 +19,7 @@ BULLET_MAX = 20     ; must match actor.h
 B_SIZE = 13         ; sizeof(Bullet): alive 0, vx 1-2, vx_sign 3, xs 4, x 5-6,
                     ;                 vy 7-8, vy_sign 9, ys 10, y 11-12
 BLK_SOLID = 1       ; must match room.h
+BLK_WALL_W = 7
 BLK_RAISED = 3
 MAP_HI = 0xD4       ; room map at 0xD400 (room.h ROOM_MAP_ADDR), rows of 32 blocks
 
@@ -147,10 +148,14 @@ _bullets_update::
     add a, #MAP_HI
     ld h, a
     ld a, (hl)
+    or a, a                 ; BLK_FLOOR, nearly always: nothing to test
+    jr z, 6$
     cp a, #BLK_SOLID
     jp z, 8$
     cp a, #BLK_RAISED
     jp z, 8$
+    cp a, #BLK_WALL_W       ; (and BLK_WALL_E: the last types)
+    jp nc, 8$
     jr 6$                   ; walls this frame, the player next frame
 3$:
     ; --- the player, on the other frames: hitboxes overlap when
