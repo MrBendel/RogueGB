@@ -42,3 +42,20 @@ test('authored town pieces are used, and tile flips save VRAM without losing det
     assert.ok(ts.stored.length < ts.tiles.length, `${name}: repeated pieces are deduplicated`);
   }
 });
+
+
+test('storage tiers darken through palette attributes without duplicating patterns', () => {
+  const ts = convert('sands');
+  const tilesAt = (x,y) => ts.blocks[ts.maps.town.vis[y*16+x]].map(t => ts.tiles[t]);
+  for (let x=10;x<14;x++) {
+    const top=tilesAt(x,12);
+    for(let tier=0;tier<3;tier++) {
+      const row=tilesAt(x,12+tier);
+      assert.deepEqual(row.map(t => [t.t,t.fx,t.fy]),top.map(t => [t.t,t.fx,t.fy]));
+      assert.ok(row.every(t => t.pal===tier));
+      assert.equal(ts.maps.town.type[(12+tier)*16+x],1);
+    }
+  }
+  for(let tier=1;tier<3;tier++) for(let shade=0;shade<4;shade++)
+    assert.ok(ts.palettes[tier][shade]<ts.palettes[tier-1][shade]);
+});

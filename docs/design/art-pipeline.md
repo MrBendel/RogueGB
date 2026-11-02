@@ -104,3 +104,8 @@ light to dark. It runs after tile indexing/deduplication, so recolouring an inde
 sheet preserves every shading slot. The compiler reuses identical 8x8 patterns
 across pieces and palettes, including X, Y and XY flips. Authored layouts should
 prune unused pieces before conversion; tools/sands-town.py does this.
+
+Authored indexed art can append `paletteVariants` (four hex colours per ramp,
+within the scene palette budget). A piece object can select a numeric `palette`
+slot after fitting; this changes attributes only and retains tile/flip reuse.
+Sands uses this for progressively shaded storage-container tiers.
