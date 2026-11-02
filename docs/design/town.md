@@ -2,7 +2,7 @@
 
 ## Outdoor rules
 
-Sands is a compact 16x16-block settlement, using the original 240x192 composition
+Sands is a compact 16x19-block settlement, using the original 240x192 composition
 plus its southern departure yard. The duplicate eastern market wing and repeated
 southern cliff formation are removed. The original three complete buildings are
 quarters, Echo's relay room, and Marro's shop.
@@ -39,30 +39,30 @@ starts outdoors rather than inside a building.
 
 Source image: artwork/tiles/sands.png, unchanged. The source greens are shading
 slots; paletteOverrides applies warm stone colours and a pale sand highlight
-after indexing, preserving the source's shading detail. Every outdoor palette
-shares sand slot 1 (#e0c888 authored, #e7ce8c on hardware), including dark storage
-tiers. The pale sand (#f0d8a0) is closer to that ground tone than the old paper white.
+after indexing, preserving the source's shading detail. The outdoor scene uses one palette, with sand in slot 1 (#e0c888 authored,
+#e7ce8c on hardware). Container faces use their original dark pixel indices. The pale sand (#f0d8a0) is closer to that ground tone than the old paper white.
 
 Optional layout authoring: python tools/sands-town.py (requires Pillow). Compile
 with node tools/tileset.mjs sands. The helper removes unused pieces; the normal
 compiler deduplicates all 8x8 tiles including horizontal, vertical and combined
-flips. Outdoor: 336 quadrant references -> 249 unique unflipped -> 198 stored.
+flips. Outdoor: 364 quadrant references -> 214 stored (including flipped reuse).
 Interiors: 84 references -> 74 unflipped -> 47 stored, shared by all three rooms.
 
 Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
-26 in bank 1 at background indices 80..105. Town HUD names use seven on-demand
+42 in bank 1 at background indices 80..121. Town HUD names use seven on-demand
 glyphs at 44..50; closing a menu restores outdoor detail tiles. The interiors fit
 entirely in bank 0. Tests cover source shading preservation, absence of unused
 pieces, service/door reachability, transitions, purchases and graphics restoration.
 
 ## Storage yard
 
-The ribbed pieces at (1,14)..(4,14) are storage containers, not fencing.
-The left stack occupies columns 1..4, rows 13..14; the right stack occupies
-columns 10..13, rows 12..14. Lower tiers use progressively darker warm ramps,
-following the source demo. All tiers are solid; the lift and resident approaches
-remain open. Palette attributes reuse identical indexed tile patterns: no extra
-hardware tiles are needed for the darker tiers.
+The source container example is an assembly of light tops, darker vertical faces,
+and front doors, not repeated roof strips with different palettes. The left
+container uses source (32,224), 64x32 at town (1,13). The right cluster copies the
+complete source (16,224), 80x96 at town (10,12), preserving its staggered overlap,
+dark faces, doors and grass. Its silhouette is solid; the grass and empty cells
+remain walkable. The southern yard extends by three rows to fit the full assembly.
+Preview screenshots must place the player on verified walkable ground.
 
 ## Depth and cliff traversal
 
