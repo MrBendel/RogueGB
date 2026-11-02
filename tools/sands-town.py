@@ -14,8 +14,13 @@ for y in range(16):g.append([sand]*16);coll.append([False]*16)
 def stamp(sx,sy,w,h,dx,dy,solid=False):
  for yy in range(h):
   for xx in range(w):g[dy+yy][dx+xx]=cell(sx+xx*16,sy+yy*16);coll[dy+yy][dx+xx]=solid
-# Preserve the entire original composed scene pixel for pixel, including its ground edges.
+# Preserve the painted scene; extend its unfinished ground into the departure yard.
 stamp(0,0,15,12,0,0)
+# Close the pale ground tongues with the existing irregular sand edges. These
+# cells finish the ground boundary: never replace painted rocks or props.
+# Reusing the source's three edge variants adds no hardware tile patterns.
+for sx,dx in [(48,2),(48,6),(64,7),(80,8)]:
+ stamp(sx,144,1,1,dx,11)
 # Collision follows the original silhouettes rather than inventing square streets.
 mask=['###############','..###########..','.#########.....','.##....##.###..','.........####..','.....#...####.#','..#####..####.#','#.#####........','###.###..#.....','##.......#.....','...###...######','.........######']
 for y,row in enumerate(mask):
@@ -66,5 +71,5 @@ for y in range(16):
  rows.append(row)
 used={n for row in g for n in row}
 pieces={n:p for n,p in pieces.items() if n in used}
-d={'comment':'The original 240x192 Sands composition occupies the northwest unchanged. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f8f0d8','#e0c888','#906840','#302820']},'paletteVariants':[['#d8c098','#b09860','#705030','#282018'],['#b09870','#887040','#503820','#201810']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
+d={'comment':'The original Sands scene is preserved outside four ground transition cells; existing irregular sand edges finish its southern boundary. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f0d8a0','#e0c888','#906840','#302820']},'paletteVariants':[['#d8c098','#e0c888','#705030','#282018'],['#b09870','#e0c888','#503820','#201810']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
 p.write_text(json.dumps(d,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')

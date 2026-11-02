@@ -38,13 +38,15 @@ starts outdoors rather than inside a building.
 ## Reuse and colours
 
 Source image: artwork/tiles/sands.png, unchanged. The source greens are shading
-slots; paletteOverrides applies Cragback's warm stone colours and the menu's
-paper highlight after indexing, preserving the source's shading detail.
+slots; paletteOverrides applies warm stone colours and a pale sand highlight
+after indexing, preserving the source's shading detail. Every outdoor palette
+shares sand slot 1 (#e0c888 authored, #e7ce8c on hardware), including dark storage
+tiers. The pale sand (#f0d8a0) is closer to that ground tone than the old paper white.
 
 Optional layout authoring: python tools/sands-town.py (requires Pillow). Compile
 with node tools/tileset.mjs sands. The helper removes unused pieces; the normal
 compiler deduplicates all 8x8 tiles including horizontal, vertical and combined
-flips. Outdoor: 340 quadrant references -> 249 unique unflipped -> 198 stored.
+flips. Outdoor: 336 quadrant references -> 249 unique unflipped -> 198 stored.
 Interiors: 84 references -> 74 unflipped -> 47 stored, shared by all three rooms.
 
 Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
@@ -74,3 +76,11 @@ to the clear ground below. Releasing or reversing input mid-hop still completes
 the crossing, then normal gravity finishes the landing. Other cliff walls remain
 solid until they have an authored safe drop route. The traversal is town-only;
 combat movement and collision rules remain unchanged.
+
+## Ground transitions
+
+Four ground cells in row 11 (columns 2, 6, 7, 8) close the pale sand tongues
+before the departure yard. They reuse the irregular edges from source row 9,
+columns 3..5, keeping the original cracks and sparse grains instead of introducing
+a repeated texture everywhere. Source art and collision stay unchanged; only
+these four map cells change their visuals. The reused edges add no hardware tiles.
