@@ -231,21 +231,21 @@ test("the town's machines: not enough credits, nothing changes", () => {
 test('Sands town: connected streets reach every service, with solid buildings and borders', () => {
   const emu = newFileInTown();
   assert.equal(emu.v('room_w'), 16);
-  assert.equal(emu.v('room_h'), 16);
+  assert.equal(emu.v('room_h'), 19);
   const map = emu.readBytes(A(emu, 'room_map'), 32 * 24);
   const seen = new Set([4 * 32 + 5]), queue = [...seen];
   for (let i = 0; i < queue.length; i++) {
     const k = queue[i], x = k % 32, y = Math.floor(k / 32);
     for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
       const n = ny * 32 + nx;
-      if (nx < 0 || nx >= 16 || ny < 0 || ny >= 16 || map[n] || seen.has(n)) continue;
+      if (nx < 0 || nx >= 16 || ny < 0 || ny >= 19 || map[n] || seen.has(n)) continue;
       seen.add(n); queue.push(n);
     }
   }
   for (const [x,y] of [[7,4],[5,9],[11,7],[11,8],[7,12],[6,10],[3,12]])
     assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
   for (let x = 0; x < 16; x++) {
-    assert.equal(map[x], 1); assert.equal(map[15 * 32 + x], 1);
+    assert.equal(map[x], 1); assert.equal(map[18 * 32 + x], 1);
   }
   assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
   for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5]])
@@ -254,7 +254,8 @@ test('Sands town: connected streets reach every service, with solid buildings an
     assert.equal(map[y * 32 + x], 0, 'ground below cliffs is walkable');
   emu.idle(60).shot('sands-town-arrival');
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
-  for (const [name,x,y] of [['market',11,8],['yard',4,13],['homes',5,9]]) {
+  for (const [name,x,y] of [['market',11,8],['yard',8,15],['containers',13,17],['homes',5,9]]) {
+    assert.equal(map[y*32+x],0,`preview ${name} stands on walkable ground`);
     w16(emu, 'player_x', x * 16); w16(emu, 'player_y', y * 16);
     emu.idle(90).shot(`sands-town-${name}`);
   }
@@ -383,4 +384,16 @@ test('town cliff drops require a downward jump and finish safely after releasing
     e.hold('UP',20).idle(2).hold('UP+B',30).idle(10);
     assert.ok(e.v('player_y','u16')>=168,'cannot climb back through the cliff');
   }
+});
+
+
+test('town containers block walking onto the top or through the door face', () => {
+  const e=newFileInTown().idle(40);
+  e.writeBytes(A(e,'zones_done'),[255]);
+  w16(e,'player_x',176);w16(e,'player_y',176);
+  e.hold('DOWN',50).idle(4);
+  assert.equal(e.v('player_y','u16'),176,'rear container top remains solid');
+  w16(e,'player_x',144);w16(e,'player_y',256);
+  e.hold('RIGHT',50).idle(4);
+  assert.ok(e.v('player_x','u16')<160,'foreground door face blocks walking');
 });

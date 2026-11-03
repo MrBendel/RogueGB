@@ -4,13 +4,14 @@ from pathlib import Path
 from PIL import Image
 p=Path('content/tilesets/sands.json');old=json.loads(Path('content/tilesets/ice.json').read_text(encoding='utf-8'));im=Image.open('artwork/tiles/sands.png').convert('RGBA')
 pieces={};known={};legend={};chars={};g=[];coll=[]
+W,H=16,19
 def cell(x,y):
  tile=im.crop((x,y,x+16,y+16));key=tile.tobytes()
  if key not in known:
   n='sand' if x==0 and y==0 else f'art_{x}_{y}';known[key]=n;pieces[n]=[x,y,16,16]
  return known[key]
 sand=cell(0,0)
-for y in range(16):g.append([sand]*16);coll.append([False]*16)
+for y in range(H):g.append([sand]*W);coll.append([False]*W)
 def stamp(sx,sy,w,h,dx,dy,solid=False):
  for yy in range(h):
   for xx in range(w):g[dy+yy][dx+xx]=cell(sx+xx*16,sy+yy*16);coll[dy+yy][dx+xx]=solid
@@ -38,17 +39,15 @@ for x in range(9,15):coll[11][x]=False
 # Three complete buildings from the original composition; no duplicate market wing.
 # Continue the original right edge into the room boundary.
 stamp(224,0,1,12,15,0,True)
-# Storage containers stack vertically as in the source demo, with darker lower
-# tiers. Palette-only aliases share the exact same hardware tile patterns.
-def containers(dx,top,tiers):
- for tier in range(tiers):
-  for xx in range(4):
-   base=cell(32+xx*16,224)
-   n=f'{base}_storage_{tier}'
-   pieces[n]={'rect':pieces[base], 'palette':tier}
-   g[top+tier][dx+xx]=n;coll[top+tier][dx+xx]=True
-containers(1,13,2)
-containers(10,12,3)
+# Complete container surfaces from the source, not recoloured copies of roofs.
+# Small left container: light top over its authored dark face.
+stamp(32,224,4,2,1,13,True)
+# Preserve the entire staggered example: back container, overlapping foreground
+# container, doors and grass. Empty/grass cells are walkable.
+stamp(16,224,5,6,10,12)
+container_mask=['.####','.####','#####','###..','###..','##...']
+for yy,row in enumerate(container_mask):
+ for xx,c in enumerate(row):coll[12+yy][10+xx]=c=='#'
 stamp(64,272,2,1,6,14)
 stamp(128,208,1,3,6,12,True)
 # The elevated tank occludes the player; only the grounded feet block walking.
@@ -56,12 +55,12 @@ for y in (12,13):
  base=g[y][6];n=base+'_behind'
  pieces[n]={'rect':pieces[base], 'behind':True}
  g[y][6]=n;coll[y][6]=False
-for x in range(16):coll[0][x]=coll[15][x]=True
-for y in range(16):coll[y][0]=coll[y][15]=True
+for x in range(W):coll[0][x]=coll[H-1][x]=True
+for y in range(H):coll[y][0]=coll[y][W-1]=True
 # Door approaches and the central yard lane are explicitly walkable.
 for x,y in [(5,4),(8,4),(5,9),(11,7),(7,10),(6,10),(3,12),(4,12),(8,12),(12,8)]:coll[y][x]=False
 rows=[]
-for y in range(16):
+for y in range(H):
  row=''
  for x in range(16):
   key=(g[y][x],coll[y][x])
@@ -71,5 +70,5 @@ for y in range(16):
  rows.append(row)
 used={n for row in g for n in row}
 pieces={n:p for n,p in pieces.items() if n in used}
-d={'comment':'The original Sands scene is preserved outside four ground transition cells; existing irregular sand edges finish its southern boundary. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f0d8a0','#e0c888','#906840','#302820']},'paletteVariants':[['#d8c098','#e0c888','#705030','#282018'],['#b09870','#e0c888','#503820','#201810']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
+d={'comment':'The original Sands scene is preserved outside four ground transition cells; existing irregular sand edges finish its southern boundary. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f0d8a0','#e0c888','#906840','#302820']},'pieces':pieces,'legend':legend,'maps':{'town':rows}}
 p.write_text(json.dumps(d,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')

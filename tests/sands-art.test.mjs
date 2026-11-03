@@ -45,19 +45,16 @@ test('authored town pieces are used, and tile flips save VRAM without losing det
 });
 
 
-test('storage tiers darken through palette attributes without duplicating patterns', () => {
-  const ts = convert('sands');
-  const tilesAt = (x,y) => ts.blocks[ts.maps.town.vis[y*16+x]].map(t => ts.tiles[t]);
-  for (let x=10;x<14;x++) {
-    const top=tilesAt(x,12);
-    for(let tier=0;tier<3;tier++) {
-      const row=tilesAt(x,12+tier);
-      assert.deepEqual(row.map(t => [t.t,t.fx,t.fy]),top.map(t => [t.t,t.fx,t.fy]));
-      assert.ok(row.every(t => t.pal===tier));
-      assert.equal(ts.maps.town.type[(12+tier)*16+x],1);
-    }
+test('container cluster preserves the complete source assembly, including dark faces and doors', () => {
+  const ts=convert('sands'), src=decodePng(fs.readFileSync('artwork/tiles/sands.png'));
+  const shades=[[224,248,208],[136,192,112],[52,104,86],[8,24,32]];
+  for(let y=0;y<96;y++) for(let x=0;x<80;x++) {
+    const i=((224+y)*src.width+16+x)*4;
+    const rgb=src.rgba[i+3]?[...src.rgba.slice(i,i+3)]:ts.def.backdrop;
+    const expected=shades.findIndex(c=>c.every((v,k)=>v===rgb[k]));
+    const bx=10+(x>>4),by=12+(y>>4),b=ts.maps.town.vis[by*16+bx];
+    const t=ts.tiles[ts.blocks[b][((y&15)>>3)*2+((x&15)>>3)]];
+    assert.equal(t.idx[(y&7)*8+(x&7)],expected,`container source pixel ${x},${y}`);
   }
-  for(const ramp of ts.palettes) assert.equal(ramp[1],ts.palettes[0][1],'shared sand shade');
-  for(let tier=1;tier<3;tier++) for(const shade of [0,2,3])
-    assert.ok(ts.palettes[tier][shade]<ts.palettes[tier-1][shade]);
+  assert.equal(ts.palettes.length,1,'authored dark faces share the ground palette');
 });
