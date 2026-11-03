@@ -27,14 +27,15 @@ mask=['###############','..###########..','.#########.....','.##....##.###..','.
 for y,row in enumerate(mask):
  for x,c in enumerate(row):coll[y][x]=c=='#'
 # Face/base collision follows the source silhouettes; ground under a finished
-# cliff is walkable. The narrow plank bridge remains traversable.
+# cliff is walkable. Only the actual stair tile at (8,5) crosses the wall.
 for x in range(1,10):coll[3][x]=True
 for x in range(10,13):coll[2][x]=True
 for y in range(6):
  for x in (13,14):coll[y][x]=True
 for y in range(4,9):coll[y][1]=True
-coll[9][1]=False
-coll[6][14]=False
+coll[9][1]=True
+coll[6][13]=coll[6][14]=True
+for x,y in [(6,5),(7,5),(14,9),(10,8),(10,9)]:coll[y][x]=True
 for x in range(9,15):coll[11][x]=False
 # Three complete buildings from the original composition; no duplicate market wing.
 # Continue the original right edge into the room boundary.

@@ -248,9 +248,9 @@ test('Sands town: connected streets reach every service, with solid buildings an
     assert.equal(map[x], 1); assert.equal(map[18 * 32 + x], 1);
   }
   assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
-  for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5]])
+  for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5],[6,5],[7,5],[14,9],[13,6],[14,6],[1,9],[10,8],[10,9]])
     assert.equal(map[y * 32 + x], 1, 'visible cliff face is solid');
-  for (const [x,y] of [[1,9],[10,11],[13,11],[14,6]])
+  for (const [x,y] of [[8,5],[10,11],[13,11]])
     assert.equal(map[y * 32 + x], 0, 'ground below cliffs is walkable');
   emu.idle(60).shot('sands-town-arrival');
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);
@@ -396,4 +396,30 @@ test('town containers block walking onto the top or through the door face', () =
   w16(e,'player_x',144);w16(e,'player_y',256);
   e.hold('RIGHT',50).idle(4);
   assert.ok(e.v('player_x','u16')<160,'foreground door face blocks walking');
+});
+
+
+test('town cliff gaps stop walking, with only the stairs crossing the central wall', () => {
+  const e=newFileInTown().idle(40);
+  e.writeBytes(A(e,'zones_done'),[255]);
+  const place=(x,y)=>{
+    w16(e,'player_x',x);w16(e,'player_y',y);
+    w16(e,'player_vx',0);w16(e,'player_vy',0);
+    e.writeBytes(A(e,'player_xs'),[0]);e.writeBytes(A(e,'player_ys'),[0]);
+  };
+  for(const [label,x,y,dir,axis,bound,less] of [
+    ['central face from above',112,64,'DOWN','player_y',64,true],
+    ['central face from below',112,88,'UP','player_y',88,false],
+    ['eastern cap from above',224,128,'DOWN','player_y',128,true],
+    ['eastern cap from side',208,144,'RIGHT','player_x',216,true],
+    ['upper eastern base',224,104,'UP','player_y',104,false],
+    ['western cliff foot',16,152,'UP','player_y',152,false],
+    ['attached ledge side',176,136,'LEFT','player_x',172,false]
+  ]) {
+    place(x,y);e.hold(dir,35).idle(3);
+    const actual=e.v(axis,'u16');
+    assert.ok(less?actual<=bound:actual>=bound,`${label}: ${actual} vs ${bound}`);
+  }
+  place(128,64);e.hold('DOWN',32).idle(3);
+  assert.ok(e.v('player_y','u16')>=88,'actual stairs connect both sides');
 });
