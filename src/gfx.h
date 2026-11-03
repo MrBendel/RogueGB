@@ -94,7 +94,7 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 #define SPR_PAL_BULLET 4  // enemy bullets
 #define SPR_PAL_SHOT 5    // the player's shots and the muzzle flash
 #define SPR_PAL_WEAPON 6  // held weapons
-#define SPR_PAL_UI 7      // reticle, shadow
+#define SPR_PAL_UI 7      // reticle, shadow, loot on the floor (fixed: switching guns leaves it)
 extern uint16_t pal_base_bg[PAL_COUNT * 4], pal_base_obj[PAL_COUNT * 4];
 // Put the base palettes on screen at fade step `step` (0 = as they are,
 // FADE_STEPS = white); uploaded at the next vblank.

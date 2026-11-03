@@ -130,7 +130,7 @@ void chest_update(void) BANKED {
     // The shield, bobbing once it's down.
     if (chest_state == CHEST_OPEN) {
         uint8_t bob = item_landed && (chest_tick & 32) ? 1 : 0;
-        draw16(OAM_PROP + 2, item_frames, ITEM_VRAM, SPR_PAL_WEAPON, item_x, item_y - (uint8_t)(item_z >> 8) - bob);
+        draw16(OAM_PROP + 2, item_frames, ITEM_VRAM, SPR_PAL_UI, item_x, item_y - (uint8_t)(item_z >> 8) - bob);
     } else {
         hide_sprite(OAM_PROP + 2);
         hide_sprite(OAM_PROP + 3);

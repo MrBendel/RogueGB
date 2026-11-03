@@ -166,7 +166,7 @@ void weapon_icon(uint8_t type, uint8_t *f) BANKED {
     }
     for (uint8_t c = 0; c < 4; c += 2) {
         f[c] = f[c] == blanks[type] ? 0xFF : weapon_vram[type] + (f[c] << 1);
-        f[c + 1] = (f[c + 1] & 0xF8) | SPR_PAL_WEAPON | S_BANK;
+        f[c + 1] = (f[c + 1] & 0xF8) | SPR_PAL_UI | S_BANK;  // (not the held gun's colours)
     }
 }
 
