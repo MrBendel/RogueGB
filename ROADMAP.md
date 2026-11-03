@@ -420,3 +420,5 @@ tiles and 47 shared interior tiles, loaded separately. See docs/design/town.md.
 - 2026-11-02: Unified outdoor sand palette slots, warmed the pale ground, and reused four irregular transition blocks where the town meets its departure yard; no additional hardware tiles.
 
 - 2026-11-02: Corrected containers to the complete source assembly (tops, dark faces, overlapping fronts and doors). Extended the yard three rows; fixed preview placement inside a solid container. Sands now uses one palette and 214/220 hardware tiles.
+
+- 2026-11-02: Closed eight town collision gaps at cliff faces/caps/feet and the attached ledge. Kept the central stairs and deliberate downward jumps; moved Okafor off the newly solid ledge. Added directional walking regression checks.

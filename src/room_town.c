@@ -61,7 +61,7 @@ void room_load_town(void) BANKED {
     talk_add(7, 10, TALK_POST, TALK_DO_BOARD);
     // The people you've rescued (rescue.h), about town. Their tiles go where the
     // enemies' would (no enemies here).
-    static const uint8_t folk_x[PEOPLE] = {3, 10, 7, 2}, folk_y[PEOPLE] = {11, 8, 13, 12};
+    static const uint8_t folk_x[PEOPLE] = {3, 11, 7, 2}, folk_y[PEOPLE] = {11, 8, 13, 12};
     static const uint8_t folk_say[PEOPLE] = {DLG_TOWN_TESS, DLG_TOWN_OKAFOR, DLG_TOWN_NELL, DLG_TOWN_PIP};
     talk_people_at = 16;  // (actor.c ENEMY_VRAM)
     for (uint8_t p = 0; p < PEOPLE; p++)

@@ -19,7 +19,7 @@ quarters, Echo's relay room, and Marro's shop.
   exits onto the same outdoor doorstep. Jumping/rolling cannot trigger a doorway.
 
 Outdoor doors (facade block coordinates): quarters (5,8), relay (7,3), shop (11,6).
-Rescued residents stand clear of door approaches at (3,11), (10,8), (7,13),
+Rescued residents stand clear of door approaches at (3,11), (11,8), (7,13),
 and (2,12). The lift (4,12) and contracts board (7,10) stay outside. Company posts are at
 (12,8) and (8,12). Marro and the gun/shield machines are inside the shop.
 
@@ -84,3 +84,11 @@ before the departure yard. They reuse the irregular edges from source row 9,
 columns 3..5, keeping the original cracks and sparse grains instead of introducing
 a repeated texture everywhere. Source art and collision stay unchanged; only
 these four map cells change their visuals. The reused edges add no hardware tiles.
+
+### Cliff collision audit
+
+The wall beside the central stairs is solid at (6,5) and (7,5); only (8,5)
+is traversable. Cliff caps and feet at (14,9), (13,6), (14,6), and (1,9)
+are solid as drawn. The attached ledge at (10,8)..(10,9) is also solid, so
+Okafor stands beside it at (11,8). Open ground below completed cliffs remains
+walkable. Explicit row-10 downward jumps remain the only cliff-face crossings.
