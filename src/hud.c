@@ -163,13 +163,15 @@ void hud_init(void) BANKED {
     hud_gun = 0xFF;
 }
 
-// The held weapon's icon: its right-facing frame (direction 0), both 8x16
+// The held weapon's icon: its right-facing frame (direction 0; the sword's
+// SWORD_ICON_FRAME), both 8x16
 // columns copied from its art into T_GUN, with the line over the top. Only on a
 // switch (direct VRAM writes: a few hundred cycles of waiting).
 static void load_gun_icon(void) {
     uint8_t t[32];
+    const uint8_t *f = gun_frames + (wpn.mode == FIRE_MELEE ? SWORD_ICON_FRAME * 4 : 0);
     for (uint8_t col = 0; col < 2; col++) {
-        uint8_t c = gun_frames[col << 1];
+        uint8_t c = f[col << 1];
         if (c == gun_blank) {
             for (uint8_t i = 0; i < 32; i++) t[i] = 0;
         } else {
@@ -181,7 +183,7 @@ static void load_gun_icon(void) {
     // Mirrored columns (the frame tables reuse art flipped).
     VBK_REG = 1;
     for (uint8_t col = 0; col < 2; col++) {
-        uint8_t a = BG_PAL_GUN | ATTR_BANK1 | (gun_frames[(col << 1) + 1] & S_FLIPX ? ATTR_FLIPX : 0);
+        uint8_t a = BG_PAL_GUN | ATTR_BANK1 | (f[(col << 1) + 1] & S_FLIPX ? ATTR_FLIPX : 0);
         fill_win_rect(RIGHT_X + 1 + col, 0, 1, 2, a);
     }
     VBK_REG = 0;

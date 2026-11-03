@@ -101,5 +101,13 @@
   "entrance-room": "0498f7d1",
   "entrance-room~stand-in": "b909ebe1",
   "interior": "7016600b",
-  "interior~stand-in": "a9efc866"
+  "interior~stand-in": "a9efc866",
+  "sword-back-right": "1794ccc7",
+  "sword-back-down": "eeacecdf",
+  "sword-back-left": "1618701e",
+  "sword-back-up": "b2e5237a",
+  "sword-back-right~stand-in": "1794ccc7",
+  "sword-back-down~stand-in": "eeacecdf",
+  "sword-back-left~stand-in": "1618701e",
+  "sword-back-up~stand-in": "b2e5237a"
 }

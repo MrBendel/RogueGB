@@ -88,6 +88,10 @@ extern WeaponStats weapon_stats[WEAPON_COUNT];  // each weapon's (tuned) stats
 #define PLACE_BEHIND 6
 extern uint8_t gun_vram, gun_blank;
 extern uint8_t gun_frames[16 * 4];
+// The frame shown as a weapon's icon (HUD, floor): pointing right. The sword's
+// frame 0 is its rest pose on your back, so it uses its facing-up follow-through
+// (360 degrees: the same drawing, pointing right).
+#define SWORD_ICON_FRAME 15
 extern const uint8_t *gun_tiles;  // the held weapon's art in ROM, in gun_tiles_bank
 extern uint8_t gun_tiles_bank;
 // The held weapon's name (7 characters, space-padded, and a 0) into dst[8].

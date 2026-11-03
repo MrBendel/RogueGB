@@ -157,12 +157,12 @@ void weapon_select(uint8_t w) BANKED {
 }
 
 void weapon_icon(uint8_t type, uint8_t *f) BANKED {
-    switch (type) {  // direction 0: pointing right (BANK() isn't a constant: no table)
+    switch (type) {  // pointing right: direction 0 (the sword: SWORD_ICON_FRAME) (BANK() isn't a constant: no table)
     case WEAPON_PISTOL: banked_memcpy(f, spr_pistol_frames, 4, BANK(spr_pistol)); break;
     case WEAPON_SHOTGUN: banked_memcpy(f, spr_shotgun_frames, 4, BANK(spr_shotgun)); break;
     case WEAPON_RIFLE: banked_memcpy(f, spr_rifle_frames, 4, BANK(spr_rifle)); break;
     case WEAPON_SNIPER: banked_memcpy(f, spr_sniper_frames, 4, BANK(spr_sniper)); break;
-    default: banked_memcpy(f, spr_sword_frames, 4, BANK(spr_sword)); break;
+    default: banked_memcpy(f, spr_sword_frames + SWORD_ICON_FRAME * 4, 4, BANK(spr_sword)); break;
     }
     for (uint8_t c = 0; c < 4; c += 2) {
         f[c] = f[c] == blanks[type] ? 0xFF : weapon_vram[type] + (f[c] << 1);

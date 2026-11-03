@@ -7,7 +7,7 @@ import { assert, matchGolden, startRun } from './helpers.mjs';
 const PISTOL = 0, SHOTGUN = 1, RIFLE = 2, SNIPER = 3, SWORD = 4;
 const RIFLE_TAP = 0, RIFLE_BURST = 1, RIFLE_AUTO = 2;
 const SLIME = 1;
-const DIR_RIGHT = 2;
+const DIR_UP = 0, DIR_RIGHT = 2, DIR_DOWN = 4, DIR_LEFT = 6;
 const SHOT_SIZE = 13, SHOT_MAX = 16;
 
 const addr = (emu, name) => emu.symbols.addr(name);
@@ -304,6 +304,16 @@ test('sword: the smeared swing pose shows exactly while the swing can hit', () =
 test('screen: the sword smear mid-swing', () => {
   // Nothing to hit, so no hitstop: the frame shown is the swing's.
   matchGolden(holding(SWORD, 136, 10).idle(60).hold('A', 1).idle(4), 'sword-smear');
+});
+
+test('screen: between swings the sword is on your back, whichever way you face', () => {
+  const emu = holding(SWORD, 136, 10).idle(30);
+  for (const [dir, name] of [[DIR_RIGHT, 'right'], [DIR_DOWN, 'down'], [DIR_LEFT, 'left'], [DIR_UP, 'up']]) {
+    emu.hold(name.toUpperCase(), 1).idle(20);
+    assert.equal(emu.v('player_facing'), dir);
+    assert.equal(emu.v('gun_dir16') & 3, 0, 'the rest pose');
+    matchGolden(emu, `sword-back-${name}`);
+  }
 });
 
 test('weapon art lives in the second VRAM bank (Game Boy Color), leaving bank 0 for the rest', () => {

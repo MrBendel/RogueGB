@@ -281,15 +281,19 @@ function placement(weapon, c) {
   return rows;
 }
 
-// The sword's poses, per facing: at rest (held out the way you face), the windup, the swing
+// The sword's poses, per facing: at rest (on your back), the windup, the swing
 // (smeared: the frame that can hit), the follow-through. Blade angles in degrees
-// clockwise from right; left mirrors right. Facing up, it's behind the body.
-// Frame 0 (right, at rest) is also its icon on the floor.
+// clockwise from right; left mirrors right. Facing up, the swing is behind the body.
+// At rest it's slung across the back, the hilt over a shoulder (`back`: the blade's
+// angle, where the grip goes in the player's frame, and whether the body hides it):
+// behind the body, except facing up, where you see the back.
+// Its icon (HUD, floor) is frame 15, the facing-up follow-through: pointing right
+// (SWORD_ICON_FRAME, weapon.h).
 const FACINGS = [
-  { hand: 0, poses: [0, -90, 0, 67.5] },     // right
-  { hand: 90, poses: [90, 0, 90, 180] },     // down: across the front, right to left
+  { hand: 0, poses: [0, -90, 0, 67.5], back: { deg: 105, x: 4, y: 0.5, behind: 1 } },  // right
+  { hand: 90, poses: [90, 0, 90, 180], back: { deg: 60, x: 3, y: -0.5, behind: 1 } },    // down: across the front, right to left
   null,                                          // left: the right's, mirrored
-  { hand: 270, poses: [270, 180, 270, 360], behind: 1 },  // up: over the head, left to right
+  { hand: 270, poses: [270, 180, 270, 360], behind: 1, back: { deg: 135, x: 12.5, y: 5.5, behind: 0 } },  // up: over the head, left to right
 ];
 
 /** The sword's 16 frames (facing x 4 + pose) and their placement rows. */
@@ -302,11 +306,13 @@ function swingFrames(weapon, c) {
     const t = (face.hand * Math.PI) / 180;
     const hx = HAND.x + HAND.rx * Math.cos(t), hy = HAND.y + HAND.ry * Math.sin(t);
     face.poses.forEach((deg, p) => {
+      if (p === 0 && face.back) deg = face.back.deg;
       let g = p === 2 ? rotated({ right: smear }, c, deg) : parted(weapon.parts, c, deg);
       const r = (deg * Math.PI) / 180, turn2 = (v) => ({ x: v.x * Math.cos(r) - v.y * Math.sin(r), y: v.x * Math.sin(r) + v.y * Math.cos(r) });
       const gr = turn2({ x: weapon.grip.x - c.x, y: weapon.grip.y - c.y }), tip = turn2({ x: weapon.muzzle.x - c.x, y: weapon.muzzle.y - c.y });
-      let fx = hx - gr.x, fy = hy - gr.y;
-      let row = { gx: Math.round(fx - 8), gy: Math.round(fy - 8), mx: Math.round(fx + tip.x), my: Math.round(fy + tip.y), kx: 0, ky: 0, behind: face.behind || 0 };
+      const rest = p === 0 && face.back;
+      let fx = (rest ? rest.x : hx) - gr.x, fy = (rest ? rest.y : hy) - gr.y;
+      let row = { gx: Math.round(fx - 8), gy: Math.round(fy - 8), mx: Math.round(fx + tip.x), my: Math.round(fy + tip.y), kx: 0, ky: 0, behind: rest ? rest.behind : face.behind || 0 };
       if (f === 2) {  // mirrored about the player's middle
         g = mirrorX(g);
         row = { ...row, gx: -row.gx, mx: 16 - row.mx };
