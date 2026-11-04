@@ -37,15 +37,18 @@ starts outdoors rather than inside a building.
 
 ## Reuse and colours
 
-Source image: artwork/tiles/sands.png, unchanged. The source greens are shading
-slots; paletteOverrides applies warm stone colours and a pale sand highlight
-after indexing, preserving the source's shading detail. The outdoor scene uses one palette, with sand in slot 1 (#e0c888 authored,
-#e7ce8c on hardware). Container faces use their original dark pixel indices. The pale sand (#f0d8a0) is closer to that ground tone than the old paper white.
+Source image: artwork/tiles/sands.png, unchanged. Colour direction follows the
+user's `G:/My Drive/Artwork/borderlands_gbc_map (2).png`: golden sand, warm rock,
+burnt-orange containers, weathered brown roofs, dark outlines and olive plants.
+Four background palettes preserve the source pixel indices. Props keep sand in
+slot 1 (#e0b858 authored, #e7bd5a on hardware), so their exposed ground matches.
+Enclosed roof surfaces use their own brown fill. Container faces retain the
+original dark shades rather than duplicating and tinting roof strips.
 
 Optional layout authoring: python tools/sands-town.py (requires Pillow). Compile
 with node tools/tileset.mjs sands. The helper removes unused pieces; the normal
 compiler deduplicates all 8x8 tiles including horizontal, vertical and combined
-flips. Outdoor: 364 quadrant references -> 214 stored (including flipped reuse).
+flips. Outdoor: 376 quadrant references -> 214 stored (including flipped reuse).
 Interiors: 84 references -> 74 unflipped -> 47 stored, shared by all three rooms.
 
 Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
@@ -92,3 +95,7 @@ is traversable. Cliff caps and feet at (14,9), (13,6), (14,6), and (1,9)
 are solid as drawn. The attached ledge at (10,8)..(10,9) is also solid, so
 Okafor stands beside it at (11,8). Open ground below completed cliffs remains
 walkable. Explicit row-10 downward jumps remain the only cliff-face crossings.
+
+Material palettes are assigned by placed object, not by shared source tile: roof
+fill and plain sand may share one hardware pattern while using different colours.
+All material aliases preserve the original pixels, collision and tile flips.

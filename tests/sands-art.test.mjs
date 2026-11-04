@@ -20,7 +20,7 @@ test('Sands preserves the original scene outside four authored ground transition
     assert.notEqual(shade, -1);
     assert.equal(actual, shade, `source detail at ${x},${y}`);
   }
-  assert.deepEqual(ts.palettes[0], [0xf7dea5, 0xe7ce8c, 0x946b42, 0x312921], 'warm rock ramp replaces the green guide colours');
+  assert.deepEqual(ts.palettes[0], [0xffde7b, 0xe7bd5a, 0x9c6339, 0x312118], 'warm rock ramp replaces the green guide colours');
   assert.ok(ts.stored.length > 172, 'unique details use the second bank');
   assert.ok(ts.stored.length <= tileBudget(ts.def), 'second bank stops before tile 128');
   assert.ok(ts.blocks.length <= 128, 'visual-block RAM budget');
@@ -56,5 +56,6 @@ test('container cluster preserves the complete source assembly, including dark f
     const t=ts.tiles[ts.blocks[b][((y&15)>>3)*2+((x&15)>>3)]];
     assert.equal(t.idx[(y&7)*8+(x&7)],expected,`container source pixel ${x},${y}`);
   }
-  assert.equal(ts.palettes.length,1,'authored dark faces share the ground palette');
+  assert.equal(ts.palettes.length,4,'sand, wood roofs, rust containers, olive plants');
+  for(const p of [2,3]) assert.equal(ts.palettes[p][1],ts.palettes[0][1],'prop ground matches sand');
 });
