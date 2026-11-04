@@ -11,6 +11,7 @@
 #include "input.h"
 #include "room.h"
 #include "sfx.h"
+#include "player.h"
 #include "frame.h"
 #include "settings.h"
 
@@ -112,6 +113,8 @@ static void show_speaker(uint8_t who) {
     banked_memcpy(&color, &dlg_speaker_color[who], 2, BANK(dialogue));
     banked_memcpy(&sound, &dlg_speaker_sound[who], 1, BANK(dialogue));
     banked_memcpy(&portrait, &dlg_speaker_portrait[who], 1, BANK(dialogue));
+    if (who == DLG_CLASS_SPEAKER)  // you: the character you play
+        banked_memcpy(&portrait, &dlg_class_portrait[player_character], 1, BANK(dialogue));
     if (portrait != 0xFF) {
         // (From the dialogue's ROM bank, so the banked copy; background tile
         // T_PORTRAIT and sprite tile T_PORTRAIT are the same VRAM from 128 on.)

@@ -16,7 +16,8 @@
     "you": {
       "name": "YOU",
       "color": "#181425",
-      "portrait": "you.png"
+      "portrait": "you.png",
+      "class_portraits": { "hunter": "class_hunter.png", "hooded": "class_hooded.png", "cyborg": "class_cyborg.png" }
     },
     "meridian": {
       "name": "MERIDIAN",

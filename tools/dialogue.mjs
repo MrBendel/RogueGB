@@ -11,7 +11,9 @@
 // speaker's line opens: "relay" (Echo's channel), "chime" (the company's three notes).
 // "portrait": "echo.png" (artwork/portraits) shows a 32x32 picture in the box, the
 // text beside it (so narrower lines): at most 3 colors plus see-through, mapped
-// lightest to darkest onto colors 1-3.
+// lightest to darkest onto colors 1-3. "class_portraits": { "hunter": "class_hunter.png", ... }
+// (one speaker: the player) picks the portrait by the character you play
+// (CHARS, player.h's CHAR_ order); the rest keep "portrait".
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +30,7 @@ export const DLG_WRAP_PX = 140;  // a line's width in the box (dialog.c: 18 tile
 export const DLG_WRAP_PX_PORTRAIT = 108;  // ... and beside a portrait (14 tiles, the pen 3 px in)
 export const DLG_PAGE_LINES = 2;
 const NAME_MAX = 12;
+const CHARS = ['adventurer', 'spacemarine', 'hunter', 'hooded', 'cyborg'];  // player.h's CHAR_ ids
 const SOUNDS = { relay: 'SFX_RELAY', chime: 'SFX_CHIME' };
 
 let metrics = null;
@@ -164,7 +167,8 @@ export function loadDialogue() {
       if (!s.name || s.name.length > NAME_MAX) throw new Error(`content/dialogue/${f}: speaker '${key}' needs a name of 1-${NAME_MAX} letters`);
       if (s.sound && !SOUNDS[s.sound]) throw new Error(`content/dialogue/${f}: speaker '${key}': sound is one of ${Object.keys(SOUNDS).join(', ')}`);
       who.set(key, speakers.length);
-      speakers.push({ key, name: s.name, color: s.color || '#181425', sound: s.sound, portrait: s.portrait });
+      for (const c of Object.keys(s.class_portraits || {})) if (!CHARS.includes(c)) throw new Error(`content/dialogue/${f}: speaker '${key}': class_portraits: '${c}' is not one of ${CHARS.join(', ')}`);
+      speakers.push({ key, name: s.name, color: s.color || '#181425', sound: s.sound, portrait: s.portrait, classes: s.class_portraits });
     }
   }
   for (const f of files) {
@@ -206,12 +210,17 @@ export function buildDialogue({ quiet = false } = {}) {
     text.push(...bytes);
   }
   const portraits = [];
-  const portraitOf = speakers.map((s) => {
-    if (!s.portrait) return 255;
-    let i = portraits.findIndex((p) => p.file === s.portrait);
-    if (i < 0) { i = portraits.length; portraits.push({ file: s.portrait, ...portraitTiles(s.portrait) }); }
+  const portraitIndex = (file) => {
+    if (!file) return 255;
+    let i = portraits.findIndex((p) => p.file === file);
+    if (i < 0) { i = portraits.length; portraits.push({ file, ...portraitTiles(file) }); }
     return i;
-  });
+  };
+  const portraitOf = speakers.map((s) => portraitIndex(s.portrait));
+  const classed = speakers.flatMap((s, i) => (s.classes ? [i] : []));
+  if (classed.length > 1) throw new Error('dialogue: only one speaker can have class_portraits');
+  const you = speakers[classed[0]];
+  const byClass = CHARS.map((c) => (you?.classes[c] ? portraitIndex(you.classes[c]) : you ? portraitOf[classed[0]] : 255));
   const first = [];
   let k = 0;
   for (const s of scripts) { first.push(k); k += s.pages.length; }
@@ -236,6 +245,8 @@ export function buildDialogue({ quiet = false } = {}) {
     'extern const uint8_t dlg_speaker_sound[DLG_SPEAKERS];   // an SFX_ id, or 0xFF',
     'extern const uint8_t dlg_speaker_portrait[DLG_SPEAKERS]; // a portrait, or 0xFF',
     `#define DLG_PORTRAITS ${portraits.length}`,
+    `#define DLG_CLASS_SPEAKER ${classed.length ? classed[0] : 255}  // its portrait is dlg_class_portrait[player_character]`,
+    `extern const uint8_t dlg_class_portrait[${CHARS.length}];`,
     'extern const uint8_t dlg_portrait_tiles[];  // 256 bytes each: 8x16 sprite tiles, 4 columns x 2 rows',
     'extern const uint16_t dlg_portrait_pal[];   // 4 colors each',
     '#endif', '',
@@ -254,6 +265,7 @@ export function buildDialogue({ quiet = false } = {}) {
     `const uint16_t dlg_speaker_color[DLG_SPEAKERS] = {${list(speakers.map((s) => rgb555(s.color)))}};`,
     `const uint8_t dlg_speaker_sound[DLG_SPEAKERS] = {${list(speakers.map((s) => (s.sound ? SOUNDS[s.sound] : '0xFF')))}};`,
     `const uint8_t dlg_speaker_portrait[DLG_SPEAKERS] = {${list(portraitOf)}};`,
+    `const uint8_t dlg_class_portrait[${CHARS.length}] = {${list(byClass)}};`,
     `const uint8_t dlg_portrait_tiles[] = {${list(portraits.flatMap((p) => p.tiles)) || 0}};`,
     `const uint16_t dlg_portrait_pal[] = {${list(portraits.flatMap((p) => p.pal)) || 0}};`,
     '',

@@ -89,3 +89,18 @@ test('beside a talker an A bubble shows; A talks instead of firing, and each tal
   emu.tap('A');
   assert.equal(emu.v('dlg_who'), loadDialogue().speakers.findIndex((p) => p.key === 'marro'));
 });
+
+test("your portrait is the character you play's", () => {
+  const WHO_YOU = 6, CHARS = { hunter: 2, hooded: 3, cyborg: 4 };
+  const shown = [];
+  for (const [name, id] of Object.entries(CHARS)) {
+    const emu = yardTalk();
+    emu.write8(emu.symbols.addr('player_character'), id);
+    for (let i = 0; i < 20 && emu.v('dlg_who') !== WHO_YOU; i++) emu.tap('A');
+    assert.equal(emu.v('dlg_who'), WHO_YOU, 'you answer Echo');
+    emu.tap('A');  // the whole line out
+    shown.push(emu.v('dlg_portrait'));
+    matchGolden(emu, `dialog-portrait-${name}`);
+  }
+  assert.equal(new Set(shown).size, 3, `a portrait each: ${shown}`);
+});

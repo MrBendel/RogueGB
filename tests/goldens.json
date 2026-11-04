@@ -109,5 +109,8 @@
   "sword-back-right~stand-in": "1794ccc7",
   "sword-back-down~stand-in": "eeacecdf",
   "sword-back-left~stand-in": "1618701e",
-  "sword-back-up~stand-in": "b2e5237a"
+  "sword-back-up~stand-in": "b2e5237a",
+  "dialog-portrait-hunter": "b20a2399",
+  "dialog-portrait-hooded": "c9ac17bd",
+  "dialog-portrait-cyborg": "3afe7c76"
 }
