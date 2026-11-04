@@ -330,6 +330,7 @@ function resetEmu() {
   emu.reset();
   loadSram();
   resetBuffers();
+  hideOverlay();
   player = null;
   if (recorder) { recorder = null; toast('Recording discarded (reset)'); }
   updateRecUi();
@@ -403,7 +404,18 @@ function loop(now) {
   } else if (!paused) {
     acc += dt * speed * (fastForward ? 4 : 1);
     let n = 0;
-    while (acc >= FRAME_MS && n < 16) { tick(); acc -= FRAME_MS; n++; fpsCount++; }
+    try {
+      while (acc >= FRAME_MS && n < 16) { tick(); acc -= FRAME_MS; n++; fpsCount++; }
+    } catch (e) {
+      // Say so, rather than leave the last picture up as if the game hung.
+      console.error(e);
+      paused = true;
+      updatePauseUi();
+      showOverlay(`The emulator stopped at frame ${emu.frame}:
+${e.message || e}
+
+File a bug report (Record & report) before resetting.`, true);
+    }
     if (n === 16) acc = 0;
     if (n) render();
   }
@@ -421,6 +433,7 @@ function togglePause() { paused = !paused; updatePauseUi(); }
 function updatePauseUi() {
   $('b-pause').textContent = paused ? '▶ Play' : '⏸ Pause';
   $('b-pause').classList.toggle('on', paused);
+  $('paused').classList.toggle('hidden', !paused);
 }
 function stepOnce() {
   if (!emu) return;
@@ -664,6 +677,7 @@ function toast(msg) {
 }
 
 $('b-pause').onclick = () => { haptic(10); togglePause(); };
+$('paused').onclick = () => { haptic(10); togglePause(); };
 $('b-step').onclick = () => { haptic(10); stepOnce(); };
 $('b-reset').onclick = () => { haptic(10); resetEmu(); };
 $('sel-speed').onchange = (e) => { speed = +e.target.value; };
