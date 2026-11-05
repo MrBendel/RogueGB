@@ -66,11 +66,14 @@ def material(x,y,palette):
  spec=pieces[base]
  pieces[n]={**({'rect':spec} if isinstance(spec,list) else spec), 'palette':palette}
  g[y][x]=n
-# Enclosed roof surfaces can use weathered wood for their fill. Outdoor props retain sand
+# Enclosed roof surfaces use blue-gray metal for their fill. Outdoor props retain sand
 # in slot 1, so exposed ground and transparent source pixels stay continuous.
 for x0,y0,w,h in [(4,6,3,2),(10,3,3,3)]:
  for y in range(y0,y0+h):
   for x in range(x0,x0+w):material(x,y,1)
+# Building fronts and tower metal share a ground-safe metal ramp.
+for x,y in [(3,6),(3,7),(3,8),(4,8),(5,8),(6,8),(7,3),(8,3),(10,6),(11,6),(12,6),(6,12),(6,13),(6,14)]:
+ material(x,y,4)
 for y in (13,14):
  for x in range(1,5):material(x,y,2)
 for yy,row in enumerate(container_mask):
@@ -88,5 +91,5 @@ for y in range(H):
  rows.append(row)
 used={n for row in g for n in row}
 pieces={n:p for n,p in pieces.items() if n in used}
-d={'comment':'The original Sands scene is preserved outside four ground transition cells; existing irregular sand edges finish its southern boundary. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#f8d878','#e0b858','#986038','#302018']},'paletteVariants':[['#d8b078','#a87848','#684028','#281c18'],['#f8ad50','#e0b858','#a84828','#382018'],['#b8b868','#e0b858','#708040','#303820']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
+d={'comment':'The original Sands scene is preserved outside four ground transition cells; existing irregular sand edges finish its southern boundary. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#e8c888','#c8a060','#a05030','#382820']},'paletteVariants':[['#a8b8b0','#708888','#405858','#182830'],['#e8a048','#c8a060','#a04428','#382820'],['#b8c088','#c8a060','#688060','#283c38'],['#e8c888','#c8a060','#506868','#203038']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
 p.write_text(json.dumps(d,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')

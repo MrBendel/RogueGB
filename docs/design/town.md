@@ -37,18 +37,21 @@ starts outdoors rather than inside a building.
 
 ## Reuse and colours
 
-Source image: artwork/tiles/sands.png, unchanged. Colour direction follows the
-user's `G:/My Drive/Artwork/borderlands_gbc_map (2).png`: golden sand, warm rock,
-burnt-orange containers, weathered brown roofs, dark outlines and olive plants.
-Four background palettes preserve the source pixel indices. Props keep sand in
-slot 1 (#e0b858 authored, #e7bd5a on hardware), so their exposed ground matches.
-Enclosed roof surfaces use their own brown fill. Container faces retain the
-original dark shades rather than duplicating and tinting roof strips.
+Source image: artwork/tiles/sands.png, unchanged. Colour direction combines
+`G:/My Drive/Artwork/borderlands_gbc_map (2).png` (rusty containers and settlement)
+and `G:/My Drive/Artwork/Gemini_Generated_Image_psu5dfpsu5dfpsu5.jpeg` (warm rock
+against cool metal). Ground is muted ochre, cliffs burnt orange, roofs blue-gray,
+containers rust-orange, and plants sage green. Five background palettes preserve
+all source pixel indices. Props share sand slot 1 (#c8a060 authored, #cea563 on
+hardware); metal fronts also share the pale ground slot 0 to avoid coloured
+rectangles around doorways. Enclosed roofs have their own metal fill. Fronts and
+the water tower use cool shadows with dusty highlights. Container faces retain
+the original dark shades rather than duplicating and tinting roof strips.
 
 Optional layout authoring: python tools/sands-town.py (requires Pillow). Compile
 with node tools/tileset.mjs sands. The helper removes unused pieces; the normal
 compiler deduplicates all 8x8 tiles including horizontal, vertical and combined
-flips. Outdoor: 376 quadrant references -> 214 stored (including flipped reuse).
+flips. Outdoor: 380 quadrant references -> 214 stored (including flipped reuse).
 Interiors: 84 references -> 74 unflipped -> 47 stored, shared by all three rooms.
 
 Only the current room's art is loaded. Sands uses 172 tiles in VRAM bank 0 and
