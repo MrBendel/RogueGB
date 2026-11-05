@@ -16,9 +16,10 @@
 
 #define SAVE_SLOTS 3
 #define SAVE_NONE 0xFF
-#define SAVE_VERSION 11 // 2: guns as items (loot.h); 3: story flags; 4: the backpack (256-byte copies); 5: ammo;
+#define SAVE_VERSION 12 // 2: guns as items (loot.h); 3: story flags; 4: the backpack (256-byte copies); 5: ammo;
                         // 6: containers opened (exp_conts); 7: lockers in buildings (exp_inside); 8: the world (exp_world);
-                        // 9: missions (mis_*); 10: the rescued (rescued); 11: maps been in (exp_seen)
+                        // 9: missions (mis_*); 10: the rescued (rescued); 11: maps been in (exp_seen);
+                        // 12: 4 camps a map (exp_camps: buildings' guards from bit 4, were bit 2)
 #define SAVE_OLDEST 5   // older files still read: fields added since sit at the end, and start at 0
 #define DEATH_FEE_SHIFT 3  // the corporation's cut for rebuilding you: credits >> 3 (12.5%; a shift, no 32-bit division)
 

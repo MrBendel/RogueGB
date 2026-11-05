@@ -35,7 +35,7 @@ function built(emu) {
   const w = emu.v('room_w'), h = emu.v('room_h');
   const raw = emu.readBytes(0xd400, 1024);
   const camps = emu.v('level_camps'), chests = emu.v('level_chests');
-  const cx = words(emu, 'camp_x', 2), cy = words(emu, 'camp_y', 2);
+  const cx = words(emu, 'camp_x', 4), cy = words(emu, 'camp_y', 4);
   const hx = words(emu, 'chest_x', 3), hy = words(emu, 'chest_y', 3);
   return {
     w, h, at: (x, y) => raw[(y << 5) | x], open: bytes(emu, 'level_open', 4),
@@ -180,7 +180,8 @@ function leaveBy(emu, e) {
   toOpening(emu, e);
   const dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e];
   const before = emu.v('maps_entered', 'u16');
-  for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) emu.hold(dir, 1);
+  // (A quiet walk out: fields are busy, and a hound's lunge knocks you off the way.)
+  for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) { for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0); emu.hold(dir, 1); }
   assert.notEqual(emu.v('maps_entered', 'u16'), before, `left by ${e}`);
   return emu.idle(30);
 }
@@ -271,6 +272,7 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
     assert.equal(emu.v('camp_state'), CAMP_AWAKE, 'awake once you are near');
     assert.ok(emu.v('actors_active') > 0, 'its enemies');
     matchGolden(emu.idle(40), 'descent-camp');  // once the camera has caught up
+    emu.write8(addr(emu, 'camp_left'), 0);  // (no more coming)
     for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
     emu.idle(3);
     assert.equal(emu.v('camp_state'), CAMP_CLEARED);
@@ -281,14 +283,15 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
     w16(emu, 'player_x', nearX);
     w16(emu, 'player_y', cy - 12);
     emu.idle(3);
-    // (camps are at least 3 chunks apart, farther than a camp wakes from)
-    assert.equal(emu.v('actors_active'), 0, 'no respawn');
+    // (Another camp can be near enough to wake: camps are only kept off each other's chunks.)
+    assert.equal(emu.v('camp_state'), CAMP_CLEARED, 'still cleared');
+    assert.equal(emu.v('camp_actors'), 0, 'no respawn');
     return;
   }
   assert.fail('no camp found beside the start map');
 });
 
-test("the first area's camps are slimes and peashooters; from the second, hounds and duelists join them; from the third, loaders and medics", () => {
+test("the first area's camps mix every kind but the medic; from the second the medic joins them; the third has loaders and medics", () => {
   const kinds = { 1: new Set(), 2: new Set(), 3: new Set() };
   for (const depth of [1, 2, 3])
     for (let wait = 0; wait < 60; wait += 7) {
@@ -303,8 +306,8 @@ test("the first area's camps are slimes and peashooters; from the second, hounds
       emu.idle(2);
       for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
     }
-  assert.deepEqual([...kinds[1]].sort(), [1, 2], 'area 1: slimes and peashooters');
-  assert.ok(kinds[2].has(3) && kinds[2].has(4), `area 2: hounds and duelists too (${[...kinds[2]]})`);
+  assert.ok([...kinds[1]].every((k) => k <= 5) && [1, 2, 3, 4].every((k) => kinds[1].has(k)), `area 1: all but the medic (${[...kinds[1]]})`);
+  assert.ok(kinds[2].has(3) && kinds[2].has(4) && kinds[2].has(6), `area 2: hounds, duelists and medics (${[...kinds[2]]})`);
   // (a camp by the entrance can wake at depth 1, before the test sets the depth)
   assert.ok(kinds[3].has(5) && kinds[3].has(6), `area 3: loaders and medics (${[...kinds[3]]})`);
 });
@@ -571,8 +574,12 @@ test("every building's door leads inside (nothing's built on its step)", () => {
 });
 
 test('a guarded building: its camp wakes, and its chest waits until the camp is cleared', () => {
-  const emu = intoBuilding(4260);  // (guarded)
-  assert.equal(emu.v('level_camps'), 1);
+  let emu = null;  // (the first seed whose building is guarded)
+  for (let seed = 4240; seed < 4340 && !emu; seed++) {
+    const e = intoBuilding(seed);
+    if (e && e.v('level_inside') === 0 && e.v('level_camps') === 1) emu = e;
+  }
+  assert.ok(emu, 'a guarded building');
   assert.ok(emu.v('actors_active') > 0, 'its guards, awake');
   const map = emu.v('level_map'), cx = emu.v('chest_x', 'u16'), cy = emu.v('chest_y', 'u16');
   const opened = () => emu.read8(addr(emu, 'area_chests_opened') + map) & (1 << 3);
@@ -588,7 +595,7 @@ test('a guarded building: its camp wakes, and its chest waits until the camp is 
   assert.equal(opened(), 0, 'locked while they live');
   for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // (cleared)
   emu.idle(4);
-  assert.ok(emu.read8(addr(emu, 'area_camps_cleared') + map) & (1 << 2), 'cleared: bit 2 + door 0');
+  assert.ok(emu.read8(addr(emu, 'area_camps_cleared') + map) & (1 << 4), 'cleared: bit 4 + door 0');
   toChest();
   assert.ok(opened(), 'then it opens');
 });

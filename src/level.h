@@ -36,7 +36,7 @@
 #define EDGE_W 8
 
 #define OPENING_W 4    // blocks wide
-#define LEVEL_CAMPS 2  // camps per map at most
+#define LEVEL_CAMPS 4  // camps per map at most
 #define CAMP_SLOTS 5   // enemies per camp at most
 #define LEVEL_CHESTS 3
 
@@ -99,7 +99,7 @@ void level_build_interior(uint16_t seed) BANKED;
 // A building's guard (level_build_interior: one in two): one camp in its upper room;
 // its cleared bit is 2 + the door in the map's area_camps_cleared, and the chest
 // (luckier) waits for it.
-#define INSIDE_CAMP_BIT 2
+#define INSIDE_CAMP_BIT 4
 // An area's miniboss's arena in the world's art (the exterior tileset: the trials'
 // room's shape, 10x8, a rim and open ground). The tileset is loaded here.
 void level_build_arena(void) BANKED;

@@ -15,16 +15,16 @@
 #include "tiles_lunar_int.h"
 
 static const World worlds[WORLD_COUNT] = {
-    // LunarBase: slimes, a peashooter in four; from the second area, a hound and
-    // a duelist in place of two slimes (docs/design/runs.md: flankers and duelists
-    // join in area 2); from the third, a loader and a medic drone in place of the
-    // slime and the peashooter. The Claimjaw, Scrapback, Cragback. Its maintenance drones
+    // LunarBase: every kind from the first area but the medic, slimes and
+    // peashooters the most of them; from the second, more hounds and duelists, and
+    // the medic drone; from the third, loaders and medics the most. (A camp takes
+    // its roster in turn: world_squad.) The Claimjaw, Scrapback, Cragback. Its maintenance drones
     // and patrol hounds slate blue with a cyan eye; its turrets and mercs in the
     // corporation's yellow, a red visor; its bullets and elites hot magenta.
     {CHUNK_THEME_LUNAR,
-     {{ACTOR_PEASHOOTER, ACTOR_SLIME, ACTOR_SLIME, ACTOR_SLIME},
-      {ACTOR_PEASHOOTER, ACTOR_SLIME, ACTOR_HOUND, ACTOR_DUELIST},
-      {ACTOR_MEDIC, ACTOR_TANK, ACTOR_HOUND, ACTOR_DUELIST}},
+     {{ACTOR_SLIME, ACTOR_PEASHOOTER, ACTOR_HOUND, ACTOR_SLIME, ACTOR_DUELIST, ACTOR_PEASHOOTER, ACTOR_SLIME, ACTOR_TANK},
+      {ACTOR_PEASHOOTER, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_SLIME, ACTOR_TANK, ACTOR_HOUND, ACTOR_MEDIC, ACTOR_DUELIST},
+      {ACTOR_MEDIC, ACTOR_TANK, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_PEASHOOTER, ACTOR_TANK, ACTOR_DUELIST, ACTOR_HOUND}},
      {0, 1, 2},
      {RGB(10, 30, 31), RGB(11, 15, 26), RGB(2, 3, 10)},
      {RGB(31, 8, 6), RGB(28, 22, 4), RGB(5, 3, 9)},
@@ -62,8 +62,12 @@ uint8_t world_miniboss_kind(uint8_t i) BANKED {
 }
 
 uint8_t world_enemy(uint8_t depth) BANKED {
+    return world_squad(depth, rand());
+}
+
+uint8_t world_squad(uint8_t depth, uint8_t j) BANKED {
     uint8_t tier = depth >= WORLD_TIERS ? WORLD_TIERS - 1 : depth ? depth - 1 : 0;
-    return worlds[world_id].roster[tier][rand() & (WORLD_ROSTER - 1)];
+    return worlds[world_id].roster[tier][j & (WORLD_ROSTER - 1)];
 }
 
 uint8_t world_miniboss(uint8_t depth) BANKED {

@@ -31,7 +31,10 @@ function leaveBy(emu, e) {
   w16(emu, 'player_x', at[0]);
   w16(emu, 'player_y', at[1]);
   const before = emu.v('maps_entered', 'u16');
-  for (let i = 0; i < 120 && emu.v('maps_entered', 'u16') === before; i++) emu.hold(DIR[e], 1);
+  for (let i = 0; i < 120 && emu.v('maps_entered', 'u16') === before; i++) {  // (a quiet walk out: fields are busy)
+    for (let k = 0; k < 8; k++) emu.write8(A(emu, 'actor_type') + k, 0);
+    emu.hold(DIR[e], 1);
+  }
   return settle(emu, PLAY).idle(20);  // (the map change's fade-in runs inside play: play waits for it)
 }
 
@@ -45,10 +48,13 @@ function atCampChest() {
     const camp = chests && emu.read8(A(emu, 'chest_camp'));
     if (!chests || camp === 0xff) continue;
     // Wake the camp (stand at it), then clear it.
-    const cx = words(emu, 'camp_x', 2)[camp], cy = words(emu, 'camp_y', 2)[camp];
+    const cx = words(emu, 'camp_x', 4)[camp], cy = words(emu, 'camp_y', 4)[camp];
     w16(emu, 'player_x', cx - 8);
     w16(emu, 'player_y', cy - 12);
     emu.idle(3);
+    // (Its neighbours put to sleep for good: camps can be close enough to wake too.)
+    for (let c = 0; c < 4; c++) if (c !== camp) emu.write8(A(emu, 'camp_state') + c, 2);
+    emu.writeBytes(A(emu, 'camp_left'), [0, 0, 0, 0]);  // (no more coming)
     for (let i = 0; i < 8; i++) emu.write8(A(emu, 'actor_type') + i, 0);
     emu.idle(3);
     return emu;
@@ -67,7 +73,7 @@ test("a camp's chest opens once the camp is cleared: credits and a gun drop in f
   const kinds = Array.from(emu.readBytes(A(emu, 'drop_kind'), 6));
   assert.ok(kinds.includes(DROP_GUN), `a gun: ${kinds}`);
   // (the credits land within reach of the chest's front: often taken at once)
-  assert.ok(kinds.includes(DROP_CREDITS) || credits(emu) > before, 'credits, on the floor or taken');
+  assert.ok(kinds.includes(DROP_CREDITS) || credits(emu) > before || emu.v('credits_picked', 'u16') > 0, 'credits, on the floor or taken');
 });
 
 test('credits are taken by walking over them; standing on a gun shows its card; A takes it', () => {

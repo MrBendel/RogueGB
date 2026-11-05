@@ -75,6 +75,7 @@ function besideCaptive(emu) {
 function clearCamp(emu) {
   besideCaptive(emu);
   for (let f = 0; f < 300 && emu.read8(A(emu, 'camp_state')) !== 2; f++) {
+    emu.writeBytes(A(emu, 'camp_left'), [0]);  // (no more coming)
     killAll(emu);
     keepAlive(emu);
     emu.idle(1);
@@ -172,7 +173,10 @@ test('hold: the clock runs while you stay near; enemies come; then they are free
   emu.tap('A').idle(2);
   closeDialog(emu);
   assert.equal(emu.v('rescue_state'), RS_HOLD, 'holding');
-  emu.idle(5 * 60);
+  // (Kept on the spot: a hound's lunge knocks you back, out of reach of them.)
+  const hx = emu.v('player_x', 'u16'), hy = emu.v('player_y', 'u16');
+  const stay = () => { w16(emu, 'player_x', hx); w16(emu, 'player_y', hy); keepAlive(emu); };
+  for (let f = 0; f < 5 * 60; f++) stay(), emu.idle(1);
   const left = emu.v('rescue_timer', 'u16');
   assert.ok(left < 20 && left >= 14, `counting down (${left})`);
   assert.ok(emu.v('actor_count') > 0, 'enemies come at the camp');
@@ -184,6 +188,7 @@ test('hold: the clock runs while you stay near; enemies come; then they are free
   assert.equal(emu.v('rescue_timer', 'u16'), left, 'paused while away');
   besideCaptive(emu);
   for (let f = 0; f < 22 * 60 && !prof(emu, MIS_HAVE); f++) {
+    if (emu.v('rescue_state') === RS_HOLD) stay();
     keepAlive(emu);
     if (f % 30 === 0) killAll(emu);
     if (emu.v('dlg_active')) emu.tap('A');

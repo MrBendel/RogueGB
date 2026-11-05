@@ -249,7 +249,7 @@ uint8_t roles[CHUNK_ROWS * 8];  // [cy * 8 + cx]
 static const uint8_t role_tag[5] = {TAG_OPEN, TAG_ROCK, TAG_CAMP, TAG_CACHE, TAG_START};
 
 // Points every build must connect: openings, camps, chests, the middle (blocks).
-#define MUST_MAX 12
+#define MUST_MAX 16
 uint8_t must_x[MUST_MAX], must_y[MUST_MAX], musts;
 
 static void must(uint8_t x, uint8_t y) {
@@ -389,12 +389,21 @@ static void pf_place(uint8_t pf, uint8_t x, uint8_t y) {
         for (uint8_t i = 0; i < pf_size[pf * 2]; i++) MAP(x + i, y + j) = BLK_SOLID | CLAIMED;
 }
 
-// Open ground for a set piece: all floor, none of it a camp's slot, a chest or a
-// point that must stay reachable.
+static uint8_t build_links;  // the links of the map being built (its openings)
+
+// Open ground for a set piece: all floor, none of it a camp's slot, a chest, a
+// point that must stay reachable or an opening's mouth (4 deep: a pipe across it
+// half shut the way out).
 static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
     for (uint8_t j = 0; j < h; j++)
         for (uint8_t i = 0; i < w; i++)
             if (MAP(x + i, y + j) != BLK_FLOOR) return 0;
+    for (uint8_t s = 0; s < 4; s++) {
+        if (!(build_links & edge_bit[s])) continue;
+        uint8_t at = level_open[s];
+        uint8_t rx = s == 1 ? room_w - 4 : s == 3 ? 0 : at, ry = s == 0 ? 0 : s == 2 ? room_h - 4 : at;
+        if (x < rx + 4 && rx < x + w && y < ry + 4 && ry < y + h) return 0;
+    }
     // (The middle: the shaft and two blocks either side of it, where you arrive
     // beside it back from its miniboss.)
     if ((uint8_t)(SHAFT_X(room_w) + 3 - x) < w + 5 && (uint8_t)(SHAFT_Y(room_h) + 1 - y) < h + 1) return 0;
@@ -797,16 +806,17 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
             if (nx >= 1 && nx < cw - 1 && ny >= 1 && ny < ch - 1) x = (uint8_t)nx, y = (uint8_t)ny;
         }
     }
-    // Camps: 1-2, on open cells, at least 3 cells apart.
-    uint8_t want = 1 + below(2), placed = 0, px = 0xFF, py = 0xFF;
-    for (uint8_t tries = 0; tries < 20 && placed < want; tries++) {
-        uint8_t x = below(cw), y = below(ch);
+    // Camps: 3-4 (a field is busy), on open cells, none beside another.
+    uint8_t want = 3 + below(2), placed = 0, px[LEVEL_CAMPS], py[LEVEL_CAMPS];
+    for (uint8_t tries = 0; tries < 40 && placed < want; tries++) {
+        uint8_t x = below(cw), y = below(ch), near = 0;
         if (roles[y * 8 + x] != ROLE_OPEN) continue;
-        if (px != 0xFF && (uint8_t)(x - px + 2) < 5 && (uint8_t)(y - py + 2) < 5) continue;
+        for (uint8_t k = 0; k < placed; k++)
+            if ((uint8_t)(x - px[k] + 1) < 3 && (uint8_t)(y - py[k] + 1) < 3) near = 1;
+        if (near) continue;
         roles[y * 8 + x] = ROLE_CAMP;
-        px = x;
-        py = y;
-        placed++;
+        px[placed] = x;
+        py[placed++] = y;
     }
     // A cache in about a third of fields, along the top or bottom edge.
     if (below(3) == 0) {
@@ -900,6 +910,7 @@ void level_build_map(uint8_t i) BANKED {
     // (no map behind it) is the way back to town.
     uint8_t links = area_links[i], entrance = area_type[i] == MAP_START;
     if (entrance) links |= EDGE_S;
+    build_links = links;
     for (uint8_t s = 0; s < 4; s++) {
         level_open[s] = 0xFF;
         if (!(links & edge_bit[s])) continue;

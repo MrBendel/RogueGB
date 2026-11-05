@@ -64,7 +64,7 @@ test('offers fit how far you have been: area 1 only asks for its own kinds and b
       setProf(emu, MIS_TAKEN, [0]);
       emu.tap('A').idle(2);
       const kind = prof(emu, MIS_KIND), target = prof(emu, MIS_TARGET);
-      if (kind === CULL) assert.ok([1, 2].includes(target), `area 1's kinds (${target})`);
+      if (kind === CULL) assert.ok([1, 2, 3, 4, 5].includes(target), `area 1's kinds (${target})`);
       if (kind === BOUNTY) assert.equal(target, 0, 'the Claimjaw');
       if (kind === DEBT) assert.ok(prof(emu, MIS_NEED) >= 3);
       emu.hold('DOWN', 2).idle(2);
