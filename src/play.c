@@ -293,9 +293,9 @@ void play_enter(void) BANKED {
     sfx_watch_reset();
     waves_init();
     paused = 0;
-    // The pause menu opens on your profile; in the lab and the yard (no file),
+    // The pause menu opens on your profile (in an area, its map); in the lab and the yard (no file),
     // where tuning is the point, on the tuning page.
-    menu_page = save_slot == SAVE_NONE ? PAGE_TUNE : PAGE_CHARACTER;
+    menu_page = save_slot == SAVE_NONE ? PAGE_TUNE : play_mode == MODE_DESCENT ? PAGE_MAP : PAGE_CHARACTER;
     select_chord = chord_mask = 0;
     chord_throws = 0;
     tune_sel = tune_top = 0;

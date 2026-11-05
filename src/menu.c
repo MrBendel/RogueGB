@@ -18,6 +18,9 @@
 #include "settings.h"
 #include "health.h"
 #include "loot.h"
+#include "level.h"
+#include "descent.h"
+#include "run.h"
 
 // Ink palettes (background palettes 0-5, borrowed; 6 is the panel's own).
 #define P_INK BG_PAL_UI
@@ -130,6 +133,74 @@ static void clear_inside(void) {
     VBK_REG = 0;
 }
 
+// The map page: only in an area (where you can get lost), and with a file.
+static uint8_t has_map(void) {
+    return play_mode == MODE_DESCENT && save_slot != SAVE_NONE;
+}
+
+// The area's maps on a grid, a 3x3 box each, 4 tiles apart: the ones been in, and
+// the ones their doors lead to (a "?"), with those doors; you (@), the way out (E)
+// and the shaft down (X), once seen.
+#define MAP_X 2
+#define MAP_Y 4
+static const uint8_t door_px[32] = {
+    0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0,                    // across
+    0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,  // up and down
+};
+static void door(uint8_t x, uint8_t y, uint8_t t) {
+    set_win_tile_xy(x, y, t);
+    VBK_REG = 1;
+    set_win_tile_xy(x, y, P_LIT | TEXT_BANK1);
+    VBK_REG = 0;
+}
+static void draw_map(void) {
+    char line[TEXT_MAX + 1];
+    char *p = put(line, "DEPTH ");
+    p = put_num(p, layer_depth, 1);
+    *p = 0;
+    say(16, 2, line, P_DIM, 0xFF);
+    uint8_t td = alloc(2);
+    VBK_REG = 1;
+    set_win_data(td, 2, door_px);
+    VBK_REG = 0;
+    for (uint8_t i = 0; i < AREA_CELLS; i++) {
+        if (!area_type[i]) continue;
+        uint8_t links = area_links[i], seen = (area_seen >> i) & 1, known = seen;
+        if ((links & EDGE_N) && (area_seen >> (i - AREA_W) & 1)) known = 1;
+        if ((links & EDGE_S) && (area_seen >> (i + AREA_W) & 1)) known = 1;
+        if ((links & EDGE_W) && (area_seen >> (i - 1) & 1)) known = 1;
+        if ((links & EDGE_E) && (area_seen >> (i + 1) & 1)) known = 1;
+        if (!known) continue;
+        uint8_t x = MAP_X + (i % AREA_W) * 4, y = MAP_Y + (i / AREA_W) * 4;
+        uint8_t pal = i == level_map ? P_SEL : seen ? P_LIT : P_DIM;
+        char c = i == level_map ? '@' : !seen ? '?' : i == area_exit ? 'X' : i == area_start ? 'E' : ' ';
+        win_frame(x, y, 3, 3);
+        set_win_tile_xy(x + 1, y + 1, FONT_TILES + (c - ' '));
+        VBK_REG = 1;
+        fill_win_rect(x, y, 3, 3, pal);
+        VBK_REG = 0;
+        if (!seen) continue;
+        // Its doors (from each side been in).
+        if (links & EDGE_E) door(x + 3, y + 1, td);
+        if (links & EDGE_W) door(x - 1, y + 1, td);
+        if (links & EDGE_S) door(x + 1, y + 3, td + 1);
+        if (links & EDGE_N) door(x + 1, y - 1, td + 1);
+    }
+    // The key (its symbols the grid's own: the text font has no @).
+    static const uint8_t key_x[4] = {2, 9, 2, 10}, key_y[4] = {15, 15, 16, 16};
+    static const char key_c[4] = {'@', 'X', 'E', '?'};
+    for (uint8_t k = 0; k < 4; k++) {
+        set_win_tile_xy(key_x[k], key_y[k], FONT_TILES + (key_c[k] - ' '));
+        VBK_REG = 1;
+        set_win_tile_xy(key_x[k], key_y[k], k ? P_DIM : P_SEL);
+        VBK_REG = 0;
+    }
+    say_c(32, 15, "you", P_DIM);
+    say_c(88, 15, "the shaft down", P_DIM);
+    say_c(32, 16, "the way out", P_DIM);
+    say_c(96, 16, "not been", P_DIM);
+}
+
 void menu_tabs(void) BANKED {
     tiles_a = 12;
     tiles_b = 192;
@@ -143,6 +214,7 @@ void menu_tabs(void) BANKED {
     say_c(72, 1, "SKILLS", menu_page == PAGE_SKILLS ? P_SEL : P_DIM);
     say_c(104, 1, "OPTIONS", menu_page == PAGE_OPTIONS ? P_SEL : P_DIM);
     if (save_slot == SAVE_NONE) say_c(136, 1, "TUNE", menu_page == PAGE_TUNE ? P_SEL : P_DIM);
+    else if (has_map()) say_c(136, 1, "MAP", menu_page == PAGE_MAP ? P_SEL : P_DIM);
 }
 
 void menu_open(void) BANKED {
@@ -405,6 +477,7 @@ void menu_draw(void) BANKED {
     if (menu_page == PAGE_CHARACTER) draw_character();
     else if (menu_page == PAGE_GEAR) draw_gear();
     else if (menu_page == PAGE_OPTIONS) draw_options();
+    else if (menu_page == PAGE_MAP) draw_map();
     else draw_skills();
 }
 
@@ -824,7 +897,8 @@ uint8_t menu_turn(void) BANKED {
     if (menu_page == PAGE_SKILLS && (d > 0 ? menu_skill < 6 : menu_skill >= 3)) return 0;
     gear_pick = GEAR_NONE;  // (a gun picked up goes back)
     do menu_page = (menu_page + PAGES + d) % PAGES;
-    while (menu_page == PAGE_TUNE && save_slot != SAVE_NONE);  // (tuning: the lab and the yard)
+    while ((menu_page == PAGE_TUNE && save_slot != SAVE_NONE)  // (tuning: the lab and the yard)
+           || (menu_page == PAGE_MAP && !has_map()));
     // Into the skills page at the branch on the side it was entered from.
     if (menu_page == PAGE_SKILLS) menu_skill = menu_skill % 3 + (d > 0 ? 0 : 6);
     return 1;

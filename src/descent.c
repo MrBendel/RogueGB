@@ -79,6 +79,7 @@ void descent_resume(void) BANKED {
     memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
     memcpy(area_conts_opened, profile.exp_conts, sizeof(area_conts_opened));
     memcpy(area_inside_opened, profile.exp_inside, sizeof(area_inside_opened));
+    area_seen = profile.exp_seen;
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     // Back from its miniboss (or a continue after): beside the shaft, open now.
@@ -178,6 +179,7 @@ static void autosave(void) {
     memcpy(profile.exp_chests, area_chests_opened, sizeof(profile.exp_chests));
     memcpy(profile.exp_conts, area_conts_opened, sizeof(profile.exp_conts));
     memcpy(profile.exp_inside, area_inside_opened, sizeof(profile.exp_inside));
+    profile.exp_seen = area_seen;
     if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
     save_write();
 }
@@ -203,6 +205,7 @@ static void place_player(uint8_t side) {
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
+    area_seen |= (uint16_t)1 << map;
     level_inside = 0xFF;
     chest_bit0 = camp_bit0 = 0;
     // Each map's tileset (the display is off): the entrance room is indoors.

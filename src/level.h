@@ -47,6 +47,7 @@ extern uint8_t area_cw[AREA_CELLS], area_ch[AREA_CELLS];  // size in chunks
 extern uint8_t area_camps_cleared[AREA_CELLS];            // a bit per camp
 extern uint8_t area_chests_opened[AREA_CELLS];            // a bit per chest (pickups.c)
 extern uint8_t area_start, area_exit, area_maps;
+extern uint16_t area_seen;  // the maps been in, a bit each (the pause menu's map)
 extern uint8_t level_map;  // the map the player is in
 extern uint8_t area_theme;  // the chunks picked (world.c: its world's)
 // The built map: its openings (block offset along each side, N E S W), camps

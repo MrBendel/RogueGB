@@ -11,7 +11,7 @@ const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
 const CREDITS = 7, EXP_MAP = 63;  // Profile offsets (save.h) ...
 const MIS_KIND = 227, MIS_TARGET = 230, MIS_NEED = 233, MIS_HAVE = 236, MIS_SEED = 239, MIS_TAKEN = 241, RESCUED = 242;
-const RESCUE = 5, FREE = 0, ESCORT = 1, HOLD = 2, PIP = 3, PAGE_BOARD = 6;
+const RESCUE = 5, FREE = 0, ESCORT = 1, HOLD = 2, PIP = 3, PAGE_BOARD = 7;
 const RS_NONE = 0, RS_HELD = 1, RS_FOLLOW = 2, RS_HOLD = 3, TALK_PERSON = 8;
 const prof = (emu, at, len = 1) => emu.readBytes(A(emu, 'profile') + at, len).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 const setProf = (emu, at, bytes) => emu.writeBytes(A(emu, 'profile') + at, bytes);

@@ -19,6 +19,7 @@ uint8_t area_camps_cleared[AREA_CELLS];
 uint8_t area_chests_opened[AREA_CELLS];
 uint16_t area_seed[AREA_CELLS];
 uint8_t area_start, area_exit, area_maps;
+uint16_t area_seen;
 uint8_t level_map;
 uint8_t level_open[4];
 uint8_t level_camps;
@@ -77,6 +78,7 @@ static const uint8_t field_h[5] = {4, 6, 6, 4, 6};
 
 void level_generate(uint16_t seed) BANKED {
     level_rng = seed ? seed : 0xACE1;
+    area_seen = 0;
     for (uint8_t i = 0; i < AREA_CELLS; i++) {
         area_type[i] = MAP_NONE;
         area_links[i] = 0;
