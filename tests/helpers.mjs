@@ -109,6 +109,15 @@ export function matchGolden(emu, name) {
   const mode = path.join(ROOT, 'build', 'gen', 'art-mode.json');
   if (fs.existsSync(mode) && JSON.parse(fs.readFileSync(mode, 'utf8')).standIn.length) name += '~stand-in';
   const goldens = readGoldens();
+  // Local builds may use the purchased character pack while CI uses repo art.
+  // Consult the generated asset's provenance, not the test process environment:
+  // headless tests are also run directly against an already-built ROM.
+  const character = ['', '', 'hunter', 'hooded', 'cyborg'][emu.v('player_character')];
+  const variant = `${name}~repo-characters`;
+  if (character && variant in goldens) {
+    const source = path.join(ROOT, 'build', 'gen', `spr_${character}.c`);
+    if (fs.existsSync(source) && fs.readFileSync(source, 'utf8').includes(`from artwork/${character}.`)) name = variant;
+  }
   const hash = emu.frameHash();
   const png = emu.shot(name);
   if (process.env.UPDATE_GOLDENS || !(name in goldens)) {

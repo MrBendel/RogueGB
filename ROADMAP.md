@@ -425,3 +425,5 @@ tiles and 47 shared interior tiles, loaded separately. See docs/design/town.md.
 - 2026-11-02: Closed eight town collision gaps at cliff faces/caps/feet and the attached ledge. Kept the central stairs and deliberate downward jumps; moved Okafor off the newly solid ledge. Added directional walking regression checks.
 
 - 2026-11-03: Matched Sands colours to borderlands_gbc_map (2).png: golden sand, weathered wood roofs, burnt-orange containers and olive plants. Shared sand around props and original shading remain intact; still 214 hardware tiles, using four background palettes.
+
+- 2026-11-03: Combined both user references: muted ochre ground, burnt-orange cliffs, blue-gray roofs/fronts/tower, rusty containers and sage plants. Five palettes, with shared ground colours around props; still 214 hardware tiles.
