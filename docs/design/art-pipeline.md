@@ -109,3 +109,8 @@ Authored indexed art can append `paletteVariants` (four hex colours per ramp,
 within the scene palette budget). A piece object can select a numeric `palette`
 slot after fitting; this changes attributes only and retains tile/flip reuse.
 Sands uses this for progressively shaded storage-container tiers.
+
+Screenshot expectations distinguish purchased character art from repository fallback
+characters independently of world stand-ins. A `~repo-characters` golden override
+is selected using the generated sprite source provenance. Both variants retain
+exact hashes; CI can use fallback characters with the real LunarBase sheets.
