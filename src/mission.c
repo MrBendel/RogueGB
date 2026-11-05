@@ -13,7 +13,7 @@
 #include "sfx.h"
 #include "rescue.h"
 
-uint8_t mission_cull;
+uint16_t mission_cull;
 
 void mission_restock(void) BANKED {
     profile.mis_seed = ((uint16_t)rand() << 8) | rand();
@@ -154,7 +154,7 @@ static char *put_num(char *p, uint16_t n) {
 }
 
 // (Plural names by kind: the Moon's look; a world could name its own later.)
-static const char *const kinds[ACTOR_TYPE_COUNT] = {"", "DRONES", "TURRETS", "HOUNDS", "MERCS", "LOADERS", "MEDICS"};
+static const char *const kinds[ACTOR_TYPE_COUNT] = {"", "DRONES", "TURRETS", "HOUNDS", "MERCS", "LOADERS", "MEDICS", "SPIDERS", "BULWARKS", "STALKERS"};
 static const char *const bosses[WORLD_MINIBOSSES] = {"THE CLAIMJAW", "THE SCRAPBACK", "THE CRAGBACK"};
 static const char *const people[PEOPLE] = {"TESS", "OKAFOR", "NELL", "PIP"};
 

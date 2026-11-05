@@ -139,7 +139,9 @@ Tile numbers 0..127:
 ```
 
 ### 4.2 Sprite VRAM (Bank 1, CGB Only)
-- Held weapon sprites (`spr_pistol`, `spr_shotgun`, `spr_rifle`, `spr_sniper`, `spr_sword`) are loaded into **VRAM Bank 1**, keeping Bank 0 free for actors and projectiles.
+- Held weapon sprites (`spr_pistol`, `spr_shotgun`, `spr_rifle`, `spr_sniper`, `spr_sword`) are loaded into **VRAM Bank 1**, keeping Bank 0 free for actors and projectiles. They take tiles 0-171.
+- **172-191**: the camp kinds from the trials (squad.h): spider 172-179, bulwark 180-187, stalker 188-191. Their frames carry `S_BANK`.
+- **192-253**: the pause menu's and loot cards' text, and the dialogue portrait (238-253), redrawn whenever they open: nothing that must survive a pause goes here.
 
 ### 4.3 Background VRAM (`0x9000 / 0x8800`)
 - **0 .. 63**: ASCII font ($32..95$, tile = `char - 32`).

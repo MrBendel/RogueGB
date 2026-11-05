@@ -23,7 +23,7 @@ typedef struct {
 } Mission;
 
 // --- watchable state ---
-extern uint8_t mission_cull;  // a bit per ACTOR_* a carried cull job counts (actor.c; 0 outside a file's descent)
+extern uint16_t mission_cull;  // a bit per ACTOR_* a carried cull job counts (actor.c; 0 outside a file's descent)
 
 void mission_restock(void) BANKED;                 // new offers (each time you come into town)
 void mission_offer(uint8_t k, Mission *m) BANKED;  // the board's offer k (from profile.mis_seed)

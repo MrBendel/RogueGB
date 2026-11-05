@@ -31,6 +31,9 @@
 #define CAUSE_TANK 23
 #define CAUSE_MEDIC 24
 #define CAUSE_ACID_POOL 25
+#define CAUSE_STALKER 18  // (the trials' names: "A RIFT STALKER" ...)
+#define CAUSE_SPIDER 19
+#define CAUSE_BULWARK 20
 extern uint8_t hurt_cause;   // the hit being dealt
 extern uint8_t death_led;    // an elite was alive when the run ended: it led them (elite_name, run_over.c)
 extern uint8_t death_cause;  // the hit that ended the run (CAUSE_NONE: the run was ended from the pause panel)

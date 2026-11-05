@@ -291,7 +291,7 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   assert.fail('no camp found beside the start map');
 });
 
-test("the first area's camps mix every kind but the medic; from the second the medic joins them; the third has loaders and medics", () => {
+test("the first area's camps mix every kind but the medic and the stalker; from the second they join; the third has stalkers, bulwarks and medics", () => {
   const kinds = { 1: new Set(), 2: new Set(), 3: new Set() };
   for (const depth of [1, 2, 3])
     for (let wait = 0; wait < 60; wait += 7) {
@@ -306,10 +306,10 @@ test("the first area's camps mix every kind but the medic; from the second the m
       emu.idle(2);
       for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
     }
-  assert.ok([...kinds[1]].every((k) => k <= 5) && [1, 2, 3, 4].every((k) => kinds[1].has(k)), `area 1: all but the medic (${[...kinds[1]]})`);
-  assert.ok(kinds[2].has(3) && kinds[2].has(4) && kinds[2].has(6), `area 2: hounds, duelists and medics (${[...kinds[2]]})`);
+  assert.ok([...kinds[1]].every((k) => k !== 6 && k !== 9) && [1, 2, 3, 4, 7, 8].every((k) => kinds[1].has(k)), `area 1: all but the medic and the stalker (${[...kinds[1]]})`);
+  assert.ok(kinds[2].has(7) && kinds[2].has(9) && kinds[2].has(6), `area 2: spiders, stalkers and medics (${[...kinds[2]]})`);
   // (a camp by the entrance can wake at depth 1, before the test sets the depth)
-  assert.ok(kinds[3].has(5) && kinds[3].has(6), `area 3: loaders and medics (${[...kinds[3]]})`);
+  assert.ok(kinds[3].has(9) && kinds[3].has(8) && kinds[3].has(6), `area 3: stalkers, bulwarks and medics (${[...kinds[3]]})`);
 });
 
 test("the world's colours: drones and hounds in one palette, turrets and mercs in another, bullets and elites a third", () => {

@@ -295,6 +295,23 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   rotor arms, bobbing (the machines' palette), tiles 76-83. From area 3 the Moon's
   roster is a medic, a loader, a hound and a duelist. The descent's chests moved to the
   shots' warm orange, glinting white when they can open.
+- **The trials join the camps** (2026-11-05, src/squad.c; asked for "two-D top-down Borderlands":
+  big mixed mobs). Three of the enemy trials became actor kinds any squad can hold, their art in
+  the Color's second VRAM bank after the guns' (tiles 172-191):
+  - **Spider** (the wireweaver; a swarmer, 5 health, 6 XP, the creatures' palette): scuttles in
+    at 1.5 px a frame, sidles across you inside 40 px, flashes 16 frames and lunges (contact
+    damage), rests 30. No web in camps (the trial's web needs the overlay sprites).
+  - **Bulwark** (a shield trooper, 16 health, 14 XP, the machines' palette): walks at you behind
+    a shield facing left or right; shots and swings from in front stop on it. It lowers it to aim
+    (28 frames, flashing) and fire a three-pea burst, then rests 40; inside 28 px it winds up and
+    bashes. Get above, below or behind it.
+  - **Rift stalker** (10 health, 12 XP, the creatures' palette): circles to your side as a
+    flickering shimmer your shots pass through, flashes 26 frames, dashes at you, and stands
+    solid for 48 after. From area 2.
+  The Moon's rosters: area 1 spiders (two slots of eight), a peashooter, a slime, a hound, a
+  duelist, a bulwark, a loader; area 2 spiders (two), a duelist, a stalker, a hound, a bulwark, a
+  medic, a peashooter; area 3 a medic, a bulwark, stalkers (two), a duelist, a spider, a loader,
+  a hound.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
 
