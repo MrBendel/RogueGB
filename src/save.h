@@ -70,11 +70,14 @@ extern uint8_t save_slot;        // its slot, or SAVE_NONE (the lab, the yard: n
 extern uint16_t saves_written;
 // What each slot holds, for the file screen (save_scan).
 extern uint8_t slot_used[SAVE_SLOTS], slot_level[SAVE_SLOTS], slot_depth[SAVE_SLOTS];
+extern uint8_t slot_char[SAVE_SLOTS];   // its character (player.h CHAR_*), or CLASS_NO_CHARACTER
 extern uint16_t slot_minutes[SAVE_SLOTS];
 
 void save_scan(void) BANKED;              // fill slot_* from the cartridge
 void save_open(uint8_t slot) BANKED;      // play this slot: its profile, or a new one (saved at once)
 void save_new(uint8_t slot, uint8_t cls) BANKED;  // a new character of this class in the slot, saved
+void save_erase(uint8_t slot) BANKED;    // the file in this slot, gone (the slot is empty)
+uint8_t class_character(uint8_t cls) BANKED;  // who plays a class (player.h CHAR_*), or CLASS_NO_CHARACTER
 void save_none(void) BANKED;              // play without a file (the lab, the yard): a new profile, never saved
 void save_write(void) BANKED;             // the profile into its slot (if there is one)
 void save_add_time(uint16_t seconds) BANKED;  // play time since the last call, into the profile

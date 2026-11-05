@@ -31,6 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { characterDir } from './pack-characters.mjs';
 import { quantizeRgbaToGrid16, generateCharacterRig, compileRigToGbdk } from '../harness/sprite-gen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -67,12 +68,13 @@ export const ASSETS = [
     // Mirroring a clockwise roll gives a counter-clockwise one, right for rolling left.
     mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
   },
-  // The three classes' bodies, drawn by tools/make-character-art.mjs.
+  // The three classes' bodies: from the character pack when it's on this PC
+  // (tools/pack-characters.mjs), else drawn by tools/make-character-art.mjs.
   ...['hunter', 'hooded', 'cyborg'].map((who) => ({
     name: `spr_${who}`,
     kind: 'sprite',
     bank: true,
-    dir: `artwork/${who}`,
+    get dir() { return characterDir(who); },
     anims: {
       walk_down: numbered('player walk down', 4),
       walk_up: numbered('player walk up', 4),

@@ -12,6 +12,8 @@
 #include <gb/gb.h>
 #include <string.h>
 #include "save.h"
+#include "player.h"
+#include "skilldata.h"
 
 #define SRAM ((uint8_t *)0xA000)
 #define COPY_SIZE 256
@@ -22,9 +24,22 @@ typedef char profile_fits[sizeof(Profile) <= COPY_SIZE - HEADER ? 1 : -1];
 Profile profile;
 uint8_t save_slot = SAVE_NONE;
 uint16_t saves_written;
-uint8_t slot_used[SAVE_SLOTS], slot_level[SAVE_SLOTS], slot_depth[SAVE_SLOTS];
+uint8_t slot_used[SAVE_SLOTS], slot_level[SAVE_SLOTS], slot_depth[SAVE_SLOTS], slot_char[SAVE_SLOTS];
 uint16_t slot_minutes[SAVE_SLOTS];
 uint8_t slot_seq;  // the sequence number of the copy last read or written
+
+// Who plays each class (content/skills: its "character").
+static const uint8_t class_chars[CLASS_COUNT] = CLASS_CHARACTERS;
+
+uint8_t class_character(uint8_t cls) BANKED {
+    return cls < CLASS_COUNT ? class_chars[cls] : CLASS_NO_CHARACTER;
+}
+
+// A file plays as its class's character (a class without one: whoever was chosen).
+static void play_as(void) {
+    uint8_t c = class_character(profile.cls);
+    if (c != CLASS_NO_CHARACTER) player_character = c;
+}
 
 static uint16_t checksum(const uint8_t *p, uint8_t n) {
     uint16_t c = 0x5AFE;
@@ -62,6 +77,7 @@ void save_scan(void) BANKED {
             slot_level[s] = p->level;
             slot_depth[s] = p->best_depth;
             slot_minutes[s] = p->play_minutes;
+            slot_char[s] = class_character(p->cls);
         }
     }
     DISABLE_RAM;
@@ -81,6 +97,7 @@ void save_new(uint8_t slot, uint8_t cls) BANKED {
     save_slot = slot;
     new_profile();
     profile.cls = cls;
+    play_as();
     ENABLE_RAM;
     SWITCH_RAM(0);
     uint8_t *r = newest(slot);  // (a new file over an old one: keep counting its copies on)
@@ -111,6 +128,15 @@ void save_open(uint8_t slot) BANKED {
         new_profile();
         save_write();
     }
+    play_as();
+}
+
+void save_erase(uint8_t slot) BANKED {
+    ENABLE_RAM;
+    SWITCH_RAM(0);
+    copy_at(slot, 0)[0] = 0;  // both copies without their magic: an empty slot
+    copy_at(slot, 1)[0] = 0;
+    DISABLE_RAM;
 }
 
 void save_write(void) BANKED {

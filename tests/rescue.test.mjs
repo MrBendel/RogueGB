@@ -2,6 +2,8 @@
 // the first camp of one of the named area's field maps. Cleared, A frees them, or
 // they follow you to the area's entrance, or you hold the camp while they cut loose.
 // Turned in, they stand in town.
+// (The board's cursor moves are 2-frame presses: moving redraws the job's details,
+// which takes more than a frame, so a 1-frame tap can land while it's busy.)
 import { test } from 'node:test';
 import { assert, bootToTitle, settle, takeLiftDown, PLAY, RUN_OVER } from './helpers.mjs';
 
@@ -205,7 +207,7 @@ test('dying loses a rescue (they\'re held again); the board pays for one done, a
   w16(town, 'player_y', 10 * 16 - 4);
   town.idle(4).tap('A').idle(4);
   assert.equal(town.v('menu_page'), PAGE_BOARD);
-  for (let i = 0; i < 4; i++) town.tap('DOWN');
+  for (let i = 0; i < 4; i++) town.hold('DOWN', 2).idle(2);
   const lv = prof(town, 1), c = 80 + 40 * 2 + 10 * lv;
   town.tap('A').idle(2);
   assert.equal(prof(town, MIS_KIND), 0, 'turned in');
@@ -236,8 +238,8 @@ test('the board only asks you to rescue someone not yet rescued or on a job', ()
       w16(emu, 'player_x', 6 * 16);
       w16(emu, 'player_y', 10 * 16 - 4);
       emu.idle(4).tap('A').idle(4);
-      for (let j = 0; j < 7; j++) emu.tap('UP');  // (the cursor stays where it was)
-      for (let j = 0; j < k; j++) emu.tap('DOWN');
+      for (let j = 0; j < 7; j++) emu.hold('UP', 2).idle(2);  // (the cursor stays where it was)
+      for (let j = 0; j < k; j++) emu.hold('DOWN', 2).idle(2);
       emu.tap('A').idle(2).tap('B').idle(4);
       if (prof(emu, MIS_KIND) === RESCUE) {
         seen++;

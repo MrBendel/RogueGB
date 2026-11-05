@@ -23,7 +23,7 @@
       ]
     },
     {
-      "key": "volt", "name": "VOLT-WEAVER", "role": "Static mystic",
+      "key": "volt", "character": "hooded", "name": "VOLT-WEAVER", "role": "Static mystic",
       "about": "Bends lightning to their will: shocks, warps and fields.",
       "branches": [
         { "name": "ARC", "skills": [
@@ -44,7 +44,7 @@
       ]
     },
     {
-      "key": "ballistician", "name": "BALLISTICIAN", "role": "Heavy ordnance",
+      "key": "ballistician", "character": "cyborg", "name": "BALLISTICIAN", "role": "Heavy ordnance",
       "about": "Frontline gunner: more lead, more pellets, never slowing down.",
       "branches": [
         { "name": "HAILFIRE", "skills": [
@@ -65,7 +65,7 @@
       ]
     },
     {
-      "key": "ghost", "name": "GHOST-STALKER", "role": "Outland scout",
+      "key": "ghost", "character": "hunter", "name": "GHOST-STALKER", "role": "Outland scout",
       "about": "Covert ranger: long sight, a sharp blade, hard to pin down.",
       "branches": [
         { "name": "DEAD-EYE", "skills": [

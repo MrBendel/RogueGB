@@ -1,7 +1,7 @@
 #pragma bank 255
 // Title screen: logo, blinking "PRESS START". START (or A) opens the files: three
 // save slots (save.h), each a character; picking one continues its expedition or
-// starts one. SELECT opens the test lab, B the ice yard, and DOWN the combat
+// starts one; SELECT on a file erases it (after a yes). SELECT on the title opens the test lab, B the ice yard, and DOWN the combat
 // playtests (minibosses, bosses, enemies, the movement lab); none of them saves.
 #include <gb/gb.h>
 #include "sfx.h"
@@ -46,6 +46,7 @@ static uint8_t draw(uint8_t font, uint8_t x, uint8_t ty, const char *s, uint8_t 
 }
 
 static void draw_home(void);
+static void move_cursor(uint8_t to);
 
 void title_enter(void) BANKED {
     if (!settings_loaded) settings_load();  // the options, once (the title is the first scene)
@@ -97,9 +98,10 @@ static char *put_num(char *p, uint16_t n, uint8_t digits) {
 }
 
 // The files, in place of the prompt (the display is on: a few hundred bytes of
-// direct VRAM writes, once).
-static void show_files(void) {
-    title_files = 1;
+// direct VRAM writes, once). `erase`: asking whether to erase the one at the cursor.
+static void show_files(uint8_t erase) {
+    uint8_t choice = title_choice;
+    title_files = erase ? 3 : 1;
     title_choice = 0;
     save_scan();
     fill_bkg_rect(0, 9, SCREEN_TW, 9, 0);
@@ -109,11 +111,16 @@ static void show_files(void) {
         char *p = put(line, "FILE ");
         *p++ = '1' + s;
         if (slot_used[s]) {
-            p = put(p, "    LV ");
+            p = put(p, "  ");
+            if (slot_char[s] != CLASS_NO_CHARACTER) {
+                p = put(p, player_char_names[slot_char[s]]);
+                p = put(p, "  ");
+            }
+            p = put(p, "LV ");
             p = put_num(p, slot_level[s], 1);
-            p = put(p, "    DEPTH ");
+            p = put(p, "  DEPTH ");
             p = put_num(p, slot_depth[s], 1);
-            p = put(p, "    ");
+            p = put(p, "  ");
             p = put_num(p, slot_minutes[s] / 60, 1);
             *p++ = ':';
             p = put_num(p, slot_minutes[s] % 60, 2);
@@ -123,9 +130,18 @@ static void show_files(void) {
         *p = 0;
         t += text_draw(FONT_COMPACT, 20, FILE_ROW0 + (s << 1), line, t, TITLE_PAL_TEXT);
     }
-    t += draw(FONT_COMPACT, TEXT_CENTER, 17, "A: PLAY     B: BACK", t, TITLE_PAL_HINT);
+    if (erase) {
+        char *p = put(line, "ERASE FILE ");
+        *p++ = '1' + choice;
+        p = put(p, "?    A: YES    B: NO");
+        *p = 0;
+        t += text_draw(FONT_COMPACT, TEXT_CENTER, 17, line, t, TITLE_PAL_TEXT);
+    } else {
+        t += draw(FONT_COMPACT, TEXT_CENTER, 17, "A: PLAY   SELECT: ERASE   B: BACK", t, TITLE_PAL_HINT);
+    }
     title_cursor_tile = t;
     draw(FONT_ITALIC, CURSOR_X, FILE_ROW0, ">", t, TITLE_PAL_TEXT);
+    move_cursor(choice);
 }
 
 // A new file: which class? Its name, role and a line about it, from the skill data.
@@ -133,13 +149,16 @@ static void draw_class(void) {
     fill_bkg_rect(0, 9, SCREEN_TW, 9, 0);
     char line[TEXT_MAX + 1], buf[SKILL_LINE_MAX + 1];
     uint8_t t = title_next_tile;
+    // Who you'll be, then the class.
+    t += draw(FONT_COMPACT, TEXT_CENTER, 9, player_char_names[class_character(title_class)], t, TITLE_PAL_TEXT);
     banked_memcpy(buf, class_name[title_class], CLASS_NAME_MAX + 1, BANK(skilldata));
     t += text_draw(FONT_COMPACT, TEXT_CENTER, 10, buf, t, TITLE_PAL_TEXT);
     // Which of them: a dot each, this one lit.
     char *p = line;
-    for (uint8_t c = 0; c < CLASS_COUNT; c++) *p++ = c == title_class ? '*' : '.', *p++ = ' ';
+    for (uint8_t c = 0; c < CLASS_COUNT; c++)
+        if (class_character(c) != CLASS_NO_CHARACTER) *p++ = c == title_class ? '*' : '.', *p++ = ' ';
     p[-1] = 0;
-    t += text_draw(FONT_COMPACT, TEXT_CENTER, 16, line, t, TITLE_PAL_GOLD);
+    t += text_draw(FONT_COMPACT, TEXT_CENTER, 16, line, t, TITLE_PAL_HINT);
     banked_memcpy(buf, class_role[title_class], CLASS_ROLE_MAX + 1, BANK(skilldata));
     t += text_draw(FONT_COMPACT, TEXT_CENTER, 11, buf, t, TITLE_PAL_HINT);
     for (uint8_t i = 0; i < 2; i++) {
@@ -149,9 +168,16 @@ static void draw_class(void) {
     draw(FONT_COMPACT, TEXT_CENTER, 17, "D-PAD: CLASS    A: BEGIN    B: BACK", t, TITLE_PAL_HINT);
 }
 
+// The next class someone plays, from `c` on in steps of `step` (1 or -1); `c` if none.
+static uint8_t playable(uint8_t c, int8_t step) {
+    for (uint8_t i = c + step; i < CLASS_COUNT; i += step)  // (255 when it steps past 0)
+        if (class_character(i) != CLASS_NO_CHARACTER) return i;
+    return c;
+}
+
 static void show_classes(void) {
     title_files = 2;
-    title_class = 0;
+    title_class = playable(255, 1);  // (255 + 1 = 0: the first)
     draw_class();
 }
 
@@ -248,10 +274,10 @@ void title_update(void) BANKED {
     }
     if (title_files == 2) {
         uint8_t c = title_class;
-        if ((joy_pressed & J_LEFT) && c) c--;
-        else if ((joy_pressed & J_RIGHT) && c < CLASS_COUNT - 1) c++;
+        if (joy_pressed & J_LEFT) c = playable(c, -1);
+        else if (joy_pressed & J_RIGHT) c = playable(c, 1);
         else if (joy_pressed & J_B) {
-            show_files();
+            show_files(0);
             return;
         }
         else if (joy_pressed & (J_A | J_START)) {
@@ -264,8 +290,19 @@ void title_update(void) BANKED {
         }
         return;
     }
+    if (title_files == 3) {
+        if (joy_pressed & J_A) {
+            sfx_play(SFX_START);
+            save_erase(title_choice);
+            show_files(0);
+        } else if (joy_pressed & (J_B | J_START)) {
+            show_files(0);
+        }
+        return;
+    }
     if (title_files) {
-        if ((joy_pressed & J_UP) && title_choice > 0) move_cursor(title_choice - 1);
+        if ((joy_pressed & J_SELECT) && slot_used[title_choice]) show_files(1);
+        else if ((joy_pressed & J_UP) && title_choice > 0) move_cursor(title_choice - 1);
         else if ((joy_pressed & J_DOWN) && title_choice < SAVE_SLOTS - 1) move_cursor(title_choice + 1);
         else if (joy_pressed & J_B) {
             title_files = 0;
@@ -292,7 +329,8 @@ void title_update(void) BANKED {
         prompt_ink(1);
     } else if (joy_pressed & (J_START | J_A)) {
         sfx_play(SFX_START);
-        show_files();
+        title_choice = 0;
+        show_files(0);
     } else if (joy_pressed & (J_SELECT | J_B)) {
         save_none();
         begin(joy_pressed & J_SELECT ? MODE_LAB : MODE_YARD);
