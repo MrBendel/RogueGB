@@ -9,12 +9,22 @@ const A = (emu, n) => emu.symbols.addr(n);
 const prof = (emu, f, len = 1) => emu.readBytes(A(emu, 'profile') + P[f], len).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 const setProf = (emu, f, v) => emu.write8(A(emu, 'profile') + P[f], v);
 
-/** A new file of class `cls` (the picker: RIGHT steps through them), playing. */
-function newFile(cls = 0) {
+/**
+ * A new file of class `cls`, playing. The picker offers the classes someone plays
+ * (1 Volt-Weaver, 2 Ballistician, 3 Ghost-Stalker; RIGHT steps through them).
+ */
+function newFile(cls = 1) {
   const emu = bootToTitle().tap('START').tap('A');
   assert.equal(emu.v('title_files'), 2, 'an empty file asks for a class');
-  for (let i = 0; i < cls; i++) emu.tap('RIGHT');
+  assert.equal(emu.v('title_class'), 1, 'the first class with a character');
+  for (let i = 1; i < cls; i++) emu.tap('RIGHT');
   return settle(emu.tap('A'), PLAY).idle(4);
+}
+/** A new file made an Ironclad (no character plays it, so the picker skips it; its skills are the tested ones). */
+function ironclad() {
+  const emu = newFile();
+  setProf(emu, 'cls', 0);
+  return emu;
 }
 /** Pause, on the skills page (LEFT/RIGHT turn the pause menu's pages). */
 const skillsPage = (emu) => emu.tap('START').idle(2).tap('RIGHT').idle(4).tap('RIGHT').idle(4);  // (past the gear page)
@@ -28,12 +38,49 @@ test('a new file asks for a class; it is saved with the file', () => {
   assert.equal(prof(again, 'cls'), 2);
 });
 
+test("each file plays as its class's character, and the files say who", () => {
+  const CHAR_HUNTER = 2, CHAR_HOODED = 3, CHAR_CYBORG = 4;
+  for (const [cls, who] of [[1, CHAR_HOODED], [2, CHAR_CYBORG], [3, CHAR_HUNTER]]) {
+    const emu = newFile(cls);
+    assert.equal(emu.v('player_character'), who);
+    const again = boot();
+    again.setSram(emu.sram());
+    settle(settle(again, TITLE).tap('START').tap('A'), PLAY);
+    assert.equal(again.v('player_character'), who, 'opening the file');
+  }
+  const emu = newFile(3);
+  const files = boot();
+  files.setSram(emu.sram());
+  matchGolden(settle(files, TITLE).tap('START').idle(2), 'files-with-characters');
+});
+
+test('SELECT on a file asks to erase it: B keeps it, A erases it', () => {
+  const emu = newFile(3);
+  const t = boot();
+  t.setSram(emu.sram());
+  settle(t, TITLE).tap('START').idle(2);
+  assert.equal(t.read8(A(t, 'slot_used')), 1);
+  t.tap('SELECT').idle(2);
+  assert.equal(t.v('title_files'), 3, 'asking');
+  matchGolden(t, 'erase-file-prompt');
+  t.tap('B').idle(2);
+  assert.equal(t.v('title_files'), 1);
+  assert.equal(t.read8(A(t, 'slot_used')), 1, 'kept');
+  t.tap('SELECT').idle(2).tap('A').idle(2);
+  assert.equal(t.v('title_files'), 1);
+  assert.equal(t.read8(A(t, 'slot_used')), 0, 'erased');
+  t.tap('SELECT').idle(2);
+  assert.equal(t.v('title_files'), 1, 'an empty file has nothing to erase');
+  t.tap('A');
+  assert.equal(t.v('title_files'), 2, 'and starts a new one');
+});
+
 test('the class picker', () => {
   matchGolden(bootToTitle().tap('START').tap('A').idle(2), 'class-picker');
 });
 
 test('a skill point buys a first-tier skill; the next one in its branch opens; tier 3 stays locked', () => {
-  const emu = newFile();
+  const emu = ironclad();
   setProf(emu, 'skill_points', 2);
   skillsPage(emu);
   assert.equal(emu.v('menu_page'), 2);
@@ -50,7 +97,7 @@ test('a skill point buys a first-tier skill; the next one in its branch opens; t
 });
 
 test('skills change the game: Plated Mesh +15 health, Expanded Drums +2 rounds, Hair-Pin Draw halves reloads', () => {
-  const emu = newFile();  // the Ironclad
+  const emu = ironclad();
   const hp = emu.v('player_hp_max'), mag = emu.read8(A(emu, 'wpn') + W.mag), reload = emu.read8(A(emu, 'wpn') + W.reload);
   setProf(emu, 'skill_points', 3);
   skillsPage(emu);
@@ -69,7 +116,7 @@ test('skills change the game: Plated Mesh +15 health, Expanded Drums +2 rounds, 
 });
 
 test('the profile page', () => {
-  const emu = newFile();
+  const emu = ironclad();
   setProf(emu, 'skill_points', 1);
   matchGolden(emu.tap('START').idle(4), 'profile-page');
 });

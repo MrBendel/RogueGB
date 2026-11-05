@@ -2,6 +2,8 @@
 // ones count down in the descent (kills of a kind, data cores from camps, a
 // miniboss) and are turned in back at the board; a debt is paid there. Carried
 // cores are lost if you die; kills are kept.
+// (The board's cursor moves are 2-frame presses: moving redraws the job's details,
+// which takes more than a frame, so a 1-frame tap can land while it's busy.)
 import { test } from 'node:test';
 import { assert, bootToTitle, settle, takeLiftDown, PLAY, RUN_OVER, MODE_TOWN } from './helpers.mjs';
 
@@ -43,7 +45,7 @@ test('the board posts four jobs; A takes one into a free slot, once', () => {
   emu.tap('A').idle(2);
   assert.equal(prof(emu, MIS_KIND + 1), 0, 'not twice');
   // Three at most.
-  for (const k of [1, 2, 3]) emu.tap('DOWN').tap('A').idle(2);
+  for (const k of [1, 2, 3]) emu.hold('DOWN', 2).idle(2).tap('A').idle(2);
   assert.deepEqual([0, 1, 2].map((s) => prof(emu, MIS_KIND + s) !== 0), [true, true, true]);
   assert.equal(prof(emu, MIS_TAKEN) & 8, 0, 'the fourth stays up: no slot');
   // B leaves.
@@ -65,7 +67,7 @@ test('offers fit how far you have been: area 1 only asks for its own kinds and b
       if (kind === CULL) assert.ok([1, 2].includes(target), `area 1's kinds (${target})`);
       if (kind === BOUNTY) assert.equal(target, 0, 'the Claimjaw');
       if (kind === DEBT) assert.ok(prof(emu, MIS_NEED) >= 3);
-      emu.tap('DOWN');
+      emu.hold('DOWN', 2).idle(2);
     }
     emu.tap('B').idle(4);
   }
@@ -100,15 +102,15 @@ test('at the board, a finished job pays out; a debt is paid from your credits', 
   job(emu, 2, RETRIEVE, 0, 3, 1);
   const level = prof(emu, LEVEL);
   atBoard(emu);
-  for (let i = 0; i < 4; i++) emu.tap('DOWN');
+  for (let i = 0; i < 4; i++) emu.hold('DOWN', 2).idle(2);
   emu.tap('A').idle(2);
   assert.equal(prof(emu, MIS_KIND), 0, 'turned in');
   const paid = 500 + 4 * (8 + level);
   assert.equal(prof(emu, CREDITS, 4), paid, 'paid out');
-  emu.tap('DOWN').tap('A').idle(2);
+  emu.hold('DOWN', 2).idle(2).tap('A').idle(2);
   assert.equal(prof(emu, MIS_KIND + 1), 0, 'the debt paid');
   assert.equal(prof(emu, CREDITS, 4), paid - 200);
-  emu.tap('DOWN').tap('A').idle(2);
+  emu.hold('DOWN', 2).idle(2).tap('A').idle(2);
   assert.equal(prof(emu, MIS_KIND + 2), RETRIEVE, 'not done: still carried');
   emu.tap('SELECT').idle(2);
   assert.equal(prof(emu, MIS_KIND + 2), 0, 'SELECT drops it');

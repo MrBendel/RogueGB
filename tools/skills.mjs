@@ -22,6 +22,9 @@ const LABEL_PX = 46;  // a skill's label in the menu's grid (3 columns): 'short'
 // What the game does with a skill (src/skills.c: SKILL_FX_*); others are planned.
 export const EFFECTS = ['hp15', 'shield_fast', 'reload_half', 'shot_speed', 'mag2', 'dash_far', 'fire_fast', 'pellet', 'no_slow', 'aim_far'];
 
+// player.h CHAR_*: the bodies a class can be played as.
+const CHARACTERS = [null, null, 'hunter', 'hooded', 'cyborg'];
+
 let compact = null;
 function measure() {
   if (compact) return compact;
@@ -57,10 +60,13 @@ export function loadSkills() {
     const doc = JSON.parse(fs.readFileSync(path.join(SRC_DIR, f), 'utf8'));
     for (const c of doc.classes) {
       const where = `content/skills/${f}, ${c.key}`;
+      if (c.character && !CHARACTERS.includes(c.character)) throw new Error(`${where}: character is one of ${CHARACTERS.filter(Boolean).join(', ')}`);
       if (c.name.length > SHORT_MAX) throw new Error(`${where}: name longer than ${SHORT_MAX}`);
       if (c.branches?.length !== 3 || c.branches.some((b) => b.skills?.length !== 3)) throw new Error(`${where}: needs 3 branches of 3 skills`);
       classes.push({
         key: c.key, name: c.name, role: c.role,
+        // Who plays it (player.h CHAR_*): a class without one isn't offered for a new file.
+        character: c.character ? CHARACTERS.indexOf(c.character) : 255,
         about: wrapCompact(c.about, TEXT_PX, 2, where),
         branches: c.branches.map((b) => {
           if (b.name.length > BRANCH_MAX) throw new Error(`${where}: branch ${b.name} longer than ${BRANCH_MAX}`);
@@ -100,6 +106,8 @@ export function buildSkills({ quiet = false } = {}) {
     '#define SKILLS_PER_CLASS 9  // branch * 3 + tier',
     `#define SKILL_NAME_MAX ${NAME_MAX}`, `#define SKILL_LINE_MAX ${LINE_CHARS}`, `#define CLASS_NAME_MAX ${SHORT_MAX}`,
     `#define BRANCH_NAME_MAX ${BRANCH_MAX}`, '#define CLASS_ROLE_MAX 24',
+    '#define CLASS_NO_CHARACTER 255',
+    `#define CLASS_CHARACTERS {${classes.map((k) => k.character).join(', ')}}  // player.h CHAR_* per class`,
     ...EFFECTS.map((e, i) => `#define SKILL_FX_${e.toUpperCase()} ${i + 1}`),
     'extern const char class_name[CLASS_COUNT][CLASS_NAME_MAX + 1];',
     'extern const char class_role[CLASS_COUNT][CLASS_ROLE_MAX + 1];',

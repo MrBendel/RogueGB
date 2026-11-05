@@ -302,6 +302,7 @@ The full Borderlands loot loop (see "Loot" above).
 Campaign scope revised 2026-10-12; settle the open rules in [play-loop.md](docs/design/play-loop.md) before implementation.
 
 - Character/class selection at campaign start; develop the same character across expeditions
+  - **Three characters** (decided 2026-11-04): the Hunter (Ghost-Stalker tree), the Hooded (Volt-Weaver) and the Cyborg (Ballistician). A file is one of them (content/skills: each class's `character`); the Ironclad tree has no character and isn't offered, and its working skills are to fold into the others. The Adventurer and Marine bodies remain only for the test lab. Files can be erased from the file screen (SELECT).
 - Class abilities on A+B and distinct movement profiles; roster size, skill growth, and leveling remain open
 - Persistent campaign objectives, discoveries, and destination unlocks
 - Proposed ship hub for preparing expeditions, collections, and improvements
