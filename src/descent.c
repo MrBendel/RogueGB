@@ -314,7 +314,7 @@ uint8_t level_inside = 0xFF;
 
 uint8_t descent_door(void) BANKED {
     if (shaft_taken) return DESCENT_SHAFT;
-    // An opening is in the outer ring of blocks; stepping into it leaves.
+    // An opening is in the outer ring of blocks; walking through it to the edge leaves.
     int16_t cx = (int16_t)player_x + 8, fy = (int16_t)player_y + 12;
     if (level_inside != 0xFF) return fy > (int16_t)room_px_h - BLOCK_SIZE ? DESCENT_OUTSIDE : 0;
     // The exit map's shaft is guarded (docs/design/runs.md: a miniboss every area):
@@ -330,11 +330,13 @@ uint8_t descent_door(void) BANKED {
         if ((uint8_t)(cx >> 4) == door_bx[k] && player_y + PLAYER_HB_Y <= (uint16_t)door_by[k] * BLOCK_SIZE + 1
             && player_y + PLAYER_HB_Y + PLAYER_HB_H > (uint16_t)door_by[k] * BLOCK_SIZE)
             return DESCENT_INSIDE | k;
+    // Only right at the map's edge, in the opening's outer half (past the edge is a
+    // wall: the hitbox stops with its centre 8, 5, 12 or 4 pixels in, W E N S).
     uint8_t d = 0;
-    if (cx < BLOCK_SIZE) d = EDGE_W;
-    else if (cx > (int16_t)room_px_w - BLOCK_SIZE) d = EDGE_E;
-    else if (fy < BLOCK_SIZE) d = EDGE_N;
-    else if (fy > (int16_t)room_px_h - BLOCK_SIZE) d = EDGE_S;
+    if (cx < 12) d = EDGE_W;
+    else if (cx > (int16_t)room_px_w - 9) d = EDGE_E;
+    else if (fy < 16) d = EDGE_N;
+    else if (fy > (int16_t)room_px_h - 8) d = EDGE_S;
     if (d == EDGE_S && level_map == area_start) return DESCENT_TOWN;  // the entrance's way out
     if (!(area_links[level_map] & d)) return 0;
     return d;

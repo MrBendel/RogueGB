@@ -668,6 +668,12 @@ function emit(ts) {
     ...(prefabs.length ? [
       `#define TILES_${NAME}_PREFABS ${prefabs.length}`,
       `#define TILES_${NAME}_PF_SIZES {${prefabs.map((p) => `${p.w}, ${p.h}`).join(', ')}}  // w, h in blocks, by preference`,
+      // Per set piece, a bit per column whose bottom edge is drawn as ground (a tank's
+      // or a rack's feet): a pipe hung there would start half a block below it.
+      `#define TILES_${NAME}_PF_FEET {${prefabs.map((p) => {
+        const rows = ts.def.pieces[p.piece].tiles, last = rows[rows.length - 1].split(/\s+/);
+        return Array.from({ length: p.w }, (_, i) => (/^00/.test(last[i * 2]) ? 1 << i : 0)).reduce((a, b) => a | b, 0);
+      }).join(', ')}}`,
       `void ${id}_stamp(uint8_t pf, uint8_t x, uint8_t y) BANKED;  // a set piece's blocks and types, its top left at x, y`,
     ] : []),
     ...(ts.theme ? [

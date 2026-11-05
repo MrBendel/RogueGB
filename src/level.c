@@ -319,6 +319,7 @@ static const uint8_t cont_w[3] = {1, 1, 2}, cont_h[3] = {2, 1, 2};
 static uint8_t *pf_x, *pf_y, *pf_id;
 static uint16_t *pipes;
 static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
+static const uint8_t pf_feet[] = TILES_LUNAR_EXT_PF_FEET;  // (columns whose bottom edge is drawn as ground)
 #define CLAIMED 0x40  // (while planning: a block a set piece has taken)
 #define PF_BIG 4  // the first four (hab, solar, tank, module) go on open ground; the rest beside them
 
@@ -497,7 +498,8 @@ static uint8_t solid_row(uint8_t x, uint8_t y, uint8_t h) {
 // side to the next one's, on the lowest row where both are solid; or down from one
 // to one below it, on the first column where both are; or, for two offset both
 // ways, across from one's side and bent down onto the other's top or up into its
-// underside.
+// underside. Never from under a tank's or rack's feet (pf_feet): the pipe would
+// start half a block below it.
 static void run_pipes(void) {
     uint8_t links[PF_MAX];  // pipes per set piece: two at most
     for (uint8_t k = 0; k < pf_count; k++) links[k] = 0;
@@ -519,7 +521,7 @@ static void run_pipes(void) {
             if (pipe_count == had && by > ay + ah && by - ay - ah <= 8) {
                 uint8_t left = ax > bx ? ax : bx, right = ax + aw < bx + bw ? ax + aw : bx + bw;
                 for (uint8_t x = left; x < right; x++)
-                    if (MAP(x, ay + ah - 1) == BLK_SOLID && MAP(x, by) == BLK_SOLID) {
+                    if (MAP(x, ay + ah - 1) == BLK_SOLID && MAP(x, by) == BLK_SOLID && !(pf_feet[pf_id[a]] >> (x - ax) & 1)) {
                         try_pipe(x, ay + ah, by - ay - ah, 1);
                         break;
                     }
@@ -533,7 +535,7 @@ static void run_pipes(void) {
                         break;
                     }
                     uint8_t rb = solid_row(c, by, bh);
-                    if (by + bh < r && rb == by + bh - 1 && r - rb - 1 <= 8) {
+                    if (by + bh < r && rb == by + bh - 1 && r - rb - 1 <= 8 && !(pf_feet[pf_id[b]] >> (c - bx) & 1)) {
                         try_bent_pipe(ax + aw, r, c, rb + 1, r - rb - 1);  // up into b's underside
                         break;
                     }
