@@ -28,6 +28,14 @@
 #define MAP_START 1
 #define MAP_FIELD 2
 #define MAP_EXIT 3
+// Between them, so an area's maps are told apart (docs/design/level-generation.md,
+// "Map kinds"): a yard, one screen outdoors; a hall, one long room indoors; a
+// building, its rooms stacked, walked through and out another side (both
+// level_indoor.c, in the interior tileset like the entrance room).
+#define MAP_YARD 4
+#define MAP_HALL 5
+#define MAP_HOUSE 6
+#define MAP_INDOORS(t) ((t) == MAP_START || (t) >= MAP_HALL)
 
 // Links, a bit per side.
 #define EDGE_N 1
@@ -61,6 +69,7 @@ extern uint8_t level_chests;
 extern uint16_t chest_x[LEVEL_CHESTS], chest_y[LEVEL_CHESTS];
 extern uint8_t chest_camp[LEVEL_CHESTS];  // the camp guarding it, or 0xFF (a cache)
 extern uint8_t level_carved;  // the last build had to carve paths
+extern uint8_t level_roofed;  // the map built is drawn in the interior tileset
 
 void level_generate(uint16_t seed) BANKED;
 // Build map i into the room map (and set room_w/room_h).

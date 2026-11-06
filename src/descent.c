@@ -194,8 +194,8 @@ static void autosave(void) {
 // map: just inside it.
 static void place_player(uint8_t side) {
     uint8_t s = side == EDGE_N ? 0 : side == EDGE_E ? 1 : side == EDGE_S ? 2 : 3;
-    // The opening's middle, less half the player (an entrance room's doorways are one block).
-    uint16_t at = (uint16_t)(level_open[s] + (level_map == area_start ? 0 : 1)) * BLOCK_SIZE;
+    // The opening's middle, less half the player (indoors, doorways are one block).
+    uint16_t at = (uint16_t)(level_open[s] + (MAP_INDOORS(area_type[level_map]) ? 0 : 1)) * BLOCK_SIZE;
     switch (side) {
     case EDGE_N: player_x = at; player_y = 2 * BLOCK_SIZE - 8; break;
     case EDGE_S: player_x = at; player_y = room_px_h - 3 * BLOCK_SIZE + 4; break;
@@ -214,8 +214,8 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     area_seen |= (uint16_t)1 << map;
     level_inside = 0xFF;
     chest_bit0 = camp_bit0 = 0;
-    // Each map's tileset (the display is off): the entrance room is indoors.
-    world_load_tiles(map == area_start);
+    // Each map's tileset (the display is off): the entrance room, halls and buildings are indoors.
+    world_load_tiles(MAP_INDOORS(area_type[map]));
     level_build_map(map);  // (an exit map's shaft included)
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)

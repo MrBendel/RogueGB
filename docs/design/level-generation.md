@@ -76,6 +76,31 @@ to 128 visual blocks; room.h).
 | Start, way onward | 2×2 screens (4×4 chunks) | Arrival and departure |
 | Field | 2×3 to 3×3 screens (4×6 to 6×6 chunks) | Open ground, 1–2 camps, sometimes a cache |
 
+### Map kinds (2026-11-05)
+
+Playtests found the areas "all the same": every map was a big field. Asked for
+"rooms of different sizes, eg just hallways or single screen rooms or rooms where
+you go into a building and out the other side somewhere else", for visual
+anchoring while learning an area. Each area's maps between its entrance and its
+exit (level.c `level_generate`): one is a building or hall, one a yard, and in an
+area of 6 or more between a third, either; two at least stay fields.
+
+| Kind | Size (blocks) | What it is |
+|---|---|---|
+| Field | 20×16 to 30×24 | As before: open ground, rock, 3–4 camps |
+| Pass | 30×8 or 10×24 | A field one screen across, in a third of the fields whose ways run along it: no rock, 1–2 camps |
+| Yard | 10×8 | One screen outdoors, Zelda style: one camp in two of three, else a cache; its openings in the middle of its sides |
+| Hall | 20×8 or 30×8 | Indoors (where the ways run east-west): one long room under a wall with its machinery face, windows, counters, couches, lockers; a camp per 10 blocks after the first |
+| Building | 10×12 or 10×16 | Indoors: two or three rooms stacked, each wall across with a doorway, as in the entrance room; one or two camps, a chest in two of three |
+
+Halls and buildings (`src/level_indoor.c`) are built in the interior tileset from
+**bands**: a wall across, its face strip, its shadow, then floor to the next
+wall. Each band's floor is plates or studs (each 10 blocks of a hall its own), its
+face strip mirrored per 10 blocks. Their doors onto the linked maps are one block
+wide and go anywhere along their walls (a side door in any room), so you come out
+somewhere else. Furniture, windows and lockers are kept only if every door and
+doorway still connects, and stay off the blocks round a door.
+
 ## Enemies and camps
 
 - Enemies live in **camps**. A camp **wakes up as the player approaches** (about a

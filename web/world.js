@@ -149,7 +149,7 @@ function buildArea(areaSeed) {
     if (!a.type[i]) continue;
     generate(areaSeed, i);
     a.maps[i] = readMap();
-    a.maps[i].isStart = i === a.start;  // (drawn with the entrance room's tileset)
+    a.maps[i].isStart = i === a.start || a.type[i] >= 5;  // (indoors: the entrance room, halls and buildings, in its tileset)
   }
   return a;
 }
