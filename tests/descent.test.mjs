@@ -203,6 +203,17 @@ function leaveBy(emu, e) {
   assert.notEqual(emu.v('maps_entered', 'u16'), before, `left by ${e}`);
   return emu.idle(30);
 }
+/** On the exit map, walk at its shaft (the middle) from whichever side is clear, into the miniboss's arena. */
+function intoShaft(emu) {
+  const w = emu.v('room_w'), h = emu.v('room_h');
+  const sx = ((w >> 1) - 1) * 16, sy = ((h >> 1) - 1) * 16;
+  for (const [dx, dy, dir] of [[-56, 0, 'RIGHT'], [0, 56, 'UP'], [56, 0, 'LEFT'], [0, -56, 'DOWN']]) {
+    w16(emu, 'player_x', sx + dx);
+    w16(emu, 'player_y', sy + dy);
+    for (let f = 0; f < 60 && emu.v('play_mode') !== MODE_MINIBOSS; f++) emu.hold(dir, 1);
+    if (emu.v('play_mode') === MODE_MINIBOSS) return;
+  }
+}
 /** Walk map to map (following links) to map `goal`. */
 function walkTo(emu, goal) {
   const L = { links: bytes(emu, 'area_links') };
@@ -312,17 +323,18 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
 test("the first area's camps mix every kind but the medic and the stalker; from the second they join; the third has stalkers, bulwarks and medics", () => {
   const kinds = { 1: new Set(), 2: new Set(), 3: new Set() };
   for (const depth of [1, 2, 3])
-    for (let wait = 0; wait < 60; wait += 7) {
-      const emu = startDescent(bootToTitle(), 4242 + wait);
-      const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
-      leaveBy(emu, [1, 2, 4, 8].find((x) => links & x));
-      if (!emu.v('level_camps')) continue;
+    for (let n = 0; n < 12; n++) {  // (4 seeds, out each of the entrance's three doors; every camp there)
+      const emu = startDescent(bootToTitle(), 4242 + 7 * Math.floor(n / 3));
+      leaveBy(emu, [1, 2, 8][n % 3]);
       w8(emu, 'layer_depth', depth);  // (the roster's tier: world.c)
-      const cx = words(emu, 'camp_x', 1)[0], cy = words(emu, 'camp_y', 1)[0];
-      w16(emu, 'player_x', cx);
-      w16(emu, 'player_y', cy);
-      emu.idle(2);
-      for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
+      const camps = emu.v('level_camps'), cx = words(emu, 'camp_x', camps), cy = words(emu, 'camp_y', camps);
+      for (let c = 0; c < camps; c++) {
+        for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+        w16(emu, 'player_x', cx[c]);
+        w16(emu, 'player_y', cy[c]);
+        emu.idle(2);
+        for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
+      }
     }
   assert.ok([...kinds[1]].every((k) => k !== 6 && k !== 9) && [1, 2, 3, 4, 7, 8].every((k) => kinds[1].has(k)), `area 1: all but the medic and the stalker (${[...kinds[1]]})`);
   assert.ok(kinds[2].has(7) && kinds[2].has(9) && kinds[2].has(6), `area 2: spiders, stalkers and medics (${[...kinds[2]]})`);
@@ -360,28 +372,27 @@ test('the exit map has a shaft: dropping in leads to a new area, one deeper', ()
   assert.notDeepEqual(bytes(emu, 'area_links'), firstLinks, 'a different area');
 });
 
-test('every area starts in an entrance room, two rooms deep: doors on 2 or 3 of N, E, W; south to town', () => {
+test('every area starts in an entrance room, one screen: doors N, E and W, three ways in; south to town', () => {
   const emu = startRun().idle(2);
   for (let n = 1; n <= 200; n++) {
     const seed = (n * 7907) & 0xffff;
     const L = generate(emu, seed);
     assert.equal(L.type[L.start], MAP_START);
     assert.equal(Math.floor(L.start / W), 2, `seed ${seed}: on the bottom row (south of it is out)`);
-    assert.deepEqual([L.cw[L.start], L.ch[L.start]], [2, 3], '10 x 12 blocks');
-    const doors = [1, 2, 8].filter((e) => L.links[L.start] & e).length;
-    assert.ok(doors >= 2 && doors <= 3, `seed ${seed}: ${doors} doors in`);
+    assert.deepEqual([L.cw[L.start], L.ch[L.start]], [2, 2], '10 x 8 blocks');
+    assert.equal(L.links[L.start] & 11, 11, `seed ${seed}: doors N, E and W`);
     assert.equal(L.links[L.start] & 4, 0, 'no map south of it');
   }
-  // Its doors sit in the middle of its walls, the south one too; the north one beside
-  // the comms monitor (ENTRANCE_DOOR_N).
+  // Its doors make a cross through the room: the north and south ones in line (column
+  // 4, ENTRANCE_DOOR_N), the east and west ones on row 4 (ENTRANCE_DOOR_EW).
   const L = generate(emu, 1234);
   generate(emu, 1234, L.start);
   const m = built(emu);
-  assert.deepEqual([m.w, m.h], [10, 12]);
+  assert.deepEqual([m.w, m.h], [10, 8]);
   assert.equal(m.open[2], 4, 'the south door, centred');
-  for (const [e, mid] of [[1, 7], [2, 5], [8, 5]]) if (L.links[L.start] & e) assert.equal(m.open[SIDE[e]], mid);
+  for (const e of [1, 2, 8]) assert.equal(m.open[SIDE[e]], 4);
   // One block wide: the wall either side of each doorway.
-  for (const [e, x, y, dx, dy] of [[1, 7, 0, 1, 0], [4, 4, 11, 1, 0], [2, 9, 5, 0, 1], [8, 0, 5, 0, 1]]) {
+  for (const [e, x, y, dx, dy] of [[1, 4, 0, 1, 0], [4, 4, 7, 1, 0], [2, 9, 4, 0, 1], [8, 0, 4, 0, 1]]) {
     if (e !== 4 && !(L.links[L.start] & e)) continue;
     assert.equal(m.at(x, y), BLK_FLOOR, `door ${e}`);
     assert.notEqual(m.at(x - dx, y - dy), BLK_FLOOR, `door ${e}: wall before it`);
@@ -395,8 +406,8 @@ test("the entrance room's comms device gives the briefing; you arrive through th
   const h = emu.v('room_h');
   assert.ok(emu.v('player_y', 'u16') >= (h - 3) * 16, 'by the south door');
   matchGolden(emu, 'entrance-room');
-  // Up to the device (on the upper room's back wall, blocks 4-5 of rows 1-2), and A.
-  w16(emu, 'player_x', 4 * 16);
+  // Up to the device (on the back wall, blocks 2-3 of rows 1-2), and A.
+  w16(emu, 'player_x', 2 * 16);
   w16(emu, 'player_y', 3 * 16);
   emu.idle(2);
   assert.notEqual(emu.v('talk_near'), 0xff, 'the device is in reach');
@@ -452,10 +463,8 @@ test("the exit map's shaft is guarded: its miniboss's arena, then back beside th
   for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
   const w = emu.v('room_w'), h = emu.v('room_h');
   const sx = ((w >> 1) - 1) * 16, sy = ((h >> 1) - 1) * 16;
-  w16(emu, 'player_x', sx - 56);
-  w16(emu, 'player_y', sy);
   emu.write8(addr(emu, 'player_hp'), 3);  // hurt on the way
-  for (let f = 0; f < 120 && emu.v('play_mode') !== MODE_MINIBOSS; f++) emu.hold('RIGHT', 1);
+  intoShaft(emu);
   assert.equal(emu.v('play_mode'), MODE_MINIBOSS, 'into its arena');
   emu.until((e) => e.v('in_transition'), 60, 'the scene change');
   settle(emu, PLAY, 'the arena');
@@ -491,20 +500,25 @@ test('containers beside the set pieces open as you walk up: their look, their lo
     const emu = startDescent(bootToTitle(), seed);
     const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
     leaveBy(emu, [1, 2, 8].find((x) => links & x));
-    if (!emu.v('level_conts')) continue;
+    // (one with floor below it, to walk up into)
+    const c = bytes(emu, 'cont_kind', emu.v('level_conts')).findIndex((kind, k) => {
+      const bx = emu.read8(addr(emu, 'cont_bx') + k), by = emu.read8(addr(emu, 'cont_by') + k);
+      return emu.read8(0xd400 + (by + (kind === 1 ? 1 : 2)) * 32 + bx) === BLK_FLOOR;
+    });
+    if (c < 0) continue;
     for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
-    const map = emu.v('level_map'), bx = emu.read8(addr(emu, 'cont_bx')), by = emu.read8(addr(emu, 'cont_by'));
-    const kind = emu.read8(addr(emu, 'cont_kind')), h = kind === 1 ? 1 : 2;
+    const map = emu.v('level_map'), bx = emu.read8(addr(emu, 'cont_bx') + c), by = emu.read8(addr(emu, 'cont_by') + c), bit = 1 << c;
+    const kind = emu.read8(addr(emu, 'cont_kind') + c), h = kind === 1 ? 1 : 2;
     const vis = () => emu.read8(addr(emu, 'room_vis') + (by + h - 1) * 32 + bx);  // (its bottom block: a locker's head is the same open or shut)
     const closed = vis();
     // Below it, then up into it.
     w16(emu, 'player_x', bx * 16);
     w16(emu, 'player_y', (by + h) * 16 + 4);
-    for (let f = 0; f < 30 && !(emu.read8(addr(emu, 'area_conts_opened') + map) & 1); f++) emu.hold('UP', 1);
-    assert.ok(emu.read8(addr(emu, 'area_conts_opened') + map) & 1, 'opened');
+    for (let f = 0; f < 30 && !(emu.read8(addr(emu, 'area_conts_opened') + map) & bit); f++) emu.hold('UP', 1);
+    assert.ok(emu.read8(addr(emu, 'area_conts_opened') + map) & bit, 'opened');
     assert.notEqual(vis(), closed, 'its open look');
     assert.ok(bytes(emu, 'drop_kind', 6).some((d) => d), 'its loot on the floor');
-    assert.equal(emu.read8(addr(emu, 'profile') + 202 + map) & 1, 1, 'in the file');
+    assert.equal(emu.read8(addr(emu, 'profile') + 202 + map) & bit, bit, 'in the file');
     return;
   }
   assert.fail('no map with containers found');
@@ -517,10 +531,7 @@ test("each lap of the world's minibosses is tougher: area 4's Claimjaw has half 
     walkTo(emu, emu.v('area_exit'));
     emu.write8(addr(emu, 'layer_depth'), depth);
     for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
-    const w = emu.v('room_w'), h = emu.v('room_h');
-    w16(emu, 'player_x', ((w >> 1) - 1) * 16 - 56);
-    w16(emu, 'player_y', ((h >> 1) - 1) * 16);
-    for (let f = 0; f < 120 && emu.v('play_mode') !== MODE_MINIBOSS; f++) emu.hold('RIGHT', 1);
+    intoShaft(emu);
     emu.until((e) => e.v('in_transition'), 60, 'the scene change');
     settle(emu, PLAY, 'the arena');
     hp[depth] = emu.v('boss_hp_max');

@@ -1,5 +1,5 @@
 {
-  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room, a map made by hand after the artist's reference shot, two rooms deep. The upper room: the comms monitor on its back wall between starfield windows and orange lights, a floor of shiny square plates. A white wall across with a doorway, its machinery face below (lights, plates, screens, a vent) casting a shadow. The lower room: the studded floor (our own tiles in the pack's colours: artwork/tiles/lunar_int_extra.png, stamped over) with cyan floor lights, orange couches, black-topped counters. The side walls are a strip in the outer half of their blocks, solid only there (BLK_WALL_W, BLK_WALL_E), with their shadow on the floor in the inner half. Its outer doors are closed walls in the map; level.c opens the ones the area's links ask for (the door pieces and their jambs). Without the sheet the build uses plain stand-ins.",
+  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room, a map made by hand, one screen like a Zelda dungeon's first room: every door in sight as you arrive. On its back wall the comms monitor, orange lights and a starfield window, casting a shadow; a cross of shiny square plates on the floor from door to door; the studded floor (our own tiles in the pack's colours: artwork/tiles/lunar_int_extra.png, stamped over) with cyan floor lights, orange couches, black-topped counters. The side walls are a strip in the outer half of their blocks, solid only there (BLK_WALL_W, BLK_WALL_E), with their shadow on the floor in the inner half. Its outer doors are closed walls in the map; level.c opens the ones the area's links ask for (the door pieces and their jambs). Without the sheet the build uses plain stand-ins.",
   "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Interior_Standard.png",
   "decals": "artwork/tiles/lunar_int_extra.png",
   "sheets": { "containers": "artwork/tiles/containers.png" },
@@ -79,16 +79,12 @@
   "maps": {
     "entrance": [
       "1--------2",
-      "{LWWMMLSL}",
-      "{LWWMMLVL}",
-      "{QQQQQQQQ}",
-      "{qqqqqqqq}",
-      "{qqqqqqqq}",
-      "(--JdK---)",
-      "[LPSdVPSL]",
-      "[,,,.,,,,]",
-      "[BBo..oBB]",
-      "[scc..cct]",
+      "{LMMSLWWL}",
+      "{LMMVLWWL}",
+      "[,,,Q,,,,]",
+      "[qqqqqqqq]",
+      "[BBoqo.BB]",
+      "[st.q..st]",
       "3--------4"
     ]
   },

@@ -17,11 +17,13 @@
 #define AREA_H 3
 #define AREA_CELLS (AREA_W * AREA_H)
 // The entrance room (made by hand: content/tilesets/lunar_int.json, map "entrance"):
-// two rooms deep, 2 x 3 chunks. Its comms device (the monitor, 2x2 blocks) is on the
-// upper room's back wall, so its north door is beside it, not in the middle.
-#define COMMS_X 4  // the monitor's top-left block
+// one screen (2 x 2 chunks), like a Zelda dungeon's first room: its doors (N, E, W
+// and the south one back to town) all in sight, on a cross through the room. Its
+// comms device (the monitor, 2x2 blocks) is on the back wall left of the north door.
+#define COMMS_X 2  // the monitor's top-left block
 #define COMMS_Y 1
-#define ENTRANCE_DOOR_N 7
+#define ENTRANCE_DOOR_N 4
+#define ENTRANCE_DOOR_EW 4  // (the row of the east and west doors)
 
 // Map types (0: no map in that slot).
 #define MAP_NONE 0

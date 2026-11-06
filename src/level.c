@@ -88,22 +88,21 @@ void level_generate(uint16_t seed) BANKED {
         area_chests_opened[i] = area_conts_opened[i] = area_inside_opened[i] = 0;
         area_cw[i] = area_ch[i] = 0;
     }
-    // The start is the entrance room, on the bottom row: south of it is the way
-    // back to town (off the grid), and doors on 2 or 3 of its other sides lead in
-    // (docs/design/runs.md). Then grow: link a new map onto a random existing one
-    // until there are 6-9. Every map is reachable from the start.
+    // The start is the entrance room, on the bottom row away from the corners:
+    // south of it is the way back to town (off the grid), and doors on its other
+    // three sides lead in, three ways to choose from (docs/design/runs.md). Then
+    // grow: link a new map onto a random existing one until there are 6-9. Every
+    // map is reachable from the start.
     uint8_t target = 6 + below(4);
-    area_start = (AREA_H - 1) * AREA_W + below(AREA_W);
+    area_start = (AREA_H - 1) * AREA_W + 1 + below(AREA_W - 2);
     area_type[area_start] = MAP_FIELD;
     area_maps = 1;
     {
         uint8_t sides[3], n = 0;
         for (uint8_t d = 0; d < 4; d++)
             if (d != 2 && neighbour(area_start, d) != 0xFF) sides[n++] = d;  // N, E, W on the grid
-        uint8_t doors = n == 3 ? 2 + below(2) : n;
-        while (doors--) {
-            uint8_t k = below(n), d = sides[k];
-            sides[k] = sides[--n];
+        while (n) {
+            uint8_t d = sides[--n];
             uint8_t to = neighbour(area_start, d);
             area_type[to] = MAP_FIELD;
             link(area_start, d);
@@ -183,7 +182,7 @@ void level_generate(uint16_t seed) BANKED {
                 area_cw[i] = 2, area_ch[i] = 3 + below(2);
             }
         } else if (area_type[i] == MAP_START) {
-            area_cw[i] = 2, area_ch[i] = 3;  // the entrance room: two rooms deep
+            area_cw[i] = area_ch[i] = 2;  // the entrance room: one screen
         } else {
             area_cw[i] = area_ch[i] = 4;
         }
@@ -957,7 +956,7 @@ void level_build_map(uint8_t i) BANKED {
         uint8_t len = s & 1 ? h : w;  // E and W run down the side
         // (The entrance room's are doorways, one block wide; elsewhere OPENING_W.)
         uint8_t wide = entrance ? 1 : OPENING_W;
-        uint8_t at = entrance ? (s ? (len - 1) >> 1 : ENTRANCE_DOOR_N)
+        uint8_t at = entrance ? (s == 0 ? ENTRANCE_DOOR_N : s == 2 ? (len - 1) >> 1 : ENTRANCE_DOOR_EW)
                    : len < 6 + OPENING_W ? (len - OPENING_W) >> 1 : 3 + below(len - 5 - OPENING_W);  // (a yard's ends: the middle)
         level_open[s] = at;
         for (uint8_t a = 0; a < wide; a++) {
