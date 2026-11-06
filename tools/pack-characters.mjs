@@ -142,7 +142,7 @@ const file = (anim, i, list) => `player ${anim}${list.length > 1 || anim.startsW
 export function characterDir(name) {
   const ch = PACK_CHARACTERS[name];
   const src = ch && artPath(PACK + ch.sheet);
-  if (!ch || process.env.ROGUEGB_STANDIN_ART || !fs.existsSync(src)) return `artwork/${name}`;
+  if (!ch || process.env.ROGUEGB_STANDIN_ART || process.env.REPO_CHARACTERS || !fs.existsSync(src)) return `artwork/${name}`;
   const rel = `build/pack-art/${name}`, dir = path.join(ROOT, rel);
   fs.mkdirSync(dir, { recursive: true });
   const pal = [[0, 0, 0, 0], ...ch.palette.map(hex)];

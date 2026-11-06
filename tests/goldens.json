@@ -121,9 +121,9 @@
   "files-with-characters~stand-in": "12d49c75",
   "erase-file-prompt~stand-in": "e60d472d",
   "descent-start~repo-characters": "3d37c4c3",
-  "descent-camp~repo-characters": "c02222ef",
+  "descent-camp~repo-characters": "9efa0a6b",
   "entrance-room~repo-characters": "3d37c4c3",
-  "interior~repo-characters": "5c3f19c8",
+  "interior~repo-characters": "c2d0d0f3",
   "descent-start~stand-in~repo-characters": "8802ceb4",
   "descent-camp~stand-in~repo-characters": "e949b1b4",
   "entrance-room~stand-in~repo-characters": "8802ceb4",
@@ -135,5 +135,7 @@
   "building": "d9d756cd",
   "hall": "1506f0d0",
   "building~stand-in": "06de720a",
-  "hall~stand-in": "ccb71590"
+  "hall~stand-in": "ccb71590",
+  "building~repo-characters": "746df8e9",
+  "hall~repo-characters": "4fc9c588"
 }
