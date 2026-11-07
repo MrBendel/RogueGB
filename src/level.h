@@ -24,6 +24,7 @@
 #define COMMS_Y 1
 #define ENTRANCE_DOOR_N 4
 #define ENTRANCE_DOOR_EW 4  // (the row of the east and west doors)
+#define GOALS_X 6  // the goals board's top-left block (right of the north door; row COMMS_Y)
 
 // Map types (0: no map in that slot).
 #define MAP_NONE 0

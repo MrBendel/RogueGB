@@ -52,6 +52,12 @@ deep and scrolled, so you couldn't see your choices from the door):
   blocks: `COMMS_X`, `COMMS_Y` in level.h) left of the north door, a starfield window
   right of it, casting a shadow on the floor. You talk to the device from below: the
   two blocks under it are talkers (`TALK_COMMS`, with no sprite).
+- **The goals board** (2026-11-06), right of the north door (`GOALS_X`): our own art
+  (`artwork/tiles/goals_board.png`, drawn by `tools/make-board-art.mjs` in the orange
+  lights' colours). A from below opens its page (board.c `goals_draw`, `PAGE_GOALS`):
+  the area's goal (find the shaft, beat the miniboss guarding it, by name; once it's
+  beaten, the shaft is open), which way the shaft lies once you've been in its map,
+  the jobs you carry and how they stand, and the maps explored and camps cleared.
 - **The corners** below the cross: orange couches, black-topped counters, cyan floor
   lights beside the way to the north door.
 - **Doorways** are one block (16 px) wide. The map has them closed: level.c opens

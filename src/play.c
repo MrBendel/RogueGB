@@ -362,13 +362,13 @@ static void take_action(void) {
     } else if (a == TALK_DO_UP) {
         profile.exp_active = 0;  // back up with everything: the expedition is over (no fee)
         go(MODE_YARD);
-    } else if (a == TALK_DO_SHOP || a == TALK_DO_BOARD) {
-        // The pause menu's shop or contracts page: the world waits while you browse.
-        menu_page = a == TALK_DO_SHOP ? PAGE_SHOP : PAGE_BOARD;
+    } else if (a == TALK_DO_SHOP || a == TALK_DO_BOARD || a == TALK_DO_GOALS) {
+        // The pause menu's shop, contracts or goals page: the world waits while you browse.
+        menu_page = a == TALK_DO_SHOP ? PAGE_SHOP : a == TALK_DO_BOARD ? PAGE_BOARD : PAGE_GOALS;
         set_paused(1);
     } else if (a == TALK_DO_FREE) {
         rescue_free();  // a captive (rescue.c)
-    } else if (a >= TALK_DO_VEND_AMMO) {
+    } else if (a >= TALK_DO_VEND_AMMO && a <= TALK_DO_VEND_SHIELD) {
         descent_vend(a);  // (the descent's and the town's)
     }
 }
@@ -455,7 +455,7 @@ void play_update(void) BANKED {
         dlg_update();
         return;
     }
-    if (paused && menu_page >= PAGE_SHOP) {  // (the shop, the board)
+    if (paused && menu_page >= PAGE_SHOP) {  // (the shop, the boards)
         if (joy_pressed & (J_START | J_B)) {
             set_paused(0);
             menu_page = PAGE_CHARACTER;

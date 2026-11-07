@@ -11,6 +11,9 @@
 #include "input.h"
 #include "sfx.h"
 #include "text.h"
+#include "level.h"
+#include "descent.h"
+#include "world.h"
 
 #define OFFER_ROW 3   // the offers: rows 3-6
 #define JOBS_HEAD 8
@@ -64,11 +67,10 @@ static void offer_row(uint8_t k) {
     if (taken) say_c(STATUS_X, row_of(k), "TAKEN", MENU_DIM, 0xFF);
 }
 
-static void job_row(uint8_t s) {
+static void job_row_at(uint8_t s, uint8_t ty) {
     char line[TEXT_MAX + 1];
     Mission m;
     mission_job(s, &m);
-    uint8_t ty = row_of(MISSION_OFFERS + s);
     if (m.kind == MIS_NONE) {
         say_c(16, ty, "-", MENU_DIM, 0xFF);
         return;
@@ -87,6 +89,10 @@ static void job_row(uint8_t s) {
         *p = 0;
         menu_say(STATUS_X, ty, line, MENU_INK, 0xFF);
     }
+}
+
+static void job_row(uint8_t s) {
+    job_row_at(s, row_of(MISSION_OFFERS + s));
 }
 
 // Under the cursor: what it pays (or costs), and what A does.
@@ -170,4 +176,78 @@ void board_update(void) BANKED {
     if (old == board_sel) return;
     menu_move_arrow(board_marker, row_of(old), row_of(board_sel));
     detail();
+}
+
+// --- The goals board (the entrance room's) ---
+
+#define GOAL_ROW 3
+#define GOALS_JOBS 7  // "YOUR JOBS", then rows 8-10
+#define GOALS_AREA 12
+
+static const char *const boss_names[WORLD_MINIBOSSES] = {"CLAIMJAW", "SCRAPBACK", "CRAGBACK"};
+
+static uint8_t bits(uint16_t v) {
+    uint8_t n = 0;
+    for (; v; v >>= 1) n += v & 1;
+    return n;
+}
+
+void goals_draw(void) BANKED {
+    char line[TEXT_MAX + 1];
+    char *p = put(line, "AREA ");
+    p = put_num(p, layer_depth);
+    p = put(p, " GOALS");
+    *p = 0;
+    menu_say(8, 1, line, MENU_SEL, 0xFF);
+    // The area's goal: its shaft, past the miniboss guarding it.
+    if (area_chests_opened[area_exit] & AREA_BOSS_BEATEN) {
+        say_c(8, GOAL_ROW, "The shaft is open:", MENU_LIT, 0xFF);
+        say_c(8, GOAL_ROW + 1, "drop in to go deeper.", MENU_LIT, 0xFF);
+    } else {
+        say_c(8, GOAL_ROW, "Find the shaft and beat", MENU_INK, 0xFF);
+        p = put(line, "the ");
+        p = put(p, boss_names[world_miniboss(layer_depth) % WORLD_MINIBOSSES]);
+        p = put(p, " guarding it.");
+        *p = 0;
+        menu_say(8, GOAL_ROW + 1, line, MENU_INK, 0xFF);
+    }
+    // Which way it lies, once you've been in its map (the grid's rows: north is up).
+    if (area_seen & (1 << area_exit)) {
+        uint8_t sx = area_start % AREA_W, ex = area_exit % AREA_W;
+        uint8_t north = area_exit / AREA_W < area_start / AREA_W;
+        p = put(line, "It lies ");
+        if (north) p = put(p, "north");
+        if (north && ex != sx) *p++ = '-';
+        if (ex > sx) p = put(p, "east");
+        else if (ex < sx) p = put(p, "west");
+        p = put(p, " of here.");
+        *p = 0;
+        menu_say(8, GOAL_ROW + 2, line, MENU_DIM, 0xFF);
+    } else {
+        say_c(8, GOAL_ROW + 2, "Its map isn't found yet.", MENU_DIM, 0xFF);
+    }
+    // Your jobs (from the contracts board in town) and how they stand.
+    say_c(8, GOALS_JOBS, "YOUR JOBS", MENU_DIM, 0xFF);
+    uint8_t any = 0;
+    for (uint8_t s = 0; s < MISSION_SLOTS; s++) any |= profile.mis_kind[s];
+    if (any) {
+        for (uint8_t s = 0; s < MISSION_SLOTS; s++) job_row_at(s, GOALS_JOBS + 1 + s);
+    } else {
+        say_c(16, GOALS_JOBS + 1, "None: the contracts board", MENU_DIM, 0xFF);
+        say_c(16, GOALS_JOBS + 2, "in town has work.", MENU_DIM, 0xFF);
+    }
+    // How much of the area you've seen and cleared.
+    uint8_t camps = 0;
+    for (uint8_t i = 0; i < AREA_CELLS; i++) camps += bits(area_camps_cleared[i]);
+    p = put(line, "Maps explored  ");
+    p = put_num(p, bits(area_seen));
+    *p++ = '/';
+    p = put_num(p, area_maps);
+    *p = 0;
+    menu_say(8, GOALS_AREA, line, MENU_INK, 0xFF);
+    p = put(line, "Camps cleared  ");
+    p = put_num(p, camps);
+    *p = 0;
+    menu_say(8, GOALS_AREA + 1, line, MENU_INK, 0xFF);
+    say_c(8, 16, "B: leave", MENU_DIM, 0xFF);
 }

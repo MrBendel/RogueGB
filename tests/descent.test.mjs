@@ -417,6 +417,25 @@ test("the entrance room's comms device gives the briefing; you arrive through th
   assert.equal(emu.v('dlg_active'), 0);
 });
 
+test("the entrance room's goals board: the area's goal, your jobs, how much you've seen", () => {
+  const emu = startDescent().idle(4);
+  const P = addr(emu, 'profile');
+  emu.writeBytes(P + 227, [3]);  // a bounty job (mission.h) ...
+  emu.writeBytes(P + 230, [0]);  // ... on the Claimjaw ...
+  emu.writeBytes(P + 233, [1]);  // ... once
+  // Up to the board (on the back wall right of the north door, blocks 6-7 of rows 1-2), and A.
+  w16(emu, 'player_x', 6 * 16);
+  w16(emu, 'player_y', 3 * 16);
+  emu.idle(2);
+  assert.notEqual(emu.v('talk_near'), 0xff, 'the board is in reach');
+  emu.tap('A').idle(4);
+  assert.equal(emu.v('paused'), 1, 'the world waits');
+  assert.equal(emu.v('menu_page'), 8, 'the goals page (PAGE_GOALS)');
+  matchGolden(emu, 'goals-board');
+  emu.tap('B').idle(4);
+  assert.equal(emu.v('paused'), 0, 'B leaves');
+});
+
 test("a hab module's door leads into its interior and back out onto its step", () => {
   // The first seed from 4251 whose map through the entrance room's first door has a hab module.
   let emu;

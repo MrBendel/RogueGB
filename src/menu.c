@@ -466,11 +466,12 @@ void menu_draw(void) BANKED {
         draw_shop();
         return;
     }
-    if (menu_page == PAGE_BOARD) {
+    if (menu_page == PAGE_BOARD || menu_page == PAGE_GOALS) {
         clear_row(1);
         tiles_a = 12;
         tiles_b = 192;
-        board_draw();
+        if (menu_page == PAGE_BOARD) board_draw();
+        else goals_draw();
         return;
     }
     menu_tabs();
@@ -925,6 +926,7 @@ void menu_move_arrow(uint8_t marker, uint8_t from, uint8_t to) BANKED {
 }
 
 void menu_update(void) BANKED {
+    if (menu_page == PAGE_GOALS) return;  // (to read: B leaves)
     if (menu_page == PAGE_BOARD) {
         board_update();
         return;
