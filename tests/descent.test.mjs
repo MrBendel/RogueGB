@@ -616,6 +616,8 @@ test("a building's lockers open and stay open (their own bits, saved)", () => {
   assert.equal(emu.read8(addr(emu, 'area_inside_opened') + map) & 1, 1, 'building 0, locker 0');
   assert.equal(emu.read8(addr(emu, 'area_conts_opened') + map), 0, "not the map's own containers");
   assert.equal(emu.read8(addr(emu, 'profile') + 214 + map) & 1, 1, 'in the file (exp_inside)');
+  emu.idle(30);
+  matchGolden(emu, 'building-lockers');  // (against the wall: one open, one shut)
 });
 
 test("every building's door leads inside (nothing's built on its step)", () => {

@@ -188,6 +188,8 @@ export function convert(name) {
     //   optionally flipped (x, y); rows of codes, 2 per block across and down.
     // A tiles piece can add "stamp": rows of codes like its tiles, from the "decals"
     // sheet (or "stamp_from": one of the tileset's "sheets"), drawn over it ("..": none).
+    // And "under": the same from the "decals" sheet, drawn between the tiles and the
+    // stamp (the floor beneath a locker stamped from another sheet).
     // Any form can add "shade": rows of 0 and 1, a flag per tile; a 1 draws that tile
     // a step darker in its own palette (each colour as the next one down: a wall's
     // shadow on the floor, with no colours or palettes of its own).
@@ -205,16 +207,23 @@ export function convert(name) {
       }));
       // "stamp": the same grid of decal codes ("..": none), from the "decals" sheet:
       // their opaque pixels are drawn over the tiles (a number on a roof, stripes).
-      const stamp = spec.stamp && spec.stamp.map((r) => r.trim().split(/\s+/).map((c) => (c === '..' ? null : {
+      const grid = (g) => g && g.map((r) => r.trim().split(/\s+/).map((c) => (c === '..' ? null : {
         tx: parseInt(c[0], 16), ty: parseInt(c[1], 16), fx: c.slice(2).includes('x'), fy: c.slice(2).includes('y'),
       })));
+      const stamp = grid(spec.stamp), under = grid(spec.under);
       const from = spec.stamp_from ? sheets[spec.stamp_from] : decals;
+      if (under && !decals && !placeholder) throw new Error(`${name}.${piece}: "under" needs "decals"`);
       if (stamp && !from && !placeholder) throw new Error(`${name}.${piece}: a stamp needs "decals" or a "sheets" entry (${spec.stamp_from || 'decals'})`);
       pixel = placeholder ? placeholderPixel(piece, roles[piece]) : (lx, ly) => {
         const ix = lx & 7, iy = ly & 7, d = stamp && stamp[ly >> 3] && stamp[ly >> 3][lx >> 3];
         if (d) {
           const i = ((d.ty * 8 + (d.fy ? 7 - iy : iy)) * from.width + d.tx * 8 + (d.fx ? 7 - ix : ix)) * 4;
           if (from.rgba[i + 3] > 127) return pack(from.rgba[i], from.rgba[i + 1], from.rgba[i + 2]);
+        }
+        const u = under && under[ly >> 3] && under[ly >> 3][lx >> 3];
+        if (u) {
+          const i = ((u.ty * 8 + (u.fy ? 7 - iy : iy)) * decals.width + u.tx * 8 + (u.fx ? 7 - ix : ix)) * 4;
+          if (decals.rgba[i + 3] > 127) return pack(decals.rgba[i], decals.rgba[i + 1], decals.rgba[i + 2]);
         }
         const t = codes[ly >> 3][lx >> 3];
         return sheetPixel(t.tx * 8 + (t.fx ? 7 - ix : ix), t.ty * 8 + (t.fy ? 7 - iy : iy));

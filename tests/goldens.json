@@ -139,5 +139,9 @@
   "building~repo-characters": "e400645f",
   "hall~repo-characters": "6a0e1978",
   "goals-board": "af39210e",
-  "goals-board~stand-in": "af39210e"
+  "goals-board~stand-in": "af39210e",
+  "building-lockers": "f42b7eb7",
+  "building-lockers~stand-in": "909c1e78",
+  "building-lockers~repo-characters": "435b5be9",
+  "building-lockers~stand-in~repo-characters": "b0d74cc9"
 }
