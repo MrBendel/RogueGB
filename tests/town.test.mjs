@@ -242,7 +242,7 @@ test('Sands town: connected streets reach every service, with solid buildings an
       seen.add(n); queue.push(n);
     }
   }
-  for (const [x,y] of [[7,4],[5,9],[11,7],[11,8],[7,12],[6,10],[3,12]])
+  for (const [x,y] of [[7,4],[5,9],[10,7],[11,8],[7,12],[6,10],[3,12]])
     assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
   for (let x = 0; x < 16; x++) {
     assert.equal(map[x], 1); assert.equal(map[18 * 32 + x], 1);
@@ -422,4 +422,20 @@ test('town cliff gaps stop walking, with only the stairs crossing the central wa
   }
   place(128,64);e.hold('DOWN',32).idle(3);
   assert.ok(e.v('player_y','u16')>=88,'actual stairs connect both sides');
+});
+
+
+test('upper-right shop enters at its visible door, not the stairs beside it', () => {
+  const e=newFileInTown().idle(40);
+  e.writeBytes(A(e,'zones_done'),[255]);
+  w16(e,'player_x',11*16);w16(e,'player_y',7*16+4);
+  e.hold('UP',24).idle(3);
+  assert.equal(e.v('town_inside'),255,'stairs must not trigger the shop');
+  w16(e,'player_x',10*16);w16(e,'player_y',7*16+4);
+  w16(e,'player_vx',0);w16(e,'player_vy',0);
+  e.hold('UP',1).until(e=>e.v('town_inside')===2,90,'visible shop door').idle(40);
+  leaveTownBuilding(e);
+  assert.equal(e.v('player_x','u16'),10*16,'exit aligns with visible door');
+  assert.equal(e.v('player_y','u16'),7*16+4);
+  e.idle(45).shot('town-shop-door-aligned');
 });

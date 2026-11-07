@@ -20,7 +20,7 @@ uint8_t town_inside = TOWN_OUTSIDE, town_changing;
 uint8_t town_saved_rooms, town_drop_end;
 extern uint8_t pickups_map, floor_icon[DROP_GUNS][4];
 // Facade door tiles, matching the intact buildings in Sands.png.
-static const uint8_t door_x[TOWN_BUILDINGS] = {5, 7, 11};
+static const uint8_t door_x[TOWN_BUILDINGS] = {5, 7, 10};
 static const uint8_t door_y[TOWN_BUILDINGS] = {8, 3, 6};
 extern uint16_t safe_x, safe_y, player_anim_dist;
 extern int16_t safe_z;

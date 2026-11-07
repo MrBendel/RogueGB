@@ -59,7 +59,7 @@ for y in (12,13):
 for x in range(W):coll[0][x]=coll[H-1][x]=True
 for y in range(H):coll[y][0]=coll[y][W-1]=True
 # Door approaches and the central yard lane are explicitly walkable.
-for x,y in [(5,4),(8,4),(5,9),(11,7),(7,10),(6,10),(3,12),(4,12),(8,12),(12,8)]:coll[y][x]=False
+for x,y in [(5,4),(8,4),(5,9),(10,7),(7,10),(6,10),(3,12),(4,12),(8,12),(12,8)]:coll[y][x]=False
 # Material aliases change palette attributes only; indexed patterns stay shared.
 def material(x,y,palette):
  base=g[y][x];n=f'{base}_material_{palette}'

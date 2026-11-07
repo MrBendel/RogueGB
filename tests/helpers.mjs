@@ -202,7 +202,7 @@ export function leaveToTown(emu) {
 }
 
 
-export const TOWN_DOORS = [[5,8],[7,3],[11,6]];
+export const TOWN_DOORS = [[5,8],[7,3],[10,6]];
 export function enterTownBuilding(emu, k = 2) {
   if (emu.v('town_inside') !== 0xff) leaveTownBuilding(emu);
   for (let i = 0; i < 90 && emu.v('dlg_active'); i++) emu.tap('A');

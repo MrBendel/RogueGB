@@ -427,3 +427,5 @@ tiles and 47 shared interior tiles, loaded separately. See docs/design/town.md.
 - 2026-11-03: Matched Sands colours to borderlands_gbc_map (2).png: golden sand, weathered wood roofs, burnt-orange containers and olive plants. Shared sand around props and original shading remain intact; still 214 hardware tiles, using four background palettes.
 
 - 2026-11-03: Combined both user references: muted ochre ground, burnt-orange cliffs, blue-gray roofs/fronts/tower, rusty containers and sage plants. Five palettes, with shared ground colours around props; still 214 hardware tiles.
+
+- 2026-11-04: Aligned the upper-right shop entrance and return position with its visible door at (10,6), one tile left of the stairs.
