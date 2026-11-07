@@ -298,7 +298,7 @@ test('three intact facades lead into furnished rooms and back to their own doors
     leaveTownBuilding(emu);
     assert.equal(emu.v('room_w'), 16);
     assert.equal(emu.v('player_x', 'u16'), TOWN_DOORS[k][0] * 16);
-    assert.equal(emu.v('player_y', 'u16'), (TOWN_DOORS[k][1] + 1) * 16 + 4);
+    assert.equal(emu.v('player_y', 'u16'), (TOWN_DOORS[k][1] + 1) * 16);
     assert.deepEqual([...emu.readBytes(A(emu, 'shop_stock'), 27)], stock, 'stock is not rerolled by a doorway');
   }
 });
@@ -425,6 +425,26 @@ test('town cliff gaps stop walking, with only the stairs crossing the central wa
 });
 
 
+test('building exits leave the full hitbox on clear ground without sideways snaps', () => {
+  for (let k = 0; k < 3; k++) for (const direction of ['LEFT', 'RIGHT', 'DOWN']) {
+    const e = leaveTownBuilding(enterTownBuilding(newFileInTown().idle(40), k));
+    const x = e.v('player_x', 'u16'), y = e.v('player_y', 'u16');
+    const map = e.readBytes(A(e, 'room_map'), 1024);
+    for (const px of [x + 3, x + 12]) for (const py of [y + 8, y + 15])
+      assert.equal(map[(py >> 4) * 32 + (px >> 4)], 0, `building ${k}: exit hitbox must be on floor`);
+    let lastX = x, lastY = y;
+    for (let frame = 0; frame < 16; frame++) {
+      e.hold(direction, 1);
+      const nx = e.v('player_x', 'u16'), ny = e.v('player_y', 'u16');
+      assert.ok(Math.abs(nx - lastX) <= 2 && Math.abs(ny - lastY) <= 2,
+        `building ${k}: ${direction} must not snap from ${lastX},${lastY} to ${nx},${ny}`);
+      if (direction === 'LEFT') assert.ok(nx <= lastX, 'left must not snap right');
+      if (direction === 'RIGHT') assert.ok(nx >= lastX, 'right must not snap left');
+      lastX = nx; lastY = ny;
+    }
+  }
+});
+
 test('upper-right shop enters at its visible door, not the stairs beside it', () => {
   const e=newFileInTown().idle(40);
   e.writeBytes(A(e,'zones_done'),[255]);
@@ -436,6 +456,6 @@ test('upper-right shop enters at its visible door, not the stairs beside it', ()
   e.hold('UP',1).until(e=>e.v('town_inside')===2,90,'visible shop door').idle(40);
   leaveTownBuilding(e);
   assert.equal(e.v('player_x','u16'),10*16,'exit aligns with visible door');
-  assert.equal(e.v('player_y','u16'),7*16+4);
+  assert.equal(e.v('player_y','u16'),7*16);
   e.idle(45).shot('town-shop-door-aligned');
 });

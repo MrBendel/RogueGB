@@ -16,7 +16,8 @@ quarters, Echo's relay room, and Marro's shop.
 - Furniture stays against room edges or in small groups, leaving the central aisle
   from the south doorway clear. Tables, desks, machines and walls are solid.
 - Walking UP into a facade enters; walking DOWN through the interior's south door
-  exits onto the same outdoor doorstep. Jumping/rolling cannot trigger a doorway.
+  exits onto the same outdoor doorstep. The full foot hitbox stays inside that
+  ground tile, clear of the cliff below. Jumping/rolling cannot trigger a doorway.
 
 Outdoor doors (facade block coordinates): quarters (5,8), relay (7,3), shop (10,6), immediately left of the stairs at (11,6).
 Rescued residents stand clear of door approaches at (3,11), (11,8), (7,13),
