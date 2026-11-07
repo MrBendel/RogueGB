@@ -320,11 +320,12 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   assert.fail('no camp found beside the start map');
 });
 
-test("the first area's camps mix every kind but the medic and the stalker; from the second they join; the third has stalkers, bulwarks and medics", () => {
+test("the first area's maps draw on every kind but the medic and the stalker; from the second they join; the third has stalkers, bulwarks and medics; a map keeps to 2 kinds (3 deeper)", () => {
   const kinds = { 1: new Set(), 2: new Set(), 3: new Set() };
   for (const depth of [1, 2, 3])
-    for (let n = 0; n < 12; n++) {  // (4 seeds, out each of the entrance's three doors; every camp there)
+    for (let n = 0; n < 24; n++) {  // (8 seeds, out each of the entrance's three doors; every camp there)
       const emu = startDescent(bootToTitle(), 4242 + 7 * Math.floor(n / 3));
+      const here = new Set();
       leaveBy(emu, [1, 2, 8][n % 3]);
       w8(emu, 'layer_depth', depth);  // (the roster's tier: world.c)
       const camps = emu.v('level_camps'), cx = words(emu, 'camp_x', camps), cy = words(emu, 'camp_y', camps);
@@ -333,8 +334,9 @@ test("the first area's camps mix every kind but the medic and the stalker; from 
         w16(emu, 'player_x', cx[c]);
         w16(emu, 'player_y', cy[c]);
         emu.idle(2);
-        for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t);
+        for (const t of bytes(emu, 'actor_type', 8)) if (t) kinds[depth].add(t), here.add(t);
       }
+      assert.ok(here.size <= (depth >= 2 ? 3 : 2), `depth ${depth}, seed ${n}: a map's camps keep to its few kinds (${[...here]})`);
     }
   assert.ok([...kinds[1]].every((k) => k !== 6 && k !== 9) && [1, 2, 3, 4, 7, 8].every((k) => kinds[1].has(k)), `area 1: all but the medic and the stalker (${[...kinds[1]]})`);
   assert.ok(kinds[2].has(7) && kinds[2].has(9) && kinds[2].has(6), `area 2: spiders, stalkers and medics (${[...kinds[2]]})`);
