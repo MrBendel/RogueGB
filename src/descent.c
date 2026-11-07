@@ -41,7 +41,7 @@ uint8_t camp_state[LEVEL_CAMPS];
 uint8_t camp_bit0;  // the map's first camp bit in area_camps_cleared: 0, or a building's (level.h INSIDE_CAMP_BIT + door)
 uint8_t camp_actors[LEVEL_CAMPS];
 // An awake camp's reinforcements: how many are still to come, the next one's kind
-// (the roster in turn), its slot, and frames until it comes.
+// (the map's kinds in turn), its slot, and frames until it comes.
 uint8_t camp_left[LEVEL_CAMPS], camp_kind[LEVEL_CAMPS], camp_next[LEVEL_CAMPS], camp_wait[LEVEL_CAMPS];
 #define CAMP_FIELD 3     // a camp keeps this many up (4 from the third area) ...
 #define CAMP_CALL 75     // ... the next coming this many frames after one falls
@@ -214,6 +214,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     area_seen |= (uint16_t)1 << map;
     level_inside = 0xFF;
     chest_bit0 = camp_bit0 = 0;
+    world_room_clear(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)map * 4513));  // (its few enemy kinds)
     // Each map's tileset (the display is off): the entrance room, halls and buildings are indoors.
     world_load_tiles(MAP_INDOORS(area_type[map]));
     level_build_map(map);  // (an exit map's shaft included)
@@ -262,8 +263,8 @@ static uint8_t call(uint8_t c, uint8_t s) {
     return a;
 }
 
-// Wake camp c: a squad of 5 + 2 x depth, the world's roster in turn from a random
-// place in it (so a camp mixes its kinds), CAMP_FIELD of them at its slots at once
+// Wake camp c: a squad of 5 + 2 x depth, the map's 2 or 3 kinds in turn from a
+// random one (world_squad: every camp in a map shares them), CAMP_FIELD of them at its slots at once
 // and the rest as those fall (descent_update). In 1 + depth camps in 8, its first
 // is an elite (elite.h).
 static void wake(uint8_t c) {
@@ -330,6 +331,7 @@ void descent_update(void) BANKED {
 // its south door. Its chest is bit 3 + k of the map's.
 static void enter_building(uint8_t k) {
     level_inside = k;
+    world_room_clear(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map * 4513) ^ (k * 97 + 1));
     world_load_tiles(1);
     level_build_interior(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map << 8) ^ (k * 97 + 1));
     chest_bit0 = 3 + k;

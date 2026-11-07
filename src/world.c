@@ -17,8 +17,8 @@
 static const World worlds[WORLD_COUNT] = {
     // LunarBase: from the first area every kind but the medic and the stalker,
     // spiders the most; from the second, stalkers and the medic drone join; from
-    // the third, stalkers, bulwarks and medics the most. (A camp takes its roster
-    // in turn: world_squad.) The Claimjaw, Scrapback, Cragback. Its maintenance drones,
+    // the third, stalkers, bulwarks and medics the most. (A map draws 2 or 3 kinds
+    // from it, repeats weighting the draw; its camps take those in turn: world_squad.) The Claimjaw, Scrapback, Cragback. Its maintenance drones,
     // spiders, stalkers and patrol hounds slate blue with a cyan eye; its turrets,
     // mercs and bulwarks in the corporation's yellow, a red visor; its bullets and
     // elites hot magenta.
@@ -62,13 +62,36 @@ uint8_t world_miniboss_kind(uint8_t i) BANKED {
     return worlds[world_id].minibosses[i];
 }
 
+uint8_t room_kinds[ROOM_KINDS], room_kind_n;
+uint16_t room_seed;
+
+void world_room_clear(uint16_t seed) BANKED {
+    room_kind_n = 0;
+    room_seed = seed | 1;  // (xorshift: never 0)
+}
+
+// The map's kinds: 2 (3 from the second area) different ones from the depth's roster.
+static void room_pick(uint8_t depth) {
+    uint8_t tier = depth >= WORLD_TIERS ? WORLD_TIERS - 1 : depth ? depth - 1 : 0;
+    uint8_t want = depth >= 2 ? 3 : 2;
+    const uint8_t *roster = worlds[world_id].roster[tier];
+    for (uint8_t tries = 0; tries < 32 && room_kind_n < want; tries++) {
+        room_seed ^= room_seed << 7;  // (xorshift16: the map's own draw, not rand's)
+        room_seed ^= room_seed >> 9;
+        room_seed ^= room_seed << 8;
+        uint8_t k = roster[(room_seed >> 8) & (WORLD_ROSTER - 1)], dup = 0;
+        for (uint8_t i = 0; i < room_kind_n; i++) dup |= room_kinds[i] == k;
+        if (!dup) room_kinds[room_kind_n++] = k;
+    }
+}
+
 uint8_t world_enemy(uint8_t depth) BANKED {
     return world_squad(depth, rand());
 }
 
 uint8_t world_squad(uint8_t depth, uint8_t j) BANKED {
-    uint8_t tier = depth >= WORLD_TIERS ? WORLD_TIERS - 1 : depth ? depth - 1 : 0;
-    return worlds[world_id].roster[tier][j & (WORLD_ROSTER - 1)];
+    if (!room_kind_n) room_pick(depth);
+    return room_kinds[j % room_kind_n];
 }
 
 uint8_t world_miniboss(uint8_t depth) BANKED {

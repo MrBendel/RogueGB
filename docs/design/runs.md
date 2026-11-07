@@ -319,6 +319,9 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   duelist, a bulwark, a loader; area 2 spiders (two), a duelist, a stalker, a hound, a bulwark, a
   medic, a peashooter; area 3 a medic, a bulwark, stalkers (two), a duelist, a spider, a loader,
   a hound.
+  A map draws only 2 of these kinds (3 from area 2), different ones, repeats weighting the
+  draw, from a seed of the area and the map (world.c world_squad): every camp there, its
+  reinforcements and an ambush keep to them, so a room never throws the whole roster at you.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
 
