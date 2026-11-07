@@ -3,6 +3,7 @@
 // is entered, never per frame.
 #include <gb/gb.h>
 #include "level.h"
+#include "level_internal.h"
 #include "room.h"
 #include "tiles_lunar_ext.h"
 #include "tiles_lunar_int.h"
@@ -19,6 +20,7 @@ uint8_t area_camps_cleared[AREA_CELLS];
 uint8_t area_chests_opened[AREA_CELLS];
 uint16_t area_seed[AREA_CELLS];
 uint8_t area_start, area_exit, area_maps;
+uint16_t area_seen;
 uint8_t level_map;
 uint8_t level_open[4];
 uint8_t level_camps;
@@ -29,6 +31,7 @@ uint8_t level_chests;
 uint16_t chest_x[LEVEL_CHESTS], chest_y[LEVEL_CHESTS];
 uint8_t chest_camp[LEVEL_CHESTS];
 uint8_t level_carved;
+uint8_t level_roofed;
 
 // The generator's own random numbers (xorshift), so layouts depend only on the
 // seed, never on gameplay's rand().
@@ -77,6 +80,7 @@ static const uint8_t field_h[5] = {4, 6, 6, 4, 6};
 
 void level_generate(uint16_t seed) BANKED {
     level_rng = seed ? seed : 0xACE1;
+    area_seen = 0;
     for (uint8_t i = 0; i < AREA_CELLS; i++) {
         area_type[i] = MAP_NONE;
         area_links[i] = 0;
@@ -84,22 +88,21 @@ void level_generate(uint16_t seed) BANKED {
         area_chests_opened[i] = area_conts_opened[i] = area_inside_opened[i] = 0;
         area_cw[i] = area_ch[i] = 0;
     }
-    // The start is the entrance room, on the bottom row: south of it is the way
-    // back to town (off the grid), and doors on 2 or 3 of its other sides lead in
-    // (docs/design/runs.md). Then grow: link a new map onto a random existing one
-    // until there are 6-9. Every map is reachable from the start.
+    // The start is the entrance room, on the bottom row away from the corners:
+    // south of it is the way back to town (off the grid), and doors on its other
+    // three sides lead in, three ways to choose from (docs/design/runs.md). Then
+    // grow: link a new map onto a random existing one until there are 6-9. Every
+    // map is reachable from the start.
     uint8_t target = 6 + below(4);
-    area_start = (AREA_H - 1) * AREA_W + below(AREA_W);
+    area_start = (AREA_H - 1) * AREA_W + 1 + below(AREA_W - 2);
     area_type[area_start] = MAP_FIELD;
     area_maps = 1;
     {
         uint8_t sides[3], n = 0;
         for (uint8_t d = 0; d < 4; d++)
             if (d != 2 && neighbour(area_start, d) != 0xFF) sides[n++] = d;  // N, E, W on the grid
-        uint8_t doors = n == 3 ? 2 + below(2) : n;
-        while (doors--) {
-            uint8_t k = below(n), d = sides[k];
-            sides[k] = sides[--n];
+        while (n) {
+            uint8_t d = sides[--n];
             uint8_t to = neighbour(area_start, d);
             area_type[to] = MAP_FIELD;
             link(area_start, d);
@@ -144,14 +147,42 @@ void level_generate(uint16_t seed) BANKED {
     }
     area_type[area_start] = MAP_START;
     area_type[area_exit] = MAP_EXIT;
+    // The maps between: fields, but so they're told apart a yard (one screen) and
+    // a building you walk through, and in a bigger area a third, either. Two at
+    // least stay fields.
+    {
+        uint8_t mid[AREA_CELLS], n = 0;
+        for (uint8_t i = 0; i < AREA_CELLS; i++)
+            if (area_type[i] == MAP_FIELD) mid[n++] = i;
+        for (uint8_t k = 0; k < 2 + (n >= 6); k++) {
+            uint8_t j = k + below(n - k), m = mid[j];
+            mid[j] = mid[k];
+            mid[k] = m;
+            area_type[m] = k == 0 ? MAP_HOUSE : k == 1 ? MAP_YARD : below(2) ? MAP_YARD : MAP_HOUSE;
+        }
+    }
     for (uint8_t i = 0; i < AREA_CELLS; i++) {
         if (!area_type[i]) continue;
+        uint8_t links = area_links[i], ew = !(links & (EDGE_N | EDGE_S)), ns = !(links & (EDGE_E | EDGE_W));
         if (area_type[i] == MAP_FIELD) {
             uint8_t k = below(5);
             area_cw[i] = field_w[k];
             area_ch[i] = field_h[k];
+            // A pass, one screen across, in one field in three whose ways run along it.
+            if ((ew || ns) && !below(3)) area_cw[i] = ew ? 6 : 2, area_ch[i] = ew ? 2 : 6;
+        } else if (area_type[i] == MAP_YARD) {
+            area_cw[i] = area_ch[i] = 2;
+        } else if (area_type[i] == MAP_HOUSE) {
+            // A hall (20 or 30 blocks long) where the ways run east-west; else 10
+            // wide, two or three rooms deep.
+            if (ew || (links & (EDGE_E | EDGE_W)) == (EDGE_E | EDGE_W)) {
+                area_type[i] = MAP_HALL;
+                area_cw[i] = 4 + (below(2) << 1), area_ch[i] = 2;
+            } else {
+                area_cw[i] = 2, area_ch[i] = 3 + below(2);
+            }
         } else if (area_type[i] == MAP_START) {
-            area_cw[i] = 2, area_ch[i] = 3;  // the entrance room: two rooms deep
+            area_cw[i] = area_ch[i] = 2;  // the entrance room: one screen
         } else {
             area_cw[i] = area_ch[i] = 4;
         }
@@ -187,7 +218,6 @@ static uint8_t pick_chunk(uint8_t tag) {
     return 0;
 }
 
-#define MAP(x, y) room_map[((uint16_t)(y) << 5) | (x)]
 #define VISITED 0x80
 
 // Mark every floor block reachable from (x, y) with VISITED: a breadth-first
@@ -247,7 +277,6 @@ uint8_t roles[CHUNK_ROWS * 8];  // [cy * 8 + cx]
 static const uint8_t role_tag[5] = {TAG_OPEN, TAG_ROCK, TAG_CAMP, TAG_CACHE, TAG_START};
 
 // Points every build must connect: openings, camps, chests, the middle (blocks).
-#define MUST_MAX 12
 uint8_t must_x[MUST_MAX], must_y[MUST_MAX], musts;
 
 static void must(uint8_t x, uint8_t y) {
@@ -319,6 +348,7 @@ static const uint8_t cont_w[3] = {1, 1, 2}, cont_h[3] = {2, 1, 2};
 static uint8_t *pf_x, *pf_y, *pf_id;
 static uint16_t *pipes;
 static const uint8_t pf_size[] = TILES_LUNAR_EXT_PF_SIZES;
+static const uint8_t pf_feet[] = TILES_LUNAR_EXT_PF_FEET;  // (columns whose bottom edge is drawn as ground)
 #define CLAIMED 0x40  // (while planning: a block a set piece has taken)
 #define PF_BIG 4  // the first four (hab, solar, tank, module) go on open ground; the rest beside them
 
@@ -386,12 +416,21 @@ static void pf_place(uint8_t pf, uint8_t x, uint8_t y) {
         for (uint8_t i = 0; i < pf_size[pf * 2]; i++) MAP(x + i, y + j) = BLK_SOLID | CLAIMED;
 }
 
-// Open ground for a set piece: all floor, none of it a camp's slot, a chest or a
-// point that must stay reachable.
+static uint8_t build_links;  // the links of the map being built (its openings)
+
+// Open ground for a set piece: all floor, none of it a camp's slot, a chest, a
+// point that must stay reachable or an opening's mouth (4 deep: a pipe across it
+// half shut the way out).
 static uint8_t open_ground(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
     for (uint8_t j = 0; j < h; j++)
         for (uint8_t i = 0; i < w; i++)
             if (MAP(x + i, y + j) != BLK_FLOOR) return 0;
+    for (uint8_t s = 0; s < 4; s++) {
+        if (!(build_links & edge_bit[s])) continue;
+        uint8_t at = level_open[s];
+        uint8_t rx = s == 1 ? room_w - 4 : s == 3 ? 0 : at, ry = s == 0 ? 0 : s == 2 ? room_h - 4 : at;
+        if (x < rx + 4 && rx < x + w && y < ry + 4 && ry < y + h) return 0;
+    }
     // (The middle: the shaft and two blocks either side of it, where you arrive
     // beside it back from its miniboss.)
     if ((uint8_t)(SHAFT_X(room_w) + 3 - x) < w + 5 && (uint8_t)(SHAFT_Y(room_h) + 1 - y) < h + 1) return 0;
@@ -435,6 +474,10 @@ static uint8_t still_connected(void) {
         if (!(MAP(must_x[k], must_y[k]) & VISITED)) ok = 0;
     unvisit();
     return ok;
+}
+
+uint8_t level_still_connected(void) BANKED {
+    return still_connected();
 }
 
 static uint16_t pipe_word(uint8_t x, uint8_t y, uint8_t n, uint16_t flags) {
@@ -497,7 +540,8 @@ static uint8_t solid_row(uint8_t x, uint8_t y, uint8_t h) {
 // side to the next one's, on the lowest row where both are solid; or down from one
 // to one below it, on the first column where both are; or, for two offset both
 // ways, across from one's side and bent down onto the other's top or up into its
-// underside.
+// underside. Never from under a tank's or rack's feet (pf_feet): the pipe would
+// start half a block below it.
 static void run_pipes(void) {
     uint8_t links[PF_MAX];  // pipes per set piece: two at most
     for (uint8_t k = 0; k < pf_count; k++) links[k] = 0;
@@ -519,7 +563,7 @@ static void run_pipes(void) {
             if (pipe_count == had && by > ay + ah && by - ay - ah <= 8) {
                 uint8_t left = ax > bx ? ax : bx, right = ax + aw < bx + bw ? ax + aw : bx + bw;
                 for (uint8_t x = left; x < right; x++)
-                    if (MAP(x, ay + ah - 1) == BLK_SOLID && MAP(x, by) == BLK_SOLID) {
+                    if (MAP(x, ay + ah - 1) == BLK_SOLID && MAP(x, by) == BLK_SOLID && !(pf_feet[pf_id[a]] >> (x - ax) & 1)) {
                         try_pipe(x, ay + ah, by - ay - ah, 1);
                         break;
                     }
@@ -533,7 +577,7 @@ static void run_pipes(void) {
                         break;
                     }
                     uint8_t rb = solid_row(c, by, bh);
-                    if (by + bh < r && rb == by + bh - 1 && r - rb - 1 <= 8) {
+                    if (by + bh < r && rb == by + bh - 1 && r - rb - 1 <= 8 && !(pf_feet[pf_id[b]] >> (c - bx) & 1)) {
                         try_bent_pipe(ax + aw, r, c, rb + 1, r - rb - 1);  // up into b's underside
                         break;
                     }
@@ -778,12 +822,13 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
             for (uint8_t x = 0; x < cw; x++) roles[y * 8 + x] = ROLE_MARK;
         return;
     }
-    if (area_type[i] != MAP_FIELD) {
+    if (area_type[i] != MAP_FIELD && area_type[i] != MAP_YARD) {
         roles[(ch >> 1) * 8 + (cw >> 1)] = ROLE_MARK;
         return;
     }
-    // Rock: 1-2 clusters of 2-4 cells, wandering from a random interior cell.
-    uint8_t clusters = 1 + below(2);
+    // Rock: 1-2 clusters of 2-4 cells, wandering from a random interior cell (not
+    // in a yard or a pass: one screen across).
+    uint8_t small = cw == 2 || ch == 2, clusters = small ? 0 : 1 + below(2);
     while (clusters--) {
         uint8_t x = 1 + below(cw - 2), y = 1 + below(ch - 2), n = 2 + below(3);
         while (n--) {
@@ -793,19 +838,22 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
             if (nx >= 1 && nx < cw - 1 && ny >= 1 && ny < ch - 1) x = (uint8_t)nx, y = (uint8_t)ny;
         }
     }
-    // Camps: 1-2, on open cells, at least 3 cells apart.
-    uint8_t want = 1 + below(2), placed = 0, px = 0xFF, py = 0xFF;
-    for (uint8_t tries = 0; tries < 20 && placed < want; tries++) {
-        uint8_t x = below(cw), y = below(ch);
+    // Camps: 3-4 in a field (it's busy), 1-2 in a pass, one in two yards of
+    // three; on open cells, none beside another.
+    uint8_t want = area_type[i] == MAP_YARD ? below(3) != 0 : small ? 1 + below(2) : 3 + below(2), placed = 0, px[LEVEL_CAMPS], py[LEVEL_CAMPS];
+    for (uint8_t tries = 0; tries < 40 && placed < want; tries++) {
+        uint8_t x = below(cw), y = below(ch), near = 0;
         if (roles[y * 8 + x] != ROLE_OPEN) continue;
-        if (px != 0xFF && (uint8_t)(x - px + 2) < 5 && (uint8_t)(y - py + 2) < 5) continue;
+        for (uint8_t k = 0; k < placed; k++)
+            if ((uint8_t)(x - px[k] + 1) < 3 && (uint8_t)(y - py[k] + 1) < 3) near = 1;
+        if (near) continue;
         roles[y * 8 + x] = ROLE_CAMP;
-        px = x;
-        py = y;
-        placed++;
+        px[placed] = x;
+        py[placed++] = y;
     }
-    // A cache in about a third of fields, along the top or bottom edge.
-    if (below(3) == 0) {
+    // A cache in about a third of fields (and a yard with no camp), along the top
+    // or bottom edge.
+    if (below(3) == 0 || !placed) {
         for (uint8_t tries = 0; tries < 10; tries++) {
             uint8_t x = below(cw), y = below(2) ? 0 : ch - 1;
             if (roles[y * 8 + x] != ROLE_OPEN) continue;
@@ -835,6 +883,11 @@ void level_build_map(uint8_t i) BANKED {
     for (uint16_t k = 0; k < sizeof(room_map); k++) room_map[k] = BLK_SOLID;
     level_camps = level_chests = 0;
     musts = 0;
+    level_roofed = MAP_INDOORS(area_type[i]);
+    if (area_type[i] >= MAP_HALL) {  // (halls and buildings: level_indoor.c)
+        level_build_indoor(area_links[i]);
+        return;
+    }
     plan_roles(i, cw, ch);
 
     // Chunks for each cell's role, picked by weight and flipped at random.
@@ -896,13 +949,15 @@ void level_build_map(uint8_t i) BANKED {
     // (no map behind it) is the way back to town.
     uint8_t links = area_links[i], entrance = area_type[i] == MAP_START;
     if (entrance) links |= EDGE_S;
+    build_links = links;
     for (uint8_t s = 0; s < 4; s++) {
         level_open[s] = 0xFF;
         if (!(links & edge_bit[s])) continue;
         uint8_t len = s & 1 ? h : w;  // E and W run down the side
         // (The entrance room's are doorways, one block wide; elsewhere OPENING_W.)
         uint8_t wide = entrance ? 1 : OPENING_W;
-        uint8_t at = entrance ? (s ? (len - 1) >> 1 : ENTRANCE_DOOR_N) : 3 + below(len - 6 - OPENING_W + 1);
+        uint8_t at = entrance ? (s == 0 ? ENTRANCE_DOOR_N : s == 2 ? (len - 1) >> 1 : ENTRANCE_DOOR_EW)
+                   : len < 6 + OPENING_W ? (len - OPENING_W) >> 1 : 3 + below(len - 5 - OPENING_W);  // (a yard's ends: the middle)
         level_open[s] = at;
         for (uint8_t a = 0; a < wide; a++) {
             for (uint8_t d = 0; d < 3; d++) {
@@ -995,142 +1050,7 @@ void cont_set_open(uint8_t k) BANKED {
 void level_draw_container(uint8_t k) BANKED {
     static const uint8_t first[3] = {TS_LUNAR_EXT_CONT_LOCKER, TS_LUNAR_EXT_CONT_CHEST, TS_LUNAR_EXT_CONT_BOX};
     uint8_t kind = cont_kind[k], cw = cont_w[kind], ch = cont_h[kind];
-    uint8_t v = (level_inside != 0xFF ? TS_LUNAR_INT_CONT_LOCKER : first[kind]) + (cont_is_open(k) ? cw * ch : 0);
+    uint8_t v = (level_roofed ? TS_LUNAR_INT_CONT_LOCKER : first[kind]) + (cont_is_open(k) ? cw * ch : 0);
     for (uint8_t j = 0; j < ch; j++)
         for (uint8_t i = 0; i < cw; i++) room_vis[((uint16_t)(cont_by[k] + j) << 5) | (cont_bx[k] + i)] = v++;
-}
-
-// --- Building interiors ---
-// One screen (10x8 blocks) in the interior tileset, after the artist's reference
-// interior (docs/design/lunar-base.md, "The interior"): white walls seen from
-// above; under the top wall a face strip, mirrored (lights, plates, screens,
-// vents, sometimes a pair of starfield windows); one floor for the room (plates,
-// or studs with a wall's shadow and cyan lights); couches and counters in mirrored
-// pairs either side of a clear walkway up from the south door; a chest beside it.
-#define IN_W 10
-#define IN_H 8
-#define IN_DOOR 4  // the south door's column
-
-static void in_put(uint8_t x, uint8_t y, uint8_t v, uint8_t t) {
-    uint16_t k = ((uint16_t)y << 5) | x;
-    room_vis[k] = v;
-    room_map[k] = t;
-}
-
-// A block and its mirror image across the walkway.
-static void in_pair(uint8_t x, uint8_t y, uint8_t v, uint8_t t) {
-    in_put(x, y, v, t);
-    in_put(IN_W - 1 - x, y, v, t);
-}
-
-void level_build_interior(uint16_t seed) BANKED {
-    static const uint8_t faces[4] = {TS_LUNAR_INT_FACE_LIGHTS, TS_LUNAR_INT_FACE_PLATE, TS_LUNAR_INT_FACE_SCREEN, TS_LUNAR_INT_FACE_VENT};
-    level_rng = seed ? seed : 0xACE1;
-    room_w = IN_W;
-    room_h = IN_H;
-    room_px_w = IN_W * BLOCK_SIZE;
-    room_px_h = IN_H * BLOCK_SIZE;
-    level_camps = level_chests = level_carved = 0;
-    pf_count = pipe_count = level_doors = level_conts = level_vends = 0;
-    for (uint8_t s = 0; s < 4; s++) level_open[s] = 0xFF;
-    level_open[2] = IN_DOOR;
-    uint8_t plates = below(2), floor = plates ? TS_LUNAR_INT_PLATES : TS_LUNAR_INT_FLOOR;
-    // The walls and the floor.
-    for (uint8_t y = 0; y < IN_H; y++)
-        for (uint8_t x = 0; x < IN_W; x++) {
-            uint8_t v = floor, t = BLK_FLOOR;
-            if (!y || y == IN_H - 1) {
-                t = BLK_SOLID;
-                v = !x ? (y ? TS_LUNAR_INT_CORNER_SW : TS_LUNAR_INT_CORNER_NW)
-                  : x == IN_W - 1 ? (y ? TS_LUNAR_INT_CORNER_SE : TS_LUNAR_INT_CORNER_NE) : TS_LUNAR_INT_WALL_N;
-            } else if (!x) {  // (side walls: a strip in the outer half, its shadow in the inner)
-                t = BLK_WALL_W;
-                v = plates ? TS_LUNAR_INT_WALL_W_PLATES : TS_LUNAR_INT_WALL_W;
-            } else if (x == IN_W - 1) {
-                t = BLK_WALL_E;
-                v = plates ? TS_LUNAR_INT_WALL_E_PLATES : TS_LUNAR_INT_WALL_E;
-            } else if (y == 2) {
-                v = plates ? TS_LUNAR_INT_PLATES_SHADOW : TS_LUNAR_INT_FLOOR_SHADOW;  // (the top wall's shadow)
-            }
-            in_put(x, y, v, t);
-        }
-    // The face strip under the top wall: a pair of windows, or face pieces.
-    uint8_t windows = !below(3);
-    for (uint8_t x = 1; x < IN_W / 2; x++) {
-        if (windows && (x == 2 || x == 3)) {
-            uint8_t b = TS_LUNAR_INT_WINDOW + (x - 2);
-            in_put(x, 1, b, BLK_SOLID);
-            in_put(x, 2, b + 2, BLK_SOLID);
-            in_put(x + 4, 1, b, BLK_SOLID);  // (the second window: the same way round)
-            in_put(x + 4, 2, b + 2, BLK_SOLID);
-            continue;
-        }
-        in_pair(x, 1, faces[below(4)], BLK_SOLID);
-    }
-    // Couches in the middle of the room, counters along the bottom, lights on studs.
-    if (below(4)) {
-        in_put(1, 4, TS_LUNAR_INT_COUCH, BLK_SOLID);
-        in_put(2, 4, TS_LUNAR_INT_COUCH + 1, BLK_SOLID);
-        in_put(IN_W - 3, 4, TS_LUNAR_INT_COUCH, BLK_SOLID);  // (both the same way round)
-        in_put(IN_W - 2, 4, TS_LUNAR_INT_COUCH + 1, BLK_SOLID);
-    }
-    if (below(4)) {
-        in_put(1, 6, TS_LUNAR_INT_COUNTER_L, BLK_SOLID);
-        in_put(2, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
-        in_put(3, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
-        in_put(IN_W - 4, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
-        in_put(IN_W - 3, 6, TS_LUNAR_INT_COUNTER, BLK_SOLID);
-        in_put(IN_W - 2, 6, TS_LUNAR_INT_COUNTER_R, BLK_SOLID);
-    }
-    if (!plates) in_pair(3, 3, TS_LUNAR_INT_FLOOR_LIGHT, BLK_FLOOR);
-    // A locker pair at the ends of the face strip, one building in two.
-    if (below(2)) {
-        for (uint8_t k = 0; k < 2; k++) {
-            cont_bx[k] = k ? IN_W - 2 : 1;
-            cont_by[k] = 1;
-            cont_kind[k] = CONT_LOCKER;
-            in_put(cont_bx[k], 1, 0, BLK_SOLID);
-            in_put(cont_bx[k], 2, 0, BLK_SOLID);
-        }
-        level_conts = 2;
-        for (uint8_t k = 0; k < 2; k++) level_draw_container(k);
-    }
-    // A guard, one building in two: a camp in the upper room (its enemies at the ends
-    // of the shadow row and the middle; the chest waits for it, descent.c).
-    if (below(2)) {
-        static const uint8_t gx[3] = {2, IN_W - 3, IN_W / 2}, gy[3] = {2, 2, 3};
-        level_camps = 1;
-        camp_x[0] = (IN_W / 2) * BLOCK_SIZE;
-        camp_y[0] = 3 * BLOCK_SIZE;
-        camp_slots[0] = 3;
-        for (uint8_t s = 0; s < 3; s++) {
-            camp_slot_x[0][s] = (uint16_t)gx[s] * BLOCK_SIZE;
-            camp_slot_y[0][s] = (uint16_t)gy[s] * BLOCK_SIZE;
-        }
-    }
-    // The way out: the south door, its jambs either side.
-    in_put(IN_DOOR, IN_H - 1, TS_LUNAR_INT_DOOR_NS, BLK_FLOOR);
-    in_put(IN_DOOR - 1, IN_H - 1, TS_LUNAR_INT_JAMB_NS_L, BLK_SOLID);
-    in_put(IN_DOOR + 1, IN_H - 1, TS_LUNAR_INT_JAMB_NS_R, BLK_SOLID);
-    // The chest, on one side, above the couches.
-    level_chests = 1;
-    chest_x[0] = (uint16_t)(below(2) ? 1 : IN_W - 2) * BLOCK_SIZE;
-    chest_y[0] = 3 * BLOCK_SIZE;
-    chest_camp[0] = level_camps ? 0 : 0xFF;  // (guarded: opens once they're cleared; else a cache)
-}
-
-// --- A miniboss's arena ---
-// The combat trials' room (boss.c boss_room: 10x8, a rim, open ground: the fights
-// are tuned to it) drawn in the world's exterior art instead of the test tiles.
-void level_build_arena(void) BANKED {
-    world_load_tiles(0);
-    room_w = IN_W;
-    room_h = IN_H;
-    room_px_w = IN_W * BLOCK_SIZE;
-    room_px_h = IN_H * BLOCK_SIZE;
-    for (uint16_t k = 0; k < sizeof(room_map); k++) room_map[k] = BLK_SOLID;
-    for (uint8_t y = 1; y + 1 < IN_H; y++)
-        for (uint8_t x = 1; x + 1 < IN_W; x++) MAP(x, y) = BLK_FLOOR;
-    pf_count = pipe_count = level_doors = level_conts = level_vends = 0;
-    tiles_lunar_ext_apply();
 }

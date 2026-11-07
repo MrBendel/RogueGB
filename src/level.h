@@ -17,17 +17,28 @@
 #define AREA_H 3
 #define AREA_CELLS (AREA_W * AREA_H)
 // The entrance room (made by hand: content/tilesets/lunar_int.json, map "entrance"):
-// two rooms deep, 2 x 3 chunks. Its comms device (the monitor, 2x2 blocks) is on the
-// upper room's back wall, so its north door is beside it, not in the middle.
-#define COMMS_X 4  // the monitor's top-left block
+// one screen (2 x 2 chunks), like a Zelda dungeon's first room: its doors (N, E, W
+// and the south one back to town) all in sight, on a cross through the room. Its
+// comms device (the monitor, 2x2 blocks) is on the back wall left of the north door.
+#define COMMS_X 2  // the monitor's top-left block
 #define COMMS_Y 1
-#define ENTRANCE_DOOR_N 7
+#define ENTRANCE_DOOR_N 4
+#define ENTRANCE_DOOR_EW 4  // (the row of the east and west doors)
+#define GOALS_X 6  // the goals board's top-left block (right of the north door; row COMMS_Y)
 
 // Map types (0: no map in that slot).
 #define MAP_NONE 0
 #define MAP_START 1
 #define MAP_FIELD 2
 #define MAP_EXIT 3
+// Between them, so an area's maps are told apart (docs/design/level-generation.md,
+// "Map kinds"): a yard, one screen outdoors; a hall, one long room indoors; a
+// building, its rooms stacked, walked through and out another side (both
+// level_indoor.c, in the interior tileset like the entrance room).
+#define MAP_YARD 4
+#define MAP_HALL 5
+#define MAP_HOUSE 6
+#define MAP_INDOORS(t) ((t) == MAP_START || (t) >= MAP_HALL)
 
 // Links, a bit per side.
 #define EDGE_N 1
@@ -36,7 +47,7 @@
 #define EDGE_W 8
 
 #define OPENING_W 4    // blocks wide
-#define LEVEL_CAMPS 2  // camps per map at most
+#define LEVEL_CAMPS 4  // camps per map at most
 #define CAMP_SLOTS 5   // enemies per camp at most
 #define LEVEL_CHESTS 3
 
@@ -47,6 +58,7 @@ extern uint8_t area_cw[AREA_CELLS], area_ch[AREA_CELLS];  // size in chunks
 extern uint8_t area_camps_cleared[AREA_CELLS];            // a bit per camp
 extern uint8_t area_chests_opened[AREA_CELLS];            // a bit per chest (pickups.c)
 extern uint8_t area_start, area_exit, area_maps;
+extern uint16_t area_seen;  // the maps been in, a bit each (the pause menu's map)
 extern uint8_t level_map;  // the map the player is in
 extern uint8_t area_theme;  // the chunks picked (world.c: its world's)
 // The built map: its openings (block offset along each side, N E S W), camps
@@ -60,6 +72,7 @@ extern uint8_t level_chests;
 extern uint16_t chest_x[LEVEL_CHESTS], chest_y[LEVEL_CHESTS];
 extern uint8_t chest_camp[LEVEL_CHESTS];  // the camp guarding it, or 0xFF (a cache)
 extern uint8_t level_carved;  // the last build had to carve paths
+extern uint8_t level_roofed;  // the map built is drawn in the interior tileset
 
 void level_generate(uint16_t seed) BANKED;
 // Build map i into the room map (and set room_w/room_h).
@@ -98,7 +111,7 @@ void level_build_interior(uint16_t seed) BANKED;
 // A building's guard (level_build_interior: one in two): one camp in its upper room;
 // its cleared bit is 2 + the door in the map's area_camps_cleared, and the chest
 // (luckier) waits for it.
-#define INSIDE_CAMP_BIT 2
+#define INSIDE_CAMP_BIT 4
 // An area's miniboss's arena in the world's art (the exterior tileset: the trials'
 // room's shape, 10x8, a rim and open ground). The tileset is loaded here.
 void level_build_arena(void) BANKED;

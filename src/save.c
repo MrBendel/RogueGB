@@ -120,6 +120,8 @@ void save_open(uint8_t slot) BANKED {
         memset(&profile, 0, sizeof(profile));  // (fields an older file doesn't have)
         memcpy(&profile, r + HEADER, r[6]);
         slot_seq = r[3];
+        if (r[2] < 12)  // (buildings' guards were bits 2-5 of a map's camps; now 4-7)
+            for (uint8_t m = 0; m < 12; m++) profile.exp_camps[m] = (profile.exp_camps[m] & 3) | ((profile.exp_camps[m] & 0x3C) << 2);
     } else {
         slot_seq = 0;
     }

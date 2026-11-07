@@ -95,6 +95,8 @@ test('an acid elite leaves a trail of puddles that hurt to stand in', () => {
   assert.equal(emu.v('acid_puddles'), 0, 'dried up');
 });
 
+const w8x = (emu, c) => emu.write8(addr(emu, 'camp_state') + c, 2);
+
 test('an elite in a camp: twice the health, its name on the HUD, the hot colours', () => {
   let found = null;
   for (let wait = 0; wait < 120 && !found; wait += 7) {
@@ -108,9 +110,17 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
     w16(emu, 'player_x', at[0]);
     w16(emu, 'player_y', at[1]);
     const before = emu.v('maps_entered', 'u16');
-    for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) emu.hold({ 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e], 1);
+    for (let f = 0; f < 120 && emu.v('maps_entered', 'u16') === before; f++) {  // (a quiet walk out)
+      for (let k = 0; k < 8; k++) emu.write8(addr(emu, 'actor_type') + k, 0);
+      emu.hold({ 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e], 1);
+    }
     emu.idle(30);
     if (!emu.v('level_camps')) continue;
+    // (Only the first camp, woken afresh: camps can be close enough that one woke on arrival.)
+    for (let c = 1; c < 4; c++) w8x(emu, c);
+    emu.write8(addr(emu, 'camp_state'), 0);
+    for (let k = 0; k < 8; k++) emu.write8(addr(emu, 'actor_type') + k, 0);
+    w8(emu, 'elite_living', 0);
     w16(emu, 'player_x', emu.read16(addr(emu, 'camp_x')));
     w16(emu, 'player_y', emu.read16(addr(emu, 'camp_y')));
     emu.idle(3);
@@ -120,7 +130,7 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
   assert.ok(found, 'a camp woke an elite');
   const { emu, i } = found;
   const type = r8(emu, 'actor_type', i), hp = r8(emu, 'actor_hp', i);
-  const base = { 1: 3, 2: 4, 3: 5, 4: 6, 5: 14, 6: 5 }[type] + emu.v('enemy_hp_bonus');
+  const base = { 1: 3, 2: 4, 3: 5, 4: 6, 5: 14, 6: 5, 7: 5, 8: 16, 9: 10 }[type] + emu.v('enemy_hp_bonus');
   assert.equal(hp, base * 2 + 2, 'twice the health');
   const elite = r8(emu, 'actor_elite', i);
   assert.equal(r8(emu, 'actor_p0', i) & 7, SPR_PAL_BULLET, 'drawn hot');

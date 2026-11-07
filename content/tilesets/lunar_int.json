@@ -1,8 +1,8 @@
 {
-  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room, a map made by hand after the artist's reference shot, two rooms deep. The upper room: the comms monitor on its back wall between starfield windows and orange lights, a floor of shiny square plates. A white wall across with a doorway, its machinery face below (lights, plates, screens, a vent) casting a shadow. The lower room: the studded floor (our own tiles in the pack's colours: artwork/tiles/lunar_int_extra.png, stamped over) with cyan floor lights, orange couches, black-topped counters. The side walls are a strip in the outer half of their blocks, solid only there (BLK_WALL_W, BLK_WALL_E), with their shadow on the floor in the inner half. Its outer doors are closed walls in the map; level.c opens the ones the area's links ask for (the door pieces and their jambs). Without the sheet the build uses plain stand-ins.",
+  "comment": "LunarBase interior (the purchased pack: local only, docs/design/lunar-base.md, docs/design/lunarbase-sprites.md). Draws an area's entrance room, a map made by hand, one screen like a Zelda dungeon's first room: every door in sight as you arrive. On its back wall the comms monitor and the goals board (our own art: artwork/tiles/goals_board.png, tools/make-board-art.mjs) among orange lights, casting a shadow; a cross of shiny square plates on the floor from door to door; the studded floor (our own tiles in the pack's colours: artwork/tiles/lunar_int_extra.png, stamped over) with cyan floor lights, orange couches, black-topped counters. The side walls are a strip in the outer half of their blocks, solid only there (BLK_WALL_W, BLK_WALL_E), with their shadow on the floor in the inner half. Its outer doors are closed walls in the map; level.c opens the ones the area's links ask for (the door pieces and their jambs). Without the sheet the build uses plain stand-ins.",
   "src": "pack:LunarBase/Tiles/LunarBase_Tiles_Interior_Standard.png",
   "decals": "artwork/tiles/lunar_int_extra.png",
-  "sheets": { "containers": "artwork/tiles/containers.png" },
+  "sheets": { "containers": "artwork/tiles/containers.png", "board": "artwork/tiles/goals_board.png" },
   "local": true,
   "backdrop": [0, 0, 0],
   "palettes": 6,
@@ -43,7 +43,8 @@
     "jamb_w_down": { "tiles": ["53y 70", "51 71"] },
     "door_e": { "tiles": ["04 19x", "05 19x"] },
     "jamb_e_up": { "tiles": ["04 51x", "05 53x"] },
-    "jamb_e_down": { "tiles": ["60 53xy", "61 51x"] }
+    "jamb_e_down": { "tiles": ["60 53xy", "61 51x"] },
+    "goals_board": { "tiles": ["30 30 30 30", "30 30 30 30", "30 30 30 30", "30 30 30 30"], "stamp": ["00 10 20 30", "01 11 21 31", "02 12 22 32", "03 13 23 33"], "stamp_from": "board" }
   },
   "legend": {
     ".": { "piece": "floor" },
@@ -74,21 +75,18 @@
     "s": { "piece": "counter_l", "solid": true },
     "t": { "piece": "counter_r", "solid": true },
     "B": { "piece": "couch", "solid": true },
-    "M": { "piece": "monitor", "solid": true }
+    "M": { "piece": "monitor", "solid": true },
+    "G": { "piece": "goals_board", "solid": true }
   },
   "maps": {
     "entrance": [
       "1--------2",
-      "{LWWMMLSL}",
-      "{LWWMMLVL}",
-      "{QQQQQQQQ}",
-      "{qqqqqqqq}",
-      "{qqqqqqqq}",
-      "(--JdK---)",
-      "[LPSdVPSL]",
-      "[,,,.,,,,]",
-      "[BBo..oBB]",
-      "[scc..cct]",
+      "{LMMSLGGL}",
+      "{LMMVLGGL}",
+      "[,,,Q,,,,]",
+      "[qqqqqqqq]",
+      "[BBoqo.BB]",
+      "[st.q..st]",
       "3--------4"
     ]
   },

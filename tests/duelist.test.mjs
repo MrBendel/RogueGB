@@ -57,6 +57,7 @@ test('shot while it strafes, a duelist dashes aside once', () => {
   const emu = startRun().idle(2);
   const px = emu.v('player_x', 'u16'), py = emu.v('player_y', 'u16');
   const i = spawn(emu, px + 60, py);
+  w8(emu, 'actor_hp', 60, i);  // (tough: a fight long enough for a shot to land while it strafes)
   let dodged = 0;
   for (let f = 0; f < 600 && !dodged; f++) {
     press(emu, i, f);

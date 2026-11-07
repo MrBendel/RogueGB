@@ -135,8 +135,11 @@ void rescue_free(void) BANKED {
         return;
     }
     uint8_t how = RESCUE_HOW(profile.mis_target[rescue_slot]), p = who();
-    rescue_x = (uint16_t)talk_bx[talk_near] << 4;
-    rescue_y = (uint16_t)talk_by[talk_near] << 4;
+    // (Byte by byte: SDCC stored only the low byte of a block << 4 here, so a captive
+    // past block 15 across was held at the wrong place and the clock never ran.)
+    uint8_t bx = talk_bx[talk_near], by = talk_by[talk_near];
+    rescue_x = ((uint16_t)(bx >> 4) << 8) | (uint8_t)(bx << 4);
+    rescue_y = ((uint16_t)(by >> 4) << 8) | (uint8_t)(by << 4);
     if (how == RESCUE_ESCORT) {
         captive_gone();
         rescue_state = RS_FOLLOW;

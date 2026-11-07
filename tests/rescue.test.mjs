@@ -11,7 +11,7 @@ const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
 const CREDITS = 7, EXP_MAP = 63;  // Profile offsets (save.h) ...
 const MIS_KIND = 227, MIS_TARGET = 230, MIS_NEED = 233, MIS_HAVE = 236, MIS_SEED = 239, MIS_TAKEN = 241, RESCUED = 242;
-const RESCUE = 5, FREE = 0, ESCORT = 1, HOLD = 2, PIP = 3, PAGE_BOARD = 6;
+const RESCUE = 5, FREE = 0, ESCORT = 1, HOLD = 2, PIP = 3, PAGE_BOARD = 7;
 const RS_NONE = 0, RS_HELD = 1, RS_FOLLOW = 2, RS_HOLD = 3, TALK_PERSON = 8;
 const prof = (emu, at, len = 1) => emu.readBytes(A(emu, 'profile') + at, len).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 const setProf = (emu, at, bytes) => emu.writeBytes(A(emu, 'profile') + at, bytes);
@@ -75,6 +75,7 @@ function besideCaptive(emu) {
 function clearCamp(emu) {
   besideCaptive(emu);
   for (let f = 0; f < 300 && emu.read8(A(emu, 'camp_state')) !== 2; f++) {
+    emu.writeBytes(A(emu, 'camp_left'), [0]);  // (no more coming)
     killAll(emu);
     keepAlive(emu);
     emu.idle(1);
@@ -172,7 +173,10 @@ test('hold: the clock runs while you stay near; enemies come; then they are free
   emu.tap('A').idle(2);
   closeDialog(emu);
   assert.equal(emu.v('rescue_state'), RS_HOLD, 'holding');
-  emu.idle(5 * 60);
+  // (Kept on the spot: a hound's lunge knocks you back, out of reach of them.)
+  const hx = emu.v('player_x', 'u16'), hy = emu.v('player_y', 'u16');
+  const stay = () => { w16(emu, 'player_x', hx); w16(emu, 'player_y', hy); keepAlive(emu); };
+  for (let f = 0; f < 5 * 60; f++) stay(), emu.idle(1);
   const left = emu.v('rescue_timer', 'u16');
   assert.ok(left < 20 && left >= 14, `counting down (${left})`);
   assert.ok(emu.v('actor_count') > 0, 'enemies come at the camp');
@@ -184,6 +188,7 @@ test('hold: the clock runs while you stay near; enemies come; then they are free
   assert.equal(emu.v('rescue_timer', 'u16'), left, 'paused while away');
   besideCaptive(emu);
   for (let f = 0; f < 22 * 60 && !prof(emu, MIS_HAVE); f++) {
+    if (emu.v('rescue_state') === RS_HOLD) stay();
     keepAlive(emu);
     if (f % 30 === 0) killAll(emu);
     if (emu.v('dlg_active')) emu.tap('A');

@@ -21,6 +21,7 @@
 #include "duelist.h"
 #include "tank.h"
 #include "medic.h"
+#include "squad.h"
 #include "elite.h"
 #include "mission.h"
 
@@ -73,10 +74,10 @@ uint8_t shooter_spread;
 uint8_t slime_frames[SPR_SLIME_FRAME_COUNT * 4];
 uint8_t shooter_frames[SPR_PEASHOOTER_FRAME_COUNT * 4];
 uint8_t pea_frames[SPR_PEA_FRAME_COUNT * 4];
-static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames, hound_frames, duelist_frames, tank_frames, medic_frames};
+static const uint8_t *const type_frames[ACTOR_TYPE_COUNT] = {0, slime_frames, shooter_frames, hound_frames, duelist_frames, tank_frames, medic_frames, spider_frames, bulwark_frames, stalker_frames};
 // Per type: XP for a kill, and the cause of a touch (health.h CAUSE_*).
-static const uint8_t type_xp[ACTOR_TYPE_COUNT] = {0, XP_SLIME, XP_PEASHOOTER, XP_HOUND, XP_DUELIST, XP_TANK, XP_MEDIC};
-static const uint8_t type_cause[ACTOR_TYPE_COUNT] = {0, CAUSE_SLIME, CAUSE_PEASHOOTER, CAUSE_HOUND, CAUSE_DUELIST, CAUSE_TANK, CAUSE_MEDIC};
+static const uint8_t type_xp[ACTOR_TYPE_COUNT] = {0, XP_SLIME, XP_PEASHOOTER, XP_HOUND, XP_DUELIST, XP_TANK, XP_MEDIC, XP_SPIDER, XP_BULWARK, XP_STALKER};
+static const uint8_t type_cause[ACTOR_TYPE_COUNT] = {0, CAUSE_SLIME, CAUSE_PEASHOOTER, CAUSE_HOUND, CAUSE_DUELIST, CAUSE_TANK, CAUSE_MEDIC, CAUSE_SPIDER, CAUSE_BULWARK, CAUSE_STALKER};
 uint8_t type_vram[ACTOR_TYPE_COUNT];
 uint8_t bullet_vram;
 
@@ -299,7 +300,8 @@ void actors_update(uint8_t first_oam) {
                     else if (type == ACTOR_HOUND) hound_update(i);
                     else if (type == ACTOR_DUELIST) duelist_update(i);
                     else if (type == ACTOR_TANK) tank_update(i);
-                    else medic_update(i);
+                    else if (type == ACTOR_MEDIC) medic_update(i);
+                    else squad_update(i);
                 } while (--n);
                 if (actor_frame[i] != frame) actor_cache_frame(i);
             }

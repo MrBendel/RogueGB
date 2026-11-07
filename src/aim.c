@@ -5,6 +5,7 @@
 #include <gb/gb.h>
 #include "aim.h"
 #include "bulwark.h"
+#include "squad.h"
 #include "loot.h"
 #include "actor.h"
 #include "player.h"
@@ -486,7 +487,8 @@ static void swing_hits(void) {
     for (uint8_t i = 0, bit = 1; hits; i++, bit <<= 1) {
         if (!(hits & bit)) continue;
         hits &= ~bit;
-        if (actor_guard[i] || (actor_scripted[i]==17 && bulwark_blocks_melee(player_x,player_y))) continue;
+        if (actor_guard[i] || (actor_scripted[i]==17 && bulwark_blocks_melee(player_x,player_y)) ||
+            (actor_type[i] == ACTOR_BULWARK && !actor_scripted[i] && squad_blocks_melee(i, player_x, player_y))) continue;
         swing_hit |= bit;
         actor_hp[i] = actor_hp[i] > dmg ? actor_hp[i] - dmg : 0;
         if (!actor_hp[i]) shots_killed = 1;  // actors_update removes it next frame

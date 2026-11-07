@@ -61,7 +61,7 @@ test("Echo's first contact at the relay plays once per file", () => {
   assert.equal(emu.v('dlg_active'), 0);
 });
 
-const PAGE_SHOP = 5, GUNS = 18, GUN_SIZE = 9, GUN_NONE = 0xff, PACK_SIZE = 89, PACK = 90;
+const PAGE_SHOP = 6, GUNS = 18, GUN_SIZE = 9, GUN_NONE = 0xff, PACK_SIZE = 89, PACK = 90;
 const PISTOL = [0, 0, 1, 0, 0, 0, 0, 0, 0];
 /** In town with credits, talking to Marro: his shop. */
 function atShop(credits) {

@@ -40,6 +40,12 @@ uint16_t saved_seconds;   // run_seconds at the last save
 uint8_t camp_state[LEVEL_CAMPS];
 uint8_t camp_bit0;  // the map's first camp bit in area_camps_cleared: 0, or a building's (level.h INSIDE_CAMP_BIT + door)
 uint8_t camp_actors[LEVEL_CAMPS];
+// An awake camp's reinforcements: how many are still to come, the next one's kind
+// (the roster in turn), its slot, and frames until it comes.
+uint8_t camp_left[LEVEL_CAMPS], camp_kind[LEVEL_CAMPS], camp_next[LEVEL_CAMPS], camp_wait[LEVEL_CAMPS];
+#define CAMP_FIELD 3     // a camp keeps this many up (4 from the third area) ...
+#define CAMP_CALL 75     // ... the next coming this many frames after one falls
+#define CAMP_NEAR 56     // (not at a slot this close to the player: they come from the far side)
 
 extern uint8_t actor_count;  // enemies alive (actor.c)
 
@@ -79,6 +85,7 @@ void descent_resume(void) BANKED {
     memcpy(area_chests_opened, profile.exp_chests, sizeof(area_chests_opened));
     memcpy(area_conts_opened, profile.exp_conts, sizeof(area_conts_opened));
     memcpy(area_inside_opened, profile.exp_inside, sizeof(area_inside_opened));
+    area_seen = profile.exp_seen;
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     // Back from its miniboss (or a continue after): beside the shaft, open now.
@@ -178,6 +185,7 @@ static void autosave(void) {
     memcpy(profile.exp_chests, area_chests_opened, sizeof(profile.exp_chests));
     memcpy(profile.exp_conts, area_conts_opened, sizeof(profile.exp_conts));
     memcpy(profile.exp_inside, area_inside_opened, sizeof(profile.exp_inside));
+    profile.exp_seen = area_seen;
     if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
     save_write();
 }
@@ -186,8 +194,8 @@ static void autosave(void) {
 // map: just inside it.
 static void place_player(uint8_t side) {
     uint8_t s = side == EDGE_N ? 0 : side == EDGE_E ? 1 : side == EDGE_S ? 2 : 3;
-    // The opening's middle, less half the player (an entrance room's doorways are one block).
-    uint16_t at = (uint16_t)(level_open[s] + (level_map == area_start ? 0 : 1)) * BLOCK_SIZE;
+    // The opening's middle, less half the player (indoors, doorways are one block).
+    uint16_t at = (uint16_t)(level_open[s] + (MAP_INDOORS(area_type[level_map]) ? 0 : 1)) * BLOCK_SIZE;
     switch (side) {
     case EDGE_N: player_x = at; player_y = 2 * BLOCK_SIZE - 8; break;
     case EDGE_S: player_x = at; player_y = room_px_h - 3 * BLOCK_SIZE + 4; break;
@@ -203,19 +211,22 @@ static void place_player(uint8_t side) {
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_map = map;
+    area_seen |= (uint16_t)1 << map;
     level_inside = 0xFF;
     chest_bit0 = camp_bit0 = 0;
-    // Each map's tileset (the display is off): the entrance room is indoors.
-    world_load_tiles(map == area_start);
+    // Each map's tileset (the display is off): the entrance room, halls and buildings are indoors.
+    world_load_tiles(MAP_INDOORS(area_type[map]));
     level_build_map(map);  // (an exit map's shaft included)
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
-    // An area's entrance room has the comms device on its upper back wall: the briefing
-    // (the way back to town is its south door: descent_door).
+    // An area's entrance room has the comms device on its back wall, the briefing, and
+    // the goals board (the way back to town is its south door: descent_door).
     talk_clear();
     if (map == area_start) {
-        for (uint8_t b = 0; b < 2; b++)  // (on the wall: from below)
+        for (uint8_t b = 0; b < 2; b++) {  // (on the wall: from below)
             talk_add(COMMS_X + b, COMMS_Y + 1, TALK_COMMS, DLG_AREA_BRIEFING);
+            talk_add(GOALS_X + b, COMMS_Y + 1, TALK_COMMS, TALK_DO_GOALS);
+        }
         talk_init();
     }
     // An exit map's vendor post: its machines (drawn by the map) talk from below.
@@ -238,22 +249,52 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     autosave();
 }
 
-// Wake camp c: its enemies at its slots, from the world's roster, up to
-// 2 + depth of them; in 1 + depth camps in 8, its first is an elite (elite.h).
+// Camp c's next enemy at slot s (the roster in turn); its actor, or ACTOR_MAX.
+static uint8_t call(uint8_t c, uint8_t s) {
+    uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
+    if (room_block_at(x + 8, y + 8) != BLK_FLOOR) return ACTOR_MAX;
+    uint8_t a = actor_spawn(world_squad(layer_depth, camp_kind[c]), x, y);
+    if (a >= ACTOR_MAX) return a;
+    camp_kind[c]++;
+    camp_left[c]--;
+    for (uint8_t o = 0; o < LEVEL_CAMPS; o++) camp_actors[o] &= ~(1 << a);  // a reused slot
+    camp_actors[c] |= 1 << a;
+    return a;
+}
+
+// Wake camp c: a squad of 5 + 2 x depth, the world's roster in turn from a random
+// place in it (so a camp mixes its kinds), CAMP_FIELD of them at its slots at once
+// and the rest as those fall (descent_update). In 1 + depth camps in 8, its first
+// is an elite (elite.h).
 static void wake(uint8_t c) {
-    uint8_t n = 2 + layer_depth, first = 0xFF;
+    uint8_t up = CAMP_FIELD + (layer_depth >= 3), first = 0xFF;
     camp_state[c] = CAMP_AWAKE;
-    for (uint8_t s = 0; s < camp_slots[c] && n; s++) {
-        uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
-        if (room_block_at(x + 8, y + 8) != BLK_FLOOR) continue;
-        uint8_t a = actor_spawn(world_enemy(layer_depth), x, y);
-        if (a >= ACTOR_MAX) break;
-        for (uint8_t o = 0; o < LEVEL_CAMPS; o++) camp_actors[o] &= ~(1 << a);  // a reused slot
-        camp_actors[c] |= 1 << a;
+    camp_left[c] = level_inside != 0xFF ? up : 5 + 2 * layer_depth;  // (a building's guard: no more come)
+    camp_kind[c] = rand();
+    camp_next[c] = 0;
+    camp_wait[c] = CAMP_CALL;
+    for (uint8_t s = 0; s < camp_slots[c] && up; s++) {
+        uint8_t a = call(c, s);
+        if (a == ACTOR_MAX) continue;
         if (first == 0xFF) first = a;
-        n--;
+        up--;
     }
     if (first != 0xFF && (rand() & 7) <= layer_depth) elite_make(first);
+}
+
+// The next of camp c's reinforcements, at a slot away from the player. (A camp
+// with no open slot sends no more: it can still be cleared.)
+static void reinforce(uint8_t c) {
+    uint8_t n = camp_slots[c], open = 0;
+    for (uint8_t k = 0; k < n; k++) {
+        uint8_t s = camp_next[c]++ % n;
+        if (room_block_at(camp_slot_x[c][s] + 8, camp_slot_y[c][s] + 8) != BLK_FLOOR) continue;
+        open = 1;
+        int16_t dx = (int16_t)(camp_slot_x[c][s] - player_x), dy = (int16_t)(camp_slot_y[c][s] - player_y);
+        if (dx > -CAMP_NEAR && dx < CAMP_NEAR && dy > -CAMP_NEAR && dy < CAMP_NEAR) continue;
+        if (call(c, s) < ACTOR_MAX) return;
+    }
+    if (!open) camp_left[c] = 0;
 }
 
 void descent_update(void) BANKED {
@@ -264,7 +305,14 @@ void descent_update(void) BANKED {
         } else if (camp_state[c] == CAMP_AWAKE) {
             uint8_t alive = 0;
             for (uint8_t a = 0; a < ACTOR_MAX; a++)
-                if ((camp_actors[c] & (1 << a)) && actor_type[a] != ACTOR_NONE) alive = 1;
+                if ((camp_actors[c] & (1 << a)) && actor_type[a] != ACTOR_NONE) alive++;
+            if (camp_left[c] && alive < CAMP_FIELD + (layer_depth >= 3)) {
+                if (!--camp_wait[c]) {
+                    camp_wait[c] = CAMP_CALL;
+                    reinforce(c);
+                }
+                continue;  // (not cleared while more are coming)
+            }
             if (!alive) {
                 camp_state[c] = CAMP_CLEARED;
                 area_camps_cleared[level_map] |= 1 << (c + camp_bit0);
@@ -314,7 +362,7 @@ uint8_t level_inside = 0xFF;
 
 uint8_t descent_door(void) BANKED {
     if (shaft_taken) return DESCENT_SHAFT;
-    // An opening is in the outer ring of blocks; stepping into it leaves.
+    // An opening is in the outer ring of blocks; walking through it to the edge leaves.
     int16_t cx = (int16_t)player_x + 8, fy = (int16_t)player_y + 12;
     if (level_inside != 0xFF) return fy > (int16_t)room_px_h - BLOCK_SIZE ? DESCENT_OUTSIDE : 0;
     // The exit map's shaft is guarded (docs/design/runs.md: a miniboss every area):
@@ -330,11 +378,13 @@ uint8_t descent_door(void) BANKED {
         if ((uint8_t)(cx >> 4) == door_bx[k] && player_y + PLAYER_HB_Y <= (uint16_t)door_by[k] * BLOCK_SIZE + 1
             && player_y + PLAYER_HB_Y + PLAYER_HB_H > (uint16_t)door_by[k] * BLOCK_SIZE)
             return DESCENT_INSIDE | k;
+    // Only right at the map's edge, in the opening's outer half (past the edge is a
+    // wall: the hitbox stops with its centre 8, 5, 12 or 4 pixels in, W E N S).
     uint8_t d = 0;
-    if (cx < BLOCK_SIZE) d = EDGE_W;
-    else if (cx > (int16_t)room_px_w - BLOCK_SIZE) d = EDGE_E;
-    else if (fy < BLOCK_SIZE) d = EDGE_N;
-    else if (fy > (int16_t)room_px_h - BLOCK_SIZE) d = EDGE_S;
+    if (cx < 12) d = EDGE_W;
+    else if (cx > (int16_t)room_px_w - 9) d = EDGE_E;
+    else if (fy < 16) d = EDGE_N;
+    else if (fy > (int16_t)room_px_h - 8) d = EDGE_S;
     if (d == EDGE_S && level_map == area_start) return DESCENT_TOWN;  // the entrance's way out
     if (!(area_links[level_map] & d)) return 0;
     return d;

@@ -33,28 +33,35 @@ measure it.
 
 Every area begins in an **entrance room**, like the entrance of a Zelda dungeon: you
 arrive through its **south door** (the way back to town: walk out of it to leave, with
-everything), **doors on 2 or 3 of its other sides** lead into the area, and a **comms
+everything), **doors on its other three sides** lead into the area, and a **comms
 device** gives the objective when you talk to it (for now a general briefing from
 Meridian dispatch; with missions, the mission's own). The generator puts it on the
-area grid's bottom row, so nothing lies south of it.
+area grid's bottom row, away from the corners, so nothing lies south of it and there's a
+map on each of its other sides: three ways in, every time.
 
 It's **indoors**, drawn with the LunarBase interior tileset
 (`content/tilesets/lunar_int.json`), while the area's other maps use the exterior one
 (descent.c loads the tileset by map). It's **made by hand**: the map `entrance` in
-that tileset, 10x12 blocks (2x3 chunks: it scrolls a little), two rooms deep after
-the artist's reference (2026-10-23):
-- **The lower room** (you arrive here): the studded floor with cyan floor lights,
-  orange couches, black-topped counters along the south wall. Its back wall is a white
-  wall across the room with a doorway in the middle, and a machinery face below it
-  (orange lights, riveted plates, screens, a vent) casting a shadow on the floor.
-- **The upper room**: a floor of shiny square plates. On its back wall, the **comms
-  device** (the framed monitor, 2x2 blocks: `COMMS_X`, `COMMS_Y` in level.h) between a
-  starfield window and orange lights. You talk to it from below: the two blocks under
-  it are talkers (`TALK_COMMS`, with no sprite). The east and west doors open off
-  this room.
-- **Doorways** are one block (16 px) wide. The map has the outer ones closed: level.c
-  opens the ones the area links to (the doorway, the jambs either side). The north
-  one is beside the monitor (`ENTRANCE_DOOR_N`) and cuts through the wall face.
+that tileset, 10x8 blocks (2x2 chunks: **one screen**, 2026-11-06; it was two rooms
+deep and scrolled, so you couldn't see your choices from the door):
+- **Every door in sight as you arrive.** The north and south doors are in line
+  (column 4, `ENTRANCE_DOOR_N`), the east and west ones on row 4 (`ENTRANCE_DOOR_EW`),
+  and a **cross of shiny square plates** on the studded floor joins them: the ways
+  on, drawn on the floor.
+- **The back wall**: orange lights, the **comms device** (the framed monitor, 2x2
+  blocks: `COMMS_X`, `COMMS_Y` in level.h) left of the north door, a starfield window
+  right of it, casting a shadow on the floor. You talk to the device from below: the
+  two blocks under it are talkers (`TALK_COMMS`, with no sprite).
+- **The goals board** (2026-11-06), right of the north door (`GOALS_X`): our own art
+  (`artwork/tiles/goals_board.png`, drawn by `tools/make-board-art.mjs` in the orange
+  lights' colours). A from below opens its page (board.c `goals_draw`, `PAGE_GOALS`):
+  the area's goal (find the shaft, beat the miniboss guarding it, by name; once it's
+  beaten, the shaft is open), which way the shaft lies once you've been in its map,
+  the jobs you carry and how they stand, and the maps explored and camps cleared.
+- **The corners** below the cross: orange couches, black-topped counters, cyan floor
+  lights beside the way to the north door.
+- **Doorways** are one block (16 px) wide. The map has them closed: level.c opens
+  them (the doorway, the jambs either side); the north one cuts through the wall face.
 
 The side doorways are stand-ins: the sheet has no side-on doorway. Doors that open
 and close need the artist's art.
@@ -295,6 +302,23 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   rotor arms, bobbing (the machines' palette), tiles 76-83. From area 3 the Moon's
   roster is a medic, a loader, a hound and a duelist. The descent's chests moved to the
   shots' warm orange, glinting white when they can open.
+- **The trials join the camps** (2026-11-05, src/squad.c; asked for "two-D top-down Borderlands":
+  big mixed mobs). Three of the enemy trials became actor kinds any squad can hold, their art in
+  the Color's second VRAM bank after the guns' (tiles 172-191):
+  - **Spider** (the wireweaver; a swarmer, 5 health, 6 XP, the creatures' palette): scuttles in
+    at 1.5 px a frame, sidles across you inside 40 px, flashes 16 frames and lunges (contact
+    damage), rests 30. No web in camps (the trial's web needs the overlay sprites).
+  - **Bulwark** (a shield trooper, 16 health, 14 XP, the machines' palette): walks at you behind
+    a shield facing left or right; shots and swings from in front stop on it. It lowers it to aim
+    (28 frames, flashing) and fire a three-pea burst, then rests 40; inside 28 px it winds up and
+    bashes. Get above, below or behind it.
+  - **Rift stalker** (10 health, 12 XP, the creatures' palette): circles to your side as a
+    flickering shimmer your shots pass through, flashes 26 frames, dashes at you, and stands
+    solid for 48 after. From area 2.
+  The Moon's rosters: area 1 spiders (two slots of eight), a peashooter, a slime, a hound, a
+  duelist, a bulwark, a loader; area 2 spiders (two), a duelist, a stalker, a hound, a bulwark, a
+  medic, a peashooter; area 3 a medic, a bulwark, stalkers (two), a duelist, a spider, a loader,
+  a hound.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
 

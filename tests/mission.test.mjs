@@ -11,7 +11,7 @@ const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
 const CREDITS = 7, LEVEL = 1;  // Profile offsets (save.h) ...
 const MIS_KIND = 227, MIS_TARGET = 230, MIS_NEED = 233, MIS_HAVE = 236, MIS_SEED = 239, MIS_TAKEN = 241;  // ... the missions'
-const CULL = 1, RETRIEVE = 2, BOUNTY = 3, DEBT = 4, RESCUE = 5, PAGE_BOARD = 6, SLIME = 1;
+const CULL = 1, RETRIEVE = 2, BOUNTY = 3, DEBT = 4, RESCUE = 5, PAGE_BOARD = 7, SLIME = 1;
 const prof = (emu, at, len = 1) => emu.readBytes(A(emu, 'profile') + at, len).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 const setProf = (emu, at, bytes) => emu.writeBytes(A(emu, 'profile') + at, bytes);
 const job = (emu, s, kind, target, need, have = 0) => {
@@ -64,7 +64,7 @@ test('offers fit how far you have been: area 1 only asks for its own kinds and b
       setProf(emu, MIS_TAKEN, [0]);
       emu.tap('A').idle(2);
       const kind = prof(emu, MIS_KIND), target = prof(emu, MIS_TARGET);
-      if (kind === CULL) assert.ok([1, 2].includes(target), `area 1's kinds (${target})`);
+      if (kind === CULL) assert.ok([1, 2, 3, 4, 5, 7, 8].includes(target), `area 1's kinds (${target})`);
       if (kind === BOUNTY) assert.equal(target, 0, 'the Claimjaw');
       if (kind === DEBT) assert.ok(prof(emu, MIS_NEED) >= 3);
       emu.hold('DOWN', 2).idle(2);

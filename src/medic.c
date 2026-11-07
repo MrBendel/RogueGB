@@ -12,6 +12,7 @@
 #include "duelist.h"
 #include "tank.h"
 #include "elite.h"
+#include "squad.h"
 
 #define HOVER 0
 #define GLOW 1
@@ -61,7 +62,7 @@ void medic_init(uint8_t v) BANKED {
 
 // A squadmate's full health: its kind's (with the depth's bonus), or an elite's.
 static uint8_t full_hp(uint8_t j) {
-    static const uint8_t base[ACTOR_TYPE_COUNT] = {0, SLIME_HP, SHOOTER_HP, HOUND_HP, DUELIST_HP, TANK_HP, MEDIC_HP};
+    static const uint8_t base[ACTOR_TYPE_COUNT] = {0, SLIME_HP, SHOOTER_HP, HOUND_HP, DUELIST_HP, TANK_HP, MEDIC_HP, SPIDER_HP, BULWARK_HP, STALKER_HP};
     return actor_elite[j] ? elite_top[j] : base[actor_type[j]] + enemy_hp_bonus;
 }
 

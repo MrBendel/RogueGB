@@ -263,7 +263,9 @@ layout with guarantees, and visual rulesets. Design and numbers:
 - Room features built on jumping: pits to cross, raised platforms, moving platforms
 - Beacons end each layer: save point, way back up, later landing site
 - The opening as a shortened layer on a fixed seed with fixed landmarks
-- Minimap on the pause screen
+- Minimap on the pause screen (built 2026-11-04: the MAP tab, where an area's pause opens; the maps been in, the doors from them, you, the way out and the shaft, saved with the expedition)
+- Density (decided 2026-11-04, after playtests found fields empty and samey, then asked for "way more"): 3-4 camps a field; a camp is a squad of 5 + 2 x depth that keeps 3 up (4 from area 3) and sends the rest in from its far side as they fall; each squad takes the world's 8-slot roster in turn, so camps mix kinds. Every kind but the medic is in area 1; medics join in area 2. Set pieces and pipes keep off an opening's mouth. Then (2026-11-05, "make it feel like 2D top-down Borderlands"): the spider, bulwark and rift stalker trials became camp kinds (src/squad.c), spiders the most in area 1. Next: roaming groups between camps, the mercenary's art for the duelist, loot showers
+- Map kinds (2026-11-05, asked for hallways, single-screen rooms and buildings you go through, so areas aren't "all the same"): each area has a yard (one screen), a building or hall you walk through (indoors, level_indoor.c) and two fields at least; a third of the fields with their ways along them are one-screen passes. See "Map kinds" in level-generation.md
 - Built already: the scrolling camera with streaming, lead and clamping (rooms up to 32×24 blocks); the generator skeleton (chunks in `content/chunks`, layer layout with a guaranteed path, rooms from chunks with carved door paths, doors between rooms, combat rooms that stay cleared). See "Built so far" in level-generation.md
 
 **Done when:** a 4-layer descent of 8–12 rooms per layer generates from a seed, the

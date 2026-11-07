@@ -12,6 +12,7 @@
 #include "duelist.h"
 #include "tank.h"
 #include "medic.h"
+#include "squad.h"
 #include "elite.h"
 
 void actors_init(void) BANKED {
@@ -40,6 +41,10 @@ void actors_init(void) BANKED {
     tank_init(TANK_VRAM);
     type_vram[ACTOR_MEDIC] = MEDIC_VRAM;
     medic_init(MEDIC_VRAM);
+    type_vram[ACTOR_SPIDER] = SPIDER_VRAM;
+    type_vram[ACTOR_BULWARK] = BULWARK_VRAM;
+    type_vram[ACTOR_STALKER] = STALKER_VRAM;
+    squad_init();  // (the second VRAM bank)
     elite_init();  // (acid puddles' tiles)
     actors_clear();
     bullets_fired = 0;
@@ -98,6 +103,9 @@ uint8_t actor_spawn(uint8_t type, uint16_t x, uint16_t y) BANKED {
             actor_hp[i] = MEDIC_HP + enemy_hp_bonus;
             actor_timer[i] = 60 + (i << 3);
             actor_try[i] = 0xFF;  // (nobody to drift to yet)
+        } else if (type >= ACTOR_SPIDER) {
+            squad_spawn(i);
+            actor_hp[i] += enemy_hp_bonus;
         } else {
             actor_hp[i] = SHOOTER_HP + enemy_hp_bonus;
             actor_timer[i] = shooter_interval + (i << 4);

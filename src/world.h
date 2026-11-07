@@ -11,7 +11,7 @@
 #define WORLD_LUNAR 0
 #define WORLD_COUNT 1
 
-#define WORLD_ROSTER 4  // a camp's enemy kinds, one drawn per spawn (ACTOR_*: repeats weight them)
+#define WORLD_ROSTER 8  // a camp's enemy kinds, one drawn per spawn (ACTOR_*: repeats weight them)
 #define WORLD_TIERS 3   // rosters by depth: the first area's, the second's, then every deeper one's
 #define WORLD_MINIBOSSES 3
 
@@ -31,6 +31,7 @@ void world_load_tiles(uint8_t indoor) BANKED;  // its outdoor or indoor tileset 
 uint8_t world_roster_kind(uint8_t tier, uint8_t j) BANKED;  // the roster's j-th kind at a tier (missions)
 uint8_t world_miniboss_kind(uint8_t i) BANKED;  // the world's i-th miniboss (MODE_MINIBOSS kind)
 uint8_t world_enemy(uint8_t depth) BANKED;    // a camp's next enemy kind at depth (one rand)
+uint8_t world_squad(uint8_t depth, uint8_t j) BANKED;  // the roster's (j & 7)-th kind at depth: a squad takes them in turn
 uint8_t world_miniboss(uint8_t depth) BANKED; // the miniboss guarding depth's shaft
 
 #endif

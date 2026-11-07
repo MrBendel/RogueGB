@@ -26,7 +26,10 @@
 #define ACTOR_DUELIST 4     // duelist: sidesteps, aims, fires a burst, reloads (duelist.c)
 #define ACTOR_TANK 5        // tank: rolls slowly at you, warns, slams a ring of peas (tank.c)
 #define ACTOR_MEDIC 6       // support: hangs back, heals its squad in pulses (medic.c)
-#define ACTOR_TYPE_COUNT 7
+#define ACTOR_SPIDER 7      // swarmer: scuttles in, sidles, lunges (squad.c)
+#define ACTOR_BULWARK 8     // shield trooper: blocks shots from in front, bursts, bashes (squad.c)
+#define ACTOR_STALKER 9     // shimmer: shots pass through until it dashes; exposed after (squad.c)
+#define ACTOR_TYPE_COUNT 10
 // Odd kinds (slime, hound, loader) are drones and creatures, drawn in SPR_PAL_SLIME;
 // even ones (peashooter, duelist, medic) turrets, mercs and the corporation's
 // drones, in SPR_PAL_SHOOTER: a world sets both (world.c).

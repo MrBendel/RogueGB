@@ -15,9 +15,11 @@
 #define PAGE_SKILLS 2
 #define PAGE_OPTIONS 3
 #define PAGE_TUNE 4  // only without a file (the lab, the yard)
-#define PAGES 5
-#define PAGE_SHOP 5  // Marro's shop (opened by talking to him in town; not one of the pages)
-#define PAGE_BOARD 6  // the contracts board (talking to its terminal in town; board.c)
+#define PAGE_MAP 5  // the area's maps (only in an area, with a file)
+#define PAGES 6
+#define PAGE_SHOP 6  // Marro's shop (opened by talking to him in town; not one of the pages)
+#define PAGE_BOARD 7  // the contracts board (talking to its terminal in town; board.c)
+#define PAGE_GOALS 8  // the entrance room's goals board: the area's goal, your jobs (board.c)
 #define SHOP_STOCK 3  // guns; then the backpack upgrade, while there is one
 
 // --- watchable state ---

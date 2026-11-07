@@ -27,7 +27,7 @@ function ironclad() {
   return emu;
 }
 /** Pause, on the skills page (LEFT/RIGHT turn the pause menu's pages). */
-const skillsPage = (emu) => emu.tap('START').idle(2).tap('RIGHT').idle(4).tap('RIGHT').idle(4);  // (past the gear page)
+const skillsPage = (emu) => emu.tap('START').idle(2).tap('RIGHT').idle(4).tap('RIGHT').idle(4);  // (in town: past the gear page)
 
 test('a new file asks for a class; it is saved with the file', () => {
   const emu = newFile(2);
