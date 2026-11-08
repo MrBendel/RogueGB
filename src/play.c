@@ -613,9 +613,11 @@ void play_update(void) BANKED {
     // bullets can move and draw in one pass against this frame's camera.
     camera_update(player_x + 8, player_y + 8, player_vx, player_vy);
     // Boss hazards reserve entries ahead of projectiles so crowded shot pools
-    // cannot hide damaging beams or floor claims. Talkers and loot come next (few,
-    // standing still; never in a boss's room), then actors and shots.
-    uint8_t first = talk_count ? talk_draw(play_actor_oam) : play_actor_oam;
+    // cannot hide damaging beams or floor claims. Enemy bullets come next (so a
+    // crowd never hides what can kill you), then talkers and loot (few, standing
+    // still; never in a boss's room), then actors and shots.
+    uint8_t first = actors_bullets(play_actor_oam);
+    if (talk_count) first = talk_draw(first);
     if (rescue_state == RS_FOLLOW) first = rescue_draw(first);
     if (pickups_on) first = pickups_draw(first);
     if (acid_puddles) first = elite_puddles(first);

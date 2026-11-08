@@ -245,6 +245,16 @@ static void update_bullets(void) {
     }
 }
 
+// Enemy bullets move and draw from `first_oam` on; returns the next free sprite.
+// They go before everything else that moves: a lower sprite index wins when more
+// than 10 sprites share a line or OAM runs out, and a bullet you can't see is
+// one you can't dodge. An enemy or a chest flickering is only a nuisance.
+uint8_t actors_bullets(uint8_t first_oam) {
+    oam_next = first_oam;
+    update_bullets();
+    return oam_next;
+}
+
 // The player's shots (shots.s): set up its inputs, then remove enemies a shot
 // finished off.
 static void update_shots(void) {
@@ -321,25 +331,15 @@ void actors_update(uint8_t first_oam) {
             }
         }
     }
-    // Draw: actors (actor_draw.s), then the player's shots and enemy bullets as
-    // they move (shots.s, bullets.s).
+    // Draw: actors (actor_draw.s), then the player's shots as they move (shots.s).
+    // Enemy bullets were drawn first, in actors_bullets.
     oam_next = first_oam;
     if (boss_kind == BOSS_GLOBFATHER) globfather_emit();
     else if (actor_count) actors_emit();
     if (boss_kind == BOSS_CRAGBACK) cragback_emit();
-    // Warden reserves slots 15-22 for floor fields. Prioritize its enemy
-    // volleys over player projectiles. Keep the ordinary path to one branch.
-    if (first_oam == 23 || boss_kind == BOSS_GLOBFATHER) {
-        update_bullets();
-        if (shot_count) update_shots();
-        if (shots_killed) reap();
-        actors_active = actor_count;
-    } else {
-        if (shot_count) update_shots();
-        if (shots_killed) reap();
-        actors_active = actor_count;
-        update_bullets();
-    }
+    if (shot_count) update_shots();
+    if (shots_killed) reap();
+    actors_active = actor_count;
     uint8_t used = oam_next;
     sprites_used = used;
     // Hide whatever was drawn last frame beyond this frame's sprites.
