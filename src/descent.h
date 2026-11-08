@@ -34,6 +34,13 @@ void descent_start(uint16_t seed) BANKED;             // a new descent, in the f
 void descent_resume(void) BANKED;                     // the profile's expedition (save.h), at its map
 void descent_enter(uint8_t map, uint8_t side) BANKED; // build a map and place the player (display off)
 void descent_update(void) BANKED;                     // per frame: camps wake and clear
+// An enemy warping in (a camp's, an ambush's): for frames it's a glow on the floor,
+// then a beam, then it flickers in; till then it can't hurt you or be hit.
+#define WARP_FRAMES 40  // a reinforcement's or an ambush's
+#define WARP_FIRST 28   // a camp's first wave (it shouldn't feel slow to start)
+#define ACTOR_WARPING 16  // its actor_scripted meanwhile (15 and up: no touch)
+extern uint8_t warp_left[8], warps;  // (ACTOR_MAX)
+void descent_warp(uint8_t a, uint8_t frames) BANKED;
 uint8_t descent_door(void) BANKED;                    // per frame: the opening walked into (EDGE_*), the shaft, or 0
 void descent_change_room(uint8_t door) BANKED;        // fade to the map through that opening, or down the shaft
 

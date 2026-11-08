@@ -133,6 +133,8 @@ test('an elite in a camp: twice the health, its name on the HUD, the hot colours
   const base = { 1: 3, 2: 4, 3: 5, 4: 6, 5: 14, 6: 5, 7: 5, 8: 16, 9: 10 }[type] + emu.v('enemy_hp_bonus');
   assert.equal(hp, base * 2 + 2, 'twice the health');
   const elite = r8(emu, 'actor_elite', i);
+  assert.equal(r8(emu, 'actor_scripted', i), 16, 'warping in first (descent.h ACTOR_WARPING)');
+  emu.idle(30);  // (a first wave's warp: WARP_FIRST)
   assert.equal(r8(emu, 'actor_p0', i) & 7, SPR_PAL_BULLET, 'drawn hot');
   const name = String.fromCharCode(...emu.readBytes(addr(emu, 'hud_text'), 7));
   assert.equal(name, { 1: 'SWIFT! ', 2: 'BOMBER!', 3: 'SHIELD!', 4: 'ACID!  ' }[elite], 'named');

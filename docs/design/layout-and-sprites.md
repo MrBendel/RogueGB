@@ -127,6 +127,7 @@ Tile numbers 0..127:
 [108 .. 125] : Talkers (talk.c): 4 kinds x 4, then the bubble's 2. In the descent a
                rescued person (rescue.c) uses 108-111; in town people go at 16+ (no enemies)
 [106 .. 107] : Duelist actor tiles, column 3 (after the chest's item, outside boss fights)
+[126 .. 127] : The warp-in beam (descent.c; the descent only), its left column, mirrored
 [096 .. 127] : MACHINE_VRAM (32 tiles = 8 metasprite frames, 4 tiles each)
                - Frame 0: Closed Warden
                - Frame 1: Exposed Warden

@@ -238,7 +238,8 @@ static void hold(void) {
         uint16_t x = cx + ring_x[d] * far, y = cy + ring_y[d] * far;
         if (x >= room_px_w - 32 || y >= room_px_h - 32 || x < 16 || y < 16) continue;
         if (room_block_at(x + 2, y + 4) != BLK_FLOOR || room_block_at(x + 13, y + 15) != BLK_FLOOR) continue;
-        actor_spawn(world_enemy(layer_depth), x, y);
+        uint8_t a = actor_spawn(world_enemy(layer_depth), x, y);
+        if (a < ACTOR_MAX) descent_warp(a, WARP_FRAMES);
         return;
     }
 }

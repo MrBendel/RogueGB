@@ -320,6 +320,54 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   assert.fail('no camp found beside the start map');
 });
 
+test("a camp's enemies warp in: a glow on the floor, a beam, then they flicker in; harmless and unhittable till then", () => {
+  const WARPING = 16, WARP_FIRST = 28;  // descent.h
+  for (let wait = 0; wait < 60; wait += 7) {
+    const emu = startDescent(bootToTitle(), 4242 + wait);
+    const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+    leaveBy(emu, [1, 2, 4, 8].find((x) => links & x));
+    if (!emu.v('level_camps')) continue;
+    for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+    for (let c = 0; c < 4; c++) emu.write8(addr(emu, 'camp_state') + c, CAMP_CLEARED);
+    // Beside it, the camera settled, then camp 0 woken afresh (as if just walked up to).
+    const cx = words(emu, 'camp_x', 1)[0], cy = words(emu, 'camp_y', 1)[0];
+    const side = cx > 120 ? -1 : 1;
+    w16(emu, 'player_x', cx - 8 + side * 56);
+    w16(emu, 'player_y', cy + 8);
+    emu.idle(120);
+    emu.write8(addr(emu, 'camp_state'), CAMP_ASLEEP);
+    emu.idle(1);
+    assert.equal(emu.v('camp_state'), CAMP_AWAKE);
+    const warping = [...Array(8).keys()].filter((i) => emu.read8(addr(emu, 'actor_type') + i));
+    assert.ok(warping.length > 0, 'its first wave');
+    for (const i of warping) {
+      assert.equal(emu.read8(addr(emu, 'actor_scripted') + i), WARPING, `enemy ${i} warping in`);
+      assert.equal(emu.read8(addr(emu, 'actor_guard') + i), 1, `enemy ${i} can't be hit (shots, the sword and the aim pass it by)`);
+    }
+    const a = warping[0];
+    emu.idle(3);
+    assert.equal(emu.read8(addr(emu, 'actor_t0') + a), 8, 'the glow on the floor first');
+    matchGolden(emu, 'warp-glow');
+    emu.idle(8);  // (and on screen: the sprites go up a frame after they're set)
+    assert.equal(emu.read8(addr(emu, 'actor_t0') + a), 126, 'then the beam');
+    matchGolden(emu, 'warp-beam');
+    // Standing in it does nothing.
+    const hits = emu.v('player_hits', 'u16') + emu.v('shield_hits', 'u16');
+    w16(emu, 'player_x', emu.read16(addr(emu, 'actor_x') + a * 2));
+    w16(emu, 'player_y', emu.read16(addr(emu, 'actor_y') + a * 2));
+    emu.idle(4);
+    assert.equal(emu.v('player_hits', 'u16') + emu.v('shield_hits', 'u16'), hits, 'no touch while it warps');
+    emu.idle(WARP_FIRST - 15);
+    for (const i of warping) {
+      if (!emu.read8(addr(emu, 'actor_type') + i)) continue;
+      assert.equal(emu.read8(addr(emu, 'actor_scripted') + i), 0, `enemy ${i} let loose`);
+      assert.equal(emu.read8(addr(emu, 'actor_guard') + i), 0, `enemy ${i} hittable`);
+    }
+    return;
+  }
+  assert.fail('no camp found beside the start map');
+});
+
 test("the first area's maps draw on every kind but the medic and the stalker; from the second they join; the third has stalkers, bulwarks and medics; a map keeps to 2 kinds (3 deeper)", () => {
   const kinds = { 1: new Set(), 2: new Set(), 3: new Set() };
   for (const depth of [1, 2, 3])
@@ -461,9 +509,15 @@ test("a hab module's door leads into its interior and back out onto its step", (
   // The side walls are a strip in the outer half of their blocks: you walk right up to them.
   const [px, py] = [emu.v('player_x', 'u16'), emu.v('player_y', 'u16')];
   w16(emu, 'player_y', 5 * 16 - 8);  // (the row between the couches and the counters)
-  emu.hold('LEFT', 60);
+  const walk = (dir, n) => {  // (its guards cleared as you go: just the walls)
+    for (let f = 0; f < n; f++) {
+      for (let k = 0; k < 8; k++) emu.write8(addr(emu, 'actor_type') + k, 0);
+      emu.hold(dir, 1);
+    }
+  };
+  walk('LEFT', 60);
   assert.equal(emu.v('player_x', 'u16') + 3, 8, 'the hitbox against the west wall strip');
-  emu.hold('RIGHT', 150);
+  walk('RIGHT', 150);
   assert.equal(emu.v('player_x', 'u16') + 3 + 10, 9 * 16 + 8, 'and against the east one');
   w16(emu, 'player_x', px);
   w16(emu, 'player_y', py);

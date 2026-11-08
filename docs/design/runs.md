@@ -322,6 +322,10 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   A map draws only 2 of these kinds (3 from area 2), different ones, repeats weighting the
   draw, from a seed of the area and the map (world.c world_squad): every camp there, its
   reinforcements and an ambush keep to them, so a room never throws the whole roster at you.
+  Each one warps in (descent.c descent_warp): a glow on the floor, then a beam of light
+  pulsing cyan and white, then it flickers in; till then it can't touch you or be hit,
+  and the aim passes it by. A camp's first wave takes 28 frames, a reinforcement or an
+  ambush 40 (the beam the last 22 of either), with a rising shimmer of a sound.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
 
