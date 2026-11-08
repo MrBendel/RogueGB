@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { decodePng } from './assets.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -137,59 +138,6 @@ const CYBORG_BACK = [
 ];
 const CYBORG_LEGS = ['....323..323....', '....323..323....', '...3223..3223...'];
 const CYBORG_STEP = ['....323..323....', '....323...3223..'];
-// The hooded one, from the user's Characters.png: a deep hood with two eyes in
-// its dark, a long robe. The side view is the user's drawing.
-const HOODED_SIDE = [
-  '.....3212111....',
-  '.....32222221...',
-  '.....32222222...',
-  '.....32233333...',
-  '.....32231331...',
-  '...2313233333...',
-  '....232233333...',
-  '....233222122...',
-  '....2.32233221..',
-  '......32233221..',
-  '.....1222323221.',
-  '...122222222322.',
-  '...322223333322.',
-];
-const HOODED_STRIDE = ['....32233333322.', '......3332323...', '.....332...333..'];
-const HOODED_PASS = ['....32233333322.', '.......3333.....'];
-const HOODED_STRIDE_2 = ['....32233333322.', '......3323333...', '......333..332..'];
-const HOODED_PASS_2 = ['....32233333322.', '......33333.....'];
-const HOODED_FRONT = [
-  '.....333333.....',
-  '....32111123....',
-  '...3211222223...',
-  '...3213333323...',
-  '...3231331323...',
-  '...3223333223...',
-  '....32222223....',
-  '...3221222223...',
-  '..322122223223..',
-  '..321222223223..',
-  '..322222232223..',
-  '..322222232223..',
-  '..333333333333..',
-];
-const HOODED_BACK = [
-  '.....333333.....',
-  '....32111123....',
-  '...3211222223...',
-  '...3212222223...',
-  '...3212222223...',
-  '...3222222223...',
-  '....32222223....',
-  '...3222222223...',
-  '..322222222223..',
-  '..321222232223..',
-  '..322222232223..',
-  '..322222232223..',
-  '..333333333333..',
-];
-const HOODED_LEGS = ['....333..333....', '....33....33....', '...333....333...'];
-const HOODED_STEP = ['....333..333....', '....33....333...'];
 const flip = (rows) => rows.map((r) => [...r].reverse().join(''));
 const swap = (rows, swaps) => rows.map((r, y) => swaps[y] ?? r);
 
@@ -231,79 +179,12 @@ const CHARACTERS = {
       '................',
     ],
   },
+  // The Shadow cloak: the user's own drawing (artwork/hooded/shadow cloak sheet.png),
+  // a sheet of 16x16 frames, 4 across: rows walk down, up, left and right, then a
+  // roll (right), and, when drawn, a roll down and a roll up.
   hooded: {
-    palette: ['#e0f8d0', '#346856', '#081820'],
-    walk: {
-      down: [body(HOODED_FRONT, 0, HOODED_LEGS), body(HOODED_FRONT, 1, HOODED_STEP), body(HOODED_FRONT, 0, HOODED_LEGS), body(HOODED_FRONT, 1, flip(HOODED_STEP))],
-      up: [body(HOODED_BACK, 0, HOODED_LEGS), body(HOODED_BACK, 1, HOODED_STEP), body(HOODED_BACK, 0, HOODED_LEGS), body(HOODED_BACK, 1, flip(HOODED_STEP))],
-      right: [
-        body(HOODED_SIDE, 0, HOODED_STRIDE),
-        body(HOODED_SIDE, 1, HOODED_PASS),
-        body(HOODED_SIDE, 0, HOODED_STRIDE_2),
-        body(HOODED_SIDE, 1, HOODED_PASS_2),
-      ],
-    },
-    // Eyes shut.
-    hurt: {
-      down: body(swap(HOODED_FRONT, { 4: '...3233333323...' }), 0, HOODED_LEGS),
-      up: body(HOODED_BACK, 0, HOODED_LEGS),
-      right: body(swap(HOODED_SIDE, { 4: '.....32233333...' }), 0, HOODED_STRIDE),
-    },
-    ball: [
-      '................',
-      '................',
-      '.....333333.....',
-      '....32111123....',
-      '...3211222223...',
-      '...3213333323...',
-      '...3231331323...',
-      '..322333333223..',
-      '..321222222223..',
-      '..322222232223..',
-      '...3333333333...',
-      '....33333333....',
-      '................',
-      '................',
-      '................',
-      '................',
-    ],
-  },
-  cyborg: {
-    palette: ['#a8f0e8', '#7c8c84', '#18202a'],
-    walk: {
-      down: [body(CYBORG_FRONT, 0, CYBORG_LEGS), body(CYBORG_FRONT, 1, CYBORG_STEP), body(CYBORG_FRONT, 0, CYBORG_LEGS), body(CYBORG_FRONT, 1, flip(CYBORG_STEP))],
-      up: [body(CYBORG_BACK, 0, CYBORG_LEGS), body(CYBORG_BACK, 1, CYBORG_STEP), body(CYBORG_BACK, 0, CYBORG_LEGS), body(CYBORG_BACK, 1, flip(CYBORG_STEP))],
-      right: [
-        body(CYBORG_SIDE, 0, CYBORG_STRIDE),
-        body(CYBORG_SIDE, 1, CYBORG_PASS),
-        body(CYBORG_SIDE, 0, CYBORG_STRIDE_2),
-        body(CYBORG_SIDE, 1, CYBORG_PASS_2),
-      ],
-    },
-    // The lens out.
-    hurt: {
-      down: body(swap(CYBORG_FRONT, { 3: '....31111123....' }), 0, CYBORG_LEGS),
-      up: body(CYBORG_BACK, 0, CYBORG_LEGS),
-      right: body(swap(CYBORG_SIDE, { 2: '......3313333...', 3: '......3313333...' }), 0, CYBORG_STRIDE),
-    },
-    ball: [
-      '................',
-      '................',
-      '......3333......',
-      '.....311123.....',
-      '....31111123....',
-      '....31331323....',
-      '...3333223333...',
-      '..322333333223..',
-      '..321333333123..',
-      '..322333333223..',
-      '...3333333333...',
-      '....33333333....',
-      '................',
-      '................',
-      '................',
-      '................',
-    ],
+    palette: ['#b8c8f0', '#3c4878', '#0c1020'],  // shadow indigo
+    sheet: 'artwork/hooded/shadow cloak sheet.png',
   },
 };
 
@@ -323,8 +204,9 @@ function grid(list) {
 const blank = () => new Array(16).fill(0);
 const mirror = (g) => g.map((r) => [...r].reverse());
 const rotate = (g) => g.map((r, y) => r.map((_, x) => g[15 - x][y]));  // a quarter clockwise
-/** Every animation from a character's walk.{down,up,right}, hurt.{down,up,right} and ball. */
+/** Every animation from a character's walk.{down,up,right}, hurt.{down,up,right} and ball (or its sheet). */
 function frames(ch) {
+  if (ch.sheet) return sheetFrames(ch);
   const out = {};
   for (const d of ['down', 'up', 'right']) out[`walk ${d}`] = ch.walk[d].map(grid);
   // Knocked back a pixel, away from the way you face.
@@ -339,6 +221,74 @@ function frames(ch) {
   out['roll right'] = turns;
   out['roll down'] = turns;
   out['roll up'] = [turns[0], turns[3], turns[2], turns[1]];
+  return out;
+}
+
+// A hand-drawn sheet's frames: each is cut from its own spot (the frames aren't on
+// an exact grid), its top at its row's top (so a step's bob stays), and placed
+// across its 16 columns where its top half best overlays the row's first frame
+// (centred), so the head doesn't wobble through a walk.
+function cutSheet(file) {
+  const img = decodePng(fs.readFileSync(path.join(ROOT, file)));
+  const W = img.width, H = img.height, on = (x, y) => img.rgba[(y * W + x) * 4 + 3] > 127;
+  const runs = (n, empty) => {
+    const r = [];
+    let s = -1;
+    for (let i = 0; i <= n; i++) {
+      const e = i === n || empty(i);
+      if (!e && s < 0) s = i;
+      if (e && s >= 0) { r.push([s, i - 1]); s = -1; }
+    }
+    return r;
+  };
+  const cols = runs(W, (x) => { for (let y = 0; y < H; y++) if (on(x, y)) return false; return true; });
+  const rows = runs(H, (y) => { for (let x = 0; x < W; x++) if (on(x, y)) return false; return true; });
+  // Shades by brightness: lightest 1, then 2, darkest 3.
+  const lum = new Map();
+  for (let i = 0; i < W * H; i++) if (img.rgba[i * 4 + 3] > 127) lum.set(img.rgba[i * 4] * 3 + img.rgba[i * 4 + 1] * 6 + img.rgba[i * 4 + 2], 0);
+  const order = [...lum.keys()].sort((p, q) => q - p);
+  if (order.length > 3) throw new Error(`${file}: ${order.length} colours, not 3`);
+  const shade = (x, y) => (on(x, y) ? 1 + order.indexOf(img.rgba[(y * W + x) * 4] * 3 + img.rgba[(y * W + x) * 4 + 1] * 6 + img.rgba[(y * W + x) * 4 + 2]) : 0);
+  return rows.map(([y0, y1]) => {
+    if (y1 - y0 > 15) throw new Error(`${file}: a row ${y1 - y0 + 1} tall`);
+    let first = null;
+    return cols.map(([c0, c1]) => {
+      // (this frame's own columns: a column of frames is as wide as its widest)
+      let x0 = c1, x1 = c0;
+      for (let y = y0; y <= y1; y++) for (let x = c0; x <= c1; x++) if (on(x, y)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+      const w = x1 - x0 + 1;
+      if (w > 16) throw new Error(`${file}: a frame ${w} wide`);
+      const at = (ox) => Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => {
+        const sx = x0 + x - ox, sy = y0 + y;
+        return sx >= x0 && sx <= x1 && sy <= y1 ? shade(sx, sy) : 0;
+      }));
+      let best = at((16 - w) >> 1);
+      if (first) {
+        let score = -1;
+        for (let ox = 0; ox <= 16 - w; ox++) {
+          const g = at(ox);
+          let n = 0;
+          for (let y = 0; y < 8; y++) for (let x = 0; x < 16; x++) if (g[y][x] && g[y][x] === first[y][x]) n++;
+          if (n > score) { score = n; best = g; }
+        }
+      }
+      first ??= best;
+      return best;
+    });
+  });
+}
+
+function sheetFrames(ch) {
+  const [down, up, left, right, roll, rollDown, rollUp] = cutSheet(ch.sheet);
+  const out = { 'walk down': down, 'walk up': up, 'walk right': right, 'walk left': left };
+  // Knocked back a pixel, away from the way you face (a standing frame).
+  out['hurt down'] = [...down[0].slice(1), blank()];
+  out['hurt up'] = [blank(), ...up[0].slice(0, 15)];
+  out['hurt right'] = right[0].map((r) => [...r.slice(1), 0]);
+  out.falling = [down[0], right[0], up[0], left[0]];
+  out['roll right'] = roll;
+  out['roll down'] = rollDown ?? roll;  // (rows 6 and 7 when drawn; till then the side roll)
+  out['roll up'] = rollUp ?? roll;
   return out;
 }
 
@@ -370,6 +320,7 @@ const FILES = {
   'walk down': (i) => `player walk down (${i + 1}).png`,
   'walk up': (i) => `player walk up (${i + 1}).png`,
   'walk right': (i) => `player walk right (${i + 1}).png`,
+  'walk left': (i) => `player walk left (${i + 1}).png`,
   'hurt down': () => 'player hurt down.png',
   'hurt up': () => 'player hurt up.png',
   'hurt right': () => 'player hurt right.png',
@@ -396,7 +347,8 @@ if (process.argv.includes('--show')) {
   // Per character: a row of every frame at 6x, then the walks at 1x and 3x.
   const S = 6, PAD = 4, FLOOR = [0xd8, 0xd0, 0xb0, 255], BG = [0x30, 0x30, 0x38, 255];
   const names = Object.keys(all), order = Object.keys(FILES);
-  const perRow = order.reduce((n, a) => n + (isList(all[names[0]].f[a]) ? all[names[0]].f[a].length : 1), 0);
+  const count = (f) => order.reduce((n, a) => n + (!f[a] ? 0 : isList(f[a]) ? f[a].length : 1), 0);
+  const perRow = Math.max(...names.map((n) => count(all[n].f)));
   const W = perRow * (16 * S + PAD) + PAD, rowH = 16 * S + PAD * 3 + 16 * 3 + PAD;
   const H = names.length * rowH;
   const img = Array.from({ length: H }, () => Array.from({ length: W }, () => BG));
@@ -410,12 +362,12 @@ if (process.argv.includes('--show')) {
     const { pal, f } = all[name];
     const y0 = ci * rowH + PAD;
     let x = PAD;
-    for (const a of order) for (const g of isList(f[a]) ? f[a] : [f[a]]) { blit(g, pal, x, y0, S); x += 16 * S + PAD; }
+    for (const a of order.filter((a) => f[a])) for (const g of isList(f[a]) ? f[a] : [f[a]]) { blit(g, pal, x, y0, S); x += 16 * S + PAD; }
     const y1 = y0 + 16 * S + PAD;
     x = PAD;
-    for (const a of ['walk down', 'walk right', 'walk up']) for (const g of f[a]) { blit(g, pal, x, y1, 1); x += 18; }
+    for (const a of ['walk down', 'walk right', 'walk up', 'walk left'].filter((a) => f[a])) for (const g of f[a]) { blit(g, pal, x, y1, 1); x += 18; }
     x += 20;
-    for (const a of ['walk down', 'walk right', 'walk up']) for (const g of f[a]) { blit(g, pal, x, y1, 3); x += 16 * 3 + 2; }
+    for (const a of ['walk down', 'walk right', 'walk up', 'walk left'].filter((a) => f[a])) for (const g of f[a]) { blit(g, pal, x, y1, 3); x += 16 * 3 + 2; }
   });
   const out = path.join(ROOT, 'build', 'characters.png');
   fs.mkdirSync(path.dirname(out), { recursive: true });

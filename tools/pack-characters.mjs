@@ -36,11 +36,7 @@ export const PACK_CHARACTERS = {
     palette: ['#e0ecb8', '#5a6e36', '#141c10'],
     edit(g, dir, head) { CAP[dir].forEach((row, y) => put(g, head + y, row)); },
   },
-  // The conjurer's hood, in purple; its eyes glow in the dark of it.
-  hooded: {
-    sheet: '06-conjurer.png', at: [2, 0],
-    palette: ['#f0d8ff', '#6c4c9c', '#1c1030'],
-  },
+  // (The hooded one is the user's own Shadow cloak: tools/make-character-art.mjs.)
   // The white-haired one: the hair a metal dome, the face grey plate, one eye a lens.
   cyborg: {
     sheet: '01-generic.png', at: [3, 0],

@@ -75,6 +75,8 @@ export const ASSETS = [
     kind: 'sprite',
     bank: true,
     get dir() { return characterDir(who); },
+    // (The Shadow cloak has its own walk left, drawn: listed last, where the mirrored
+    // one would be, so the animations keep spr_player's order.)
     anims: {
       walk_down: numbered('player walk down', 4),
       walk_up: numbered('player walk up', 4),
@@ -86,8 +88,9 @@ export const ASSETS = [
       roll_down: numbered('player roll down', 4),
       roll_up: numbered('player roll up', 4),
       roll_right: numbered('player roll right', 4),
+      ...(who === 'hooded' ? { walk_left: numbered('player walk left', 4) } : {}),
     },
-    mirror: { walk_left: 'walk_right', hurt_left: 'hurt_right', roll_left: 'roll_right' },
+    mirror: { ...(who === 'hooded' ? {} : { walk_left: 'walk_right' }), hurt_left: 'hurt_right', roll_left: 'roll_right' },
   })),
   {
     name: 'spr_adventurer',
