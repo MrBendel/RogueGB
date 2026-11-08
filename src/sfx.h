@@ -40,7 +40,8 @@
 #define SFX_RELAY 23     // Echo's channel opens: a crackle
 #define SFX_CHIME 24     // the company's three-note chime (its messages)
 #define SFX_LEVEL 25     // a level up: a rising fanfare
-#define SFX_COUNT 26
+#define SFX_WARP 26      // an enemy warping in: a rising shimmer
+#define SFX_COUNT 27
 
 // --- watchable state ---
 extern uint8_t sfx_last;      // the last sound started (0xFF: none yet)

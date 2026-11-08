@@ -25,8 +25,10 @@
 #include "weapon.h"
 #include "loot.h"
 #include "mission.h"
+#include "input.h"
 #include "health.h"
 #include "sfx.h"
+#include "actor_internal.h"
 #include <string.h>
 #include <rand.h>
 #include "elite.h"
@@ -48,6 +50,69 @@ uint8_t camp_left[LEVEL_CAMPS], camp_kind[LEVEL_CAMPS], camp_next[LEVEL_CAMPS], 
 #define CAMP_NEAR 56     // (not at a slot this close to the player: they come from the far side)
 
 extern uint8_t actor_count;  // enemies alive (actor.c)
+
+// Warping in (descent_warp): the floor glow is the player's jump shadow (its tiles,
+// player_setup.c), the beam our own column at 126-127 (free in the descent: after
+// the talkers' bubble), mirrored for its right half; both in the creatures' palette
+// (the Moon's cyan and slate), pulsing with the UI's (white, grey).
+#define WARP_GLOW_VRAM 8
+#define BEAM_VRAM 126
+#define WARP_BEAM 22  // the beam for the last frames from here (the tell: bright, and most of it) ...
+#define WARP_SOLID 6  // ... the enemy flickering through it for the last few
+uint8_t warp_left[ACTOR_MAX];  // frames to go, per actor
+uint8_t warps;                 // the actors warping in (a bit each)
+// (Left column, rows 0-15, 2 bytes a row; colour 1 cyan, 2 slate: a column of light
+// with sparks off its edge, flaring onto the floor.)
+static const uint8_t beam_tiles[32] = {
+    0x03, 0x04, 0x03, 0x04, 0x27, 0x08, 0x07, 0x08, 0x07, 0x08, 0x07, 0x08, 0x27, 0x08, 0x07, 0x08,
+    0x07, 0x08, 0x07, 0x08, 0x27, 0x08, 0x07, 0x08, 0x07, 0x08, 0x0F, 0x30, 0x1F, 0x60, 0x00, 0x3F,
+};
+
+static void warp_tiles(void) {  // (the display off)
+    set_sprite_data(BEAM_VRAM, 2, beam_tiles);
+    warps = 0;
+}
+
+// Its look at t frames to go: the glow, or the beam (pulsing with the UI's palette).
+static void warp_art(uint8_t a, uint8_t t) {
+    uint8_t pal = t & 4 ? SPR_PAL_UI : SPR_PAL_SLIME;
+    actor_t0[a] = actor_t1[a] = t < WARP_BEAM ? BEAM_VRAM : WARP_GLOW_VRAM;
+    actor_p0[a] = pal;
+    actor_p1[a] = pal | S_FLIPX;
+}
+
+void descent_warp(uint8_t a, uint8_t frames) BANKED {
+    actor_scripted[a] = ACTOR_WARPING;
+    actor_guard[a] = 1;  // (shots, the sword and the aim pass it by)
+    warp_left[a] = frames;
+    warps |= 1 << a;
+    warp_art(a, frames);  // (from its first frame: never a glimpse of it)
+    sfx_play(SFX_WARP);
+}
+
+// Per frame: each one warping in drawn as its stage (over what its own update or an
+// elite's set), then let loose.
+static void warp_tick(void) {
+    for (uint8_t a = 0, bit = 1; a < ACTOR_MAX; a++, bit <<= 1) {
+        if (!(warps & bit)) continue;
+        if (actor_type[a] == ACTOR_NONE || actor_scripted[a] != ACTOR_WARPING) {
+            warps &= ~bit;  // (gone, or its slot reused)
+            continue;
+        }
+        uint8_t t = --warp_left[a];
+        if (!t) {
+            actor_scripted[a] = actor_guard[a] = 0;
+            actor_cache_frame(a);
+            warps &= ~bit;
+            continue;
+        }
+        if (t < WARP_SOLID && (t & 2)) {
+            actor_cache_frame(a);  // (its own frame, every other pair of frames)
+            continue;
+        }
+        warp_art(a, t);
+    }
+}
 
 #define WAKE_X 112  // px from a camp's middle at which it wakes (about a screen)
 #define WAKE_Y 96
@@ -207,6 +272,7 @@ static void place_player(uint8_t side) {
         break;
     }
     player_xs = player_ys = 0;
+    edge_push = 0;
 }
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
@@ -217,6 +283,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     world_room_clear(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)map * 4513));  // (its few enemy kinds)
     // Each map's tileset (the display is off): the entrance room, halls and buildings are indoors.
     world_load_tiles(MAP_INDOORS(area_type[map]));
+    warp_tiles();
     level_build_map(map);  // (an exit map's shaft included)
     pit_shaft = area_type[map] == MAP_EXIT;
     pickups_load_map(area_chests_opened[map]);  // (after the shaft: chests make their blocks solid)
@@ -250,12 +317,14 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     autosave();
 }
 
-// Camp c's next enemy at slot s (the roster in turn); its actor, or ACTOR_MAX.
-static uint8_t call(uint8_t c, uint8_t s) {
+// Camp c's next enemy at slot s (the roster in turn), warping in for frames; its
+// actor, or ACTOR_MAX.
+static uint8_t call(uint8_t c, uint8_t s, uint8_t frames) {
     uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
     if (room_block_at(x + 8, y + 8) != BLK_FLOOR) return ACTOR_MAX;
     uint8_t a = actor_spawn(world_squad(layer_depth, camp_kind[c]), x, y);
     if (a >= ACTOR_MAX) return a;
+    descent_warp(a, frames);
     camp_kind[c]++;
     camp_left[c]--;
     for (uint8_t o = 0; o < LEVEL_CAMPS; o++) camp_actors[o] &= ~(1 << a);  // a reused slot
@@ -275,12 +344,15 @@ static void wake(uint8_t c) {
     camp_next[c] = 0;
     camp_wait[c] = CAMP_CALL;
     for (uint8_t s = 0; s < camp_slots[c] && up; s++) {
-        uint8_t a = call(c, s);
+        uint8_t a = call(c, s, WARP_FIRST);
         if (a == ACTOR_MAX) continue;
         if (first == 0xFF) first = a;
         up--;
     }
-    if (first != 0xFF && (rand() & 7) <= layer_depth) elite_make(first);
+    if (first != 0xFF && (rand() & 7) <= layer_depth) {
+        elite_make(first);
+        warp_art(first, warp_left[first]);  // (elite_make drew it: still warping)
+    }
 }
 
 // The next of camp c's reinforcements, at a slot away from the player. (A camp
@@ -293,12 +365,13 @@ static void reinforce(uint8_t c) {
         open = 1;
         int16_t dx = (int16_t)(camp_slot_x[c][s] - player_x), dy = (int16_t)(camp_slot_y[c][s] - player_y);
         if (dx > -CAMP_NEAR && dx < CAMP_NEAR && dy > -CAMP_NEAR && dy < CAMP_NEAR) continue;
-        if (call(c, s) < ACTOR_MAX) return;
+        if (call(c, s, WARP_FRAMES) < ACTOR_MAX) return;
     }
     if (!open) camp_left[c] = 0;
 }
 
 void descent_update(void) BANKED {
+    if (warps) warp_tick();
     for (uint8_t c = 0; c < level_camps; c++) {
         if (camp_state[c] == CAMP_ASLEEP) {
             int16_t dx = (int16_t)(player_x + 8 - camp_x[c]), dy = (int16_t)(player_y + 12 - camp_y[c]);
@@ -331,6 +404,7 @@ void descent_update(void) BANKED {
 // its south door. Its chest is bit 3 + k of the map's.
 static void enter_building(uint8_t k) {
     level_inside = k;
+    warp_tiles();
     world_room_clear(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map * 4513) ^ (k * 97 + 1));
     world_load_tiles(1);
     level_build_interior(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map << 8) ^ (k * 97 + 1));
@@ -361,6 +435,9 @@ static uint8_t through(uint8_t d, uint8_t *side) {
 }
 
 uint8_t level_inside = 0xFF;
+// Frames the player has pushed against an opening's far edge: the map changes at
+// EDGE_PUSH (a knockback, or letting go at the edge, doesn't take you out).
+uint8_t edge_push;
 
 uint8_t descent_door(void) BANKED {
     if (shaft_taken) return DESCENT_SHAFT;
@@ -380,16 +457,22 @@ uint8_t descent_door(void) BANKED {
         if ((uint8_t)(cx >> 4) == door_bx[k] && player_y + PLAYER_HB_Y <= (uint16_t)door_by[k] * BLOCK_SIZE + 1
             && player_y + PLAYER_HB_Y + PLAYER_HB_H > (uint16_t)door_by[k] * BLOCK_SIZE)
             return DESCENT_INSIDE | k;
-    // Only right at the map's edge, in the opening's outer half (past the edge is a
-    // wall: the hitbox stops with its centre 8, 5, 12 or 4 pixels in, W E N S).
+    // Only up against the map's edge (past it is a wall: the hitbox stops with its
+    // centre 8, 5, 12 or 4 pixels in, W E N S), pushing on into it for EDGE_PUSH frames.
     uint8_t d = 0;
-    if (cx < 12) d = EDGE_W;
-    else if (cx > (int16_t)room_px_w - 9) d = EDGE_E;
-    else if (fy < 16) d = EDGE_N;
-    else if (fy > (int16_t)room_px_h - 8) d = EDGE_S;
-    if (d == EDGE_S && level_map == area_start) return DESCENT_TOWN;  // the entrance's way out
-    if (!(area_links[level_map] & d)) return 0;
-    return d;
+    if (cx <= 9 && (joy & J_LEFT)) d = EDGE_W;
+    else if (cx >= (int16_t)room_px_w - 6 && (joy & J_RIGHT)) d = EDGE_E;
+    else if (fy <= 13 && (joy & J_UP)) d = EDGE_N;
+    else if (fy >= (int16_t)room_px_h - 5 && (joy & J_DOWN)) d = EDGE_S;
+    uint8_t town = d == EDGE_S && level_map == area_start;  // the entrance's way out
+    if (!town && !(area_links[level_map] & d)) d = 0;
+    if (!d) {
+        edge_push = 0;
+        return 0;
+    }
+    if (++edge_push < EDGE_PUSH) return 0;
+    edge_push = 0;
+    return town ? DESCENT_TOWN : d;
 }
 
 void descent_change_room(uint8_t d) BANKED {

@@ -139,6 +139,7 @@ test('a retrieve job takes a data core from each camp you clear', () => {
       w16(emu, 'player_y', emu.read16(A(emu, 'camp_y')));
     }
     for (let i = 0; i < 8; i++) if (emu.read8(A(emu, 'actor_type') + i)) emu.writeBytes(A(emu, 'actor_hp') + i, [0]);
+    emu.writeBytes(A(emu, 'camp_left'), [0, 0, 0, 0]);  // (none to come: you stand where they'd warp in)
     emu.writeBytes(A(emu, 'shots_killed'), [1]);
     emu.writeBytes(A(emu, 'player_hp'), [emu.v('player_hp_max')]);
     emu.idle(1);
