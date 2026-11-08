@@ -326,6 +326,13 @@ Camps are **squads** built from roles, so a fight is a problem to read, not a cr
   pulsing cyan and white, then it flickers in; till then it can't touch you or be hit,
   and the aim passes it by. A camp's first wave takes 28 frames, a reinforcement or an
   ambush 40 (the beam the last 22 of either), with a rising shimmer of a sound.
+- **Fights in the middle, ways out at the edges** (2026-11-07, asked for after walking off a map
+  by accident): a field's camps sit where none wakes as you come in through an opening
+  (level.c camp_by_door: its middle outside the wake box of the spot just inside), and
+  the first tries keep them off the outer ring of chunks; a yard is one screen, so its
+  camp wakes as you come in and the warp-in is the warning. Leaving a map takes walking
+  right up to the opening's far edge and pushing on into it for 10 frames
+  (descent.c EDGE_PUSH): a knockback, or letting go at the edge, keeps you on the map.
 - **Themes pick the look:** the roles are code; each planet re-skins them (lunar: drones
   and mercs; ice: wolves and skimmers), within the sprite budget.
 

@@ -815,6 +815,37 @@ static void entrance_room(void) {
 
 // Lay out the chunk roles: a rock cluster or two, camps (fields only), maybe a
 // cache along an edge, and the start/exit mark in the middle.
+// Where along each linked side its opening is (0xFF: none): the entrance room's
+// doors sit in the middle of its walls (and the south one, no map behind it, is the
+// way back to town); elsewhere anywhere along the side, clear of the corners.
+static void plan_openings(uint8_t i, uint8_t w, uint8_t h) {
+    uint8_t links = area_links[i], entrance = area_type[i] == MAP_START;
+    if (entrance) links |= EDGE_S;
+    build_links = links;
+    for (uint8_t s = 0; s < 4; s++) {
+        level_open[s] = 0xFF;
+        if (!(links & edge_bit[s])) continue;
+        uint8_t len = s & 1 ? h : w;  // E and W run down the side
+        level_open[s] = entrance ? (s == 0 ? ENTRANCE_DOOR_N : s == 2 ? (len - 1) >> 1 : ENTRANCE_DOOR_EW)
+                      : len < 6 + OPENING_W ? (len - OPENING_W) >> 1 : 3 + below(len - 5 - OPENING_W);  // (a yard's ends: the middle)
+    }
+}
+
+// Whether a camp in chunk (x, y) would wake as you come in through an opening: its
+// middle within a block of the wake box (descent.c WAKE_X, WAKE_Y: 7 by 6 blocks)
+// of where you stand just inside.
+static uint8_t camp_by_door(uint8_t x, uint8_t y, uint8_t w, uint8_t h) {
+    uint8_t mx = x * CHUNK_W + (CHUNK_W >> 1), my = y * CHUNK_H + (CHUNK_H >> 1);
+    for (uint8_t s = 0; s < 4; s++) {
+        if (level_open[s] == 0xFF) continue;
+        uint8_t mid = level_open[s] + (OPENING_W >> 1);
+        uint8_t ex = s == 0 || s == 2 ? mid : s == 1 ? w - 3 : 2;
+        uint8_t ey = s == 1 || s == 3 ? mid : s == 0 ? 2 : h - 3;
+        if ((uint8_t)(mx - ex + 7) < 15 && (uint8_t)(my - ey + 6) < 13) return 1;
+    }
+    return 0;
+}
+
 static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
     for (uint8_t k = 0; k < sizeof(roles); k++) roles[k] = ROLE_OPEN;
     if (area_type[i] == MAP_START) {  // the entrance room: plain floor all over
@@ -839,11 +870,16 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
         }
     }
     // Camps: 3-4 in a field (it's busy), 1-2 in a pass, one in two yards of
-    // three; on open cells, none beside another.
+    // three; on open cells, none beside another. The fights are in the middle:
+    // in a field none wakes as you come in through an opening (a yard is one
+    // screen: its camp wakes as you come in, and warps in), and first tries keep
+    // off the outer ring of chunks (where the map is three or more across that way).
     uint8_t want = area_type[i] == MAP_YARD ? below(3) != 0 : small ? 1 + below(2) : 3 + below(2), placed = 0, px[LEVEL_CAMPS], py[LEVEL_CAMPS];
-    for (uint8_t tries = 0; tries < 40 && placed < want; tries++) {
+    for (uint8_t tries = 0; tries < 60 && placed < want; tries++) {
         uint8_t x = below(cw), y = below(ch), near = 0;
         if (roles[y * 8 + x] != ROLE_OPEN) continue;
+        if (area_type[i] == MAP_FIELD && camp_by_door(x, y, cw * CHUNK_W, ch * CHUNK_H)) continue;
+        if (tries < 30 && ((cw > 2 && (x == 0 || x == cw - 1)) || (ch > 2 && (y == 0 || y == ch - 1)))) continue;
         for (uint8_t k = 0; k < placed; k++)
             if ((uint8_t)(x - px[k] + 1) < 3 && (uint8_t)(y - py[k] + 1) < 3) near = 1;
         if (near) continue;
@@ -888,6 +924,7 @@ void level_build_map(uint8_t i) BANKED {
         level_build_indoor(area_links[i]);
         return;
     }
+    plan_openings(i, w, h);
     plan_roles(i, cw, ch);
 
     // Chunks for each cell's role, picked by weight and flipped at random.
@@ -945,20 +982,13 @@ void level_build_map(uint8_t i) BANKED {
     // linked map, somewhere along that side.
     for (uint8_t x = 0; x < w; x++) MAP(x, 0) = MAP(x, h - 1) = BLK_SOLID;
     for (uint8_t y = 0; y < h; y++) MAP(0, y) = MAP(w - 1, y) = BLK_SOLID;
-    // The entrance room's doors sit in the middle of its walls, and the south one
-    // (no map behind it) is the way back to town.
-    uint8_t links = area_links[i], entrance = area_type[i] == MAP_START;
-    if (entrance) links |= EDGE_S;
-    build_links = links;
+    // (Openings: plan_openings. The entrance room's are doorways, one block wide;
+    // elsewhere OPENING_W.)
+    uint8_t entrance = area_type[i] == MAP_START;
     for (uint8_t s = 0; s < 4; s++) {
-        level_open[s] = 0xFF;
-        if (!(links & edge_bit[s])) continue;
-        uint8_t len = s & 1 ? h : w;  // E and W run down the side
-        // (The entrance room's are doorways, one block wide; elsewhere OPENING_W.)
+        uint8_t at = level_open[s];
+        if (at == 0xFF) continue;
         uint8_t wide = entrance ? 1 : OPENING_W;
-        uint8_t at = entrance ? (s == 0 ? ENTRANCE_DOOR_N : s == 2 ? (len - 1) >> 1 : ENTRANCE_DOOR_EW)
-                   : len < 6 + OPENING_W ? (len - OPENING_W) >> 1 : 3 + below(len - 5 - OPENING_W);  // (a yard's ends: the middle)
-        level_open[s] = at;
         for (uint8_t a = 0; a < wide; a++) {
             for (uint8_t d = 0; d < 3; d++) {
                 if (s == 0) MAP(at + a, d) = BLK_FLOOR;

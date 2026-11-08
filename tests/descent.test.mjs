@@ -273,6 +273,61 @@ test('after a map change no sprite is left where it was on the old screen (the g
   }
 });
 
+test("camps are in the middle of a map: none wakes as you come in, and big maps keep them off the edges", () => {
+  const emu = startRun().idle(2);
+  let camps = 0, byDoor = 0, ring = 0, inner = 0;
+  for (let n = 1; n <= 40; n++) {
+    const seed = (n * 104729) & 0xffff;
+    const L = generate(emu, seed);
+    for (let i = 0; i < CELLS; i++) {
+      if (L.type[i] !== MAP_FIELD) continue;  // (a yard is one screen: its camp wakes as you come in)
+      generate(emu, seed, i);
+      const m = built(emu);
+      // Where you stand coming in through each opening (descent.c place_player).
+      const entries = [];
+      for (const [s, o] of m.open.entries()) {
+        if (o === 255) continue;
+        const mid = o + (OPENING_W >> 1);
+        entries.push([[mid, 2], [m.w - 3, mid], [mid, m.h - 3], [2, mid]][s]);
+      }
+      for (const [x, y] of m.camps) {
+        camps++;
+        // (descent.c WAKE_X, WAKE_Y: 7 by 6 blocks either way)
+        if (entries.some(([ex, ey]) => Math.abs(x - ex) < 7 && Math.abs(y - ey) < 6)) byDoor++;
+        if (L.cw[i] > 2 && L.ch[i] > 2) {
+          const cx = Math.floor(x / 5), cy = Math.floor(y / 4);
+          if (cx === 0 || cx === L.cw[i] - 1 || cy === 0 || cy === L.ch[i] - 1) ring++;
+          else inner++;
+        }
+      }
+    }
+  }
+  assert.ok(camps > 300, `${camps} camps`);
+  assert.equal(byDoor, 0, `${byDoor} of ${camps} camps wake as you come in`);
+  // (By chance, about a third would be inside: most chunks are on the edge, and no two camps are neighbours.)
+  assert.ok(inner * 5 >= ring * 4, `${inner} camps in the middle of big maps, ${ring} on their edges`);
+});
+
+test("leaving a map takes a push into its opening's far edge (not a brush past it)", () => {
+  const emu = startDescent(bootToTitle(), 4242);
+  const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+  const e = [1, 2, 4, 8].find((x) => links & x), dir = { 1: 'UP', 2: 'RIGHT', 4: 'DOWN', 8: 'LEFT' }[e];
+  const before = emu.v('maps_entered', 'u16');
+  const quiet = () => { for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0); };
+  toOpening(emu, e);
+  // Up to the edge and a little way into the push, then let go: still here.
+  for (let f = 0; f < 60 && emu.v('edge_push') < 5; f++) { quiet(); emu.hold(dir, 1); }
+  assert.equal(emu.v('edge_push'), 5, 'pushing on the edge');
+  emu.idle(20);
+  assert.equal(emu.v('maps_entered', 'u16'), before, 'let go: still on the map');
+  assert.equal(emu.v('edge_push'), 0, 'the push starts over');
+  // Push again: out after EDGE_PUSH (10) frames of it.
+  let pushed = 0;
+  for (let f = 0; f < 60 && emu.v('maps_entered', 'u16') === before; f++) { quiet(); emu.hold(dir, 1); pushed++; }
+  assert.notEqual(emu.v('maps_entered', 'u16'), before, 'out');
+  assert.ok(pushed >= 10, `out after ${pushed} frames`);
+});
+
 test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   for (let wait = 0; wait < 60; wait += 7) {
     const emu = startDescent(bootToTitle(), 4242 + wait);  // seeds until the first map links to one with a camp
@@ -678,7 +733,7 @@ test("a building's lockers open and stay open (their own bits, saved)", () => {
 
 test("every building's door leads inside (nothing's built on its step)", () => {
   let doors = 0;
-  for (let seed = 4240; seed < 4280; seed++) {
+  for (let seed = 4240; seed < 4300; seed++) {
     const emu = intoBuilding(seed);
     if (!emu) continue;
     doors++;
@@ -707,7 +762,8 @@ test('a guarded building: its camp wakes, and its chest waits until the camp is 
   };
   toChest();
   assert.equal(opened(), 0, 'locked while they live');
-  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // (cleared)
+  for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);  // (cleared, and none to come)
+  emu.write8(addr(emu, 'camp_left'), 0);
   emu.idle(4);
   assert.ok(emu.read8(addr(emu, 'area_camps_cleared') + map) & (1 << 4), 'cleared: bit 4 + door 0');
   toChest();

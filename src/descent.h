@@ -36,6 +36,8 @@ void descent_enter(uint8_t map, uint8_t side) BANKED; // build a map and place t
 void descent_update(void) BANKED;                     // per frame: camps wake and clear
 // An enemy warping in (a camp's, an ambush's): for frames it's a glow on the floor,
 // then a beam, then it flickers in; till then it can't hurt you or be hit.
+#define EDGE_PUSH 10  // frames pushing into an opening's far edge to leave the map
+extern uint8_t edge_push;
 #define WARP_FRAMES 40  // a reinforcement's or an ambush's
 #define WARP_FIRST 28   // a camp's first wave (it shouldn't feel slow to start)
 #define ACTOR_WARPING 16  // its actor_scripted meanwhile (15 and up: no touch)

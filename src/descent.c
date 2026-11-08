@@ -25,6 +25,7 @@
 #include "weapon.h"
 #include "loot.h"
 #include "mission.h"
+#include "input.h"
 #include "health.h"
 #include "sfx.h"
 #include "actor_internal.h"
@@ -271,6 +272,7 @@ static void place_player(uint8_t side) {
         break;
     }
     player_xs = player_ys = 0;
+    edge_push = 0;
 }
 
 void descent_enter(uint8_t map, uint8_t side) BANKED {
@@ -433,6 +435,9 @@ static uint8_t through(uint8_t d, uint8_t *side) {
 }
 
 uint8_t level_inside = 0xFF;
+// Frames the player has pushed against an opening's far edge: the map changes at
+// EDGE_PUSH (a knockback, or letting go at the edge, doesn't take you out).
+uint8_t edge_push;
 
 uint8_t descent_door(void) BANKED {
     if (shaft_taken) return DESCENT_SHAFT;
@@ -452,16 +457,22 @@ uint8_t descent_door(void) BANKED {
         if ((uint8_t)(cx >> 4) == door_bx[k] && player_y + PLAYER_HB_Y <= (uint16_t)door_by[k] * BLOCK_SIZE + 1
             && player_y + PLAYER_HB_Y + PLAYER_HB_H > (uint16_t)door_by[k] * BLOCK_SIZE)
             return DESCENT_INSIDE | k;
-    // Only right at the map's edge, in the opening's outer half (past the edge is a
-    // wall: the hitbox stops with its centre 8, 5, 12 or 4 pixels in, W E N S).
+    // Only up against the map's edge (past it is a wall: the hitbox stops with its
+    // centre 8, 5, 12 or 4 pixels in, W E N S), pushing on into it for EDGE_PUSH frames.
     uint8_t d = 0;
-    if (cx < 12) d = EDGE_W;
-    else if (cx > (int16_t)room_px_w - 9) d = EDGE_E;
-    else if (fy < 16) d = EDGE_N;
-    else if (fy > (int16_t)room_px_h - 8) d = EDGE_S;
-    if (d == EDGE_S && level_map == area_start) return DESCENT_TOWN;  // the entrance's way out
-    if (!(area_links[level_map] & d)) return 0;
-    return d;
+    if (cx <= 9 && (joy & J_LEFT)) d = EDGE_W;
+    else if (cx >= (int16_t)room_px_w - 6 && (joy & J_RIGHT)) d = EDGE_E;
+    else if (fy <= 13 && (joy & J_UP)) d = EDGE_N;
+    else if (fy >= (int16_t)room_px_h - 5 && (joy & J_DOWN)) d = EDGE_S;
+    uint8_t town = d == EDGE_S && level_map == area_start;  // the entrance's way out
+    if (!town && !(area_links[level_map] & d)) d = 0;
+    if (!d) {
+        edge_push = 0;
+        return 0;
+    }
+    if (++edge_push < EDGE_PUSH) return 0;
+    edge_push = 0;
+    return town ? DESCENT_TOWN : d;
 }
 
 void descent_change_room(uint8_t d) BANKED {
