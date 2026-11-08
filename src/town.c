@@ -117,7 +117,10 @@ static void change_room(uint8_t next) {
     if (next == TOWN_OUTSIDE) {
         room_load_town();
         player_x = (uint16_t)door_x[previous] * 16;
-        player_y = ((uint16_t)door_y[previous] + 1) * 16 + 4;
+        // Keep the entire foot hitbox inside the one-tile doorstep. An extra
+        // vertical offset embeds its bottom in the cliff below and makes the
+        // first sideways step snap to the opposite edge of that solid block.
+        player_y = ((uint16_t)door_y[previous] + 2) * 16 - PLAYER_HB_Y - PLAYER_HB_H;
         player_facing = DIR_DOWN;
         player_anim_dir = 0;
     } else {
