@@ -160,7 +160,10 @@ static void draw_map(void) {
     char *p = put(line, "DEPTH ");
     p = put_num(p, layer_depth, 1);
     *p = 0;
-    if (world_id == WORLD_DESERT) say_c(16, 2, level_map == DESERT_CROSSROADS ? "Dust Crossroads" : "Rustyard", P_DIM);
+    if (world_id == WORLD_DESERT) {
+        say_c(16, 2, level_map == DESERT_WAKE ? "Dustwake" : level_map == DESERT_CROSSROADS ? "Dust Crossroads" : "Rustyard", P_DIM);
+        if (profile.story & STORY_OPENING) say_c(16, 3, profile.has_shield ? "Reach town: head north" : "Find the shield", P_SEL);
+    }
     else say(16, 2, line, P_DIM, 0xFF);
     uint8_t td = alloc(2);
     VBK_REG = 1;

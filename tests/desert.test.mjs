@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { convert } from '../tools/tileset.mjs';
-import { assert, boot, bootToTitle, settle, takeLiftDown, PLAY, TITLE, RUN_OVER, FRAME_LIMIT } from './helpers.mjs';
+import { assert, legacyTownFixture, boot, bootToTitle, settle, takeLiftDown, PLAY, TITLE, RUN_OVER, FRAME_LIMIT } from './helpers.mjs';
 
 const A = (e,n) => e.symbols.addr(n);
 const w8 = (e,n,v) => e.write8(A(e,n),v);
@@ -11,7 +11,7 @@ const pos = (e,x,y) => {
   w8(e,'player_xs',0);w8(e,'player_ys',0);
 };
 function town() {
-  const e=settle(bootToTitle().tap('START').tap('A').tap('A'),PLAY).idle(40);
+  const e=legacyTownFixture(settle(bootToTitle().tap('START').tap('A').tap('A'),PLAY)).idle(40);
   w8(e,'zones_done',255);
   return e;
 }
@@ -92,7 +92,7 @@ test('desert art: exits, cache and camp slots connect without increasing the til
     for(const p of targets)assert.ok(seen.has(p.join(',')),`${name}: ${p} reachable`);
     // Every walkable border belongs to a real connection.
     for(let y=0;y<m.h;y++)for(let x=0;x<m.w;x++)if((!x||!y||x===m.w-1||y===m.h-1)&&!m.type[y*m.w+x])
-      assert.ok(name==='crossroads' ? (!y&&x>=8&&x<12)||(x===19&&y>=7&&y<11) : !x&&y>=7&&y<11);
+      assert.ok(name==='crossroads' ? ((!y||y===15)&&x>=8&&x<12)||(x===19&&y>=7&&y<11) : !x&&y>=7&&y<11);
   }
 });
 

@@ -136,7 +136,8 @@ void descent_start(uint16_t seed) BANKED {
     saved_seconds = 0;
     area_seed_base = seed;
     start_area();
-    descent_enter(area_start, world_id == WORLD_DESERT ? EDGE_N : EDGE_S);
+    uint8_t opening = world_id == WORLD_DESERT && (profile.story & STORY_OPENING);
+    descent_enter(opening ? DESERT_WAKE : area_start, opening ? EDGE_S : world_id == WORLD_DESERT ? EDGE_N : EDGE_S);
 }
 
 // The expedition saved in the profile (save.h): its area rebuilt from the seed,
@@ -157,6 +158,7 @@ void descent_resume(void) BANKED {
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
     if (world_id == WORLD_DESERT && map == area_start) side = EDGE_N;
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
+    if (world_id == WORLD_DESERT && map == DESERT_WAKE) side = EDGE_S;
     // Back from its miniboss (or a continue after): beside the shaft, open now.
     if (area_type[map] == MAP_EXIT && (area_chests_opened[map] & AREA_BOSS_BEATEN)) side = DESCENT_NO_DOOR;
     descent_enter(map, side);
@@ -255,7 +257,7 @@ static void autosave(void) {
     memcpy(profile.exp_conts, area_conts_opened, sizeof(profile.exp_conts));
     memcpy(profile.exp_inside, area_inside_opened, sizeof(profile.exp_inside));
     profile.exp_seen = area_seen;
-    if (layer_depth > profile.best_depth) profile.best_depth = layer_depth;
+    if (world_id != WORLD_DESERT && layer_depth > profile.best_depth) profile.best_depth = layer_depth;
     save_write();
 }
 
@@ -276,6 +278,10 @@ static void place_player(uint8_t side) {
         break;
     }
     player_xs = player_ys = 0;
+    // Dustwake's south edge is a closed cliff, not an entrance. Its wake/retry
+    // position must keep the entire foot box above that rim.
+    if (world_id == WORLD_DESERT && level_map == DESERT_WAKE && side == EDGE_S)
+        player_y = room_px_h - 3 * BLOCK_SIZE - 4;
     edge_push = 0;
 }
 
@@ -285,6 +291,10 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     level_inside = 0xFF;
     chest_bit0 = camp_bit0 = 0;
     world_room_clear(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)map * 4513));  // (its few enemy kinds)
+    if (world_id == WORLD_DESERT && map == DESERT_WAKE) {
+        room_kind_n = 1;
+        room_kinds[0] = ACTOR_PEASHOOTER;
+    }
     // Each map's tileset (the display is off): the entrance room, halls and buildings are indoors.
     world_load_tiles(MAP_INDOORS(area_type[map]));
     warp_tiles();
@@ -324,7 +334,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     }
     if (world_id == WORLD_DESERT) {
         // hud_say runs in another ROM bank: copy this bank's label into RAM.
-        const char *name = map == DESERT_CROSSROADS ? "DUST RD" : "RUSTYRD";
+        const char *name = map == DESERT_WAKE ? "WAKE   " : map == DESERT_CROSSROADS ? "DUST RD" : "RUSTYRD";
         char t[8];
         for (uint8_t k = 0; k < 8; k++) t[k] = name[k];
         hud_say(t);
@@ -354,7 +364,7 @@ static uint8_t call(uint8_t c, uint8_t s, uint8_t frames) {
 static void wake(uint8_t c) {
     uint8_t up = CAMP_FIELD + (layer_depth >= 3), first = 0xFF;
     camp_state[c] = CAMP_AWAKE;
-    camp_left[c] = level_inside != 0xFF ? up : 5 + 2 * layer_depth;  // (a building's guard: no more come)
+    camp_left[c] = level_inside != 0xFF || (world_id == WORLD_DESERT && level_map == DESERT_WAKE) ? up : 5 + 2 * layer_depth;
     camp_kind[c] = rand();
     camp_next[c] = 0;
     camp_wait[c] = CAMP_CALL;
@@ -364,7 +374,7 @@ static void wake(uint8_t c) {
         if (first == 0xFF) first = a;
         up--;
     }
-    if (first != 0xFF && (rand() & 7) <= layer_depth) {
+    if (first != 0xFF && !(world_id == WORLD_DESERT && level_map == DESERT_WAKE) && (rand() & 7) <= layer_depth) {
         elite_make(first);
         warp_art(first, warp_left[first]);  // (elite_make drew it: still warping)
     }

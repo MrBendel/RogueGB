@@ -6,6 +6,12 @@ the Sands town, with the exploration feel of Borderlands.
 
 ## Playable now
 
+New characters begin south of Crossroads in **Dustwake**, a 20x24 desert map.
+The unknown entity directs them to a guaranteed shield, then past two groups of
+three spitters toward Crossroads and town. See [opening](opening.md) for the
+sequence, controls and retry behavior. Crossroads has a two-way southern road
+back to Dustwake. Existing saves retain their normal start.
+
 Walk south out of the town's container yard, along the pale road beside the
 waymarker. Dust Crossroads is a safe 20x16 map with a cache, a water-tower landmark
 and a direction post. Its east edge leads to Rustyard: another 20x16 map with
@@ -16,17 +22,17 @@ to cross it, as in the existing descent. START opens the surface map.
 This slice uses fixed maps; camps and chests stay cleared/open while backtracking,
 and refresh when you return to town and begin another outing. Battery saves resume
 the correct surface map. Death uses the existing reconstruction fee and returns
-to town. Normal returns preserve current health and inventory. Floor loot follows
+to town once the introduction is complete; during it, retries start in Dustwake. Normal returns preserve current health and inventory. Floor loot follows
 the existing descent behavior: collect it before leaving a map.
 
 The town lift still starts the generated underground expedition. The surface does
 not yet connect to an excavation, add persistent shortcut unlocks, or offer new
-contracts. Region names identify the two maps on the pause screen. The southern
+contracts. Region names identify the three maps on the pause screen. The southern
 town exit adapts the proposal below to the existing authored settlement; the
 full-region graph can be oriented around it as more maps are built.
 
 Implementation: `WORLD_DESERT` uses the existing expedition save fields, graph,
-camp controller and loot system. `desert.c` supplies an authored two-map graph and
+camp controller and loot system. `desert.c` supplies an authored three-map graph and
 map metadata, `sands_overworld.py` composes the maps for `sands-town.py`, and
 `room_load_sands_tiles` shares the town atlas with the surface. No save-format
 change is required. The shared atlas uses 214/220 tiles, 97/128 blocks and six

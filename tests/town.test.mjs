@@ -4,14 +4,14 @@
 import { test } from 'node:test';
 import { convert } from '../tools/tileset.mjs';
 const DETAIL_TILES = convert('sands').stored.length - 172;
-import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, TITLE, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
+import { assert, legacyTownFixture, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, TITLE, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
 
 const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
 const EXP_ACTIVE = 59, STORY = 88, CREDITS = 7;  // Profile offsets (save.h)
 const prof = (emu, at, len = 1) => emu.readBytes(A(emu, 'profile') + at, len).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 
-const newFileInTown = () => settle(bootToTitle().tap('START').tap('A').tap('A'), PLAY);
+const newFileInTown = () => legacyTownFixture(settle(bootToTitle().tap('START').tap('A').tap('A'), PLAY));
 /** Wait out a play -> play change (a lift). */
 function arrive(emu, mode) {
   emu.until((e) => e.v('play_mode') === mode, 60, 'the mode');
@@ -19,7 +19,7 @@ function arrive(emu, mode) {
   return settle(emu, PLAY);
 }
 
-test('a new file starts in the town; its lift goes down into a new expedition', () => {
+test('an established town profile takes the lift into a new expedition', () => {
   const emu = newFileInTown();
   assert.equal(emu.v('play_mode'), MODE_TOWN);
   takeLiftDown(emu);

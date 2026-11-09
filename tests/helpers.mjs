@@ -150,6 +150,27 @@ export function bootToTitle() {
   return settle(boot(), TITLE, 'title screen');
 }
 
+/** A pre-opening town profile for focused legacy town/descent tests.
+ * opening.test.mjs exercises the real new-character route without this fixture.
+ * Keep these tests' starting equipment and campaign state independent of the intro.
+ */
+export function legacyTownFixture(emu) {
+  const at=n=>emu.symbols.addr(n),p=at('profile');
+  if (!(emu.read8(p+88)&2)) return emu;
+  emu.write8(p+88,0); // legacy story: no opening marker
+  emu.write8(p+59,0); // no expedition
+  emu.write8(p+226,0); // Lunar world
+  emu.write8(p+14,0); // no depth reached
+  emu.write8(at('opening_timer'),0);emu.write8(at('opening_notice'),0);
+  emu.write8(at('hud_name_t'),0);
+  emu.writeBytes(at('hud_text'),new Uint8Array(8));
+  emu.writeBytes(at('hud_next'),new Uint8Array(8));
+  emu.write8(at('dlg_active'),0);
+  emu.write8(at('play_mode'),6);
+  emu.write8(at('game_state'),255);emu.write8(at('next_state'),PLAY);
+  return settle(emu.idle(1),PLAY,'legacy town fixture');
+}
+
 /** Boot, open the test lab from the title (SELECT), and wait until gameplay is running. */
 export function startRun(emu = bootToTitle()) {
   return settle(emu.tap('SELECT'), PLAY, 'play state');
@@ -168,6 +189,7 @@ export function startDescent(emu = bootToTitle(), seed = 4242, slot = 0) {
   emu.tap('A');
   if (emu.v('title_files') === 2) emu.tap('A');  // a new file: the first class
   settle(emu, PLAY, 'play state');
+  legacyTownFixture(emu);
   if (emu.v('play_mode') === MODE_TOWN) takeLiftDown(emu);  // a file starts in the town
   return emu;
 }

@@ -25,17 +25,17 @@ def add_surface(d):
     d['pieces']['surface_ground_north'] = {'tiles': ['89y 99y', '88y 98y']}
     north = chr(0x100 + len(legend))
     legend[north] = {'piece': 'surface_ground_north'}
-    def new_map():
-        g = [[sand] * 20 for _ in range(16)]
+    def new_map(height=16):
+        g = [[sand] * 20 for _ in range(height)]
         # Continuous cliff rims: upper ridge and its face, irregular lower lip.
         for x in range(20):
             sx = [4, 5, 6, 5, 4, 6, 6, 5][x % 8]
             g[0][x] = tile(sx, 1, True)
             g[1][x] = tile(sx, 2, True)
             g[2][x] = tile(sx, 3, True)
-            g[14][x] = tile(3 if x % 7 == 0 else 5 if x % 7 == 6 else 4, 9, True)
-            g[15][x] = tile(3 if x % 7 == 0 else 5 if x % 7 == 6 else 4, 10, True)
-        for y in range(3, 14):
+            g[height-2][x] = tile(3 if x % 7 == 0 else 5 if x % 7 == 6 else 4, 9, True)
+            g[height-1][x] = tile(3 if x % 7 == 0 else 5 if x % 7 == 6 else 4, 10, True)
+        for y in range(3, height-2):
             g[y][0] = tile(1, 7 if y % 3 else 8, True)
             g[y][19] = tile(14, 5 if y % 3 else 6, True)
         return g
@@ -60,6 +60,8 @@ def add_surface(d):
     patch(cross, 6, 12, 1, 3, 9, 7)  # landmark tank, walk behind its top
     patch(cross, 1, 13, 4, 2, 2, 11)
     for x, y in [(15, 4), (16, 12), (5, 3)]: patch(cross, 13, 15, 2, 1, x, y)
+    for y in range(13, 16):
+        for x in range(8, 12): cross[y][x] = sand
     rust = new_map()
     clearing(rust, 5, 6, 12, 7)
     for y in range(7, 11):
@@ -71,6 +73,36 @@ def add_surface(d):
     patch(rust, 13, 15, 2, 1, 16, 12)
     d['maps']['crossroads'] = [''.join(row) for row in cross]
     d['maps']['rustyard'] = [''.join(row) for row in rust]
+    wake = new_map(24)
+    clearing(wake, 7, 3, 7, 12)
+    for y in range(4):
+        for x in range(8, 12): wake[y][x] = sand
+    # A sheltered southern pocket, with a two-block pass beside the shield
+    # cache. Every walking route north passes within its pickup reach.
+    for x in range(1, 19):
+        for yy in range(3): wake[16+yy][x] = tile(4 + x % 3, 1 + yy, True)
+    for y in range(16, 19):
+        for x in (9, 10): wake[y][x] = sand
+    # Use complete formations from the town scene, with their original caps,
+    # faces and ground at the foot. Avoid a fence of identical cliff columns.
+    patch(wake, 4, 0, 3, 5, 2, 14)
+    patch(wake, 10, 0, 3, 3, 14, 16)
+    patch(wake, 0, 5, 3, 5, 0, 5)
+    patch(wake, 13, 0, 3, 7, 17, 0)
+    # Keep the perimeter closed even where a source formation has open ground.
+    for y in range(5, 10):
+        wake[y][0] = tile(0, 5 + y - 5, True)
+    for y in range(7):
+        wake[y][19] = tile(15, y, True)
+    # The ground apron is the town's irregular painted transition, not a tiled
+    # rectangle of a single edge. The shield pass remains clear at x=9..10.
+    patch(wake, 2, 4, 7, 1, 2, 19)
+    patch(wake, 2, 9, 6, 1, 11, 19)
+    patch(wake, 4, 1, 3, 3, 3, 9)
+    patch(wake, 1, 13, 4, 2, 14, 10)
+    patch(wake, 6, 12, 1, 3, 14, 19)
+    for x, y in [(3, 20), (15, 5), (6, 13)]: patch(wake, 13, 15, 2, 1, x, y)
+    d['maps']['wake'] = [''.join(row) for row in wake]
     # The southern yard is the outward road. Keep a four-block approach clear;
     # the two-block opening itself is deliberately narrower than the combat maps.
     rows = [list(row) for row in town]

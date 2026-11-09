@@ -24,6 +24,7 @@
 #include "room.h"
 #include "town.h"
 #include "desert.h"
+#include "opening.h"
 #include "world.h"
 #include "tiles_lunar_ext.h"
 #include "player.h"
@@ -312,6 +313,7 @@ void play_enter(void) BANKED {
     SHOW_WIN;
     gfx_sprites(1);
     gfx_sprite_split(hud_y);  // no sprites over the HUD
+    opening_setup();
     player_draw();
     if(play_mode==MODE_ENEMY && enemy_trial_kind==4)wireweaver_draw();
     else if(play_mode==MODE_ENEMY && enemy_trial_kind==5)bulwark_draw();
@@ -497,6 +499,7 @@ void play_update(void) BANKED {
         set_paused(1);
         return;
     }
+    if ((opening_notice || (profile.story & STORY_OPENING)) && opening_update()) return;
     // SELECT is a modifier: with B it reloads, with A (later) it throws a
     // grenade or drops a mine; a tap on its own switches weapons, on release so
     // a chord never switches too. While it's down, A and B don't reach the
@@ -592,6 +595,7 @@ void play_update(void) BANKED {
             if (save_slot != SAVE_NONE) {  // (a file's: the lab's descents have no town)
                 profile.exp_active = 0;    // back with everything: the expedition is over (no fee)
                 if (world_id == WORLD_DESERT) {
+                    opening_arrive();
                     desert_return = 1;
                     carry_hp = player_hp;
                 }

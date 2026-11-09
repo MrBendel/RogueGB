@@ -81,7 +81,9 @@ void run_over_update(void) BANKED {
     if (!(joy_pressed & (J_START | J_A))) return;
     if (save_slot != SAVE_NONE) {
         // Rebuilt, back in town (the hub).
-        play_mode = MODE_YARD;
+        // Before the first arrival, retry the desert. The shield and Echo's
+        // already-heard advice persist; death cannot skip the opening.
+        play_mode = profile.story & STORY_OPENING ? MODE_DESCENT : MODE_YARD;
         run_start(run_new_seed());
         state_change(STATE_PLAY);
     } else {

@@ -49,8 +49,10 @@ test('a new file: the files screen offers three, the first one is saved as soon 
   const sram = emu.sram();
   assert.ok(sram[0] === 0x53 && sram[1] === 0x4b || sram[256] === 0x53 && sram[257] === 0x4b, 'the slot has a copy');
   assert.equal(prof(emu, 'level'), 1);
-  assert.equal(emu.v('play_mode'), 6, 'a new character starts in the town');
-  assert.equal(prof(emu, 'exp_active'), 0, 'no expedition yet');
+  assert.equal(emu.v('play_mode'), 1, 'a new character wakes in the desert');
+  assert.equal(prof(emu, 'exp_active'), 1, 'opening position saved');
+  assert.equal(emu.v('world_id'),1);
+  assert.equal(emu.v('level_map'),9);
 });
 
 test('file load menu: B button returns to title home, and B from class select returns to files', () => {
