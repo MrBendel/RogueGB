@@ -80,6 +80,7 @@ test('peashooters flash a warning, then fire at the player', () => {
     return e.v('bullets_fired', 'u16') > fired0;
   }, 300, 'a shot');
   assert.ok(flashed, 'flashed before firing');
+  emu.idle(1);  // (bullets move and draw before enemies think: a new one shows next frame)
   assert.ok(emu.v('bullets_active') >= 1);
 });
 
@@ -240,6 +241,43 @@ test('sprite flicker never hides an enemy for more than 2 frames, even 8 in a ro
   assert.equal(emu.v('cam_y', 'u16'), 40, 'the row is on screen');
   assert.ok(drops > 0, 'the scanline limit really did drop enemies');
   assert.ok(worst <= 2, `an enemy stayed invisible for ${worst} frames in a row`);
+});
+
+test('a crowd never hides the bullets: on screen, each is drawn (8 enemies, 20 bullets)', () => {
+  // Enemy bullets take the first sprites after the player's, so neither OAM
+  // running out nor the 10-per-line limit drops one in favour of an enemy.
+  // (Before 2026-11-08 they were drawn last: a crowd hid what killed you.)
+  const emu = inArena().hold('DOWN', 24);
+  let checked = 0, worst = 0;
+  const hidden = new Array(BULLET_MAX).fill(0);
+  for (let f = 0; f < 240; f++) {
+    if (f % 30 === 0) {
+      emu.write8(emu.symbols.addr('debug_cmd'), 1);
+      emu.write8(emu.symbols.addr('player_hp'), emu.v('player_hp_max'));
+    }
+    emu.hold(fight(f), 1);
+    const oam = Array.from({ length: 40 }, (_, i) => ({ y: emu.read8(0xc000 + i * 4), x: emu.read8(0xc000 + i * 4 + 1) }));
+    const drawn = new Set();
+    for (let line = 0; line < 144; line++) {
+      let n = 0;
+      for (let i = 0; i < 40 && n < 10; i++) {
+        const top = oam[i].y - 16;
+        if (oam[i].y && line >= top && line < top + 16) { n++; drawn.add(i); }
+      }
+    }
+    const camX = emu.v('cam_x', 'u16'), camY = emu.v('cam_y', 'u16');
+    for (let b = 0; b < BULLET_MAX; b++) {
+      const { alive, x, y } = bullet(emu, b);
+      const sx = x - camX + 8, sy = y - camY + 16;
+      if (!alive || sx < 8 || sx >= 160 || sy < 24 || sy >= 136) { hidden[b] = 0; continue; }
+      checked++;
+      const seen = [...drawn].some((i) => oam[i].x === sx && oam[i].y === sy);
+      hidden[b] = seen ? 0 : hidden[b] + 1;
+      worst = Math.max(worst, hidden[b]);
+    }
+  }
+  assert.ok(checked > 1000, `bullets on screen: ${checked}`);
+  assert.ok(worst <= 2, `a bullet stayed invisible for ${worst} frames in a row`);
 });
 
 test('CPU budget: full pools (8 enemies, 20 bullets) stay within the frame', () => {
