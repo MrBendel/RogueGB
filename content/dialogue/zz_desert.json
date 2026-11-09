@@ -1,0 +1,19 @@
+{
+  "speakers": {
+    "waymark": { "name": "WAYMARK", "color": "#506868" }
+  },
+  "scripts": [
+    {
+      "id": "desert_road",
+      "lines": [
+        { "who": "waymark", "text": "SOUTH: Dust Crossroads. Follow the sand road out of town.\n\nEAST from Crossroads: Rustyard salvage. Armed patrols reported." }
+      ]
+    },
+    {
+      "id": "desert_crossroads",
+      "lines": [
+        { "who": "waymark", "text": "NORTH: Sands Town.\nEAST: Rustyard.\n\nClear the Rustyard patrol to claim its supply chest. Return to town with your salvage." }
+      ]
+    }
+  ]
+}

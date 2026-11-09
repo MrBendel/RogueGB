@@ -11,6 +11,7 @@
 #include "actor.h"
 #include "chunks.h"
 #include "gfx.h"
+#include "room.h"
 #include "tiles_lunar_ext.h"
 #include "tiles_lunar_int.h"
 
@@ -30,6 +31,15 @@ static const World worlds[WORLD_COUNT] = {
      {RGB(10, 30, 31), RGB(11, 15, 26), RGB(2, 3, 10)},
      {RGB(31, 8, 6), RGB(28, 22, 4), RGB(5, 3, 9)},
      {RGB(31, 26, 31), RGB(31, 4, 16), RGB(6, 0, 4)}},
+    // Dry Reach: corporate riflemen and their patrol hounds, warm rust and teal.
+    {CHUNK_THEME_LUNAR,
+     {{ACTOR_DUELIST, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST},
+      {ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND},
+      {ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND, ACTOR_DUELIST, ACTOR_HOUND}},
+     {0, 1, 2},
+     {RGB(25, 28, 16), RGB(12, 18, 12), RGB(4, 6, 5)},
+     {RGB(31, 23, 10), RGB(21, 10, 6), RGB(5, 4, 4)},
+     {RGB(31, 30, 20), RGB(31, 8, 5), RGB(6, 2, 2)}},
 };
 
 uint8_t world_id;
@@ -47,6 +57,9 @@ void world_enter(uint8_t id) BANKED {
 
 void world_load_tiles(uint8_t indoor) BANKED {
     switch (world_id) {
+    case WORLD_DESERT:
+        room_load_sands_tiles();
+        break;
     default:  // WORLD_LUNAR
         if (indoor) tiles_lunar_int_load();
         else tiles_lunar_ext_load();

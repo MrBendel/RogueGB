@@ -56,7 +56,8 @@ test('container cluster preserves the complete source assembly, including dark f
     const t=ts.tiles[ts.blocks[b][((y&15)>>3)*2+((x&15)>>3)]];
     assert.equal(t.idx[(y&7)*8+(x&7)],expected,`container source pixel ${x},${y}`);
   }
-  assert.equal(ts.palettes.length,5,'rock, metal roofs, rust containers, plants, and ground-safe metal');
+  assert.equal(ts.palettes.length,6,'five town materials plus the surface light-sand fill');
+  assert.equal(ts.palettes[5][1],ts.palettes[0][0],'flat light sand matches the authored ground edges');
   for(const p of [2,3,4]) assert.equal(ts.palettes[p][1],ts.palettes[0][1],'prop ground matches sand');
   assert.equal(ts.palettes[4][0],ts.palettes[0][0],'light ground beside metal fronts also matches');
 });

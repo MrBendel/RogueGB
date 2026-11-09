@@ -9,7 +9,7 @@
 extern uint8_t town_inside, town_changing;
 void town_reset(void) BANKED;
 // Walk up into a facade, down through the interior's south doorway.
-// Returns 1 after changing rooms; the caller stops the old frame.
+// Returns 1 after changing rooms, 2 when walking out to the desert surface.
 uint8_t town_update(void) BANKED;
 // Returns 1 while a committed downward ledge hop owns movement.
 uint8_t town_move(void) BANKED;

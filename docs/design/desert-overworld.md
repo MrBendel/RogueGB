@@ -1,8 +1,36 @@
 # Desert overworld
 
-Status: working proposal, 2026-11-07. Requested: a connected desert world around
-the Sands town, with the exploration feel of Borderlands. Names, geography,
-encounters and progression below are proposals, not implemented features.
+Status: first playable section implemented 2026-11-08; the full eight-map region
+below remains a working proposal. Requested: a connected desert world around
+the Sands town, with the exploration feel of Borderlands.
+
+## Playable now
+
+Walk south out of the town's container yard, along the pale road beside the
+waymarker. Dust Crossroads is a safe 20x16 map with a cache, a water-tower landmark
+and a direction post. Its east edge leads to Rustyard: another 20x16 map with
+container cover, riflemen and patrol hounds, reinforcements and a guarded chest.
+Walk west back to Crossroads, then north to town. Hold toward a map edge briefly
+to cross it, as in the existing descent. START opens the surface map.
+
+This slice uses fixed maps; camps and chests stay cleared/open while backtracking,
+and refresh when you return to town and begin another outing. Battery saves resume
+the correct surface map. Death uses the existing reconstruction fee and returns
+to town. Normal returns preserve current health and inventory. Floor loot follows
+the existing descent behavior: collect it before leaving a map.
+
+The town lift still starts the generated underground expedition. The surface does
+not yet connect to an excavation, add persistent shortcut unlocks, or offer new
+contracts. Region names identify the two maps on the pause screen. The southern
+town exit adapts the proposal below to the existing authored settlement; the
+full-region graph can be oriented around it as more maps are built.
+
+Implementation: `WORLD_DESERT` uses the existing expedition save fields, graph,
+camp controller and loot system. `desert.c` supplies an authored two-map graph and
+map metadata, `sands_overworld.py` composes the maps for `sands-town.py`, and
+`room_load_sands_tiles` shares the town atlas with the surface. No save-format
+change is required. The shared atlas uses 214/220 tiles, 97/128 blocks and six
+palettes; the extra light-sand fill and flipped ground edge reuse stored patterns.
 
 ## What the player does
 
@@ -14,7 +42,7 @@ Start with one coherent desert planet before adding other planets.
 Recommended structure: recognizable surface geography, with refreshed encounters
 and loot on a new expedition. Generated underground areas retain the existing
 roguelite loop. This would revise the current generated-only expedition structure;
-fixed versus randomized surface routes is still awaiting the user's preference.
+the first playable section uses fixed surface routes following approval to proceed.
 
 ## First region: the Dry Reach (working name)
 

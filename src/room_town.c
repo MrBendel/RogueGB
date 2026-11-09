@@ -20,7 +20,7 @@
 #define TOWN_W TS_SANDS_MAP_TOWN_W
 #define TOWN_H TS_SANDS_MAP_TOWN_H
 
-void room_load_town(void) BANKED {
+void room_load_sands_tiles(void) BANKED {
     uint8_t bank = BANK(tiles_sands);
     // Preserve the authored terrain instead of dropping unique edge/detail tiles.
     // The extra bank-1 tiles use $9500..$97ff, above weapon and portrait art.
@@ -40,7 +40,11 @@ void room_load_town(void) BANKED {
         }
     }
     room_attr_uniform = 0;  // palettes and flips per tile: stream attributes while scrolling
+}
 
+void room_load_town(void) BANKED {
+    uint8_t bank = BANK(tiles_sands);
+    room_load_sands_tiles();
     room_w = TOWN_W;
     room_h = TOWN_H;
     room_px_w = (uint16_t)TOWN_W * BLOCK_SIZE;
@@ -59,6 +63,7 @@ void room_load_town(void) BANKED {
     talk_add(4, 12, TALK_LIFT, TALK_DO_DOWN);
     // The company's contracts board, by the yard: jobs to take down (board.c).
     talk_add(7, 10, TALK_POST, TALK_DO_BOARD);
+    talk_add(6, 17, TALK_POST, DLG_DESERT_ROAD);
     // The people you've rescued (rescue.h), about town. Their tiles go where the
     // enemies' would (no enemies here).
     static const uint8_t folk_x[PEOPLE] = {3, 11, 7, 2}, folk_y[PEOPLE] = {11, 8, 13, 12};

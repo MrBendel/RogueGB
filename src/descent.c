@@ -33,6 +33,7 @@
 #include <rand.h>
 #include "elite.h"
 #include "rescue.h"
+#include "desert.h"
 
 uint8_t layer_depth;      // 1 for the first area
 uint16_t maps_entered;    // map changes this run (watchable)
@@ -122,18 +123,20 @@ static void warp_tick(void) {
 
 static void start_area(void) {
     level_generate(area_seed_base + (uint16_t)layer_depth * 7919);
-    rescue_area();  // (someone held here?)
+    if (world_id == WORLD_DESERT) {
+        rescue_state = RS_NONE;
+    } else rescue_area();  // (someone held here?)
 }
 
 void descent_start(uint16_t seed) BANKED {
-    world_enter(WORLD_LUNAR);  // (the only world so far: the town's lift will choose)
+    world_enter(save_slot != SAVE_NONE && profile.exp_world == WORLD_DESERT ? WORLD_DESERT : WORLD_LUNAR);
     layer_depth = 1;
     ammo_fill();  // a new expedition: full reserves
     maps_entered = 0;
     saved_seconds = 0;
     area_seed_base = seed;
     start_area();
-    descent_enter(area_start, EDGE_S);  // in through the entrance room's south door
+    descent_enter(area_start, world_id == WORLD_DESERT ? EDGE_N : EDGE_S);
 }
 
 // The expedition saved in the profile (save.h): its area rebuilt from the seed,
@@ -152,6 +155,7 @@ void descent_resume(void) BANKED {
     memcpy(area_inside_opened, profile.exp_inside, sizeof(area_inside_opened));
     area_seen = profile.exp_seen;
     uint8_t map = profile.exp_map, links = area_links[map], side = EDGE_S;  // (the entrance: its south door)
+    if (world_id == WORLD_DESERT && map == area_start) side = EDGE_N;
     if (map != area_start) side = links & EDGE_N ? EDGE_N : links & EDGE_E ? EDGE_E : links & EDGE_S ? EDGE_S : EDGE_W;
     // Back from its miniboss (or a continue after): beside the shaft, open now.
     if (area_type[map] == MAP_EXIT && (area_chests_opened[map] & AREA_BOSS_BEATEN)) side = DESCENT_NO_DOOR;
@@ -260,7 +264,7 @@ static void autosave(void) {
 static void place_player(uint8_t side) {
     uint8_t s = side == EDGE_N ? 0 : side == EDGE_E ? 1 : side == EDGE_S ? 2 : 3;
     // The opening's middle, less half the player (indoors, doorways are one block).
-    uint16_t at = (uint16_t)(level_open[s] + (MAP_INDOORS(area_type[level_map]) ? 0 : 1)) * BLOCK_SIZE;
+    uint16_t at = (uint16_t)(level_open[s] + (world_id != WORLD_DESERT && MAP_INDOORS(area_type[level_map]) ? 0 : 1)) * BLOCK_SIZE;
     switch (side) {
     case EDGE_N: player_x = at; player_y = 2 * BLOCK_SIZE - 8; break;
     case EDGE_S: player_x = at; player_y = room_px_h - 3 * BLOCK_SIZE + 4; break;
@@ -290,11 +294,15 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     // An area's entrance room has the comms device on its back wall, the briefing, and
     // the goals board (the way back to town is its south door: descent_door).
     talk_clear();
-    if (map == area_start) {
+    if (map == area_start && world_id != WORLD_DESERT) {
         for (uint8_t b = 0; b < 2; b++) {  // (on the wall: from below)
             talk_add(COMMS_X + b, COMMS_Y + 1, TALK_COMMS, DLG_AREA_BRIEFING);
             talk_add(GOALS_X + b, COMMS_Y + 1, TALK_COMMS, TALK_DO_GOALS);
         }
+        talk_init();
+    }
+    if (world_id == WORLD_DESERT && map == DESERT_CROSSROADS) {
+        talk_add(12, 5, TALK_POST, DLG_DESERT_CROSSROADS);
         talk_init();
     }
     // An exit map's vendor post: its machines (drawn by the map) talk from below.
@@ -304,7 +312,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
     shaft_taken = 0;
     place_player(side);
-    rescue_enter(map);  // (after the player: a follower comes in behind them)
+    if (world_id != WORLD_DESERT) rescue_enter(map);  // (after the player: a follower comes in behind them)
     maps_entered++;
     for (uint8_t c = 0; c < LEVEL_CAMPS; c++) {
         camp_state[c] = area_camps_cleared[map] & (1 << c) ? CAMP_CLEARED : CAMP_ASLEEP;
@@ -312,6 +320,13 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     }
     if (area_type[map] == MAP_EXIT) {
         char t[8] = "SHAFT  ";
+        hud_say(t);
+    }
+    if (world_id == WORLD_DESERT) {
+        // hud_say runs in another ROM bank: copy this bank's label into RAM.
+        const char *name = map == DESERT_CROSSROADS ? "DUST RD" : "RUSTYRD";
+        char t[8];
+        for (uint8_t k = 0; k < 8; k++) t[k] = name[k];
         hud_say(t);
     }
     autosave();
@@ -464,7 +479,7 @@ uint8_t descent_door(void) BANKED {
     else if (cx >= (int16_t)room_px_w - 6 && (joy & J_RIGHT)) d = EDGE_E;
     else if (fy <= 13 && (joy & J_UP)) d = EDGE_N;
     else if (fy >= (int16_t)room_px_h - 5 && (joy & J_DOWN)) d = EDGE_S;
-    uint8_t town = d == EDGE_S && level_map == area_start;  // the entrance's way out
+    uint8_t town = d == (world_id == WORLD_DESERT ? EDGE_N : EDGE_S) && level_map == area_start;
     if (!town && !(area_links[level_map] & d)) d = 0;
     if (!d) {
         edge_push = 0;
@@ -504,6 +519,10 @@ void descent_change_room(uint8_t d) BANKED {
     } else {
         uint8_t side, next = through(d, &side);
         descent_enter(next, side);
+    }
+    if (world_id == WORLD_DESERT) {
+        player_vx = player_vy = player_xs = player_ys = 0;
+        player_z = player_vz = player_air = player_dash_timer = player_roll_len = 0;
     }
     camera_init(player_x + 8, player_y + 8);
     // Every sprite still sits where it was on the old map's screen (the gun,

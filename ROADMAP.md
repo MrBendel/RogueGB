@@ -14,6 +14,13 @@ in the combat prototype. Local milestone revisions have not updated GitHub issue
 
 ## Decisions so far
 
+2026-11-08: First connected desert surface slice: town's south road -> authored
+Dust Crossroads -> Rustyard, with a cache, guarded salvage, map labels and return
+routes. Uses the existing expedition/camp/save systems under WORLD_DESERT; the
+town lift still starts the generated Lunar descent. Surface layouts stay fixed;
+camp/chest state persists during an outing and refreshes on a new one. See
+[desert overworld](docs/design/desert-overworld.md) for playable scope and expansion.
+
 | Topic | Decision |
 |---|---|
 | Campaign | Choose a character/class at the start and develop that same character. Explore, collect, and repeat within a progressive space campaign. Planets and a ship hub are the working structure; see [play loop](docs/design/play-loop.md) |

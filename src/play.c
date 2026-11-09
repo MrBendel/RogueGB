@@ -23,6 +23,8 @@
 #include <string.h>
 #include "room.h"
 #include "town.h"
+#include "desert.h"
+#include "world.h"
 #include "tiles_lunar_ext.h"
 #include "player.h"
 #include "camera.h"
@@ -243,6 +245,11 @@ void play_enter(void) BANKED {
         town_reset();
         room_load_yard();
         player_init(5 * BLOCK_SIZE, 4 * BLOCK_SIZE);
+        if (desert_return && save_slot != SAVE_NONE) {
+            player_x = 7 * BLOCK_SIZE;
+            player_y = 17 * BLOCK_SIZE;
+        }
+        desert_return = 0;
     } else if (play_mode >= MODE_MINIBOSS) {
         if (play_mode == MODE_BOSS && enemy_trial_kind == 0) { warden_room(); player_init(72,184); }
         else if (play_mode == MODE_BOSS && enemy_trial_kind == 3) { flynt_room(); player_init(72,96); }
@@ -358,6 +365,7 @@ static void take_action(void) {
     uint8_t a = talk_action;
     talk_action = 0;
     if (a == TALK_DO_DOWN) {
+        profile.exp_world = WORLD_LUNAR;
         go(MODE_DESCENT);  // a new expedition
     } else if (a == TALK_DO_UP) {
         profile.exp_active = 0;  // back up with everything: the expedition is over (no fee)
@@ -563,7 +571,16 @@ void play_update(void) BANKED {
     else web_trap=web_grace=0;
     if (talk_count | zone_count) {  // town rooms always have a talker; combat maps skip this whole path
         if (!(play_mode == MODE_YARD && save_slot != SAVE_NONE && town_move())) player_update();
-        if (play_mode == MODE_YARD && save_slot != SAVE_NONE && town_update()) return;
+        if (play_mode == MODE_YARD && save_slot != SAVE_NONE) {
+            uint8_t door = town_update();
+            if (door == 2) {
+                profile.exp_world = WORLD_DESERT;
+                profile.exp_active = 0;
+                carry_hp = player_hp;
+                go(MODE_DESCENT);
+            }
+            if (door) return;
+        }
         talk_update();
     } else player_update();
     if (pickups_on) pickups_update();
@@ -574,6 +591,10 @@ void play_update(void) BANKED {
         if (door == DESCENT_TOWN) {
             if (save_slot != SAVE_NONE) {  // (a file's: the lab's descents have no town)
                 profile.exp_active = 0;    // back with everything: the expedition is over (no fee)
+                if (world_id == WORLD_DESERT) {
+                    desert_return = 1;
+                    carry_hp = player_hp;
+                }
                 go(MODE_YARD);
                 return;
             }

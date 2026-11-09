@@ -245,7 +245,8 @@ test('Sands town: connected streets reach every service, with solid buildings an
   for (const [x,y] of [[7,4],[5,9],[10,7],[11,8],[7,12],[6,10],[3,12]])
     assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
   for (let x = 0; x < 16; x++) {
-    assert.equal(map[x], 1); assert.equal(map[18 * 32 + x], 1);
+    assert.equal(map[x], 1);
+    assert.equal(map[18 * 32 + x], x === 7 || x === 8 ? 0 : 1, 'southern road is the only border opening');
   }
   assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
   for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5],[6,5],[7,5],[14,9],[13,6],[14,6],[1,9],[10,8],[10,9]])

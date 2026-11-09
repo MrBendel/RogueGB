@@ -21,6 +21,8 @@
 #include "level.h"
 #include "descent.h"
 #include "run.h"
+#include "world.h"
+#include "desert.h"
 
 // Ink palettes (background palettes 0-5, borrowed; 6 is the panel's own).
 #define P_INK BG_PAL_UI
@@ -158,7 +160,8 @@ static void draw_map(void) {
     char *p = put(line, "DEPTH ");
     p = put_num(p, layer_depth, 1);
     *p = 0;
-    say(16, 2, line, P_DIM, 0xFF);
+    if (world_id == WORLD_DESERT) say_c(16, 2, level_map == DESERT_CROSSROADS ? "Dust Crossroads" : "Rustyard", P_DIM);
+    else say(16, 2, line, P_DIM, 0xFF);
     uint8_t td = alloc(2);
     VBK_REG = 1;
     set_win_data(td, 2, door_px);
@@ -186,6 +189,19 @@ static void draw_map(void) {
         if (links & EDGE_S) door(x + 1, y + 3, td + 1);
         if (links & EDGE_N) door(x + 1, y - 1, td + 1);
     }
+    if (world_id == WORLD_DESERT) {
+        // Town is a separate scene, but show its real north connection rather
+        // than making the return route disappear from the surface map.
+        uint8_t x = MAP_X + (DESERT_CROSSROADS % AREA_W) * 4;
+        uint8_t y = MAP_Y + (DESERT_CROSSROADS / AREA_W - 1) * 4;
+        win_frame(x, y, 3, 3);
+        set_win_tile_xy(x + 1, y + 1, FONT_TILES + ('T' - ' '));
+        VBK_REG = 1;
+        fill_win_rect(x, y, 3, 3, P_LIT);
+        VBK_REG = 0;
+        door(x + 1, y + 3, td + 1);
+        say_c((x + 4) * 8, y + 1, "Town", P_DIM);
+    }
     // The key (its symbols the grid's own: the text font has no @).
     static const uint8_t key_x[4] = {2, 9, 2, 10}, key_y[4] = {15, 15, 16, 16};
     static const char key_c[4] = {'@', 'X', 'E', '?'};
@@ -196,8 +212,8 @@ static void draw_map(void) {
         VBK_REG = 0;
     }
     say_c(32, 15, "you", P_DIM);
-    say_c(88, 15, "the shaft down", P_DIM);
-    say_c(32, 16, "the way out", P_DIM);
+    say_c(88, 15, world_id == WORLD_DESERT ? "guarded loot" : "the shaft down", P_DIM);
+    say_c(32, 16, world_id == WORLD_DESERT ? "back to town" : "the way out", P_DIM);
     say_c(96, 16, "not been", P_DIM);
 }
 
