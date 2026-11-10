@@ -36,6 +36,11 @@ void descent_enter(uint8_t map, uint8_t side) BANKED; // build a map and place t
 void descent_update(void) BANKED;                     // per frame: camps wake and clear
 // An enemy warping in (a camp's, an ambush's): for frames it's a glow on the floor,
 // then a beam, then it flickers in; till then it can't hurt you or be hit.
+// Dying: the warp in reverse, then the run's over (play.c).
+#define DEATH_TOTAL 100  // frames, about 1.7 s
+extern uint8_t dying;    // frames since you died, from 1 (0: alive)
+void death_start(void) BANKED;
+uint8_t death_tick(void) BANKED;  // 1 when it's over
 #define EDGE_PUSH 10  // frames pushing into an opening's far edge to leave the map
 extern uint8_t edge_push;
 #define WARP_FRAMES 40  // a reinforcement's or an ambush's

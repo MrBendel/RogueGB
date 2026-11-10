@@ -140,6 +140,26 @@ test('losing all HP ends the run', () => {
   settle(emu, RUN_OVER, 'run over screen');
 });
 
+test('dying: the world holds still, you flash, then warp out (the summoning in reverse), then the run ends', () => {
+  const emu = inArena();
+  emu.write8(emu.symbols.addr('player_hp'), 1);
+  until(emu, [], (e) => e.v('dying') > 0, 4000, 'a fatal hit');
+  const actorsAt = JSON.stringify(actors(emu));
+  const frames = [];
+  for (let f = 0; f < 98 && emu.v('next_state') !== RUN_OVER; f++) {
+    emu.hold('LEFT+A', 1);  // (nothing you press does anything now)
+    frames.push({ y: emu.read8(0xc000 + 3 * 4), tile: emu.read8(0xc000 + 3 * 4 + 2), gun: emu.read8(0xc000 + 1 * 4) });
+  }
+  assert.notEqual(emu.v('next_state'), RUN_OVER, 'it takes its time');
+  assert.equal(JSON.stringify(actors(emu)), actorsAt, 'nothing moves meanwhile');
+  assert.ok(frames.every((f) => f.gun === 0), 'the gun is put away');
+  const tiles = new Set(frames.filter((f) => f.y).map((f) => f.tile));
+  assert.ok(tiles.has(8), 'the glow on the floor');
+  assert.ok(tiles.size >= 3, 'you, the beam and the glow');
+  assert.equal(frames.at(-1).y, 0, 'gone at the end');
+  settle(emu, RUN_OVER, 'run over screen');
+});
+
 test('the HUD health bar follows health', () => {
   const emu = inArena();
   until(emu, [], (e) => e.v('player_hits', 'u16') > 0, 900, 'a hit');

@@ -139,17 +139,18 @@ test('screen: HUD with the shield broken and health low (pulsing)', () => {
   matchGolden(emu.idle(4), 'hud-shield-broken-low');
 });
 
-test('bars grow with max values up to 88 px, then scale', () => {
+test('bars grow with max values up to 64 px, then scale', () => {
+  // (64 since 2026-11-09: the three columns after the bars count a fight's foes.)
   const emu = run();
-  w8(emu, 'player_hp_max', 80);
-  w8(emu, 'player_hp', 80);
+  w8(emu, 'player_hp_max', 56);
+  w8(emu, 'player_hp', 56);
   emu.idle(2);
-  assert.equal(emu.v('hud_hp_len'), 80);
+  assert.equal(emu.v('hud_hp_len'), 56);
   w8(emu, 'player_hp_max', 200);
   w8(emu, 'player_hp', 100);
   emu.idle(2);
-  assert.equal(emu.v('hud_hp_len'), 88, 'as long as it gets');
-  assert.equal(emu.v('hud_hp_px'), 44, 'half');
+  assert.equal(emu.v('hud_hp_len'), 64, 'as long as it gets');
+  assert.equal(emu.v('hud_hp_px'), 32, 'half');
   w8(emu, 'player_hp', 1);
   emu.idle(2);
   assert.equal(emu.v('hud_hp_px'), 1, 'never empty while alive');

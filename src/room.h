@@ -24,8 +24,8 @@
 #define BLK_PIT 2     // hole: walkable, but standing over it (on the floor) makes you fall
 #define BLK_RAISED 3  // platform RAISED_PX high: a wall from the floor, ground once you're on it
 #define RAISED_PX 8
-#define BLK_PROP 4    // under a prop (the chest): solid to the player, drawn as floor;
-                      // shots, bullets and line of sight pass (they test SOLID/RAISED)
+#define BLK_PROP 4    // under a chest: a low step to the player (jump over it or onto it, like
+                      // RAISED), drawn as floor; shots, bullets and line of sight pass
 #define BLK_STAIRS 5 // traversable steps in authored terrace arenas
 #define BLK_DECK 6   // traversable upper terrace surface
 #define BLK_WALL_W 7 // a side wall drawn as a strip in its west half: solid there, floor in

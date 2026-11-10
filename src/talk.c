@@ -70,7 +70,7 @@ void talk_add(uint8_t bx, uint8_t by, uint8_t kind, uint8_t script) BANKED {
     talk_by[i] = by;
     talk_kind[i] = kind;
     talk_script[i] = script;
-    room_map[((uint16_t)by << 5) | bx] = BLK_PROP;  // solid to walk into, drawn as what's under it
+    room_map[((uint16_t)by << 5) | bx] = BLK_SOLID;  // solid (not a chest's step: no jumping over people)
 }
 
 void talk_remove(uint8_t i) BANKED {

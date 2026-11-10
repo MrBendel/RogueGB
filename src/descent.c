@@ -28,6 +28,8 @@
 #include "input.h"
 #include "health.h"
 #include "sfx.h"
+#include "oam.h"
+#include "sprite_slot.h"
 #include "actor_internal.h"
 #include <string.h>
 #include <rand.h>
@@ -112,6 +114,64 @@ static void warp_tick(void) {
         }
         warp_art(a, t);
     }
+}
+
+// Dying: the warp in reverse. The world holds still on the moment you were hit (so
+// you can see what did it), you flash, flicker into the beam, the beam fades to the
+// glow on the floor, and it goes out. The beam's tiles go in the player's hidden
+// half (sprite_slot.h): the live half keeps the frame you died in.
+#define DEATH_HOLD 24                    // frames held on the hit, you flashing
+#define DEATH_SOLID (DEATH_HOLD + 12)     // ... then flickering into the beam
+#define DEATH_BEAM (DEATH_SOLID + 24)     // ... the beam
+#define DEATH_GLOW (DEATH_BEAM + 20)      // ... the glow
+extern SpriteSlot player_slot;  // (player.c)
+uint8_t dying;  // frames since you died, from 1 (0: alive)
+static uint8_t death_t0, death_t1, death_p0, death_p1, death_x, death_y;
+
+void death_start(void) BANKED {
+    dying = 1;
+    uint8_t beam = player_slot.vram + ((player_slot.half ^ 1) << 2);
+    gfx_vram_copy((uint8_t *)0x8000 + ((uint16_t)beam << 4), beam_tiles, 32, CURRENT_BANK);
+    death_t0 = shadow_OAM[OAM_PLAYER].tile;
+    death_t1 = shadow_OAM[OAM_PLAYER + 1].tile;
+    death_p0 = shadow_OAM[OAM_PLAYER].prop;
+    death_p1 = shadow_OAM[OAM_PLAYER + 1].prop;
+    death_x = (uint8_t)(player_x - cam_x) + 8;
+    death_y = (uint8_t)(player_y - cam_y) + 16 - (uint8_t)(player_z >> 8);
+    for (uint8_t i = 0; i < OAM_FIRST_ACTOR; i++)
+        if (i != OAM_PLAYER && i != OAM_PLAYER + 1) hide_sprite(i);  // the gun, the reticle, the shadow
+    sfx_play(SFX_DEATH);
+}
+
+static void death_show(uint8_t t0, uint8_t t1, uint8_t p0, uint8_t p1) {
+    set_sprite_tile(OAM_PLAYER, t0);
+    set_sprite_tile(OAM_PLAYER + 1, t1);
+    set_sprite_prop(OAM_PLAYER, p0);
+    set_sprite_prop(OAM_PLAYER + 1, p1);
+    move_sprite(OAM_PLAYER, death_x, death_y);
+    move_sprite(OAM_PLAYER + 1, death_x + 8, death_y);
+}
+
+uint8_t death_tick(void) BANKED {
+    uint8_t t = dying++;
+    uint8_t beam = player_slot.vram + ((player_slot.half ^ 1) << 2);
+    uint8_t pal = t & 4 ? SPR_PAL_UI : SPR_PAL_SLIME;
+    if (t < DEATH_HOLD) {
+        uint8_t f = t & 4 ? SPR_PAL_FLASH : SPR_PAL_PLAYER;
+        death_show(death_t0, death_t1, (death_p0 & 0xF8) | f, (death_p1 & 0xF8) | f);
+    } else if (t < DEATH_SOLID && !(t & 2)) {
+        death_show(death_t0, death_t1, death_p0, death_p1);
+    } else if (t < DEATH_BEAM) {
+        if (t == DEATH_SOLID) sfx_play(SFX_WARP);
+        death_show(beam, beam, pal, pal | S_FLIPX);
+    } else if (t < DEATH_GLOW) {
+        death_show(WARP_GLOW_VRAM, WARP_GLOW_VRAM, pal, pal | S_FLIPX);
+    } else {
+        hide_sprite(OAM_PLAYER);
+        hide_sprite(OAM_PLAYER + 1);
+        return t >= DEATH_TOTAL;
+    }
+    return 0;
 }
 
 #define WAKE_X 112  // px from a camp's middle at which it wakes (about a screen)
@@ -372,6 +432,7 @@ static void reinforce(uint8_t c) {
 
 void descent_update(void) BANKED {
     if (warps) warp_tick();
+    uint8_t foes = 0;  // (the HUD's count: awake camps' living and still to come)
     for (uint8_t c = 0; c < level_camps; c++) {
         if (camp_state[c] == CAMP_ASLEEP) {
             int16_t dx = (int16_t)(player_x + 8 - camp_x[c]), dy = (int16_t)(player_y + 12 - camp_y[c]);
@@ -380,6 +441,7 @@ void descent_update(void) BANKED {
             uint8_t alive = 0;
             for (uint8_t a = 0; a < ACTOR_MAX; a++)
                 if ((camp_actors[c] & (1 << a)) && actor_type[a] != ACTOR_NONE) alive++;
+            foes += alive + camp_left[c];
             if (camp_left[c] && alive < CAMP_FIELD + (layer_depth >= 3)) {
                 if (!--camp_wait[c]) {
                     camp_wait[c] = CAMP_CALL;
@@ -397,6 +459,7 @@ void descent_update(void) BANKED {
             }
         }
     }
+    hud_foes = foes;
 }
 
 // In through building door k of the current map: its interior (the interior

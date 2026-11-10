@@ -86,7 +86,7 @@ test('the run-over screen names what killed you, with kills and waves', () => {
   w16(emu, 'debug_x', emu.v('player_x', 'u16'));
   w16(emu, 'debug_y', emu.v('player_y', 'u16'));
   w8(emu, 'debug_cmd', 2);
-  emu.until((e) => e.v('next_state') === RUN_OVER, 120, 'the run to end');
+  emu.until((e) => e.v('next_state') === RUN_OVER, 240, 'the run to end (after the warp out)');
   assert.equal(emu.v('death_cause'), CAUSE_SLIME);
   settle(emu, RUN_OVER, 'run over');
   matchGolden(emu, 'run-over-killed');

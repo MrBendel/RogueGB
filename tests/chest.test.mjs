@@ -50,6 +50,21 @@ test('the chest is solid: you walk into it, not through it (open or not)', () =>
   assert.ok(px(emu) + 3 + 10 <= CHEST_X, `stopped at the chest (x ${px(emu)})`);
 });
 
+test('a chest is a low step: jump over it, or onto it (it never blocks a path)', () => {
+  const emu = besideChest(waveCleared());
+  emu.hold('RIGHT+B', 1);
+  for (let f = 0; f < 60 && px(emu) < CHEST_X + 16; f++) emu.hold('RIGHT', 1);
+  assert.ok(px(emu) >= CHEST_X + 16, `over it (x ${px(emu)})`);
+  emu.idle(30);
+  assert.equal(emu.v('player_z', 'i16'), 0, 'down on the floor beyond');
+  // A short hop lands on top and stands there.
+  teleport(emu, CHEST_X - 20, CHEST_Y - 4);
+  emu.hold('RIGHT+B', 1).hold('RIGHT', 12).idle(40);
+  if (px(emu) + 3 + 10 > CHEST_X && px(emu) + 3 < CHEST_X + 16) {
+    assert.equal(emu.v('player_z', 'i16'), 8 * 256, 'standing on it');
+  }
+});
+
 test('walking into the chest opens it; the shield pops out and lands in front', () => {
   const emu = besideChest(waveCleared());
   emu.hold('RIGHT', 20);

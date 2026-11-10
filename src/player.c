@@ -153,13 +153,17 @@ static int16_t step_axis(int16_t v, int16_t t) {
     return v;
 }
 
+// (BLK_RAISED and BLK_PROP are 3 and 4: one compare.)
+#define HIGH(t) ((uint8_t)((t) - BLK_RAISED) < 2)
+
 // Does the pixel (x, y) block the player? Walls always do (a side wall only in
-// its drawn half); raised blocks only while the player is lower than their top.
+// its drawn half); raised blocks and chests only while the player is lower than
+// their top (a chest is a low step: jump over it, or onto it).
 static uint8_t blocked(uint16_t x, uint16_t y) {
     uint8_t t = room_block_at(x, y);
     if (t == BLK_FLOOR) return 0;  // (nearly always: the rest isn't tested)
     if (t >= BLK_WALL_W) return (t == BLK_WALL_W) ^ (((uint8_t)x >> 3) & 1);  // (the last types)
-    return t == BLK_SOLID || t == BLK_PROP || (t == BLK_RAISED && player_z < RAISED_Z);
+    return t == BLK_SOLID || (HIGH(t) && player_z < RAISED_Z);
 }
 
 // Does the hitbox fit with the sprite's top-left at pixel (x, y)?
@@ -169,13 +173,13 @@ static uint8_t box_free(uint16_t x, uint16_t y) {
     return !blocked(l, t) && !blocked(r, t) && !blocked(l, b) && !blocked(r, b);
 }
 
-// Ground height under the hitbox: the top of a raised block if any corner is on
-// one (so you can stand on an edge), otherwise the floor.
+// Ground height under the hitbox: the top of a raised block (or a chest) if any
+// corner is on one (so you can stand on an edge), otherwise the floor.
 static int16_t ground_under(void) {
     uint16_t l = player_x + HB_X, r = player_x + HB_X + HB_W - 1;
     uint16_t t = player_y + HB_Y, b = player_y + HB_Y + HB_H - 1;
-    if (room_block_at(l, t) == BLK_RAISED || room_block_at(r, t) == BLK_RAISED ||
-        room_block_at(l, b) == BLK_RAISED || room_block_at(r, b) == BLK_RAISED) return RAISED_Z;
+    if (HIGH(room_block_at(l, t)) || HIGH(room_block_at(r, t)) ||
+        HIGH(room_block_at(l, b)) || HIGH(room_block_at(r, b))) return RAISED_Z;
     return 0;
 }
 

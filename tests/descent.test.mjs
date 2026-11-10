@@ -355,11 +355,16 @@ test('a camp wakes as you approach, and once cleared it stays cleared', () => {
     emu.idle(3);
     assert.equal(emu.v('camp_state'), CAMP_AWAKE, 'awake once you are near');
     assert.ok(emu.v('actors_active') > 0, 'its enemies');
+    // The HUD counts the fight's foes: the camp's living and the rest still to come.
+    let living = 0;
+    for (let i = 0; i < 8; i++) if ((emu.v('camp_actors') >> i) & 1 && emu.read8(addr(emu, 'actor_type') + i)) living++;
+    assert.ok(emu.v('hud_foes') >= living + emu.v('camp_left'), `${emu.v('hud_foes')} foes on the HUD`);
     matchGolden(emu.idle(40), 'descent-camp');  // once the camera has caught up
-    emu.write8(addr(emu, 'camp_left'), 0);  // (no more coming)
+    emu.writeBytes(addr(emu, 'camp_left'), [0, 0, 0, 0]);  // (no more coming, to any camp awake)
     for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
     emu.idle(3);
     assert.equal(emu.v('camp_state'), CAMP_CLEARED);
+    assert.equal(emu.v('hud_foes'), 0, 'the count goes when the fight is won');
     // Leave and come back: still cleared, nobody there.
     leaveBy(emu, OPP[e]);
     leaveBy(emu, e);

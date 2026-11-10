@@ -228,6 +228,7 @@ extern uint8_t boss_campaign, campaign_timer, carry_hp, campaign_depth, campaign
 
 void play_enter(void) BANKED {
     play_actor_oam = play_mode == MODE_GUNSHIP ? FIRST_ACTOR_OAM + 10 : FIRST_ACTOR_OAM;
+    dying = 0;
     palettes_play();
     talk_clear();    // a room adds its own
     saved_seconds = 0;  // (run_start began the clock again)
@@ -451,6 +452,10 @@ static void tune_update(void) {
 }
 
 void play_update(void) BANKED {
+    if (dying) {  // the world holds still while you warp out (descent.c)
+        if (death_tick()) state_change(STATE_RUN_OVER);
+        return;
+    }
     if (dlg_active) {  // the world waits while someone talks
         dlg_update();
         return;
@@ -647,8 +652,5 @@ void play_update(void) BANKED {
         else if (boss_kind == BOSS_GLOBFATHER) globfather_draw();
     }
     sfx_watch();
-    if (!player_hp) {
-        sfx_play(SFX_DEATH);
-        state_change(STATE_RUN_OVER);
-    }
+    if (!player_hp) death_start();
 }

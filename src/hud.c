@@ -7,8 +7,9 @@
 //
 // Layout (20 columns, 2 rows; a 1 px ink line runs along the top):
 //   0       shield icon (row 0) / heart (row 1); column 7 is the bars' left edge
-//   1-11    the bars: shield (row 0, hanging from the line) over health (row 1)
-//   12      the end caps (at most)
+//   1-8     the bars: shield (row 0, hanging from the line) over health (row 1)
+//   9       the end caps (at most)
+//   10-12   in a fight: a skull and how many of the camp are still to beat (hud_foes)
 //   14-15   the held weapon's icon (16x16, its right-facing frame)
 //   17-19   rounds left, in tall 8x16 digits
 // Switching weapons shows its name over columns 13-19 for a second.
@@ -27,9 +28,11 @@
 #include "town.h"
 
 #define WIN_MAP ((uint8_t *)0x9C00)
-#define BAR_COLS 11              // cells: 8 px each
+#define BAR_COLS 8               // cells: 8 px each
 #define BAR_PX (BAR_COLS * 8)    // the longest bar; past it, bars scale
-#define ROW_LEN (BAR_COLS + 2)   // icon, cells, end cap
+#define BAR_LEN (BAR_COLS + 2)   // icon, cells, end cap
+#define FOE_X BAR_LEN            // the foes left: skull, two tall digits
+#define ROW_LEN (BAR_LEN + 3)
 #define RIGHT_X ROW_LEN          // the weapon side
 #define RIGHT_LEN (SCREEN_TW - ROW_LEN)
 #define ATTR_BANK1 0x08          // attribute bits: the tile is in VRAM bank 1 ...
@@ -51,7 +54,11 @@
 #define T_SLOT_ICON 18  // ... and the shield's outline
 #define T_GUN 20        // 4: left column top, bottom, right column top, bottom
 #define T_DIGIT 24      // 20: digit d's top half at T_DIGIT + 2d, bottom half next
+#define T_SKULL 52      // 2: the foes' skull, top (with the line) and bottom (after a town's 44-50)
 #define T_FONT 64       // 64: the font (ASCII 32-95) with the top line, for names
+
+uint8_t hud_foes;              // the fight's foes still to beat, alive and to come (descent.c; 0: none)
+uint8_t hud_foes_shown = 0xFF;
 
 uint8_t hud_shield_px, hud_shield_len, hud_shield_icon;
 // The values the bars were last built from: when none changed (most frames),
@@ -89,6 +96,11 @@ static const char art[8][8][9] = {
     {"33333333", "........", "2.......", "........", "2.......", "........", "2.......", "........"},
     // T_SLOT_ICON
     {"33333333", ".22222.2", "2....2..", "2....2.2", ".2..2...", "..22...2", "........", ".......2"},
+};
+// The skull: 8x16, the line along its top.
+static const char skull[16][9] = {
+    "33333333", "........", "........", "..3333..", ".311113.", "31122113", "31222213", "33322333",
+    "33322333", "31233213", ".322223.", "..3223..", "..3333..", "..3.3.3.", "........", "........",
 };
 
 static void put_tiles(uint8_t first, uint8_t n, const uint8_t *data) {
@@ -135,6 +147,19 @@ void hud_init(void) BANKED {
         }
         put_tiles(i < 3 ? T_SHIELD + i : T_LINE + i - 3, 1, t);
     }
+    p = t;
+    for (uint8_t r = 0; r < 16; r++) {
+        uint8_t lo = 0, hi = 0;
+        for (uint8_t x = 0; x < 8; x++) {
+            char c = skull[r][x];
+            uint8_t bit = 0x80 >> x;
+            if (c == '1' || c == '3') lo |= bit;
+            if (c == '2' || c == '3') hi |= bit;
+        }
+        *p++ = lo;
+        *p++ = hi;
+    }
+    put_tiles(T_SKULL, 2, t);
     // Tall digits: the font's, each row doubled; the top half gets the line.
     for (uint8_t d = 0; d < 10; d++) {
         uint8_t g[16];
@@ -209,7 +234,7 @@ static uint8_t bar_fill(uint8_t v, uint8_t max, uint8_t len) {
 static void build_row(uint8_t *r, uint8_t icon, uint8_t px, uint8_t len, uint8_t line) {
     uint8_t cells = len >> 3;
     r[0] = icon;
-    for (uint8_t i = 0; i < BAR_COLS + 1; i++) {
+    for (uint8_t i = 0; i < BAR_LEN - 1; i++) {
         uint8_t t = line ? T_LINE : T_BLANK;
         if (i < cells) {
             t = px >= 8 ? 8 : px;
@@ -220,6 +245,29 @@ static void build_row(uint8_t *r, uint8_t icon, uint8_t px, uint8_t len, uint8_t
         }
         r[1 + i] = t;
     }
+}
+
+// The foes left (in both rows' last columns): a skull and the count, or nothing.
+static void foes_cells(void) {
+    uint8_t *t = hud_rows[0] + FOE_X, *b = hud_rows[1] + FOE_X, n = hud_foes;
+    for (uint8_t i = 0; i < 3; i++) {
+        t[i] = T_LINE;
+        b[i] = T_BLANK;
+    }
+    if (!n) return;
+    if (n > 99) n = 99;
+    t[0] = T_SKULL;
+    b[0] = T_SKULL + 1;
+    uint8_t tens = 0;
+    while (n >= 10) { n -= 10; tens++; }
+    if (tens) {
+        t[1] = T_DIGIT + (tens << 1);
+        b[1] = T_DIGIT + (tens << 1) + 1;
+        t++;
+        b++;
+    }
+    t[1] = T_DIGIT + (n << 1);
+    b[1] = T_DIGIT + (n << 1) + 1;
 }
 
 // Keep town-only glyph uploads out of the combat HUD's stack/register footprint.
@@ -271,8 +319,9 @@ void hud_draw(void) BANKED {
     palettes_window_hud();
     // Palette and VRAM bank in the attribute map: every HUD tile is in bank 1.
     VBK_REG = 1;
-    fill_win_rect(0, 0, ROW_LEN, 1, BG_PAL_SHIELD | ATTR_BANK1);
-    fill_win_rect(0, 1, ROW_LEN, 1, BG_PAL_HEALTH | ATTR_BANK1);
+    fill_win_rect(0, 0, BAR_LEN, 1, BG_PAL_SHIELD | ATTR_BANK1);
+    fill_win_rect(0, 1, BAR_LEN, 1, BG_PAL_HEALTH | ATTR_BANK1);
+    fill_win_rect(FOE_X, 0, ROW_LEN - FOE_X, 2, BG_PAL_HEALTH | ATTR_BANK1);
     fill_win_rect(RIGHT_X, 0, RIGHT_LEN, 2, BG_PAL_GUN | ATTR_BANK1);
     if (boss_kind == BOSS_WARDEN) {
         fill_win_rect(0,2,20,1,BG_PAL_UI);
@@ -281,6 +330,8 @@ void hud_draw(void) BANKED {
     VBK_REG = 0;
     hud_shield_px = hud_hp_px = 0xFF;  // redraw everything
     hud_raw_cap = hud_raw_max = 0xFF;
+    hud_foes = 0;
+    hud_foes_shown = 0xFF;
     hud_ammo = 0xFE;
     hud_gun = 0xFF;
     hud_update();  // (hud_gun 0xFF: the icon loads without showing the name)
@@ -334,7 +385,7 @@ void hud_update(void) BANKED {
             build_row(r, icon, px, len, 1);
         } else {
             r[0] = T_SLOT_ICON;
-            for (uint8_t i = 1; i < ROW_LEN; i++) r[i] = i <= SLOT_CELLS ? T_SLOT : i == SLOT_CELLS + 1 ? T_SLOT_CAP : T_LINE;
+            for (uint8_t i = 1; i < BAR_LEN; i++) r[i] = i <= SLOT_CELLS ? T_SLOT : i == SLOT_CELLS + 1 ? T_SLOT_CAP : T_LINE;
         }
         gfx_vram_copy(WIN_MAP, r, ROW_LEN, 0);
     }
@@ -352,6 +403,12 @@ health:
     }
 
 weapon:;
+    if (hud_foes != hud_foes_shown) {  // the fight's foes left
+        hud_foes_shown = hud_foes;
+        foes_cells();
+        gfx_vram_copy(WIN_MAP + FOE_X, hud_rows[0] + FOE_X, 3, 0);
+        gfx_vram_copy(WIN_MAP + 32 + FOE_X, hud_rows[1] + FOE_X, 3, 0);
+    }
     // The weapon side: a new weapon loads its icon and shows its name a while.
     uint8_t right = 0;
     if (weapon_cur != hud_gun) {
