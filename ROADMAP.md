@@ -15,7 +15,7 @@ in the combat prototype. Local milestone revisions have not updated GitHub issue
 ## Decisions so far
 
 2026-11-08: New characters wake in Dustwake, receive a transmission from UNKNOWN,
-find their permanent starter shield, and pass two spitter groups on the way north
+find their permanent starter shield, and pass two Rockling groups on the way north
 through Crossroads into town. Existing files retain their progress. See
 [opening sequence](docs/design/opening.md) for current playable scope.
 

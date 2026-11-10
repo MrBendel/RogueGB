@@ -8,7 +8,7 @@ the Sands town, with the exploration feel of Borderlands.
 
 New characters begin south of Crossroads in **Dustwake**, a 20x24 desert map.
 The unknown entity directs them to a guaranteed shield, then past two groups of
-three spitters toward Crossroads and town. See [opening](opening.md) for the
+three Rocklings toward Crossroads and town. See [opening](opening.md) for the
 sequence, controls and retry behavior. Crossroads has a two-way southern road
 back to Dustwake. Existing saves retain their normal start.
 

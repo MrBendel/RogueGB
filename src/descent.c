@@ -11,6 +11,7 @@
 #include "level.h"
 #include "room.h"
 #include "world.h"
+#include "rockling.h"
 #include "player.h"
 #include "camera.h"
 #include "actor.h"
@@ -382,6 +383,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
     enemy_hp_bonus = layer_depth - 1;           // deeper enemies take more to bring down
     shaft_taken = 0;
     place_player(side);
+    rockling_load();
     if (world_id != WORLD_DESERT) rescue_enter(map);  // (after the player: a follower comes in behind them)
     maps_entered++;
     for (uint8_t c = 0; c < LEVEL_CAMPS; c++) {

@@ -24,6 +24,7 @@
 #include "squad.h"
 #include "elite.h"
 #include "mission.h"
+#include "rockling.h"
 
 uint8_t actor_type[ACTOR_MAX];
 uint8_t actor_state[ACTOR_MAX];
@@ -286,6 +287,7 @@ static void reap(void) {
 
 void actors_update(uint8_t first_oam) {
     terrain_checks_left = 1;
+    if (rockling_on) rockling_update();
     if (actor_count) {
         uint16_t px = player_x + PLAYER_HB_X, py = player_y + PLAYER_HB_Y;
         uint8_t hittable = player_hittable();
@@ -334,6 +336,7 @@ void actors_update(uint8_t first_oam) {
     // Draw: actors (actor_draw.s), then the player's shots as they move (shots.s).
     // Enemy bullets were drawn first, in actors_bullets.
     oam_next = first_oam;
+    if (rockling_on) rockling_emit();
     if (boss_kind == BOSS_GLOBFATHER) globfather_emit();
     else if (actor_count) actors_emit();
     if (boss_kind == BOSS_CRAGBACK) cragback_emit();
