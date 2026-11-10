@@ -20,9 +20,10 @@ test('playtest menu: navigation wraps, B backs out, and the campaign still launc
   e.tap('B').tap('B').idle(10);
   assert.equal(e.v('title_menu'), 0);
   e.shot('playtest-back-home');
-  // The campaign: START opens the files; a new one asks for a class and starts in the town.
+  // The campaign: START opens files, selects a class, then wakes in the desert.
   settle(e.tap('START').tap('A').tap('A'), PLAY);
-  assert.equal(e.v('play_mode'), 6);
+  assert.equal(e.v('play_mode'), 1);
+  assert.equal(e.v('world_id'), 1);
 });
 
 test('playtest menu: lab entry and SELECT shortcut stay available', () => {

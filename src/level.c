@@ -12,6 +12,7 @@
 #include "descent.h"
 #include "save.h"
 #include "world.h"
+#include "desert.h"
 
 uint8_t area_type[AREA_CELLS];
 uint8_t area_links[AREA_CELLS];
@@ -79,6 +80,7 @@ static const uint8_t field_w[5] = {6, 6, 4, 5, 5};
 static const uint8_t field_h[5] = {4, 6, 6, 4, 6};
 
 void level_generate(uint16_t seed) BANKED {
+    if (world_id == WORLD_DESERT) { desert_generate(); return; }
     level_rng = seed ? seed : 0xACE1;
     area_seen = 0;
     for (uint8_t i = 0; i < AREA_CELLS; i++) {
@@ -900,6 +902,7 @@ static void plan_roles(uint8_t i, uint8_t cw, uint8_t ch) {
 }
 
 void level_build_map(uint8_t i) BANKED {
+    if (world_id == WORLD_DESERT) { desert_build(i); return; }
     if (!area_type[i]) return;  // no map in that slot
     banked_memcpy(&chunk_count_ram, &chunk_count, 1, BANK(chunks));
     banked_memcpy(chunk_tag_tab, chunk_tags, chunk_count_ram, BANK(chunks));

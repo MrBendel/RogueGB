@@ -282,7 +282,7 @@ void title_update(void) BANKED {
         }
         else if (joy_pressed & (J_A | J_START)) {
             save_new(title_choice, title_class);
-            begin(MODE_YARD);  // a new character starts in the town
+            begin(MODE_DESCENT);  // wake in the desert before reaching town
         }
         if (c != title_class) {
             title_class = c;
@@ -314,7 +314,7 @@ void title_update(void) BANKED {
             if (slot_used[title_choice]) {
                 // Mid-expedition: back to its map; otherwise the town.
                 save_open(title_choice);
-                begin(profile.exp_active ? MODE_DESCENT : MODE_YARD);
+                begin(profile.exp_active || (profile.story & STORY_OPENING) ? MODE_DESCENT : MODE_YARD);
             } else {
                 show_classes();
             }

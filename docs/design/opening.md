@@ -1,7 +1,39 @@
-# Opening sequence: the first relic
+# Opening sequence: Dustwake
 
-Status: agreed opening direction, with a proposed playable sequence. No gameplay
-implementation is included in this document.
+Status: playable opening implemented 2026-11-08. New characters wake in the desert,
+find a shield, fight toward Dust Crossroads, and reach town. The first relic is a
+later campaign beat; the earlier chamber/escape sequence below remains a proposal.
+
+## Playable opening
+
+Art rule: build from the town's Sands desert tileset and its material palettes.
+Reuse complete cliff formations, painted ground edges and correctly assembled
+props; keep the shared atlas instead of introducing a separate desert art style.
+
+Choose a persistent class, then wake prone in Dustwake, a 20x24 authored desert
+map. The entity contacts you under the name UNKNOWN, without revealing a portrait
+or explaining why she needs you alive. Her first instruction is practical: find
+the supply case in the narrow pass north of the starting pocket.
+
+Walking near the case equips a guaranteed tier-one shield (25 capacity). The
+shield recharges through the existing health system. The pass places the cache
+before combat, and the brief messages pause play while teaching movement,
+shielding, firing and jumping. Two groups of three projectile-spitting creatures
+wait farther north, with no elites or reinforcements. This is the current enemy
+choice pending confirmation of which throwing enemy was intended.
+
+Continue north into Dust Crossroads, then north again into Sands Town. A final
+transmission acknowledges safety and leaves the entity's identity unresolved.
+START's map shows the current objective: find the shield, then head north to town.
+The side road to Rustyard and the town's underground lift remain available.
+
+The opening applies only to new files; established saves keep their progress.
+Before reaching town, death restarts at Dustwake's safe pocket with the found
+shield retained and the existing reconstruction fee. Heard contact messages do
+not replay. Arrival completes the introduction. Surface travel does not increase
+underground best-depth progression. Existing story bits store this state without
+changing the save format.
+
 
 ## Agreed experience
 
@@ -15,7 +47,7 @@ Keep the existing choice of a persistent character/class at campaign start. A br
 selection can precede the wake-up scene without a long ship, briefing, or job-board
 sequence. Being disoriented does not require a blank personal history.
 
-## Proposed sequence
+## Earlier relic sequence proposal (after the shield opening)
 
 | Beat | Player experience | What it teaches |
 |---|---|---|

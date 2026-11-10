@@ -2,6 +2,9 @@
 // Loot in the world (pickups.h). Banked: per frame only in maps with chests or
 // drops (play.c checks pickups_on first).
 #include <gb/gb.h>
+#include "opening.h"
+#include "desert.h"
+#include "world.h"
 #include <gb/cgb.h>
 #include <rand.h>
 #include <string.h>
@@ -168,6 +171,7 @@ static void open_chest(uint8_t c) {
     area_chests_opened[level_map] |= 1 << (c + chest_bit0);
     chests_opened++;
     sfx_play(SFX_CHEST);
+    if (opening_shield(c)) return;
     uint16_t x = chest_x[c], y = chest_y[c] + 18;
     drop_credits(x - 10, y, (uint16_t)(10 + (rand() & 15)) * layer_depth);
     Gun g;
@@ -354,7 +358,8 @@ void pickups_update(void) BANKED {
         if (chest_open_bits & (1 << c)) continue;
         uint8_t camp = chest_camp[c];
         if (camp != 0xFF && camp_state[camp] != CAMP_CLEARED) continue;
-        if (near(chest_x[c] + 8, chest_y[c] + 8, OPEN_REACH)) open_chest(c);
+        uint8_t reach = world_id == WORLD_DESERT && level_map == DESERT_WAKE && !c && !profile.has_shield ? 24 : OPEN_REACH;
+        if (near(chest_x[c] + 8, chest_y[c] + 8, reach)) open_chest(c);
     }
     // Drops underfoot: credits are taken at once; a gun shows its card.
     uint8_t card = CARD_NONE;

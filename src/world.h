@@ -9,7 +9,8 @@
 #include <gb/gb.h>
 
 #define WORLD_LUNAR 0
-#define WORLD_COUNT 1
+#define WORLD_DESERT 1
+#define WORLD_COUNT 2
 
 #define WORLD_ROSTER 8  // a camp's enemy kinds, one drawn per spawn (ACTOR_*: repeats weight them)
 #define WORLD_TIERS 3   // rosters by depth: the first area's, the second's, then every deeper one's

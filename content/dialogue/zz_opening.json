@@ -1,0 +1,32 @@
+{
+  "speakers": {
+    "entity": { "name": "UNKNOWN", "color": "#1c7a84", "sound": "relay" }
+  },
+  "scripts": [
+    {
+      "id": "opening_wake",
+      "lines": [
+        { "who": "entity", "text": "You're awake. Good. Can you hear me?" },
+        { "who": "you", "text": "Where am I?" },
+        { "who": "entity", "text": "Answers later. First, find a shield. There's a supply case in the narrow pass just north of you." },
+        { "who": "entity", "text": "Use the D-pad to move. Walk up to the case. I'll stay on this channel." }
+      ]
+    },
+    {
+      "id": "opening_shield",
+      "lines": [
+        { "who": "entity", "text": "Shield online. It takes the hit first. Get clear for a moment and it will recharge." },
+        { "who": "entity", "text": "Keep moving when they spit. A fires your gun. B jumps." },
+        { "who": "entity", "text": "Follow the pass north to Dust Crossroads. The road north from there reaches town." }
+      ]
+    },
+    {
+      "id": "opening_town",
+      "lines": [
+        { "who": "entity", "text": "You're inside. For now, that's enough." },
+        { "who": "you", "text": "Who are you? Why help me?" },
+        { "who": "entity", "text": "Someone who needs you alive. Find your feet. I'll be in touch." }
+      ]
+    }
+  ]
+}

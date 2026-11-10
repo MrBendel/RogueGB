@@ -92,4 +92,6 @@ for y in range(H):
 used={n for row in g for n in row}
 pieces={n:p for n,p in pieces.items() if n in used}
 d={'comment':'The original Sands scene is preserved outside four ground transition cells; existing irregular sand edges finish its southern boundary. The southern departure yard extends connected terrain; the original three buildings have accessible interiors. Unicode legend characters identify exact source blocks, not generic terrain. See docs/design/town.md.','src':'artwork/tiles/sands.png','backdrop':[136,192,112],'sheets':old['sheets'],'palettes':6,'vramBanks':2,'paletteOverrides':{'0':['#e8c888','#c8a060','#a05030','#382820']},'paletteVariants':[['#a8b8b0','#708888','#405858','#182830'],['#e8a048','#c8a060','#a04428','#382820'],['#b8c088','#c8a060','#688060','#283c38'],['#e8c888','#c8a060','#506868','#203038']],'pieces':pieces,'legend':legend,'maps':{'town':rows}}
+from sands_overworld import add_surface
+add_surface(d)
 p.write_text(json.dumps(d,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')

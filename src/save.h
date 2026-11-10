@@ -65,6 +65,9 @@ typedef struct {
 } Profile;
 
 #define STORY_MET_ECHO 1    // her first contact at the town's relay has played
+#define STORY_OPENING 2     // new characters only: reach town from the desert
+#define STORY_AWAKENED 4    // Echo's opening contact has played
+#define STORY_SHIELD_TOLD 8 // Echo explained the first shield
 
 // --- watchable state ---
 extern Profile profile;          // the one being played

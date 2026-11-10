@@ -1,7 +1,7 @@
 // Classes and skill trees (skills.c, menu.c): a new file picks a class; the pause
 // menu's skills page spends skill points; learned skills change the guns and health.
 import { test } from 'node:test';
-import { assert, matchGolden, boot, bootToTitle, settle, TITLE, PLAY } from './helpers.mjs';
+import { assert, legacyTownFixture, matchGolden, boot, bootToTitle, settle, TITLE, PLAY } from './helpers.mjs';
 
 const P = { cls: 0, level: 1, skill_points: 4, skills: 5 };
 const W = { mag: 15, reload: 16 };  // WeaponStats offsets (weapon.h)
@@ -18,7 +18,7 @@ function newFile(cls = 1) {
   assert.equal(emu.v('title_files'), 2, 'an empty file asks for a class');
   assert.equal(emu.v('title_class'), 1, 'the first class with a character');
   for (let i = 1; i < cls; i++) emu.tap('RIGHT');
-  return settle(emu.tap('A'), PLAY).idle(4);
+  return legacyTownFixture(settle(emu.tap('A'), PLAY)).idle(4);
 }
 /** A new file made an Ironclad (no character plays it, so the picker skips it; its skills are the tested ones). */
 function ironclad() {

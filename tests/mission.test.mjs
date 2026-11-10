@@ -5,7 +5,7 @@
 // (The board's cursor moves are 2-frame presses: moving redraws the job's details,
 // which takes more than a frame, so a 1-frame tap can land while it's busy.)
 import { test } from 'node:test';
-import { assert, bootToTitle, settle, takeLiftDown, PLAY, RUN_OVER, MODE_TOWN } from './helpers.mjs';
+import { assert, legacyTownFixture, bootToTitle, settle, takeLiftDown, PLAY, RUN_OVER, MODE_TOWN } from './helpers.mjs';
 
 const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
@@ -22,7 +22,7 @@ const job = (emu, s, kind, target, need, have = 0) => {
 };
 
 const newFileInTown = () => {
-  const emu = settle(bootToTitle().tap('START').tap('A').tap('A'), PLAY);
+  const emu = legacyTownFixture(settle(bootToTitle().tap('START').tap('A').tap('A'), PLAY));
   emu.writeBytes(A(emu, 'zones_done'), [0xff]);  // (no first contact)
   return emu;
 };

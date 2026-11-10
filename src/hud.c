@@ -26,6 +26,7 @@
 #include "save.h"
 #include "tiles_sands.h"
 #include "town.h"
+#include "world.h"
 
 #define WIN_MAP ((uint8_t *)0x9C00)
 #define BAR_COLS 8               // cells: 8 px each
@@ -174,8 +175,8 @@ void hud_init(void) BANKED {
     }
     // Town detail shares the menu's scratch range. Restore it after a menu;
     // town names use seven on-demand glyphs at 44..50 instead of this full font.
-    if (play_mode == MODE_YARD && save_slot != SAVE_NONE) {
-        if (town_inside == TOWN_OUTSIDE) {
+    if ((play_mode == MODE_YARD && save_slot != SAVE_NONE) || (play_mode == MODE_DESCENT && world_id == WORLD_DESERT)) {
+        if (play_mode == MODE_DESCENT || town_inside == TOWN_OUTSIDE) {
             VBK_REG = 1;
             banked_bkg_data(80, TILES_SANDS_TILE_COUNT - 172, tiles_sands_tiles + 172u * 16u, BANK(tiles_sands));
             VBK_REG = 0;
@@ -290,7 +291,7 @@ static void build_right(void) {
         bot[i] = T_BLANK;
     }
     if (hud_name_t) {
-        if (play_mode == MODE_YARD && save_slot != SAVE_NONE) town_name(top);
+        if ((play_mode == MODE_YARD && save_slot != SAVE_NONE) || (play_mode == MODE_DESCENT && world_id == WORLD_DESERT)) town_name(top);
         else for (uint8_t i = 0; i < RIGHT_LEN && hud_text[i]; i++) top[i] = T_FONT + (hud_text[i] - ' ');
         return;
     }

@@ -20,6 +20,9 @@ quarters, Echo's relay room, and Marro's shop.
   ground tile, clear of the cliff below. Jumping/rolling cannot trigger a doorway.
 
 Outdoor doors (facade block coordinates): quarters (5,8), relay (7,3), shop (10,6), immediately left of the stairs at (11,6).
+The southern yard road at (7,18)-(8,18) leads to Dust Crossroads and Rustyard.
+A waymarker at (6,17) explains the route. Return through Crossroads' north exit
+to arrive safely inside the yard. See [desert overworld](desert-overworld.md).
 Rescued residents stand clear of door approaches at (3,11), (11,8), (7,13),
 and (2,12). The lift (4,12) and contracts board (7,10) stay outside. Company posts are at
 (12,8) and (8,12). Marro and the gun/shield machines are inside the shop.

@@ -14,6 +14,7 @@
 #include "save.h"
 #include "player.h"
 #include "skilldata.h"
+#include "world.h"
 
 #define SRAM ((uint8_t *)0xA000)
 #define COPY_SIZE 256
@@ -97,6 +98,8 @@ void save_new(uint8_t slot, uint8_t cls) BANKED {
     save_slot = slot;
     new_profile();
     profile.cls = cls;
+    profile.story = STORY_OPENING;
+    profile.exp_world = WORLD_DESERT;
     play_as();
     ENABLE_RAM;
     SWITCH_RAM(0);

@@ -37,6 +37,8 @@ Pronunciation and tagline are not finalized.
   meeting the mysterious guide, and recovering the first relic.
 - [Level generation, depth, and towns](level-generation.md): chunk-based generated
   layers, visual rulesets, room sizes, descent depth, and authored towns.
+- [Desert overworld](desert-overworld.md): proposed connected Sands surface region,
+  exploration loops, landmarks and the first playable section.
 - [Play loop and progression](play-loop.md): expeditions, collecting, persistent
   growth, reasons to revisit, and unresolved death/reward rules.
 - [Decision log](decisions.md): agreed direction, superseded ideas, and questions

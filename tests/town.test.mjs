@@ -4,14 +4,14 @@
 import { test } from 'node:test';
 import { convert } from '../tools/tileset.mjs';
 const DETAIL_TILES = convert('sands').stored.length - 172;
-import { assert, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, TITLE, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
+import { assert, legacyTownFixture, bootToTitle, settle, startDescent, takeLiftDown, leaveToTown, enterTownBuilding, leaveTownBuilding, TOWN_DOORS, TITLE, PLAY, RUN_OVER, MODE_TOWN, MODE_DESCENT } from './helpers.mjs';
 
 const A = (emu, n) => emu.symbols.addr(n);
 const w16 = (emu, n, v) => emu.writeBytes(A(emu, n), [v & 255, v >> 8]);
 const EXP_ACTIVE = 59, STORY = 88, CREDITS = 7;  // Profile offsets (save.h)
 const prof = (emu, at, len = 1) => emu.readBytes(A(emu, 'profile') + at, len).reduce((v, x, i) => v + x * 2 ** (8 * i), 0);
 
-const newFileInTown = () => settle(bootToTitle().tap('START').tap('A').tap('A'), PLAY);
+const newFileInTown = () => legacyTownFixture(settle(bootToTitle().tap('START').tap('A').tap('A'), PLAY));
 /** Wait out a play -> play change (a lift). */
 function arrive(emu, mode) {
   emu.until((e) => e.v('play_mode') === mode, 60, 'the mode');
@@ -19,7 +19,7 @@ function arrive(emu, mode) {
   return settle(emu, PLAY);
 }
 
-test('a new file starts in the town; its lift goes down into a new expedition', () => {
+test('an established town profile takes the lift into a new expedition', () => {
   const emu = newFileInTown();
   assert.equal(emu.v('play_mode'), MODE_TOWN);
   takeLiftDown(emu);
@@ -245,7 +245,8 @@ test('Sands town: connected streets reach every service, with solid buildings an
   for (const [x,y] of [[7,4],[5,9],[10,7],[11,8],[7,12],[6,10],[3,12]])
     assert.ok(seen.has(y * 32 + x), `service approach ${x},${y} is connected`);
   for (let x = 0; x < 16; x++) {
-    assert.equal(map[x], 1); assert.equal(map[18 * 32 + x], 1);
+    assert.equal(map[x], 1);
+    assert.equal(map[18 * 32 + x], x === 7 || x === 8 ? 0 : 1, 'southern road is the only border opening');
   }
   assert.equal(map[7 * 32 + 5], 1, 'house roof is solid');
   for (const [x,y] of [[1,5],[1,6],[4,3],[10,2],[13,4],[14,5],[6,5],[7,5],[14,9],[13,6],[14,6],[1,9],[10,8],[10,9]])

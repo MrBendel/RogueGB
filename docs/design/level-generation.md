@@ -5,6 +5,11 @@ Status: agreed direction (2026-10-12, revised 2026-10-13) with working numbers. 
 
 ## Agreed direction
 
+2026-11-08 addition: the first desert **surface** is authored and connected to the
+Sands town. Its two exploration maps reuse expedition camps, loot and saving;
+the generated underground system below remains available through the town lift.
+See [desert overworld](desert-overworld.md) for the playable slice and larger plan.
+
 - **Expeditions are explored, not cleared room by room.** An **area** is a handful
   of linked **maps**; each map is open ground you roam freely, and its edges open
   onto neighbouring maps. (Revised 2026-10-13: replaces a room grid with doors.)

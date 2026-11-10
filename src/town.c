@@ -15,6 +15,7 @@
 #include "state.h"
 #include "tiles_town_inside.h"
 #include "far.h"
+#include "descent.h"
 
 uint8_t town_inside = TOWN_OUTSIDE, town_changing;
 uint8_t town_saved_rooms, town_drop_end;
@@ -29,6 +30,7 @@ extern uint8_t player_jump_buffer;
 void town_reset(void) BANKED {
     town_inside = TOWN_OUTSIDE;
     town_changing = town_saved_rooms = town_drop_end = 0;
+    edge_push = 0;
 }
 
 static void load_inside(void) {
@@ -179,6 +181,9 @@ uint8_t town_move(void) BANKED {
 uint8_t town_update(void) BANKED {
     if (player_air || player_z || player_roll_len || player_dash_timer || player_stun) return 0;
     uint8_t x = (player_x + 8) >> 4;
+    if (town_inside == TOWN_OUTSIDE && (x == 7 || x == 8) && player_y + 12 >= room_px_h - 5 && (joy & J_DOWN)) {
+        if (++edge_push >= EDGE_PUSH) { edge_push = 0; return 2; }
+    } else edge_push = 0;
     if (town_inside != TOWN_OUTSIDE) {
         if ((joy & J_DOWN) && (x == 4 || x == 5) && player_y + 12 >= 7 * 16) {
             change_room(TOWN_OUTSIDE);

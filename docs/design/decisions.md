@@ -159,3 +159,30 @@ clearing (2026-10-12 working numbers for rooms).
 
 **Open:** whether characters level at all (XP and skills alongside gear, or gear
 only); area count per descent; map transitions (fade or scroll).
+
+## 2026-11-08 â€” First connected desert surface
+
+**Agreed:** begin building a connected desert overworld around the authored Sands
+town, inspired by exploring connected regions in Borderlands. Proceed with the
+first playable Town -> Dust Crossroads -> Rustyard section.
+
+**Implemented scope:** fixed authored surface maps; camp and chest state persists
+during an outing and refreshes on the next departure from town. Existing generated
+underground expeditions remain accessible from the town lift. The existing save
+format identifies the surface through its world ID.
+
+**Still proposed:** the remaining six destinations, permanent shortcut unlocks,
+excavation-to-descent connections and destination-specific contracts. See
+[desert overworld](desert-overworld.md) for the full region proposal and access.
+
+## 2026-11-08 — Wake in the desert, find a shield, reach town
+
+**Agreed:** new characters wake in a desert, are contacted by the mysterious
+entity, and must find a shield before traveling through throwing enemies to town.
+
+**Implemented:** Dustwake -> Dust Crossroads -> Sands Town. Guaranteed permanent
+starter shield; brief unknown-entity dialogue; two three-enemy spitter groups;
+opening retries retain the shield and skip heard contact. Established saves keep
+their progress. First relic discovery follows later rather than being the first
+tutorial objective. Enemy selection currently uses the smaller spitters pending
+confirmation of the intended throwing enemy.
