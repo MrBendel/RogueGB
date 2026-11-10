@@ -187,3 +187,11 @@ their progress. First relic discovery follows later rather than being the first
 tutorial objective. Enemy selection confirmed 2026-11-10: rock throwers like
 Cragback, implemented as small Rocklings with overhead wind-up, locked landing
 warnings and arcing rocks.
+
+## 2026-11-10 — The shield is earned from the Cragback fight
+
+The opening shield is a guaranteed reward after both Cragback groups are defeated,
+not equipment given before combat. The northern cache unlocks after all six kills;
+collecting it completes the fight objective and opens the route toward town.
+The first entity message teaches dodging and firing; shielding is explained after
+victory. An earned shield remains equipped through death and reload.

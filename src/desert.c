@@ -52,7 +52,7 @@ void desert_build(uint8_t map) BANKED {
     level_camps = wake ? 2 : cross ? 0 : 1;
     level_chests = 1;
     chest_x[0] = (wake ? 9 : cross ? 3 : 15) * 16;
-    chest_y[0] = (wake ? 18 : cross ? 9 : 10) * 16;
+    chest_y[0] = (wake ? 3 : cross ? 9 : 10) * 16;
     chest_camp[0] = cross || wake ? 0xFF : 0;
     if (wake) {
         static const uint8_t sx[6] = {7, 10, 12, 7, 11, 14}, sy[6] = {12, 11, 13, 5, 5, 7};

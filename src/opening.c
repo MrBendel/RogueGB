@@ -1,6 +1,7 @@
 #pragma bank 255
 #include "opening.h"
 #include "desert.h"
+#include "descent.h"
 #include "world.h"
 #include "save.h"
 #include "player.h"
@@ -59,7 +60,7 @@ uint8_t opening_shield(uint8_t chest) BANKED {
     char label[8] = "SHIELD!";
     hud_say(label);
     profile.exp_chests[level_map] = area_chests_opened[level_map];
-    save_write();
+    descent_save(); // persist the defeated groups together with their reward
     return 1;
 }
 

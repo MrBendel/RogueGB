@@ -13,20 +13,24 @@ props; keep the shared atlas instead of introducing a separate desert art style.
 Choose a persistent class, then wake prone in Dustwake, a 20x24 authored desert
 map. The entity contacts you under the name UNKNOWN, without revealing a portrait
 or explaining why she needs you alive. Her first instruction is practical: find
-the supply case in the narrow pass north of the starting pocket.
+the guarded supply case beyond the Cragbacks to the north.
 
-Walking near the case equips a guaranteed tier-one shield (25 capacity). The
-shield recharges through the existing health system. The pass places the cache
-before combat, and the brief messages pause play while teaching movement,
-shielding, firing and jumping. Two groups of three rock-throwing Cragback relatives
-(Rocklings) wait farther north, with no elites or reinforcements. Each marks a
-landing point, winds up, then lobs a rock. Move clear or jump the impact; the
-target never homes. Their small bodies use two hardware sprites each so the
-group leaves room for rocks, warnings, the player and gunfire.
+The shield is the reward for defeating both three-creature Cragback groups.
+The player fights unshielded with the starter pistol; the first transmission
+teaches movement, firing, jumping and the rocks' landing warnings before combat.
+The supply case sits beyond the groups, near the north exit, and stays locked
+until all six creatures are defeated. Walking up then equips a guaranteed
+permanent tier-one shield (25 capacity), followed by the recharge explanation.
+The opening's north exit waits until that reward is collected.
+
+The small Cragback relatives (Rocklings) have no elites or reinforcements. Each
+marks a landing point, winds up, then lobs a rock. Move clear or jump the impact;
+the target never homes. Their bodies use two hardware sprites each so the group
+leaves room for rocks, warnings, the player and gunfire.
 
 Continue north into Dust Crossroads, then north again into Sands Town. A final
 transmission acknowledges safety and leaves the entity's identity unresolved.
-START's map shows the current objective: find the shield, then head north to town.
+START's map shows the current objective: defeat the rock throwers, claim the shield, then head north to town.
 The side road to Rustyard and the town's underground lift remain available.
 
 The opening applies only to new files; established saves keep their progress.

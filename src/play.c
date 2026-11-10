@@ -489,7 +489,8 @@ void play_update(void) BANKED {
                 saved_seconds = run_seconds;
                 profile.kills += enemies_killed;
                 enemies_killed = 0;  // (counted now: not again when a run ends)
-                save_write();
+                if (play_mode == MODE_DESCENT) descent_save();
+                else save_write();
                 state_change(STATE_TITLE);
             } else {
                 state_change(STATE_RUN_OVER);
