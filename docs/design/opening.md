@@ -18,9 +18,11 @@ the supply case in the narrow pass north of the starting pocket.
 Walking near the case equips a guaranteed tier-one shield (25 capacity). The
 shield recharges through the existing health system. The pass places the cache
 before combat, and the brief messages pause play while teaching movement,
-shielding, firing and jumping. Two groups of three projectile-spitting creatures
-wait farther north, with no elites or reinforcements. This is the current enemy
-choice pending confirmation of which throwing enemy was intended.
+shielding, firing and jumping. Two groups of three rock-throwing Cragback relatives
+(Rocklings) wait farther north, with no elites or reinforcements. Each marks a
+landing point, winds up, then lobs a rock. Move clear or jump the impact; the
+target never homes. Their small bodies use two hardware sprites each so the
+group leaves room for rocks, warnings, the player and gunfire.
 
 Continue north into Dust Crossroads, then north again into Sands Town. A final
 transmission acknowledges safety and leaves the entity's identity unresolved.

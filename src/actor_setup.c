@@ -14,6 +14,7 @@
 #include "medic.h"
 #include "squad.h"
 #include "elite.h"
+#include "rockling.h"
 
 void actors_init(void) BANKED {
     enemy_bullet_damage=BULLET_DAMAGE;enemy_bullet_cause=CAUSE_PEA;
@@ -47,6 +48,7 @@ void actors_init(void) BANKED {
     squad_init();  // (the second VRAM bank)
     elite_init();  // (acid puddles' tiles)
     actors_clear();
+    rockling_load();
     bullets_fired = 0;
 }
 

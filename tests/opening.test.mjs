@@ -62,19 +62,22 @@ test('opening art: the shield sits on the only pass from the wake pocket toward 
   for(const [x,y]of [[7,12],[10,11],[12,13],[7,5],[11,5],[14,7]])assert.equal(m.type[y*20+x],0,'thrower spawn on floor');
 });
 
-test('opening: two groups of three spitters attack; their projectiles and fight fit the hardware budget',()=>{
+test('opening: two groups of three rocklings attack; their rocks and fight fit the hardware budget',()=>{
   const e=shield();place(e,160,144);w8(e,'player_invuln',255);e.idle(5);
   assert.equal(e.v('actor_count'),6);
-  assert.ok([...e.readBytes(A(e,'actor_type'),8)].filter(Boolean).every(v=>v===2),'projectile-spitting creatures');
+  assert.ok([...e.readBytes(A(e,'actor_type'),8)].filter(Boolean).every(v=>v===2),'rocklings use the ordinary shooter actor slots');
   assert.ok([...e.readBytes(A(e,'actor_elite'),8)].every(v=>v===0),'no random elites in the first fight');
+  e.idle(40);e.writeBytes(A(e,'actor_hp'),new Uint8Array(8).fill(255));
   let peak=0;
   for(let f=0;f<240;f++){
-    w8(e,'player_invuln',255);e.idle(1);peak=Math.max(peak,e.lastFrameCycles);
+    w8(e,'player_invuln',255);e.hold('A',1);peak=Math.max(peak,e.lastFrameCycles);
     assert.ok(e.v('actor_count')<=6);assert.ok(e.v('sprites_used')<=40);
   }
   assert.ok(e.v('bullets_fired','u16')>0,'throwers actually attack');
   assert.ok(peak<FRAME_LIMIT,`opening peak=${peak}`);
-  e.shot('opening-spitter-groups');
+  assert.equal(e.v('rockling_on'),1);
+  assert.ok([...e.readBytes(A(e,'actor_scripted'),6)].every(v=>v===13),'Cragback-style rock controllers');
+  e.shot('opening-rockling-groups');
 });
 
 test('opening: the shield pass and north road can be traversed without moving the player by debug writes',()=>{
@@ -114,4 +117,45 @@ test('opening: established profiles keep their town start without receiving a fr
   const r=resume(e);
   assert.equal(r.v('play_mode'),6);assert.equal(profile(r,88)&2,0);
   assert.equal(profile(r,17),0);assert.equal(r.v('opening_timer'),0);
+});
+
+function loneRockling() {
+  const e=shield();place(e,160,144);w8(e,'player_invuln',255);e.idle(45);
+  for(let i=1;i<8;i++)e.write8(A(e,'actor_type')+i,0);
+  w8(e,'actor_count',1);w16(e,'actor_x',120);w16(e,'actor_y',120);
+  w8(e,'actor_state',0);w8(e,'actor_timer',1);w8(e,'actor_scripted',13);
+  w8(e,'player_invuln',0);w8(e,'player_blink',0);w8(e,'player_stun',0);
+  e.idle(1);return e;
+}
+test('rocklings: warn, lock a target, lob a rock, and pause safely',()=>{
+  const e=loneRockling();
+  assert.equal(e.v('actor_state'),1);
+  const tx=e.v('actor_vx','u16'),ty=e.v('actor_vy','u16');
+  e.idle(2).shot('opening-rockling-windup');
+  e.tap('START');const t=e.v('actor_timer');e.idle(40);
+  assert.equal(e.v('actor_timer'),t,'paused wind-up');e.tap('START');
+  e.hold('RIGHT',20).idle(1);
+  assert.equal(e.v('actor_vx','u16'),tx);assert.equal(e.v('actor_vy','u16'),ty,'target does not home');
+  e.until(e=>e.v('actor_state')===2,50,'rock released');e.idle(12);
+  e.shot('opening-rockling-flight');
+  const hp=e.v('shield_hp');e.until(e=>e.v('actor_state')===3,40,'rock lands');
+  assert.equal(e.v('shield_hp'),hp,'moving away avoids the landing');
+  e.idle(2).shot('opening-rockling-impact');
+});
+test('rocklings: a landing hurts grounded players, jumping clears it, and a kill cancels the throw',()=>{
+  for(const airborne of [false,true]) {
+    const e=loneRockling();
+    w8(e,'actor_state',2);w8(e,'actor_timer',1);
+    if(airborne){w8(e,'player_air',1);w16(e,'player_z',16*256);}
+    const hp=e.v('shield_hp');e.idle(1);
+    assert.equal(e.v('shield_hp'),airborne?hp:hp-12);
+  }
+  const e=loneRockling();w8(e,'actor_type',0);w8(e,'actor_count',0);
+  const hp=e.v('shield_hp'),fired=e.v('bullets_fired','u16');e.idle(90);
+  assert.equal(e.v('shield_hp'),hp);assert.equal(e.v('bullets_fired','u16'),fired);
+});
+test('rocklings: landing coordinates work below the first 256 pixels of the desert',()=>{
+  const e=loneRockling();place(e,160,264);w16(e,'actor_y',224);
+  w8(e,'actor_state',0);w8(e,'actor_timer',1);e.idle(1);
+  assert.equal(e.v('actor_vy','u16'),276,'world-space landing point does not wrap');
 });

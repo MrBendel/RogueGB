@@ -175,14 +175,15 @@ format identifies the surface through its world ID.
 excavation-to-descent connections and destination-specific contracts. See
 [desert overworld](desert-overworld.md) for the full region proposal and access.
 
-## 2026-11-08 — Wake in the desert, find a shield, reach town
+## 2026-11-08 â€” Wake in the desert, find a shield, reach town
 
 **Agreed:** new characters wake in a desert, are contacted by the mysterious
 entity, and must find a shield before traveling through throwing enemies to town.
 
 **Implemented:** Dustwake -> Dust Crossroads -> Sands Town. Guaranteed permanent
-starter shield; brief unknown-entity dialogue; two three-enemy spitter groups;
+starter shield; brief unknown-entity dialogue; two three-enemy Rockling groups;
 opening retries retain the shield and skip heard contact. Established saves keep
 their progress. First relic discovery follows later rather than being the first
-tutorial objective. Enemy selection currently uses the smaller spitters pending
-confirmation of the intended throwing enemy.
+tutorial objective. Enemy selection confirmed 2026-11-10: rock throwers like
+Cragback, implemented as small Rocklings with overhead wind-up, locked landing
+warnings and arcing rocks.
