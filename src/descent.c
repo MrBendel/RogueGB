@@ -37,7 +37,9 @@
 #include "elite.h"
 #include "rescue.h"
 #include "desert.h"
+#include "state.h"
 
+static void roam_start(void);  // (a patrol: below)
 uint8_t layer_depth;      // 1 for the first area
 uint16_t maps_entered;    // map changes this run (watchable)
 uint16_t area_seed_base;  // the run's seed; each area's is derived from it and the depth
@@ -390,6 +392,7 @@ void descent_enter(uint8_t map, uint8_t side) BANKED {
         camp_state[c] = area_camps_cleared[map] & (1 << c) ? CAMP_CLEARED : CAMP_ASLEEP;
         camp_actors[c] = 0;
     }
+    roam_start();
     if (area_type[map] == MAP_EXIT) {
         char t[8] = "SHAFT  ";
         hud_say(t);
@@ -442,6 +445,93 @@ static void wake(uint8_t c) {
     }
 }
 
+// A patrol: in a field with room for one more camp (3 camps), 2 or 3 of the map's
+// kinds walk from camp to camp (to each one's slots in turn), not fighting, till
+// you come near or hurt one; then they're a camp like any other (no reinforcements),
+// counted on the HUD, cleared for good with the camp's next bit. Its camp_next is
+// the camp it walks to, camp_wait counts while it's on the way (a stuck one moves
+// on), camp_kind how many set out (one fewer: they know).
+#define ROAM_SEE 64   // px (either axis) at which it sees you
+#define ROAM_GIVE_UP 200  // x 4 frames on the way to a camp before trying the next
+uint8_t roam_camp = 0xFF;
+
+static void roam_start(void) {
+    uint8_t r = level_camps, from = 0;
+    roam_camp = 0xFF;
+    if (area_type[level_map] != MAP_FIELD || world_id == WORLD_DESERT || r < 2 || r >= LEVEL_CAMPS ||
+        camp_state[r] == CAMP_CLEARED) return;
+    uint16_t best = 0;
+    for (uint8_t c = 0; c < r; c++) {  // (from the camp farthest from you)
+        int16_t dx = (int16_t)(camp_x[c] - player_x), dy = (int16_t)(camp_y[c] - player_y);
+        uint16_t d = (uint16_t)(dx < 0 ? -dx : dx) + (uint16_t)(dy < 0 ? -dy : dy);
+        if (d >= best) best = d, from = c;
+    }
+    uint8_t n = 2 + (layer_depth >= 2), kind = rand(), set = 0;
+    camp_actors[r] = 0;
+    camp_left[r] = 0;
+    for (uint8_t c = from, i = 0; i < r && n; i++) {  // (its slots, then the next camp's)
+        for (uint8_t s = 0; s < camp_slots[c] && n; s++) {
+            uint16_t x = camp_slot_x[c][s], y = camp_slot_y[c][s];
+            if (room_block_at(x + 8, y + 8) != BLK_FLOOR) continue;
+            uint8_t a = actor_spawn(world_squad(layer_depth, kind++), x, y);
+            if (a >= ACTOR_MAX) break;
+            actor_scripted[a] = ACTOR_ROAMING;
+            camp_actors[r] |= 1 << a;
+            n--;
+            set++;
+        }
+        if (++c == r) c = 0;
+    }
+    if (!set) return;
+    camp_state[r] = CAMP_ROAMING;
+    camp_kind[r] = set;
+    camp_next[r] = from + 1 < r ? from + 1 : 0;
+    camp_wait[r] = 0;
+    roam_camp = r;
+}
+
+static void roam_tick(uint8_t r) {
+    uint8_t goal = camp_next[r], k = 0, seen = 0, lead = 0xFF, arrived = 0, n = camp_slots[goal];
+    for (uint8_t a = 0, bit = 1; a < ACTOR_MAX; a++, bit <<= 1) {
+        if (!(camp_actors[r] & bit) || actor_type[a] == ACTOR_NONE || actor_scripted[a] != ACTOR_ROAMING) continue;
+        k++;
+        if (actor_hurt[a]) seen = 1;
+        int16_t dx = (int16_t)(player_x - actor_x[a]), dy = (int16_t)(player_y - actor_y[a]);
+        if (dx > -ROAM_SEE && dx < ROAM_SEE && dy > -ROAM_SEE && dy < ROAM_SEE) seen = 1;
+        uint8_t s = k - 1;
+        while (s >= n) s -= n;
+        uint16_t gx = camp_slot_x[goal][s], gy = camp_slot_y[goal][s], x = actor_x[a], y = actor_y[a];
+        int8_t sx = gx > x + 1 ? 1 : gx + 1 < x ? -1 : 0, sy = gy > y + 1 ? 1 : gy + 1 < y ? -1 : 0;
+        if (lead == 0xFF) {
+            lead = a;
+            arrived = !sx && !sy;
+        }
+        if (((uint8_t)frame_count ^ a) & 1) continue;  // (a step every other frame: an amble)
+        if ((sx || sy) && enemy_box_free(x + sx, y + sy)) x += sx, y += sy;
+        else if (sx && enemy_box_free(x + sx, y)) x += sx;
+        else if (sy && enemy_box_free(x, y + sy)) y += sy;
+        actor_x[a] = x;
+        actor_y[a] = y;
+        uint8_t f = sx > 0 ? FACE_RIGHT : sx < 0 ? FACE_LEFT : sy < 0 ? FACE_UP : FACE_DOWN;
+        if (f != actor_face[a]) {
+            actor_face[a] = f;
+            actor_cache_frame(a);
+        }
+    }
+    if (k < camp_kind[r]) seen = 1;  // (one fell: the rest turn)
+    if (seen || !k) {
+        for (uint8_t a = 0; a < ACTOR_MAX; a++)
+            if ((camp_actors[r] & (1 << a)) && actor_scripted[a] == ACTOR_ROAMING) actor_scripted[a] = 0;
+        camp_state[r] = CAMP_AWAKE;
+        return;
+    }
+    if (!((uint8_t)frame_count & 3)) camp_wait[r]++;
+    if (arrived || camp_wait[r] > ROAM_GIVE_UP) {
+        camp_wait[r] = 0;
+        camp_next[r] = goal + 1 < level_camps ? goal + 1 : 0;
+    }
+}
+
 // The next of camp c's reinforcements, at a slot away from the player. (A camp
 // with no open slot sends no more: it can still be cleared.)
 static void reinforce(uint8_t c) {
@@ -460,8 +550,10 @@ static void reinforce(uint8_t c) {
 void descent_update(void) BANKED {
     if (warps) warp_tick();
     uint8_t foes = 0;  // (the HUD's count: awake camps' living and still to come)
-    for (uint8_t c = 0; c < level_camps; c++) {
-        if (camp_state[c] == CAMP_ASLEEP) {
+    for (uint8_t c = 0; c < level_camps + (roam_camp != 0xFF); c++) {
+        if (camp_state[c] == CAMP_ROAMING) {
+            roam_tick(c);
+        } else if (camp_state[c] == CAMP_ASLEEP) {
             int16_t dx = (int16_t)(player_x + 8 - camp_x[c]), dy = (int16_t)(player_y + 12 - camp_y[c]);
             if (dx > -WAKE_X && dx < WAKE_X && dy > -WAKE_Y && dy < WAKE_Y) wake(c);
         } else if (camp_state[c] == CAMP_AWAKE) {
@@ -482,6 +574,7 @@ void descent_update(void) BANKED {
                 char t[8] = "CLEAR! ";
                 hud_say(t);
                 xp_gain(XP_CAMP + 5 * layer_depth);
+                pickups_shower(kill_x, kill_y);
                 mission_found();  // (a retrieve job's data core)
             }
         }
@@ -494,6 +587,7 @@ void descent_update(void) BANKED {
 // its south door. Its chest is bit 3 + k of the map's.
 static void enter_building(uint8_t k) {
     level_inside = k;
+    roam_camp = 0xFF;
     warp_tiles();
     world_room_clear(area_seed_base ^ ((uint16_t)layer_depth * 7919) ^ ((uint16_t)level_map * 4513) ^ (k * 97 + 1));
     world_load_tiles(1);

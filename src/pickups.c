@@ -46,6 +46,11 @@ uint8_t card_drop = CARD_NONE;
 uint16_t credits_picked, guns_taken, chests_opened;
 uint16_t kill_x, kill_y;
 uint8_t pickups_tick;
+// A shower (a camp cleared): its drops fly out from one spot to where they land.
+#define FLY_FRAMES 16
+uint8_t drop_fly[DROP_MAX];  // frames left in the air (0: down, can be taken)
+uint16_t shower_x, shower_y;
+static const uint8_t fly_z[FLY_FRAMES + 1] = {0, 4, 7, 10, 12, 14, 15, 16, 16, 16, 15, 14, 12, 10, 7, 4, 0};  // the arc, px
 uint16_t card_saved_pal[4];
 
 // A coin: gold with a highlight (the shots' palette), over a blank tile.
@@ -80,7 +85,7 @@ void pickups_load_map(uint8_t opened) BANKED {
     if (card_drop != CARD_NONE) card_hide();
     pickups_map = 1;
     chest_open_bits = opened;
-    for (uint8_t i = 0; i < DROP_MAX; i++) drop_kind[i] = DROP_NONE;
+    for (uint8_t i = 0; i < DROP_MAX; i++) drop_kind[i] = drop_fly[i] = DROP_NONE;
     card_drop = CARD_NONE;
     // Chests are solid (drawn as the floor under them; the sprite shows the chest).
     for (uint8_t c = 0; c < level_chests; c++)
@@ -95,9 +100,21 @@ static uint8_t near(uint16_t x, uint16_t y, uint8_t reach) {
     return dx <= reach && dy <= reach;
 }
 
+// A free drop; if none, credits lying about are banked to make room (loot never
+// goes missing for want of a slot), else 0xFF.
 static uint8_t free_drop(void) {
     for (uint8_t i = 0; i < DROP_MAX; i++)
-        if (drop_kind[i] == DROP_NONE) return i;
+        if (drop_kind[i] == DROP_NONE) {
+            drop_fly[i] = 0;
+            return i;
+        }
+    for (uint8_t i = 0; i < DROP_MAX; i++)
+        if (drop_kind[i] == DROP_CREDITS) {
+            profile.credits += drop_value[i];
+            credits_picked += drop_value[i];
+            drop_fly[i] = 0;
+            return i;
+        }
     return 0xFF;
 }
 
@@ -184,6 +201,25 @@ static void open_chest(uint8_t c) {
     // Opened for good: into the file now (a continue mustn't refill it).
     profile.exp_chests[level_map] = area_chests_opened[level_map];
     save_write();
+}
+
+// A camp cleared: credits and rounds burst from where its last enemy fell, in
+// arcs, landing round about (on open floor). Four of them: the camp's chest still
+// has room for its own.
+static const int8_t shower_dx[4] = {-22, 20, -10, 14}, shower_dy[4] = {-8, -4, 16, 14};
+void pickups_shower(uint16_t x, uint16_t y) BANKED {
+    if (!pickups_map) return;
+    shower_x = x;
+    shower_y = y;
+    for (uint8_t k = 0; k < 4; k++) {
+        uint8_t used = 0;
+        for (uint8_t i = 0; i < DROP_MAX; i++) used |= drop_kind[i] != DROP_NONE ? 1 << i : 0;
+        if (k == 3) drop_ammo(x + shower_dx[k], y + shower_dy[k], loadout_ammo_type());
+        else drop_credits(x + shower_dx[k], y + shower_dy[k], (uint16_t)(2 + (rand() & 3)) * layer_depth);
+        for (uint8_t i = 0; i < DROP_MAX; i++)
+            if (drop_kind[i] != DROP_NONE && !(used & (1 << i))) drop_fly[i] = FLY_FRAMES;
+    }
+    sfx_play(SFX_CHEST);
 }
 
 void loot_kill_drop(void) BANKED {
@@ -364,6 +400,10 @@ void pickups_update(void) BANKED {
     // Drops underfoot: credits are taken at once; a gun shows its card.
     uint8_t card = CARD_NONE;
     for (uint8_t i = 0; i < DROP_MAX; i++) {
+        if (drop_fly[i]) {  // still in the air
+            drop_fly[i]--;
+            continue;
+        }
         if (drop_kind[i] == DROP_NONE || !near(drop_x[i] + 8, drop_y[i] + 8, TAKE_REACH)) continue;
         if (drop_kind[i] == DROP_CREDITS) {
             profile.credits += drop_value[i];
@@ -432,18 +472,24 @@ uint8_t pickups_draw(uint8_t oam) BANKED {
     }
     uint8_t bob = (pickups_tick >> 4) & 1;
     for (uint8_t i = 0; i < DROP_MAX; i++) {
+        uint16_t x = drop_x[i], y = drop_y[i] - bob;
+        uint8_t t = drop_fly[i];
+        if (t) {  // in the air: from the shower's spot toward where it lands (t/16 of the way back), up an arc
+            x += (int16_t)(shower_x - drop_x[i]) * t >> 4;
+            y = drop_y[i] + ((int16_t)(shower_y - drop_y[i]) * t >> 4) - fly_z[t];
+        }
         if (drop_kind[i] == DROP_CREDITS) {
             f[0] = 0xFF;
             f[2] = COIN_VRAM;
             f[3] = SPR_PAL_SHOT;
-            oam = draw16(oam, f, drop_x[i] - 4, drop_y[i] - bob);  // one sprite, in the middle
+            oam = draw16(oam, f, x - 4, y);  // one sprite, in the middle
         } else if (drop_kind[i] == DROP_AMMO) {
             f[0] = 0xFF;
             f[2] = AMMO_VRAM;
             f[3] = SPR_PAL_SHOT;
-            oam = draw16(oam, f, drop_x[i] - 4, drop_y[i] - bob);
+            oam = draw16(oam, f, x - 4, y);
         } else if (drop_kind[i] == DROP_GUN) {
-            oam = draw16(oam, floor_icon[drop_value[i]], drop_x[i], drop_y[i] - bob);
+            oam = draw16(oam, floor_icon[drop_value[i]], x, y);
         }
     }
     return oam;

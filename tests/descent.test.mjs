@@ -328,6 +328,59 @@ test("leaving a map takes a push into its opening's far edge (not a brush past i
   assert.ok(pushed >= 10, `out after ${pushed} frames`);
 });
 
+test('a patrol walks from camp to camp; seeing you it fights as a camp, and clearing it showers loot', () => {
+  const CAMP_ROAMING = 3, ACTOR_ROAMING = 17;
+  for (let seed = 4242; seed < 4342; seed += 7) {
+    const emu = startDescent(bootToTitle(), seed);
+    const links = emu.read8(addr(emu, 'area_links') + emu.v('level_map'));
+    for (const e of [1, 2, 4, 8].filter((x) => links & x)) {
+      leaveBy(emu, e);
+      const r = emu.v('roam_camp');
+      if (r === 255) { leaveBy(emu, OPP[e]); continue; }
+      assert.equal(r, emu.v('level_camps'), 'the camp after the real ones');
+      assert.equal(emu.read8(addr(emu, 'camp_state') + r), CAMP_ROAMING);
+      const mine = () => [0, 1, 2, 3, 4, 5, 6, 7].filter((a) => (emu.read8(addr(emu, 'camp_actors') + r) >> a) & 1 && emu.read8(addr(emu, 'actor_type') + a));
+      const squad = mine();
+      assert.ok(squad.length >= 2, `${squad.length} on patrol`);
+      assert.ok(squad.every((a) => emu.read8(addr(emu, 'actor_scripted') + a) === ACTOR_ROAMING));
+      // Out of its sight, it walks (you stand still in a corner far from it).
+      const at = (a) => [emu.read16(addr(emu, 'actor_x') + a * 2), emu.read16(addr(emu, 'actor_y') + a * 2)];
+      const start = squad.map(at);
+      let away = false;
+      for (let f = 0; f < 240 && !away; f++) {
+        emu.idle(1);
+        if (emu.read8(addr(emu, 'camp_state') + r) !== CAMP_ROAMING) break;
+        away = squad.some((a, k) => Math.abs(at(a)[0] - start[k][0]) + Math.abs(at(a)[1] - start[k][1]) > 12);
+      }
+      assert.ok(away, 'it moves');
+      assert.equal(emu.v('hud_foes'), 0, 'not counted while it walks');
+      // Step up to it: it sees you and fights.
+      const [x, y] = at(squad[0]);
+      w16(emu, 'player_x', x + 40);
+      w16(emu, 'player_y', y);
+      emu.idle(4);
+      assert.equal(emu.read8(addr(emu, 'camp_state') + r), CAMP_AWAKE, 'it saw you');
+      assert.ok(squad.every((a) => !emu.read8(addr(emu, 'actor_type') + a) || emu.read8(addr(emu, 'actor_scripted') + a) === 0), 'all of it turns');
+      assert.ok(emu.v('hud_foes') >= mine().length, 'counted on the HUD');
+      // Beat it (with every other camp quiet): a burst of loot, landing round about.
+      emu.writeBytes(addr(emu, 'camp_left'), [0, 0, 0, 0]);
+      for (let i = 0; i < 8; i++) emu.write8(addr(emu, 'actor_type') + i, 0);
+      emu.idle(2);
+      assert.equal(emu.read8(addr(emu, 'camp_state') + r), 2, 'cleared');
+      const flying = bytes(emu, 'drop_fly', 6).filter((t) => t > 0).length;
+      assert.ok(flying >= 3, `${flying} drops in the air`);
+      emu.idle(20);
+      assert.equal(bytes(emu, 'drop_fly', 6).filter((t) => t > 0).length, 0, 'all landed');
+      // Gone for good: back again, no patrol.
+      leaveBy(emu, OPP[e]);
+      leaveBy(emu, e);
+      assert.equal(emu.v('roam_camp'), 255, 'cleared for good');
+      return;
+    }
+  }
+  assert.fail('no patrol found');
+});
+
 test('a camp wakes as you approach, and once cleared it stays cleared', () => {
   for (let wait = 0; wait < 60; wait += 7) {
     const emu = startDescent(bootToTitle(), 4242 + wait);  // seeds until the first map links to one with a camp

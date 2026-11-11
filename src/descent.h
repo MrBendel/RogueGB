@@ -23,6 +23,9 @@ extern uint8_t level_inside;  // the door of the building the player is in, or 0
 #define CAMP_ASLEEP 0
 #define CAMP_AWAKE 1
 #define CAMP_CLEARED 2
+#define CAMP_ROAMING 3  // a patrol (roam_camp): walking from camp to camp till it sees you
+#define ACTOR_ROAMING 17  // a patrol's actor_scripted while it walks (15 and up: no touch)
+extern uint8_t roam_camp;  // the map's patrol: its camp index (after the real camps), or 0xFF
 
 // --- watchable state ---
 extern uint8_t layer_depth;     // which area of the descent (1: the first)
