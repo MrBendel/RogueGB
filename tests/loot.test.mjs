@@ -39,9 +39,10 @@ function leaveBy(emu, e) {
 }
 
 /** A descent whose first neighbour map has a camp with a chest; we're in it, the camp cleared. */
-function atCampChest() {
+function atCampChest(odds = 4) {
   for (let s = 0; s < 40; s++) {
     const emu = startDescent(bootToTitle(), 5000 + s * 13);
+    emu.write8(A(emu, 'gun_odds'), odds);
     const links = emu.read8(A(emu, 'area_links') + emu.v('level_map'));
     leaveBy(emu, [1, 2, 4, 8].find((x) => links & x));
     const chests = emu.v('level_chests');
@@ -74,6 +75,23 @@ test("a camp's chest opens once the camp is cleared: credits and a gun drop in f
   assert.ok(kinds.includes(DROP_GUN), `a gun: ${kinds}`);
   // (the credits land within reach of the chest's front: often taken at once)
   assert.ok(kinds.includes(DROP_CREDITS) || credits(emu) > before || emu.v('credits_picked', 'u16') > 0, 'credits, on the floor or taken');
+});
+
+test("guns are found, not handed out: a camp's chest without one gives more credits; 1 in 4 in play", () => {
+  const emu = atCampChest(0);  // (never: its chest is opened as the camp clears, or as we step up)
+  const x = emu.read16(A(emu, 'chest_x')), y = emu.read16(A(emu, 'chest_y'));
+  const before = emu.v('credits_picked', 'u16') + credits(emu);
+  w16(emu, 'player_x', x);
+  w16(emu, 'player_y', y + 8);
+  emu.idle(2);
+  assert.equal(emu.v('chests_opened', 'u16'), 1);
+  const kinds = Array.from(emu.readBytes(A(emu, 'drop_kind'), 6));
+  assert.ok(!kinds.includes(DROP_GUN), `no gun: ${kinds}`);
+  const piles = kinds.filter((k) => k === DROP_CREDITS).length;
+  assert.ok(piles >= 1 || credits(emu) > before, 'credits instead');
+  // The game itself (before the tests' override) plays it at 1 in 4.
+  const fresh = settle(boot(), TITLE, 'title screen');
+  assert.equal(fresh.read8(A(fresh, 'gun_odds')), 1);
 });
 
 test('credits are taken by walking over them; standing on a gun shows its card; A takes it', () => {

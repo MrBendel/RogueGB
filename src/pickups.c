@@ -46,6 +46,10 @@ uint8_t card_drop = CARD_NONE;
 uint16_t credits_picked, guns_taken, chests_opened;
 uint16_t kill_x, kill_y;
 uint8_t pickups_tick;
+// Guns are found, not handed out: a camp's chest or a small crate holds one this
+// many times in 4 (else more credits and rounds). Caches, a guarded building's
+// chest, loot boxes, elites and minibosses always do. (Tests set 4.)
+uint8_t gun_odds = 1;
 // A shower (a camp cleared): its drops fly out from one spot to where they land.
 #define FLY_FRAMES 16
 uint8_t drop_fly[DROP_MAX];  // frames left in the air (0: down, can be taken)
@@ -191,11 +195,16 @@ static void open_chest(uint8_t c) {
     if (opening_shield(c)) return;
     uint16_t x = chest_x[c], y = chest_y[c] + 18;
     drop_credits(x - 10, y, (uint16_t)(10 + (rand() & 15)) * layer_depth);
-    Gun g;
-    uint8_t luck = (layer_depth - 1) * 4 + (chest_camp[c] == 0xFF ? 6 : 0) + (chest_bit0 && chest_camp[c] != 0xFF ? 12 : 0);  // (a guarded building's: luckiest)
-    uint8_t lv = profile.level + (rand() & 1);
-    loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, luck);
-    drop_gun(x + 10, y, &g);
+    uint8_t special = chest_camp[c] == 0xFF || chest_bit0;  // (a cache, or a guarded building's)
+    if (special || (rand() & 3) < gun_odds) {
+        Gun g;
+        uint8_t luck = (layer_depth - 1) * 4 + (chest_camp[c] == 0xFF ? 6 : 0) + (chest_bit0 && chest_camp[c] != 0xFF ? 12 : 0);  // (a guarded building's: luckiest)
+        uint8_t lv = profile.level + (rand() & 1);
+        loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, luck);
+        drop_gun(x + 10, y, &g);
+    } else {
+        drop_credits(x + 10, y, (uint16_t)(6 + (rand() & 7)) * layer_depth);  // (no gun: more credits)
+    }
     drop_ammo(x, y + 6, profile.guns[profile.gun_sel].type);  // rounds for the gun held ...
     drop_ammo(x + 4, y - 6, loadout_ammo_type());           // ... and for one you carry
     // Opened for good: into the file now (a continue mustn't refill it).
@@ -368,13 +377,15 @@ static void open_container(uint8_t k) {
     if (kind == CONT_LOCKER) {  // supplies: credits and rounds for what you carry
         drop_credits(x - 8, y, (uint16_t)(4 + (rand() & 7)) * layer_depth);
         drop_ammo(x + 8, y, loadout_ammo_type());
-    } else {  // a gun (a loot box's luckier), credits, and for a box rounds too
-        Gun g;
-        uint8_t lv = profile.level + (rand() & 1);
-        loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, (layer_depth - 1) * 4 + (kind == CONT_BOX ? 10 : 2));
-        drop_gun(x, y + 6, &g);
+    } else {  // a gun (a loot box's luckier; a crate's only now and then), credits, rounds
+        if (kind == CONT_BOX || (rand() & 3) < gun_odds) {
+            Gun g;
+            uint8_t lv = profile.level + (rand() & 1);
+            loot_roll(&g, lv > 1 ? lv - (rand() & 1) : 1, (layer_depth - 1) * 4 + (kind == CONT_BOX ? 10 : 2));
+            drop_gun(x, y + 6, &g);
+        }
         drop_credits(x - 12, y, (uint16_t)(8 + (rand() & 15)) * layer_depth);
-        if (kind == CONT_BOX) drop_ammo(x + 12, y, profile.guns[profile.gun_sel].type);
+        drop_ammo(x + 12, y, kind == CONT_BOX ? profile.guns[profile.gun_sel].type : loadout_ammo_type());
     }
     save_write();  // (opened for good: cont_set_open put it in the file)
 }

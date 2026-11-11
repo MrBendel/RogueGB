@@ -147,7 +147,11 @@ export function settle(emu, state, what = `state ${state}`) {
 }
 
 export function bootToTitle() {
-  return settle(boot(), TITLE, 'title screen');
+  const emu = settle(boot(), TITLE, 'title screen');
+  // Every camp chest and crate holds a gun, as they did before guns grew rarer
+  // (pickups.c gun_odds: 1 in 4 in play); loot.test.mjs checks the real odds.
+  emu.write8(emu.symbols.addr('gun_odds'), 4);
+  return emu;
 }
 
 /** A pre-opening town profile for focused legacy town/descent tests.

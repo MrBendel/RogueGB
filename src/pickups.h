@@ -41,7 +41,8 @@ void pickups_card_refresh(void) BANKED;    // the held gun changed: the card's c
 void pickups_card_off(void) BANKED;       // put the card away (before the pause menu takes the window)
 void loot_kill_drop(void) BANKED;
 void pickups_shower(uint16_t x, uint16_t y) BANKED;  // a camp cleared: credits and rounds burst from (x, y)
-extern uint8_t drop_fly[DROP_MAX];  // a drop's frames left in the air (a shower's: can't be taken yet)         // maybe credits where the last enemy died
+extern uint8_t drop_fly[DROP_MAX];
+extern uint8_t gun_odds;  // a camp's chest or a small crate holds a gun this many times in 4 (tests: 4)  // a drop's frames left in the air (a shower's: can't be taken yet)         // maybe credits where the last enemy died
 uint8_t pickups_drop_gun(uint16_t x, uint16_t y, const Gun *g) BANKED;  // a gun on the floor: 1, or 0 if there's no room
 
 #endif
