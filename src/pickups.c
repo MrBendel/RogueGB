@@ -405,6 +405,8 @@ void pickups_update(void) BANKED {
         if (chest_open_bits & (1 << c)) continue;
         uint8_t camp = chest_camp[c];
         if (camp != 0xFF && camp_state[camp] != CAMP_CLEARED) continue;
+        if (world_id == WORLD_DESERT && level_map == DESERT_WAKE && !c &&
+            (area_camps_cleared[DESERT_WAKE] & 3) != 3) continue;
         uint8_t reach = world_id == WORLD_DESERT && level_map == DESERT_WAKE && !c && !profile.has_shield ? 24 : OPEN_REACH;
         if (near(chest_x[c] + 8, chest_y[c] + 8, reach)) open_chest(c);
     }
@@ -472,6 +474,8 @@ uint8_t pickups_draw(uint8_t oam) BANKED {
         uint8_t open = chest_open_bits & (1 << c) ? 4 : 0;
         uint8_t camp = chest_camp[c];
         uint8_t ready = !open && (camp == 0xFF || camp_state[camp] == CAMP_CLEARED);
+        if (world_id == WORLD_DESERT && level_map == DESERT_WAKE && !c &&
+            (area_camps_cleared[DESERT_WAKE] & 3) != 3) ready = 0;
         // The shots' warm orange (the bullets' palette is the world's hot one,
         // world.c), glinting white when it can open.
         uint8_t pal = ready && (pickups_tick & 16) ? SPR_PAL_UI : SPR_PAL_SHOT;

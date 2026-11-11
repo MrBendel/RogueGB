@@ -656,6 +656,16 @@ uint8_t descent_door(void) BANKED {
     }
     if (++edge_push < EDGE_PUSH) return 0;
     edge_push = 0;
+    if (world_id == WORLD_DESERT && level_map == DESERT_WAKE &&
+        (profile.story & STORY_OPENING) && !profile.has_shield) {
+        char goal[8] = "FIGHT! ";
+        if ((area_camps_cleared[DESERT_WAKE] & 3) == 3) {
+            const char *reward = "SHIELD!";
+            for (uint8_t k=0;k<8;k++) goal[k]=reward[k];
+        }
+        hud_say(goal);
+        return 0;
+    }
     return town ? DESCENT_TOWN : d;
 }
 

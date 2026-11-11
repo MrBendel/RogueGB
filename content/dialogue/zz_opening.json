@@ -8,15 +8,15 @@
       "lines": [
         { "who": "entity", "text": "You're awake. Good. Can you hear me?" },
         { "who": "you", "text": "Where am I?" },
-        { "who": "entity", "text": "Answers later. First, find a shield. There's a supply case in the narrow pass just north of you." },
-        { "who": "entity", "text": "Use the D-pad to move. Walk up to the case. I'll stay on this channel." }
+        { "who": "entity", "text": "You need a shield. Two packs of Cragbacks guard a supply case to the north. Defeat them, then claim it." },
+        { "who": "entity", "text": "D-pad to move. A fires. B jumps. Watch the rock landing marks and keep moving. I'll stay on this channel." }
       ]
     },
     {
       "id": "opening_shield",
       "lines": [
         { "who": "entity", "text": "Shield online. It takes the hit first. Get clear for a moment and it will recharge." },
-        { "who": "entity", "text": "Watch where the rocks will land. Keep moving, or jump clear. A fires your gun. B jumps." },
+        { "who": "entity", "text": "You earned that. It'll help with what comes next." },
         { "who": "entity", "text": "Follow the pass north to Dust Crossroads. The road north from there reaches town." }
       ]
     },

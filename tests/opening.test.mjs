@@ -11,10 +11,18 @@ function wake(e=fresh()){
   e.until(e=>e.v('dlg_active'),100,'unknown entity contact');
   return close(e);
 }
+function defeat(e,slots) {
+  for(const i of slots)e.write8(A(e,'actor_hp')+i,0);
+  w8(e,'shots_killed',1);e.idle(3);
+}
 function shield(e=wake()){
-  e.hold('UP',1).until(e=>profile(e,17)===1,100,'first shield');
-  e.idle(1).until(e=>e.v('dlg_active'),30,'shield explanation');
-  return close(e);
+  place(e,160,144);w8(e,'player_invuln',255);e.idle(45);
+  assert.equal(e.v('actor_count'),6);
+  defeat(e,[0,1,2,3,4,5]);
+  assert.equal(e.read8(A(e,'area_camps_cleared')+9)&3,3);
+  place(e,144,64);e.idle(2).until(e=>profile(e,17)===1,20,'earned shield');
+  e.until(e=>e.v('dlg_active'),30,'shield explanation');
+  close(e);w8(e,'player_invuln',0);return e;
 }
 function resume(e){
   const r=boot();r.setSram(e.sram());settle(r,TITLE);
@@ -23,7 +31,7 @@ function resume(e){
 function place(e,x,y){w16(e,'player_x',x);w16(e,'player_y',y);w16(e,'player_vx',0);w16(e,'player_vy',0);}
 function north(e,done){place(e,144,16);e.hold('UP',1).until(done,130,'north road');return e.idle(45);}
 
-test('opening: wake prone in a quiet desert, hear the unknown entity, then find the shield',()=>{
+test('opening: wake prone in a quiet desert, hear the unknown entity, then earn the shield',()=>{
   const e=fresh();
   assert.equal(e.v('world_id'),1);assert.equal(e.v('level_map'),9);
   assert.equal(e.v('shield_cap'),0);assert.equal(profile(e,17),0);
@@ -43,28 +51,48 @@ test('opening: wake prone in a quiet desert, hear the unknown entity, then find 
   assert.equal(e.v('shield_cap'),25);assert.equal(e.v('shield_hp'),25);
   assert.equal(profile(e,17),1,'permanent tier-one shield');
   assert.equal(e.v('chest_open_bits')&1,1);
-  assert.equal(e.v('actor_count'),0,'shield explanation precedes combat');
+  assert.equal(e.v('actor_count'),0,'shield explanation follows victory');
   e.shot('opening-first-shield');
   e.tap('START').idle(4);e.shot('opening-objective-map');e.tap('START').idle(4);
 });
 
-test('opening art: the shield sits on the only pass from the wake pocket toward town',()=>{
+test('opening art: the wake pocket, combat groups and northern reward are connected',()=>{
   const m=convert('sands').maps.wake;
   assert.equal(m.w,20);assert.equal(m.h,24);
   const q=[[9,21]],seen=new Set(['9,21']);
   for(let i=0;i<q.length;i++)for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){
     const x=q[i][0]+dx,y=q[i][1]+dy,k=`${x},${y}`;
-    // Remove the shield's 24px pickup region: there must be no bypass.
-    if(x<0||y<0||x>=20||y>=24||m.type[y*20+x]||seen.has(k)||(Math.abs(x-9)<=1&&Math.abs(y-18)<=1))continue;
+    if(x<0||y<0||x>=20||y>=24||m.type[y*20+x]||seen.has(k))continue;
     seen.add(k);q.push([x,y]);
   }
-  assert.ok(!seen.has('9,0'),'cannot walk around the shield on the way north');
-  for(const [x,y]of [[7,12],[10,11],[12,13],[7,5],[11,5],[14,7]])assert.equal(m.type[y*20+x],0,'thrower spawn on floor');
+  for(const [x,y]of [[9,3],[9,0],[7,12],[10,11],[12,13],[7,5],[11,5],[14,7]])assert.ok(seen.has(`${x},${y}`),'reward and combat reachable');
+});
+
+test('opening: the shield stays locked until BOTH Cragback groups are defeated',()=>{
+  const e=wake();place(e,144,296);e.idle(4);
+  assert.equal(profile(e,17),0,'no free shield in the old starting pass');
+  place(e,144,64);w8(e,'player_invuln',255);e.idle(90);
+  assert.equal(profile(e,17),0,'cannot collect reward before fighting');
+  e.shot('opening-locked-shield-cache');
+  place(e,144,0);e.hold('UP',30);
+  assert.equal(e.v('level_map'),9,'opening cannot be skipped through the exit');
+  place(e,160,144);e.idle(45);
+  assert.equal(e.v('actor_count'),6);
+  const first=e.read8(A(e,'camp_actors'));
+  defeat(e,Array.from({length:8},(_,i)=>i).filter(i=>first&(1<<i)));
+  place(e,144,64);w8(e,'player_invuln',255);e.idle(45);
+  assert.equal(profile(e,17),0,'one group is not enough');
+  assert.equal(e.v('chest_open_bits')&1,0);
+  defeat(e,Array.from({length:8},(_,i)=>i).filter(i=>e.read8(A(e,'actor_type')+i)));
+  e.until(e=>profile(e,17)===1,20,'last group unlocks shield');
+  assert.equal(e.v('shield_cap'),25);
+  e.idle(2).shot('opening-earned-shield');
 });
 
 test('opening: two groups of three rocklings attack; their rocks and fight fit the hardware budget',()=>{
-  const e=shield();place(e,160,144);w8(e,'player_invuln',255);e.idle(5);
+  const e=wake();place(e,160,144);w8(e,'player_invuln',255);e.idle(5);
   assert.equal(e.v('actor_count'),6);
+  assert.equal(e.v('shield_cap'),0,'first fight is unshielded');
   assert.ok([...e.readBytes(A(e,'actor_type'),8)].filter(Boolean).every(v=>v===2),'rocklings use the ordinary shooter actor slots');
   assert.ok([...e.readBytes(A(e,'actor_elite'),8)].every(v=>v===0),'no random elites in the first fight');
   e.idle(40);e.writeBytes(A(e,'actor_hp'),new Uint8Array(8).fill(255));
@@ -80,7 +108,23 @@ test('opening: two groups of three rocklings attack; their rocks and fight fit t
   e.shot('opening-rockling-groups');
 });
 
-test('opening: the shield pass and north road can be traversed without moving the player by debug writes',()=>{
+test('opening: pistol kills earn the cache, and an unclaimed reward survives saving',()=>{
+  const e=wake();place(e,160,144);w8(e,'player_invuln',255);e.idle(45);
+  for(let f=0;f<1800&&(e.read8(A(e,'area_camps_cleared')+9)&3)!==3;f++){
+    w8(e,'player_invuln',255);e.hold('A',1);
+  }
+  assert.equal(e.read8(A(e,'area_camps_cleared')+9)&3,3,'starter pistol can defeat both groups');
+  assert.ok(e.v('enemies_killed','u16')>=6);
+  assert.equal(profile(e,17),0,'victory unlocks the cache; still need to collect it');
+  e.idle(2).tap('START').tap('SELECT');settle(e,TITLE);
+  const r=resume(e);
+  assert.equal(r.read8(A(r,'area_camps_cleared')+9)&3,3,'victory saved before collection');
+  assert.equal(profile(r,17),0);
+  place(r,144,64);r.idle(2).until(e=>profile(e,17)===1,20,'claim saved reward');
+  assert.equal(r.v('shield_cap'),25);
+});
+
+test('opening: the reward cache and north exit can be walked past after victory',()=>{
   const e=shield();
   e.hold('RIGHT',1).until(e=>e.v('player_x','u16')>=160,60,'walk beside the supply case');
   e.idle(5);
@@ -120,7 +164,7 @@ test('opening: established profiles keep their town start without receiving a fr
 });
 
 function loneRockling() {
-  const e=shield();place(e,160,144);w8(e,'player_invuln',255);e.idle(45);
+  const e=wake();place(e,160,144);w8(e,'player_invuln',255);e.idle(45);
   for(let i=1;i<8;i++)e.write8(A(e,'actor_type')+i,0);
   w8(e,'actor_count',1);w16(e,'actor_x',120);w16(e,'actor_y',120);
   w8(e,'actor_state',0);w8(e,'actor_timer',1);w8(e,'actor_scripted',13);
@@ -138,8 +182,8 @@ test('rocklings: warn, lock a target, lob a rock, and pause safely',()=>{
   assert.equal(e.v('actor_vx','u16'),tx);assert.equal(e.v('actor_vy','u16'),ty,'target does not home');
   e.until(e=>e.v('actor_state')===2,50,'rock released');e.idle(12);
   e.shot('opening-rockling-flight');
-  const hp=e.v('shield_hp');e.until(e=>e.v('actor_state')===3,40,'rock lands');
-  assert.equal(e.v('shield_hp'),hp,'moving away avoids the landing');
+  const hp=e.v('player_hp');e.until(e=>e.v('actor_state')===3,40,'rock lands');
+  assert.equal(e.v('player_hp'),hp,'moving away avoids the landing');
   e.idle(2).shot('opening-rockling-impact');
 });
 test('rocklings: a landing hurts grounded players, jumping clears it, and a kill cancels the throw',()=>{
@@ -147,12 +191,12 @@ test('rocklings: a landing hurts grounded players, jumping clears it, and a kill
     const e=loneRockling();
     w8(e,'actor_state',2);w8(e,'actor_timer',1);
     if(airborne){w8(e,'player_air',1);w16(e,'player_z',16*256);}
-    const hp=e.v('shield_hp');e.idle(1);
-    assert.equal(e.v('shield_hp'),airborne?hp:hp-12);
+    const hp=e.v('player_hp');e.idle(1);
+    assert.equal(e.v('player_hp'),airborne?hp:hp-12);
   }
   const e=loneRockling();w8(e,'actor_type',0);w8(e,'actor_count',0);
-  const hp=e.v('shield_hp'),fired=e.v('bullets_fired','u16');e.idle(90);
-  assert.equal(e.v('shield_hp'),hp);assert.equal(e.v('bullets_fired','u16'),fired);
+  const hp=e.v('player_hp'),fired=e.v('bullets_fired','u16');e.idle(90);
+  assert.equal(e.v('player_hp'),hp);assert.equal(e.v('bullets_fired','u16'),fired);
 });
 test('rocklings: landing coordinates work below the first 256 pixels of the desert',()=>{
   const e=loneRockling();place(e,160,264);w16(e,'actor_y',224);

@@ -47,6 +47,8 @@ function atCaptiveMap(how) {
   const map = emu.v('rescue_map');
   assert.notEqual(map, 0xff);
   setProf(emu, EXP_MAP, [map]);
+  // Save-and-quit now snapshots the live expedition, including its current map.
+  emu.write8(A(emu, 'level_map'), map);
   emu.tap('START').idle(2).tap('SELECT');
   settle(emu, 0, 'the title');
   settle(emu.tap('START').tap('A'), PLAY, 'continued');
